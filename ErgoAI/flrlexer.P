@@ -1,0 +1,2058 @@
+/* File:      flrlexer.P  -- Flora Lexer
+**
+** Author(s): Guizhen Yang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018;
+**      and Vulcan, Inc., 2008-2013;
+**      Coherent Knowledge Systems, LLC, 2014-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#define	LINE_NO		flora_lexer_line_no
+#define CHAR_NO		flora_lexer_char_no
+#define CURR_FILE	flora_lexer_current_file
+#define FILE_CNT	flora_lexer_file_count
+#define PENDING         0
+
+#define TKCNT           tkcnt           %% set in the composer
+
+#include "standard.h"
+
+#include "flora_characters.flh"
+#include "flora_errors.flh"
+#include "flora_terms.flh"
+#include "flora_status_codes.flh"
+
+is_alpha(Ch) :-
+	(integer(Ch) -> is_alpha_int(Ch)
+	; atom(Ch) ->  %% using only the first char
+	    flratom_char_code(Ch,0,Ch1),
+	    is_alpha_int(Ch1)
+	),
+	!.
+is_digit(Ch) :-
+	(integer(Ch) -> is_digit_int(Ch)
+	; atom(Ch) ->  %% using only the first char
+	    flratom_char_code(Ch,0,Ch1),
+	    is_digit_int(Ch1)
+	),
+	!.
+is_alphanum(Ch) :-
+	(integer(Ch) -> is_alphanum_int(Ch)
+	; atom(Ch) ->  %% using only the first char
+	    flratom_char_code(Ch,0,Ch1),
+	    is_alphanum_int(Ch1)
+	),
+	!.
+is_alpha_or_underscore(Ch) :-
+	(integer(Ch) -> is_alpha_or_underscore_int(Ch)
+	; atom(Ch) ->  %% using only the first char
+	    flratom_char_code(Ch,0,Ch1),
+	    is_alpha_or_underscore_int(Ch1)
+	),
+	!.
+is_alphanum_or_underscore(Ch) :-
+	(integer(Ch) -> is_alphanum_or_underscore_int(Ch)
+	; atom(Ch) ->  %% using only the first char
+	    flratom_char_code(Ch,0,Ch1),
+	    is_alphanum_or_underscore_int(Ch1)
+	),
+	!.
+
+is_alphanum_int(Ch) :- is_alpha_int(Ch), !.
+is_alphanum_int(Ch) :- is_digit_int(Ch).
+
+is_alphanum_or_underscore_int(CH_UNDERSCORE) :- !.
+is_alphanum_or_underscore_int(Ch) :- is_alphanum_int(Ch).
+
+is_alpha_or_underscore_int(CH_UNDERSCORE) :- !.
+is_alpha_or_underscore_int(Ch) :- is_alpha_int(Ch).
+
+is_alpha_int(Ch) :- Ch >= CH_a, Ch =< CH_z, !.
+is_alpha_int(Ch) :- Ch >= CH_A, Ch =< CH_Z.
+
+is_digit_int(Ch) :- Ch >= CH_0, Ch =< CH_9.
+
+
+/****************************************************************************
+  flora_reset_lexer/0
+  flora_reset_lexer(+FileName)
+****************************************************************************/
+flora_reset_lexer :-
+	reset_file_stack,
+        reset_file_list,
+        set_lexer_waits_for_input,
+	flora_reset_charpos.
+
+
+flora_reset_lexer(FileName) :-
+	reset_file_stack,
+	reset_file_list,
+        set_lexer_waits_for_input,
+	flora_begin_file(FileName).
+
+
+/****************************************************************************
+  flora_reset_charpos
+  resets the line number counter and character number counter. They together
+  denote the position of the next character to be read.
+****************************************************************************/
+flora_reset_charpos :- set_charpos(1,1).
+
+
+/****************************************************************************
+  set_charpos(+LineNo,+CharNo)
+  sets the line number counter and character number counter.
+****************************************************************************/
+set_charpos(LN,CN) :-
+	flora_set_counter(LINE_NO,LN),
+	flora_set_counter(CHAR_NO,CN).
+
+flora_set_charpos(LN,CN) :- set_charpos(LN,CN).
+
+
+/****************************************************************************
+  reset_file_stack/0
+****************************************************************************/
+reset_file_stack :-
+	%% Set the top of stack to 0.
+	flora_set_counter(CURR_FILE,0),
+	%% the following \+ is a workaround for an xsb garbage collection bug:
+	(\+flora_file_stack(_,_) -> true ; retractall(flora_file_stack(_,_))).
+
+/****************************************************************************
+  reset_file_list/0
+  a list of files with their range of tokens.
+
+  flora_file_list does not seem to be used.
+****************************************************************************/
+reset_file_list :-
+	%% Set the beginning of list to 0.
+	flora_set_counter(FILE_CNT,0),
+        retractall(flora_file_first_token(_,_)),
+        retractall(flora_file_last_token(_,_)),
+        %% following \+ is a workaround for an xsb garbage collection bug:
+	( \+flora_file_list(_,_) -> true ; retractall(flora_file_list(_,_))).
+
+/****************************************************************************
+  flora_begin_file(+FileName)
+
+  This is being called from the parser and uses markup facts inserted by GPP
+****************************************************************************/
+flora_begin_file(FileName) :-
+	flora_increment_counter(CURR_FILE,1,_,M),
+	flora_increment_counter(FILE_CNT,1,_,FCnt),
+        flora_get_counter(TKCNT,Tk),
+        assert(flora_file_first_token(FCnt,Tk)),
+        assert(flora_file_last_token(FCnt,PENDING)),
+	assert(flora_file_stack(M,FileName)),
+	assert(flora_file_list(FCnt,FileName)),
+	flora_reset_charpos.
+
+
+/****************************************************************************
+  flora_end_file(+LineNumber)
+
+  This is being called from the parser and uses markup facts inserted by GPP.
+  Controls the file stack in the lexer.
+  This is how Flora is able to maintain line numbers correctly
+  in the presence of included files.
+****************************************************************************/
+flora_end_file(LineNumber) :-
+	flora_increment_counter(CURR_FILE,-1,N,_M),
+        retract(flora_file_stack(N,_)),
+        %% the most file beginning that waiting for an end
+        flora_file_last_token(FCnt,PENDING),
+        \+((flora_file_last_token(FC,PENDING), FC > FCnt)),
+        flora_get_counter(TKCNT,Tk),
+        retract(flora_file_last_token(FCnt,_)),
+        assert(flora_file_last_token(FCnt,Tk)),
+	set_charpos(LineNumber,1).
+
+
+/****************************************************************************
+  flora_current_compile_filename(+FileName)
+
+  This procedure returns the name of  the current file being processed.
+  It fails if a shell command is being processed.
+****************************************************************************/
+flora_current_compile_filename(Name) :-
+	flora_current_compile_filename(Name,short).
+flora_current_compile_filename(Name,Mode) :-
+	flora_get_counter(CURR_FILE,N),
+	flora_file_stack(N,FileName),
+	parse_filename(FileName,Dir,Base,Ext),
+	(Mode==short ->
+	    (Ext == '' -> Name=Base
+	    ; flora_concat_atoms([Base,'.',Ext],Name)
+	    )
+	; %% full name
+	    (Ext == '' -> flora_concat_atoms([Dir,Base],Name)
+	    ; flora_concat_atoms([Dir,Base,'.',Ext],Name)
+	    )
+	),
+	!.
+
+/****************************************************************************
+  flora_compile_filename_by_token(+Token,-FileName)
+
+  This procedure returns the name of  the inner-most file in the file list 
+  to which the input token (index) belongs.
+  It fails if a shell command is being processed.
+****************************************************************************/
+flora_compile_filename_by_token(TK,FileName) :-
+        flora_file_first_token(SP,FFToken),
+        flora_file_last_token(SP,FLToken),
+	TK >= FFToken,
+	%% need to clean this up. Maybe make PENDING into MAX_INTEGER?
+	(FLToken == PENDING -> true ; FLToken > TK),
+        \+(( 
+            flora_file_last_token(SP1,FLT1), 
+            flora_file_first_token(SP1,FFT1), 
+            (FLToken==PENDING ; FLToken > FLT1), FLT1 > TK,
+            TK >= FFT1, FFT1 > FFToken
+        )),
+	flora_file_list(SP,Name),
+	parse_filename(Name,_,Base,Ext),
+	(Ext == '' -> FileName=Base
+	;
+	flora_concat_atoms([Base,'.',Ext],FileName)
+	),
+        !.
+
+%% The outermost file, whose last_token will never be set
+flora_compile_filename_by_token(_TK,FileName) :-
+        flora_current_compile_filename(FileName).
+
+
+/****************************************************************************
+  lexer_identifier_struct(+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  lexer_transactional_identifier_struct(+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  lexer_variable_struct(+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  lexer_transactional_variable_struct(+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  lexer_number_struct(+Num,+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  lexer_transactional_number_struct(+Num,+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  lexer_quoted_atom_struct(+AtomStr,+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  lexer_transactional_quoted_atom_struct(+AtomStr,+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  lexer_ascii_string_struct(+ASCII,+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  lexer_transactional_ascii_string_struct(+ASCII,+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  flora_symbol_token_struct(+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  flora_transactional_symbol_token_struct(+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  
+  %% support for numbered anon oids
+  flora_quasi_constvar_struct(+TextStr,+Num,+LN1,+CN1,+LN2,+CN2,-Token)
+  
+  lexer_whitespace_struct(+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  lexer_comment_struct(+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+  flora_rule_delimiter_struct(+TextStr,+LN1,+CN1,+LN2,+CN2,-Token)
+****************************************************************************/
+lexer_identifier_struct(TextStr,LN1,CN1,LN2,CN2,IDENTIFIER(A,Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text),
+	atom_codes(A,TextStr).
+
+lexer_transactional_identifier_struct(TextStr,LN1,CN1,LN2,CN2,TRANSACTIONAL_IDENTIFIER(A,Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text),
+	atom_codes(A,TextStr).
+
+lexer_variable_struct(TextStr,LN1,CN1,LN2,CN2,VARIABLE(A,Text)) :-
+	text_info(LN1,CN1,LN2,CN2,[CH_QUESTION|TextStr],Text),
+	atom_codes(A,TextStr).
+
+lexer_transactional_variable_struct(TextStr,LN1,CN1,LN2,CN2,TRANSACTIONAL_VARIABLE(A,Text)) :-
+	text_info(LN1,CN1,LN2,CN2,[CH_QUESTION|TextStr],Text),
+	atom_codes(A,TextStr).
+
+lexer_number_struct(Num,TextStr,LN1,CN1,LN2,CN2,NUMBER(Num,Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text).
+
+lexer_transactional_number_struct(Num,TextStr,LN1,CN1,LN2,CN2,TRANSACTIONAL_NUMBER(Num,Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text).
+
+lexer_quoted_atom_struct(AtomStr,TextStr,LN1,CN1,LN2,CN2,QUOTED_ATOM(A,Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text),
+	atom_codes(A,AtomStr).
+
+lexer_transactional_quoted_atom_struct(AtomStr,TextStr,LN1,CN1,LN2,CN2,TRANSACTIONAL_QUOTED_ATOM(A,Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text),
+	atom_codes(A,AtomStr).
+
+/*
+** Structure of BUILTIN_IDENTIFIER:
+**                IdAtm - atom, name of the identifier. Starts with _
+**                Text  - text(1stChLineNo,1stChCharNo,2ndChLineNo,2ndChCharNo,
+**                             IdentifierCharsAsList)
+*/
+lexer_builtin_identifier_struct(IdStr,LN1,CN1,LN2,CN2,BUILTIN_IDENTIFIER(IdAtm,Text)) :-
+	atom_codes(IdAtm1,IdStr),
+	flora_builtin_synonym(IdAtm1,IdAtm),
+	atom_codes(IdAtm,IdStrCanon),
+	text_info(LN1,CN1,LN2,CN2,IdStrCanon,Text).
+
+lexer_tansactional_builtin_struct(IdStr,LN1,CN1,LN2,CN2,TRANSACTIONAL_BUILTIN(IdAtm,Text)) :-
+	atom_codes(IdAtm1,IdStr),
+	flora_builtin_synonym(IdAtm1,IdAtm),
+	atom_codes(IdAtm,IdStrCanon),
+	text_info(LN1,CN1,LN2,CN2,IdStrCanon,Text).
+
+%% Converts \type"..." into "..."^^\type
+%% This is just to support an alternative FLORA-2 syntax for types
+lexer_datatype_struct(TypeStr,LiteralChars,LiteralStr,
+		      TypeLN1,TypeCN1, %% first char pos in type name
+		      LitLN2,LitCN2,   %% last char pos in literal
+		      [LitToken,TypeOpToken,TypeToken]) :-
+	lexer_builtin_identifier_struct(TypeStr,TypeLN1,TypeCN1,LitLN2,LitCN2,
+					TypeToken),
+	(LiteralChars=VARIABLE(_)
+	-> lexer_variable_struct(LiteralStr,TypeLN1,TypeCN1,LitLN2,LitCN2,
+				 LitToken)
+	; lexer_ascii_string_struct(LiteralChars,LiteralStr,
+				    TypeLN1,TypeCN1,LitLN2,LitCN2,
+				    LitToken)
+	),
+	!,
+	flora_symbol_token_struct([CH_HAT,CH_HAT],
+				  TypeLN1,TypeCN1,LitLN2,LitCN2,
+				  TypeOpToken).
+
+
+lexer_ascii_string_struct(ASCII,TextStr,LN1,CN1,LN2,CN2,ASCII_STRING(ASCII,Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text).
+
+lexer_transactional_ascii_string_struct(ASCII,TextStr,LN1,CN1,LN2,CN2,TRANSACTIONAL_ASCII_STRING(ASCII,Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text).
+
+flora_symbol_token_struct(TextStr,LN1,CN1,LN2,CN2,SYMBOL_TOKEN(A,Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text),
+	atom_codes(A,TextStr).
+
+flora_transactional_symbol_token_struct(TextStr,LN1,CN1,LN2,CN2,TRANSACTIONAL_SYMBOL_TOKEN(A,Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text),
+	atom_codes(A,TextStr).
+
+/***************************************************************************
+	Special tokens: numbered and unnumbered anon oids, \@
+****************************************************************************/
+%% \#, \@
+flora_quasi_constvar_struct(TextStr,LN1,CN1,LN2,CN2,SPECIAL_TOKEN(A,Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text),
+	atom_codes(A,TextStr).
+
+%% \#N, \##N, \?Char
+flora_quasi_constvar_struct(TextStr,Num,LN1,CN1,LN2,CN2,SPECIAL_TOKEN(A,B,Text)) :-
+        (TextStr=[Backslash, Hash] ->
+            text_info(LN1,CN1,LN2,CN2,[Backslash,Hash|Num],Text)
+        ; TextStr=[Backslash, Hash, Hash] ->
+            text_info(LN1,CN1,LN2,CN2,[Backslash,Hash,Hash|Num],Text)
+        ),
+        atom_codes(A,TextStr),
+	atom_codes(B,Num).
+
+/***************************************************************************
+	whitespace
+****************************************************************************/
+lexer_whitespace_struct(TextStr,LN1,CN1,LN2,CN2,WHITESPACE(Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text).
+
+lexer_comment_struct(TextStr,LN1,CN1,LN2,CN2,COMMENT(Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text).
+
+flora_rule_delimiter_struct(TextStr,LN1,CN1,LN2,CN2,RULE_DELIMITER(Text)) :-
+	text_info(LN1,CN1,LN2,CN2,TextStr,Text).
+
+
+/****************************************************************************
+  flora_token_text(+Token,-TextStr,-BLN,-BCN,-ELN,-ECN)
+****************************************************************************/
+flora_token_text(IDENTIFIER(_A,Text),TextStr,BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(TRANSACTIONAL_IDENTIFIER(_A,Text),[CH_PERCENT|TextStr],BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(VARIABLE(_A,Text),TextStr,BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(TRANSACTIONAL_VARIABLE(_A,Text),[CH_PERCENT|TextStr],BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(NUMBER(_Num,Text),TextStr,BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(TRANSACTIONAL_NUMBER(_Num,Text),[CH_PERCENT|TextStr],BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(QUOTED_ATOM(_A,Text),TextStr,BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(TRANSACTIONAL_QUOTED_ATOM(_A,Text),[CH_PERCENT|TextStr],BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(ASCII_STRING(_ASCII,Text),TextStr,BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(TRANSACTIONAL_ASCII_STRING(_ASCII,Text),[CH_PERCENT|TextStr],BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(SYMBOL_TOKEN(_A,Text),TextStr,BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(TRANSACTIONAL_SYMBOL_TOKEN(_A,Text),[CH_PERCENT|TextStr],BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(SPECIAL_TOKEN(_A,Text),TextStr,BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(BUILTIN_IDENTIFIER(_A,Text),TextStr,BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+
+/***************************************************************************
+	    support for numbered anon oids
+***************************************************************************/
+flora_token_text(SPECIAL_TOKEN(_A,_Num,Text),TextStr,BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(WHITESPACE(Text),TextStr,BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(COMMENT(Text),TextStr,BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+flora_token_text(RULE_DELIMITER(Text),TextStr,BLN,BCN,ELN,ECN) :-
+	text_info(BLN,BCN,ELN,ECN,TextStr,Text).
+
+
+/****************************************************************************
+  get_charpos(-LineNo,-CharNo)
+  gets the line number counter and character number counter.
+****************************************************************************/
+get_charpos(LN,CN) :-
+	flora_get_counter(LINE_NO,LN),
+	flora_get_counter(CHAR_NO,CN).
+
+flora_get_charpos(LN,CN) :- get_charpos(LN,CN).
+
+
+/****************************************************************************
+  text_info(+BeginLineNo,+BeginCharNo,+EndLineNo,+EndCharNo,+String,-TextInfo)
+****************************************************************************/
+text_info(LN1,CN1,LN2,CN2,Str,TEXT(LN1,CN1,LN2,CN2,Str)) :- !.
+
+
+/****************************************************************************
+  get_char(+LineNo,+CharNo,-Char,-NextLineNo,-NextCharNo)
+  reads the next character from the current input stream, and advances the
+  counters. (LineNo,CharNo) is the position of the character to be read.
+****************************************************************************/
+get_char(LN,CN,Char,NextLN,NextCN) :-
+	FLGETC(Char),
+	( Char =:= CH_NEWLINE ->
+	    NextLN is LN+1,
+	    NextCN=1
+
+	; Char =:= CH_EOF_P ->
+	    NextLN=1,
+	    NextCN=1,
+	    flora_reset_charpos
+	/*
+	; Char =:= CH_EOT ->
+	    NextLN=1,
+	    NextCN=1,
+	    flora_reset_charpos
+	*/
+	;
+	  NextLN=LN,
+	  NextCN is CN+1
+        ),
+	!.
+
+
+/****************************************************************************
+  flora_blank_line(+Tokens)
+****************************************************************************/
+flora_blank_line([]).
+
+flora_blank_line([Token]) :-
+	lexer_whitespace_struct(_Text,_LN1,_CN1,_LN2,_CN2,Token).
+
+
+/****************************************************************************
+  flora_tokens(-TokenList,-Status)
+  scans the input characters, constructs the list of tokens for a rule and
+  returns it as the first argument. The second argument denotes the status
+  of tokenizer (FLORA_EOF, FLORA_NOT_EOF, error(FileName,message)).
+
+  Note: Each blank line will be recognized seperately and returned as a
+        whitespace token. The shell can benefit from this feature.
+****************************************************************************/
+flora_tokens(TokenList,Status) :-
+	get_charpos(LN1,CN1),
+	get_char(LN1,CN1,C1,NextLN,NextCN),
+	( C1 =:= CH_NEWLINE ->
+	    lexer_whitespace_struct([C1],LN1,CN1,LN1,CN1,Tk),
+	    TokenList=[Tk],
+	    Status=[FLORA_NOT_EOF],
+	    set_charpos(NextLN,NextCN)
+
+	; is_whitespace(C1) ->
+	    lexer_whitespace_struct(Chars,LN1,CN1,LN2,CN2,Tk),
+	    TokenList=[Tk|Tokens],
+	    scan_line(C1,LN1,CN1,NextLN,NextCN,Chars,LN2,CN2,Tokens,Status)
+	;
+	  read_tokens(C1,LN1,CN1,NextLN,NextCN,TokenList,Status)
+        ),
+        reset_lexer_waits_for_input.
+
+
+/****************************************************************************
+  scan_line(+Char,+LN1,+CN1,+LN,+CN,-Chars,-LN2,-CN2,-Tokens,-Status)
+  tries to scan a blank line, i.e., a line that consists of whitespace
+  characters only. (Char,+LN1,+CN1) is known to be a whitespace but not newline.
+  (LN2,CN2) is the position of the last whitespace. Chars collects all the
+  characters including Char.
+****************************************************************************/
+scan_line(Ch,LN1,CN1,LN,CN,[Ch|Chars],LN2,CN2,Tokens,Status) :-
+	get_char(LN,CN,C,NextLN,NextCN),
+	( C =:= CH_NEWLINE ->
+	    Chars=[C],
+	    LN2=LN,
+	    CN2=CN,
+	    Tokens=[],
+	    Status=[FLORA_NOT_EOF],
+	    set_charpos(NextLN,NextCN)
+
+	; is_whitespace(C) ->
+	    scan_line(C,LN,CN,NextLN,NextCN,Chars,LN2,CN2,Tokens,Status)
+	;
+	  Chars=[],
+	  LN2=LN1,
+	  CN2=CN1,
+	  read_tokens(C,LN,CN,NextLN,NextCN,Tokens,Status)
+	).
+
+
+/****************************************************************************
+  read_tokens(+Char,+LineNo,+CharNo,+NextLN,+NextCN,-TokenList,-Status)
+  parses tokens starting from Char. (NextLN,NextCN) is the position of the
+  next character to be read. Passing this information avoids bookkeeping
+  by flora_get_counter/flora_set_counter. Performance can be improved.
+****************************************************************************/
+read_tokens(Char,LineNo,CharNo,NextLN,NextCN,TokenList,Status) :-
+	( is_whitespace(Char) ->
+            wait_for_input_prompt(Char),
+	    read_whitespace(Char,LineNo,CharNo,NextLN,NextCN,TokenList,Status)
+
+        ; Char =:= CH_PERCENT,
+	    FLPEEKC(NextNextChar),
+	    NextNextChar =\= CH_PERCENT
+	->
+            read_transactional_token(Char,LineNo,CharNo,NextLN,NextCN,TokenList,Status)
+
+	; is_alpha_or_underscore_int(Char) ->
+	    read_identifier(Char,LineNo,CharNo,NextLN,NextCN,TokenList,Status)
+
+	; Char =:= CH_QUESTION ->
+	    get_char(NextLN,NextCN,NChar,NNLN,NNCN),% get the next character to see if there is a '?-'
+	    ( NChar =\= CH_MINUS, NChar =\= CH_EQUAL ->
+		( is_alpha(NChar) ->
+		    %% the case '?alphanum' is a variable
+		    read_variable(NChar,NextLN,NextCN,NNLN,NNCN,TokenList,Status)
+		
+		; NChar =:= CH_ANON_VAR ->
+		    %% the case of '?_[alphanum]' is an anonymous variable
+		    read_underscore_variable(NChar,NextLN,NextCN,NNLN,NNCN,TokenList,Status)
+
+		;   %% The case when '?' is an anonymous variable by itself
+		    %% Since the cursor cannot be set backward, we construct
+		    %% a token here to avoid losing ?.
+		    lexer_variable_struct([CH_ANON_VAR],LineNo,CharNo,LineNo,CharNo,Tk),
+		    TokenList=[Tk|NTokenList],
+		    !,
+		    read_tokens(NChar,NextLN,NextCN,NNLN,NNCN,NTokenList,Status)
+		)
+
+	    ;   FLPEEKC(NextNextChar),
+		( NextNextChar =:= CH_GREATER ->
+		    %% The case of x[?->y] or x[?=>y]:
+		    %% ? is an anonymous variable
+		    %% Since the cursor cannot be set backward, we
+		    %% construct a token here to avoid losing it
+		    lexer_variable_struct([CH_ANON_VAR],LineNo,CharNo,LineNo,CharNo,Tk),
+		    TokenList=[Tk|NTokenList],
+		    !,
+		    read_special(NChar,NextLN,NextCN,NNLN,NNCN,NTokenList,Status) 
+		
+		; %% The case of '?- Query'. ? is part of ?-
+		    %% Since the cursor cannot be set backward,
+		    %% we construct a token here to avoid losing it.
+		    flora_symbol_token_struct([Char|[NChar]],LineNo,CharNo,NextLN,NextCN,Tk),
+		    TokenList=[Tk|NTokenList],
+		    !,
+		    get_char(NNLN,NNCN,NNChar,NNNLN,NNNCN),
+		    read_tokens(NNChar,NNLN,NNCN,NNNLN,NNNCN,NTokenList,Status)
+		)
+	    )
+
+	; Char =:= CH_SPECIAL_SYM, %% CH_SPECIAL_SYM == backslash
+	    FLPEEKC(NextChar),
+	    quasi_or_builtin_start(Char,NextChar) ->
+	    read_quasi_builtin_or_datatype(Char,NextChar,LineNo,CharNo,NextLN,NextCN,TokenList,Status)
+	    
+	; is_digit(Char) ->
+	    read_number(Char,LineNo,CharNo,NextLN,NextCN,TokenList,Status)
+
+	; Char =:= CH_EOF_P ->
+	    TokenList=[],
+	    Status=[FLORA_EOF]
+
+	; Char < CH_SPACE ->
+	    flora_symbol_token_struct([Char],LineNo,CharNo,LineNo,CharNo,Token),
+	    TokenList=[Token],
+	    (flora_current_compile_filename(FileN), ! ; true),
+	    Status=[FLORA_NOT_EOF,error(FileN,UNEXP_UNPRINT)],
+	    set_charpos(NextLN,NextCN)
+
+	%% Non-ASCII
+	; Char >= CH_DELETE ->
+	    flora_symbol_token_struct([Char],LineNo,CharNo,LineNo,CharNo,Token),
+	    TokenList=[Token],
+	    (flora_current_compile_filename(FileN), ! ; true),
+	    Status=[FLORA_NOT_EOF,error(FileN,UNEXP_DEL_ISO)],
+	    set_charpos(NextLN,NextCN)
+
+	;
+	    read_special(Char,LineNo,CharNo,NextLN,NextCN,TokenList,Status)
+	).
+
+/****************************************************************************
+  read_transactional_token(+Char,+LineNo,+CharNo,+NextLN,+NextCN,
+                           -TokenList,-Status)
+  parses tokens starting from Char which is %.
+****************************************************************************/
+read_transactional_token(C1,LN1,CN1,LN,CN,TokenList,Status) :-
+        get_char(LN,CN,Ch,NextLN,NextCN), 
+	( is_alpha(Ch) -> %% i.e.,  %identifier = %predicates or %methods 
+	    read_transactional_identifier(Ch,LN1,CN1,LN,CN,NextLN,NextCN,TokenList,Status)
+
+	; Ch =:= CH_QUESTION ->
+	    %% get the next character to judge if it is an anonymous variable
+	    get_char(NextLN,NextCN,NChar,NNLN,NNCN),
+	    ( is_alpha(NChar) ->
+		 %% the case '?alphabet' is a variable
+		 read_transactional_variable(NChar,LN1,CN1,NextLN,NextCN,NNLN,NNCN,TokenList,Status)
+
+	    ; NChar =:= CH_ANON_VAR ->
+		 %% the case '?_[alphanum]' is an anonymous variable
+		 read_transactional_underscore_variable(NChar,LN1,CN1,NextLN,NextCN,NNLN,NNCN,TokenList,Status)
+
+	    ; %% the case '?' itself is an anonymous variable, and can
+	      %% be treated as '?_' since the cursor cannot be set
+	      %% backward, we construct a token here to avoid losing it.
+	      lexer_transactional_variable_struct([CH_ANON_VAR],LN1,CN1,LN,CN,Tk),
+	      TokenList=[Tk|NTokenList],
+	      !,
+	      read_tokens(NChar,NextLN,NextCN,NNLN,NNCN,NTokenList,Status) 
+	    )
+
+	; Ch =:= CH_SPECIAL_SYM,
+	    FLPEEKC(NextChar),
+	    quasi_or_builtin_start(Ch,NextChar) ->
+	    read_transactional_builtin_identifier(Ch,NextChar,LN,CN,NextLN,NextCN,TokenList,Status)
+
+	; is_digit(Ch) -> %% Case of %N
+	    read_transactional_number(Ch,LN1,CN1,LN,CN,NextLN,NextCN,TokenList,Status)
+
+        ; Ch =:= CH_QUOTE ->	%% Case of %'sd%&'  as %identifier
+	    read_transactional_quoted_atom(Ch,LN1,CN1,LN,CN,NextLN,NextCN,TokenList,Status)
+
+        ; Ch =:= CH_DOUBLEQUOTE ->    %% Case of %"asd"   same as above
+	    read_transactional_ascii_string(Ch,LN1,CN1,LN,CN,NextLN,NextCN,TokenList,Status)
+
+        ; Ch =:= CH_PERCENT ->           %% '%%'-error
+	    flora_symbol_token_struct([Ch],LN,CN,LN,CN,Token),
+	    TokenList=[Token],
+	    (flora_current_compile_filename(FileN), ! ; true),
+	    Status=[FLORA_NOT_EOF,error(FileN,ERROR_DBLPERCENT)],
+	    set_charpos(NextLN,NextCN)
+
+        ; symbol_char(Ch) ->         %% same as %identifier
+            read_transactional_symbols(Ch,LN1,CN1,LN,CN,NextLN,NextCN,TokenList,Status)
+
+        ; flora_symbol_token_struct([C1],LN1,CN1,LN1,CN1,Tk),
+          TokenList=[Tk|Tokens],
+          read_tokens(Ch,LN,CN,NextLN,NextCN,Tokens,Status)
+        ).
+
+/****************************************************************************
+  read_whitespace(+Char,+LineNo,+CharNo,NextLN,NextCN,-Tokens,-Status)
+  scans the input characters until a non-whitespace char. (Char,LineNo,CharNo)
+  is already known to be a whitespace character.
+****************************************************************************/
+read_whitespace(C1,LN1,CN1,LN,CN,TokenList,Status) :-
+	lexer_whitespace_struct(Chars,LN1,CN1,LN2,CN2,Tk),
+	TokenList=[Tk|Tokens],
+	scan_whitespace(C1,LN1,CN1,LN,CN,Chars,LN2,CN2,Tokens,Status).
+
+scan_whitespace(C1,LN1,CN1,LN,CN,[C1|Chars],LN2,CN2,Tokens,Status) :-
+	get_char(LN,CN,Ch,NextLN,NextCN),
+	( is_whitespace(Ch) ->
+	    scan_whitespace(Ch,LN,CN,NextLN,NextCN,Chars,LN2,CN2,Tokens,Status)
+	;
+	  Chars=[],
+	  LN2=LN1,
+	  CN2=CN1,
+	  read_tokens(Ch,LN,CN,NextLN,NextCN,Tokens,Status)
+	).
+
+is_whitespace(CH_TAB).
+is_whitespace(CH_NEWLINE).
+is_whitespace(CH_RETURN).
+is_whitespace(CH_SPACE).
+is_whitespace(CH_SPACE2).
+%%is_whitespace(CH_EOT).
+is_whitespace(CH_NULL).
+
+
+/****************************************************************************
+  read_identifier(+Char,+LineNo,+CharNo,+NextLN,+NextCN,-TokenList,-Status)
+  reads an atom which begins with a letter Char and continues
+  with letters, digits, and underscores. (Char,Line,CharNo) is known to
+  start the identifier.
+****************************************************************************/
+read_identifier(C1,LN1,CN1,LN,CN,TokenList,Status) :-
+	read_name(C1,LN1,CN1,LN,CN,Chars,LN2,CN2,NextCh,NLN,NCN,NNLN,NNCN),
+	lexer_identifier_struct(Chars,LN1,CN1,LN2,CN2,Tk),
+	TokenList=[Tk|Tokens],
+	!,
+	read_tokens(NextCh,NLN,NCN,NNLN,NNCN,Tokens,Status).
+
+/****************************************************************************
+  read_transactional_identifier(+Char,+LNof%,+CNof%,+LN,+CN,+NextLN,+NextCN,-TokenList,-Status)
+  reads an atom which begins with % followed by a letter Char and
+  continues with letters, digits, and underscores. 
+****************************************************************************/
+read_transactional_identifier(C2,LN1,CN1,LN2,CN2,LN,CN,TokenList,Status) :-
+        read_name(C2,LN2,CN2,LN,CN,Chars,LN3,CN3,NextCh,NLN,NCN,NNLN,NNCN),
+        lexer_transactional_identifier_struct(Chars,LN1,CN1,LN3,CN3,Tk),
+        TokenList=[Tk|Tokens],
+        !,
+        read_tokens(NextCh,NLN,NCN,NNLN,NNCN,Tokens,Status).
+
+/****************************************************************************
+  read_transactional_quoted_atom(+Char,+LNof%,+CNof%,+LN,+CN,+NextLN,+NextCN,-TokenList,-Status)
+  reads a quoted atom following a %
+****************************************************************************/
+read_transactional_quoted_atom(C2,LN1,CN1,LN2,CN2,LN,CN,TokenList,Status) :-
+	get_char(LN,CN,Ch,NextLN,NextCN),
+	read_string(Ch,LN,CN,NextLN,NextCN,LN2,CN2,CH_QUOTE,
+	            Chars,TxChs,LN3,CN3,Tokens,Status),
+	lexer_transactional_quoted_atom_struct(Chars,[C2|TxChs],LN1,CN1,LN3,CN3,Tk),
+	TokenList=[Tk|Tokens].
+
+/****************************************************************************
+  read_transactional_ascii_string(+Char,+LNof%,+CNof%,+LN,+CN,+NextLN,+NextCN,-TokenList,-Status)
+  reads an ascii string following a %
+****************************************************************************/
+read_transactional_ascii_string(C2,LN1,CN1,LN2,CN2,LN,CN,TokenList,Status) :-
+	get_char(LN,CN,Ch,NextLN,NextCN),
+	lexer_transactional_ascii_string_struct(Chars,[C2|TxChs],LN1,CN1,LN3,CN3,Tk),
+	TokenList=[Tk|Tokens],
+	read_string(Ch,LN,CN,NextLN,NextCN,LN2,CN2,CH_DOUBLEQUOTE,
+	            Chars,TxChs,LN3,CN3,Tokens,Status).
+
+
+/****************************************************************************
+  read_name(+Ch,+LN1,+CN1,LN,CN,-Chars,-LN2,-CN2,-NCh,-NLN,-NCN,-NNLN,-NNCN)
+  reads a sequence of letters, digits, and underscores, where the previous
+  character read was (Ch,LN1,CN1) and it is known to be included in the
+  result. The desired characters are returned as the list Chars. (LN2,CN2)
+  is the position of the last character. (NCh,NLN,NCN,NNLN,NNCN) is the next
+  non-name character.
+****************************************************************************/
+read_name(C1,LN1,CN1,LN,CN,[C1|Chars],LN2,CN2,NCh,NLN,NCN,NNLN,NNCN) :-
+	get_char(LN,CN,Ch,NextLN,NextCN),
+	( is_alphanum_or_underscore(Ch) ->
+	    read_name(Ch,LN,CN,NextLN,NextCN,Chars,
+		      LN2,CN2,NCh,NLN,NCN,NNLN,NNCN)
+	;
+	  Chars=[],
+	  LN2=LN1,
+	  CN2=CN1,
+	  NCh=Ch,
+	  NLN=LN,
+	  NCN=CN,
+	  NNLN=NextLN,
+	  NNCN=NextCN
+	).
+
+
+/****************************************************************************
+  read_variable(+Char,+LineNo,+CharNo,+NextLN,+NextCN,-TokenList,-Status)
+  Char is the first character of a variable name (following the ?-mark).
+****************************************************************************/
+read_variable(C1,LN1,CN1,LN,CN,TokenList,Status) :-
+	read_name(C1,LN1,CN1,LN,CN,Chars,LN2,CN2,NextCh,NLN,NCN,NNLN,NNCN),
+	lexer_variable_struct(Chars,LN1,CN1,LN2,CN2,Tk),
+	TokenList=[Tk|Tokens],
+	!,
+	read_tokens(NextCh,NLN,NCN,NNLN,NNCN,Tokens,Status).
+
+/****************************************************************************
+  read_transactional_variable(+Char,+LNof%,+CNof%,+LN,+CN,+NextLN,+NextCN,-TokenList,-Status)
+  reads a variable name following a % 
+****************************************************************************/
+read_transactional_variable(C2,LN1,CN1,LN2,CN2,LN,CN,TokenList,Status) :-
+	read_name(C2,LN2,CN2,LN,CN,Chars,LN3,CN3,NextCh,NLN,NCN,NNLN,NNCN),
+	lexer_transactional_variable_struct(Chars,LN1,CN1,LN3,CN3,Tk),
+	TokenList=[Tk|Tokens],
+	!,
+	read_tokens(NextCh,NLN,NCN,NNLN,NNCN,Tokens,Status).
+
+/**********************************************************************
+get_number(+PrevLN,+PrevCN,+LN1,+CN1,-LN2,-CN2,-Num,-NLN,-NCN,-NCh,-NNLN,-NNCN)
+reads a number Num starting at position (LN1, CN1) and ending at (LN2, CN2),  
+the character right before Num is at (PrevLN,  PrevCN),  
+the first non-digit character NCh is at (NLN, NCN), 
+(NNLN, NNCN) is the position of the char following NCh.
+Used to handle numbered anon oid syntax
+**********************************************************************/
+get_number(PrevLN,PrevCN,LN1,CN1,LN2,CN2,Num,NLN,NCN,NCh,NNLN,NNCN) :-
+	get_char(LN1, CN1, Ch, NextLN, NextCN),
+	( is_digit(Ch) ->
+	    Num = [Ch|Chs],
+	    get_number(LN1,CN1,NextLN,NextCN,LN2,CN2,Chs,NLN,NCN,NCh,NNLN,NNCN)
+         ;
+	  LN2 = PrevLN,
+          CN2 = PrevCN,
+	  Num = [],
+	  NLN = LN1,
+	  NCN = CN1,
+	  NCh = Ch,
+	  NNLN = NextLN, 
+	  NNCN = NextCN
+	).
+
+/****************************************************************************
+read_quasi_builtin_or_datatype(+Char,+NextChar,+LineNo,+CharNo,+NextLN,+NextCN,-TokenList,-Status)
+  This function handles
+     i) Data types:
+         -  full uris, e.g.\"uri"
+	 -  other data types (date, time, etc.)
+       
+    ii) Special tokens:
+       \#, \#<number> -- quasi-constant. generates skolems in rule head.
+                         In rule body: checks that it's a var bound to a skolem.
+       \@ --  quasi-constant replaced by the preprocessor constant
+              FLORA_THIS_MODULE_NAME.
+       \?Char -- quasi-variable
+   iii) Other alphanumeric names preceded by underscore
+       -  system modules
+****************************************************************************/
+read_quasi_builtin_or_datatype(Char,NextChar,LineNo,CharNo,NextLN,NextCN,TokenList,Status) :-
+	(special_token_or_builtin_2nd_char(NextChar,quasi) ->
+	    read_quasi_constvar(Char,LineNo,CharNo,NextLN,NextCN,TokenList,Status)
+
+	; special_token_or_builtin_2nd_char(NextChar,builtin) ->
+	    %% starts with the current char (CH_SPECIAL_SYM) and reads
+	    %% alphanum+underscore.
+	    read_datatype_or_builtin_id(Char,LineNo,CharNo,NextLN,NextCN,
+					TokenList,Status)
+	
+	; (flora_current_compile_filename(FileN) -> true
+	  ; true
+	  ),
+	    Status = [FLORA_NOT_EOF,error(FileN,AFTER_UNDERSCORE)],
+	    flora_quasi_constvar_struct([Char],LineNo,CharNo,LineNo,CharNo,Tk),
+	    TokenList = [Tk]
+	).
+
+%% Like read_quasi_builtin_or_datatype, but is used for transactional methods and
+%% reads in only identifiers that start with CH_SPECIAL_SYM
+read_transactional_builtin_identifier(Char,NextChar,LineNo,CharNo,NextLN,NextCN,TokenList,Status) :-
+	(is_alphanum_or_underscore_int(NextChar) ->
+	    %% starts with the current char (CH_SPECIAL_SYM) and reads
+	    %% alphanum+underscore.
+	    read_transactional_builtin(Char,LineNo,CharNo,NextLN,NextCN, TokenList,Status)
+	; (flora_current_compile_filename(FileN) -> true
+	  ; true
+	  ),
+	    TokenList = [],
+	    Status=[FLORA_NOT_EOF,error(FileN,ALPHA_EXPECTED)]
+	).
+
+
+
+/****************************************************************************
+read_quasi_constvar(+Char,+LineNo,+CharNo,+NextLN,+NextCN,-TokenList,-Status)
+  This function handles two special tokens:
+       \#, \#<number> -- which generates new oids in rule head. Its use
+                         in places other than rule head generates an error.
+       \@ --  quasi-constant replaced by the preprocessor constant
+              FLORA_THIS_MODULE_NAME.
+       \?Char - quasi-variable
+****************************************************************************/
+read_quasi_constvar(C1,LN1,CN1,LN,CN,TokenList,Status) :-
+        get_char(LN,CN,Ch,NextLN,NextCN), 
+	( Ch =:= CH_HASH ->
+          get_char(NextLN,NextCN,NextCh,LNN,CNN),
+          ( is_digit(NextCh) ->
+	      %%  Numbered skolem is read
+	      get_number(NextLN,NextCN,LNN,CNN,LN2,CN2,Num,NLN,NCN,NCh,NNLN,NNCN),
+	      flora_quasi_constvar_struct([C1,Ch],[NextCh|Num],LN1,CN1,LN2,CN2,Tk)
+          %%  Named skolem is read
+          ; is_alpha_or_underscore(NextCh) ->
+              read_name(NextCh,NextLN,NextCN,LNN,CNN,Chars,LN2,CN2,NCh,NLN,NCN,NNLN,NNCN),
+	      flora_quasi_constvar_struct([C1,Ch],Chars,LN1,CN1,LN2,CN2,Tk)
+          %% global compiler-generated constant \##1, \##2, etc
+          ; NextCh =:= CH_HASH ->  %% \##N symbol
+              %% numbered global skolem
+              (FLPEEKC(TryChar), is_digit(TryChar) ->
+                  get_char(LNN,CNN,NextNextCh,NextLNN,NextCNN),
+                  get_number(LNN,CNN,NextLNN,NextCNN,LN2,CN2,Num,NLN,NCN,NCh,NNLN,NNCN),
+                  flora_quasi_constvar_struct([C1,Ch,NextCh],[NextNextCh|Num],LN1,CN1,LN2,CN2,Tk)
+              ; FLPEEKC(TryChar), is_alpha_or_underscore(TryChar) ->
+                  get_char(LNN,CNN,NextNextCh,NextLNN,NextCNN),
+                  read_name(NextNextCh,LNN,CNN,NextLNN,NextCNN,Chars,LN2,CN2,NCh,NLN,NCN,NNLN,NNCN),
+                  flora_quasi_constvar_struct([C1,Ch,NextCh],Chars,LN1,CN1,LN2,CN2,Tk)
+              ; 
+                  %% Tk is constructed so the error will point to proper line/ch
+                  flora_quasi_constvar_struct([C1,Ch,NextCh],[],LN1,CN1,LN1,CN1,Tk),
+                  Status=[FLORA_NOT_EOF,error(FileN,INVALID_GLOBAL_QUASICONST)]
+              )
+          ;
+             %% The special token \# is read
+              NLN=NextLN,
+              NCN=NextCN,
+	      NCh=NextCh,
+	      NNLN=LNN,
+	      NNCN=CNN,
+	      flora_quasi_constvar_struct([C1,Ch],LN1,CN1,LN,CN,Tk)
+	  )
+	
+	;   Ch =:= CH_AT -> %% The special token \@ is read
+	    (FLPEEKC(PeekedCh),
+		memberchk(PeekedCh,[CH_RULEID_CH,CH_SPECIAL_FILE_TOKEN,CH_SPECIAL_LINE_TOKEN,CH_NULL_QUASI_TOKEN]) ->
+		get_char(NextLN,NextCN,NextCh,LNN,CNN),
+		get_char(LNN,CNN,NCh,NNLN,NNCN),
+		flora_quasi_constvar_struct([C1,Ch],[NextCh],LN1,CN1,NextLN,NextCN,Tk)
+	    ;
+		NLN=NextLN,
+		NCN=NextCN,
+		get_char(NLN,NCN,NCh,NNLN,NNCN),
+		flora_quasi_constvar_struct([C1,Ch],LN1,CN1,LN,CN,Tk)
+	    )
+	;   Ch =:= CH_QUESTION,  % \?Char, Char = digit|letter
+	    FLPEEKC(TryChar),
+	    is_alphanum_int(TryChar) ->
+	    get_char(NextLN,NextCN,NextCh,LNN,CNN),
+	    get_char(LNN,CNN,NCh,NNLN,NNCN),
+	    flora_quasi_constvar_struct([C1,Ch],[NextCh],LN1,CN1,NextLN,NextCN,Tk)
+	;  
+	    (flora_current_compile_filename(FileN), ! ; true),
+	    Status=[FLORA_EOF,error(FileN,QUAZIVAR_EXPECTED)],
+	    flora_quasi_constvar_struct([Ch],LN1,C1, LN,CN,Tk),
+	    set_charpos(LN1,C1)
+	),
+	!,
+	(var(Status) ->
+	    TokenList=[Tk|Tokens],
+	    read_tokens(NCh,NLN,NCN,NNLN,NNCN,Tokens,Status)
+	; 
+	    TokenList=[Tk]
+	).
+
+
+/****************************************************************************
+read_underscore_variable(+Char,+LineNo,+CharNo,+NextLN,+NextCN,-TokenList,-Status)
+  Reads a variable beginning with an underscore. Char is the beginning
+  underscore.
+****************************************************************************/
+read_underscore_variable(C1,LN1,CN1,LN,CN,TokenList,Status) :-
+        get_char(LN,CN,Ch,NextLN,NextCN), 
+        %% To read the rest of a variable name.
+        ( is_alphanum_or_underscore(Ch) ->
+            read_name(Ch,LN,CN,NextLN,NextCN,Chars,LN2,CN2,NCh,NLN,NCN,NNLN,NNCN)
+	; Chars=[],
+          LN2=LN1, 
+          CN2=CN1, 
+          NCh=Ch, 
+          NLN=LN, 
+          NCN=CN,
+          NNLN=NextLN,
+          NNCN=NextCN 
+        ),
+        lexer_variable_struct([C1|Chars],LN1,CN1,LN2,CN2,Tk),
+	TokenList=[Tk|Tokens],
+	!,
+	read_tokens(NCh,NLN,NCN,NNLN,NNCN,Tokens,Status).
+
+
+/****************************************************************************
+  read_transactional_underscore_variable(+Char,+LNof%,+CNof%,+LN,+CN,+NextLN,+NextCN,-TokenList,-Status)
+  reads an underscore variable name following a % 
+****************************************************************************/
+read_transactional_underscore_variable(C2,LN1,CN1,LN2,CN2,LN,CN,TokenList,Status) :-
+        get_char(LN,CN,Ch,NextLN,NextCN), 
+        ( is_alphanum_or_underscore(Ch) ->
+            read_name(Ch,LN,CN,NextLN,NextCN,Chars,LN3,CN3,NCh,NLN,NCN,NNLN,NNCN)
+        ;
+          Chars=[],
+          LN3=LN2, 
+          CN3=CN2, 
+          NCh=Ch, 
+          NLN=LN, 
+          NCN=CN,
+          NNLN=NextLN,
+          NNCN=NextCN 
+        ),
+        lexer_transactional_variable_struct([C2|Chars],LN1,CN1,LN3,CN3,Tk),
+	TokenList=[Tk|Tokens],
+	!,
+	read_tokens(NCh,NLN,NCN,NNLN,NNCN,Tokens,Status).
+
+
+/****************************************************************************
+  read_datatype_or_builtin_id(+Char,+LineNo,+CharNo,+NextLN,+NextCN,
+                              -TokenList,-Status)
+  Reads an alphanumeric+underscore thing, which is known to start with a
+  CH_SPECIAL_SYM then alphanumeric+underscore. If, having read that,
+  the next symbol is CH_DOUBLEQUOTE, assume that this is a data type
+  specification and read that in also. Otherwise, just use what has been
+  read (alphanumeric+underscore) and create a token for a builtin identifier.
+****************************************************************************/
+read_datatype_or_builtin_id(Char,LineNo,CharNo,NextLN,NextCN,TokenList,Status) :-
+	read_name(Char,LineNo,CharNo,NextLN,NextCN,Chars,
+		  LastLN,LastCN,
+		  AfterCh,AfterLN,AfterCN, % char after the read-in name
+		  NAfterLN,NAfterCN),
+	(AfterCh =:= CH_DOUBLEQUOTE
+	->  %% It is a data type literal
+	    %% Skip double quote: read_string assumes it has been skipped
+	    get_char(NAfterLN,NAfterCN,NAfterCh,NNAfterLN,NNAfterCN),
+	    read_string(NAfterCh,NAfterLN,NAfterCN,NNAfterLN,NNAfterCN,
+			AfterLN,AfterCN,  %% previous char = AfterCh
+			CH_DOUBLEQUOTE,
+			LiteralChars,TextLitChars,LastCharLN,LastCharCN,
+			Tokens,Status),
+	    lexer_datatype_struct(Chars,  %% Type name chars
+				  LiteralChars,  %% Data literal chars
+				  %% Data literal chars+quotes
+				  [CH_DOUBLEQUOTE|TextLitChars],
+				  LineNo,CharNo, %% Datatype name char info
+				  LastCharLN,LastCharCN,
+				  Tk),
+	    append(Tk,Tokens,TokenList)
+	;
+	    AfterCh =:= CH_QUESTION ->
+	    %% it is a data-typed variable
+	    FLPEEKC(TryChar),
+	    ( is_alphanum_or_underscore(TryChar) -> 
+		get_char(NAfterLN,NAfterCN,NAfterCh,NNAfterLN,NNAfterCN),
+		read_variable(NAfterCh,NAfterLN,NAfterCN,NNAfterLN,NNAfterCN,
+			      [VarTk|Tokens],Status),
+		flora_token_text(VarTk,VarText,_,_,EndVarLN,EndVarCN),
+		atom_codes(VarAtm,VarText),
+		lexer_datatype_struct(Chars, %% Type name chars
+				      VARIABLE(VarAtm),
+				      VarText,
+				      NAfterLN,NAfterCN,
+				      EndVarLN,EndVarCN,
+				      Tk),
+		append(Tk,Tokens,TokenList)
+	    ;  
+		append(Chars,[AfterCh,TryChar],ErrorChars),
+		flora_quasi_constvar_struct(ErrorChars,LineNo,CharNo,
+					   NAfterLN,NAfterCN,Tk),
+		(flora_current_compile_filename(FileN), ! ; true),
+	        Status=[FLORA_NOT_EOF,error(FileN,VARIABLE_EXPECTED)],
+		set_charpos(NAfterLN,NAfterCN),
+		TokenList=[Tk]
+	    )
+
+	; %% Just a builtin identifier that starts with CH_SPECIAL_SYM
+	    lexer_builtin_identifier_struct(Chars,  %% builtin identifier chars
+					    LineNo,CharNo,
+					    LastLN,LastCN,Tk),
+	    read_tokens(AfterCh,AfterLN,AfterCN,NAfterLN,NAfterCN,Tokens,Status),
+	    TokenList = [Tk|Tokens]
+	).
+
+%% This is used for %\builtin. Transactional terms can't have data types
+%% in them - doesn't make sense.
+read_transactional_builtin(Char,LineNo,CharNo,NextLN,NextCN,TokenList,Status) :-
+	read_name(Char,LineNo,CharNo,NextLN,NextCN,Chars,
+		  LastLN,LastCN,
+		  AfterCh,AfterLN,AfterCN, % char after the read-in name
+		  NAfterLN,NAfterCN),
+	lexer_tansactional_builtin_struct(Chars, %% builtin identifier chars
+					  LineNo,CharNo,
+					  LastLN,LastCN,Tk),
+	read_tokens(AfterCh,AfterLN,AfterCN,NAfterLN,NAfterCN,Tokens,Status),
+	TokenList = [Tk|Tokens].
+
+/****************************************************************************
+  read_special(+Ch,+LineNo,+CharNo,+NextLN,+NextCN,-Tokens,-Status)
+  handles tokens made of special symbols.
+****************************************************************************/
+read_special(C1,LN1,CN1,LN,CN,[Tk|Tokens],Status) :-
+	FLPEEKC(NextChar),
+	two_symbol_token(C1,NextChar),
+	!,
+	get_char(LN,CN,NextChar,NextLN,NextCN),
+	flora_symbol_token_struct([C1,NextChar],LN1,CN1,LN,CN,Tk),
+	get_char(NextLN,NextCN,Ch2,NLN,NCN),
+	read_tokens(Ch2,NextLN,NextCN,NLN,NCN,Tokens,Status).
+	
+read_special(C1,LN1,CN1,LN,CN,[Tk|Tokens],Status) :-
+	single_symbol_token(C1),
+	flora_symbol_token_struct([C1],LN1,CN1,LN1,CN1,Tk),
+	!,
+	get_char(LN,CN,Ch,NextLN,NextCN),
+	read_tokens(Ch,LN,CN,NextLN,NextCN,Tokens,Status).
+
+read_special(CH_DOUBLEQUOTE,LN1,CN1,LN,CN,[Tk|Tokens],Status) :-
+	!,
+	get_char(LN,CN,Ch,NextLN,NextCN),
+	lexer_ascii_string_struct(Chars,[CH_DOUBLEQUOTE|TxChs],LN1,CN1,LN2,CN2,Tk),
+	read_string(Ch,LN,CN,NextLN,NextCN,LN1,CN1,CH_DOUBLEQUOTE,
+	            Chars,TxChs,LN2,CN2,Tokens,Status).
+
+read_special(CH_QUOTE,LN1,CN1,LN,CN,[Tk|Tokens],Status) :-
+	!,
+	get_char(LN,CN,Ch,NextLN,NextCN),
+	read_string(Ch,LN,CN,NextLN,NextCN,LN1,CN1,CH_QUOTE,
+	            Chars,TxChs,LN2,CN2,Tokens,Status),
+	lexer_quoted_atom_struct(Chars,[CH_QUOTE|TxChs],LN1,CN1,LN2,CN2,Tk).
+
+read_special(CH_COLON,LN1,CN1,LN,CN,[Tk|Tokens],Status) :-
+	%% :* in signature cardinality constraint, such as {3:*}
+	FLPEEKC(NextChar), NextChar =:= CH_STAR, 
+	!,
+	flora_symbol_token_struct([CH_COLON],LN1,CN1,LN1,CN1,Tk),
+	get_char(LN,CN,Ch,NextLN,NextCN),
+	read_tokens(Ch,LN,CN,NextLN,NextCN,Tokens,Status).
+
+%% We use @!ruleDescriptor, so we create token @!
+read_special(CH_DESCRIPTOR_CH,LN1,CN1,LN,CN,[Tk|Tokens],Status) :-
+	FLPEEKC(NextChar), NextChar =:= CH_RULEID_CH, 
+	!,
+	get_char(LN,CN,CH_RULEID_CH,NextLN,NextCN),
+	flora_symbol_token_struct([CH_DESCRIPTOR_CH,CH_RULEID_CH],LN1,CN1,LN,CN,Tk),
+	get_char(NextLN,NextCN,Ch2,NLN,NCN),
+	read_tokens(Ch2,NextLN,NextCN,NLN,NCN,Tokens,Status).
+
+%% We use @@defeasibilityDescriptor, so we create token @@
+read_special(CH_DESCRIPTOR_CH,LN1,CN1,LN,CN,[Tk|Tokens],Status) :-
+	FLPEEKC(NextChar), NextChar =:= CH_BOOLDESCRIPTOR_CH, 
+	!,
+	get_char(LN,CN,CH_BOOLDESCRIPTOR_CH,NextLN,NextCN),
+	flora_symbol_token_struct([CH_DESCRIPTOR_CH,CH_BOOLDESCRIPTOR_CH],LN1,CN1,LN,CN,Tk),
+	get_char(NextLN,NextCN,Ch2,NLN,NCN),
+	read_tokens(Ch2,NextLN,NextCN,NLN,NCN,Tokens,Status).
+
+/*
+%% We use @!ruleDescriptor, so we need to separate @ from !
+read_special(CH_DESCRIPTOR_CH,LN1,CN1,LN,CN,[Tk|Tokens],Status) :-
+	FLPEEKC(NextChar), NextChar =:= CH_RULEID_CH, 
+	!,
+	flora_symbol_token_struct([CH_DESCRIPTOR_CH],LN1,CN1,LN1,CN1,Tk),
+	get_char(LN,CN,Ch,NextLN,NextCN),
+	read_tokens(Ch,LN,CN,NextLN,NextCN,Tokens,Status).
+
+%% We use @@defeasibilityDescriptor, so we need to separate @ from @
+read_special(CH_DESCRIPTOR_CH,LN1,CN1,LN,CN,[Tk|Tokens],Status) :-
+	FLPEEKC(NextChar), NextChar =:= CH_DESCRIPTOR_CH, 
+	!,
+	flora_symbol_token_struct([CH_DESCRIPTOR_CH],LN1,CN1,LN1,CN1,Tk),
+	get_char(LN,CN,Ch,NextLN,NextCN),
+	read_tokens(Ch,LN,CN,NextLN,NextCN,Tokens,Status).
+*/
+
+read_special(CH_EXCLAMATION,LN1,CN1,LN,CN,[Tk|Tokens],Status) :-
+	!,
+	get_char(LN,CN,C1,NextLN,NextCN),
+	( C1 =:= CH_EXCLAMATION ->
+	    %% the !! symbol is tokenized (stop delay)
+	    flora_symbol_token_struct([C1,C1],LN1,CN1,LN,CN,Tk),
+	    get_char(NextLN,NextCN,C2,NLN,NCN),
+	    read_tokens(C2,NextLN,NextCN,NLN,NCN,Tokens,Status)
+	; C1 =:= CH_EQUAL -> %% != or !==
+	    get_char(NextLN,NextCN,C2,NLN,NCN),
+	    ( C2 =:= CH_EQUAL -> %% the !== symbol
+		flora_symbol_token_struct([CH_EXCLAMATION,C1,C2],LN1,CN1,NextLN,NextCN,Tk),
+		get_char(NLN,NCN,C3,NextNLN,NextNCN),
+		read_tokens(C3,NLN,NCN,NextNLN,NextNCN,Tokens,Status)
+	    ; %% the != symbol
+		flora_symbol_token_struct([CH_EXCLAMATION,C1],LN1,CN1,LN,CN,Tk),
+		read_tokens(C2,NextLN,NextCN,NLN,NCN,Tokens,Status)
+	    )
+	; C1 =:= CH_TILDE -> % !~ symbol
+	    flora_symbol_token_struct([CH_EXCLAMATION,C1],LN1,CN1,LN,CN,Tk),
+	    get_char(NextLN,NextCN,C2,NLN,NCN),
+	    read_tokens(C2,NextLN,NextCN,NLN,NCN,Tokens,Status)
+	; C1 =:= CH_MINUS -> % !- symbol: integrity constraint
+	    flora_symbol_token_struct([CH_EXCLAMATION,C1],LN1,CN1,LN,CN,Tk),
+	    get_char(NextLN,NextCN,C2,NLN,NCN),
+	    read_tokens(C2,NextLN,NextCN,NLN,NCN,Tokens,Status)
+	;
+	  flora_symbol_token_struct([CH_EXCLAMATION],LN1,CN1,LN1,CN1,Tk),
+	  read_tokens(C1,LN,CN,NextLN,NextCN,Tokens,Status)
+	).
+
+read_special(CH_DOT,LN1,CN1,LN,CN,Tokens,Status) :-
+	!,
+	get_char(LN,CN,C1,NextLN,NextCN),
+	read_after_fullstop(LN1,CN1,C1,LN,CN,NextLN,NextCN,Tokens,Status).
+
+read_special(CH_SLASH,LN1,CN1,LN,CN,TokenList,Status) :-
+	!,
+	get_char(LN,CN,Ch,NLN,NCN),
+	( Ch =:= CH_SLASH ->
+	    get_char(NLN,NCN,Char,NNLN,NNCN),
+	    lexer_comment_struct([CH_SLASH,CH_SLASH|TxChs],LN1,CN1,LN1,CN2,Tk),
+	    TokenList=[Tk|Tokens],
+	    read_comment_line(Char,NLN,NCN,NNLN,NNCN,LN,CN,TxChs,LN2,CN2,Tokens,Status)
+
+	; Ch =:= CH_STAR ->
+	    get_char(NLN,NCN,Char,NNLN,NNCN),
+	    lexer_comment_struct([CH_SLASH,CH_STAR|TxChs],LN1,CN1,LN2,CN2,Tk),
+	    TokenList=[Tk|Tokens],
+	    read_comment_block(Char,NLN,NCN,NNLN,NNCN,LN,CN,TxChs,LN2,CN2,Tokens,Status)
+	;
+	  read_symbols(LN1,CN1,Ch,LN,CN,NLN,NCN,
+	               Chs,LN2,CN2,NextCh,NextLN,NextCN,LineNo,CharNo),
+	  flora_symbol_token_struct([CH_SLASH|Chs],LN1,CN1,LN2,CN2,Tk),
+          TokenList=[Tk|Tokens],
+	  read_tokens(NextCh,NextLN,NextCN,LineNo,CharNo,Tokens,Status)
+	).
+
+read_special(C1,LN1,CN1,LN,CN,TokenList,Status) :-
+	( symbol_char(C1) ->
+	    get_char(LN,CN,Ch,NextLN,NextCN),
+	    read_symbols(LN1,CN1,Ch,LN,CN,NextLN,NextCN,
+                         Chs,LN2,CN2,NextCh,NLN,NCN,NNLN,NNCN),
+	    flora_symbol_token_struct([C1|Chs],LN1,CN1,LN2,CN2,Tk),
+	    TokenList=[Tk|Tokens],
+	    read_tokens(NextCh,NLN,NCN,NNLN,NNCN,Tokens,Status)
+	;
+	    flora_symbol_token_struct([C1],LN1,CN1,LN1,CN1,Tk),
+	    TokenList=[Tk],
+	    (flora_current_compile_filename(FileN), ! ; true),
+	    Status=[FLORA_NOT_EOF,error(FileN,UNEXP_PRINT)],
+	    set_charpos(LN,CN) %% C1 is not EOF
+	).
+
+
+/****************************************************************************
+  Each of the following symbols is recognized as a token. Note that
+  single_symbol_token and symbol_char should not overlap.
+****************************************************************************/
+single_symbol_token(CH_COMMA)    :- !.     % ,
+single_symbol_token(CH_SEMICOL)  :- !.     % ;
+single_symbol_token(CH_LPAREN)   :- !.     % (
+single_symbol_token(CH_RPAREN)   :- !.     % )
+single_symbol_token(CH_LBRACKET) :- !.     % [
+single_symbol_token(CH_RBRACKET) :- !.     % ]
+single_symbol_token(CH_LBRACE)   :- !.     % {
+single_symbol_token(CH_RBRACE)   :- !.     % }
+single_symbol_token(CH_HASH)     :- !.     % #
+%% Don't make CH_EQUAL a single symbol token
+
+two_symbol_token(CH_PERCENT,CH_PERCENT) :- !.      % %%  FL_INT_DIV
+two_symbol_token(CH_DOT,CH_DOT) :-         !.      % ..  FL_RANGE
+two_symbol_token(CH_SLASH,CH_BACKSLASH) :- !.      % /\  FL_SYMAND
+two_symbol_token(CH_BAR,CH_BAR) :-         !.      % /\  FL_STRCONCAT
+
+two_symbol_token(CH_LPAREN,CH_BAR)         :- !.   % (|  FL_PARENBAR
+two_symbol_token(CH_BAR,CH_RPAREN)         :- !.   % |)  FL_RIGHT_PARENBAR
+two_symbol_token(CH_LBRACKET,CH_BAR)       :- !.   % [|  FL_BRACKBAR
+two_symbol_token(CH_BAR,CH_RBRACKET)       :- !.   % |]  FL_RIGHT_BRACKBAR
+two_symbol_token(CH_LBRACE,CH_BAR)         :- !.   % {|  FL_BRACEBAR
+two_symbol_token(CH_BAR,CH_RBRACE)         :- !.   % |}  FL_RIGHT_BRACEBAR
+%% {{ should be a syntax error and the below ensures it, but is too weak: can't capture { {
+%%two_symbol_token(CH_LBRACE,CH_LBRACE)      :- !.   % {{  FL_BRACEBRACE
+%% The FL_RIGHT_BRACEBRACE is problematic because in aggr{...aggr{...}}
+%% the right }} would be interpreted as a single token.
+%%two_symbol_token(CH_RBRACE,CH_RBRACE)      :- !.   % }}  FL_RIGHT_BRACEBRACE
+two_symbol_token(CH_BACKSLASH,CH_LPAREN)   :- !.   % \(  FL_BACKPAREN
+two_symbol_token(CH_BACKSLASH,CH_RPAREN)   :- !.   % \)  FL_RIGHT_BACKPAREN
+two_symbol_token(CH_BACKSLASH,CH_LBRACKET) :- !.   % \[  FL_BACKBRACK
+two_symbol_token(CH_BACKSLASH,CH_RBRACKET) :- !.   % \]  FL_RIGHT_BACKBRACK
+two_symbol_token(CH_BACKSLASH,CH_LBRACE)   :- !.   % \{  FL_BACKBRACE
+two_symbol_token(CH_BACKSLASH,CH_RBRACE)   :- !.   % \}  FL_RIGHT_BRACKBAR
+two_symbol_token(CH_BACKSLASH,CH_PLUS)     :- !.   % \+  FL_PLGNAF
+
+
+/****************************************************************************
+  read_string(+Ch,+LN,+CN,+LN1,+CN1,+PrevLN,+PrevCN,+Quote,
+              -Chars,-TextChs,-LastLN,-LastCN,-Tokens,-Status)
+  This function is called after a quote character has been read.
+  (Ch,LN,CN) is the current character being screened
+  (it must have been read already).
+  LN1,CN1 - next character to be read.
+  (PrevLN,PrevCN) is the position of the previous character.
+  (LastLN,LastCN) is the position of the last character in the string.
+
+  Formats supported:
+  (1) \ followed by x, X, u, U then by a sequence of hex digits then \ ;
+  (2) \ followed by escape character: \\ is recognized as \;
+  (3) anything else recognized as is;
+  (4) double quotes treated the same as single quote.
+****************************************************************************/
+read_string(CH_BACKSLASH,LN,CN,LN1,CN1,_,_,Q,Chars,TextChars,LLN,LCN,Tks,Status) :-
+	!,
+	TextChars=[CH_BACKSLASH|TxChs],
+	get_char(LN1,CN1,C1,LN2,CN2),
+	(flora_current_compile_filename(FileN), ! ; true),
+	( C1 =:= CH_EOF_P ->
+	    Chars=[CH_BACKSLASH],
+	    TxChs=[],
+	    LLN=LN,
+	    LCN=CN,
+	    Tks=[],
+	    Status=[FLORA_EOF,error(FileN,UNEXP_EOF)]
+
+	; (C1 \/ 32 =:= CH_x ->
+              read_hex(LN2,CN2,LN3,CN3,C3,LN4,CN4,PrevLN,PrevCN,RestTx,TailRestTx,ChValOut,Stat1)
+          ; C1 \/ 32 =:= CH_u ->
+              read_decimal(LN2,CN2,LN3,CN3,C3,LN4,CN4,PrevLN,PrevCN,RestTx,TailRestTx,ChValOut,Stat1)
+          )
+        ->
+	    TxChs = [C1|RestTx],
+	    Chars = [ChValOut|Chs],
+	    read_string(C3,LN3,CN3,LN4,CN4,PrevLN,PrevCN,Q,
+			Chs,TailRestTx,LLN,LCN,Tks1,Stat2read),
+            (ChValOut == 0 ->
+                (flora_current_compile_filename(FileN), ! ; FileN = 'interactive'),
+                append(Stat2read,[warning(FileN,WARN_NULLCHAR_IN_STRING)],Stat2)
+            ; Stat2 = Stat2read
+            ),
+	    ( Stat1 == NO_ERRORS -> Status = Stat2, Tks = Tks1
+	    ; Stat2 = [FLORA_EOF|_] -> Status = Stat2, Tks = Tks1
+	    ; Status = Stat1,
+		%% put the offending token at the end front so that flrutils
+		%% (which looks at the last token to determine where the error
+		%% occurred) will point to the right offending character
+		flora_symbol_token_struct([C3],LN3,CN3,LN4,CN4,PossToken),
+		append(Tks1,[PossToken],Tks)
+	    )
+	    /*
+	    ; Status = Stat1,
+		Chars=[CH_BACKSLASH,C1],
+		Tks=[],
+		TxChs = [C3],
+		LLN = LN2,
+		LCN = CN2
+	    )
+	    get_char(LN2,CN2,C2,LN3,CN3),
+	    ( hex_symbol(C2,V2) ->
+		get_char(LN3,CN3,C3,LN4,CN4),
+		( hex_symbol(C3,V3) -> %% two hex symbols found
+		    TxChs=[C1,C2,C3|RestTx],
+		    V is V2*16+V3,
+		    get_char(LN4,CN4,C4,LN5,CN5),
+		    Chars=[V|Chs],
+		    read_string(C4,LN4,CN4,LN5,CN5,LN3,CN3,Q,
+		                Chs,RestTx,LLN,LCN,Tks,Status)
+
+		; %% only one hex symbol found
+		  TxChs=[C1,C2|RestTx],
+		  Chars=[V2|Chs],
+		  read_string(C3,LN3,CN3,LN4,CN4,LN2,CN2,Q,
+		              Chs,RestTx,LLN,LCN,Tks,Status)
+	        )
+	    ;
+	      Chars=[CH_BACKSLASH,C1],
+	      Tks=[],
+	      ( C2 =:= CH_EOF_P ->
+		  TxChs=[C1],
+		  LLN=LN1,
+		  LCN=CN1,
+		  Status=[FLORA_EOF,error(FileN,UNEXP_EOF)]
+	      ;
+		  TxChs=[C1,C2],
+		  LLN=LN2,
+		  LCN=CN2,
+		  Status=[FLORA_NOT_EOF,error(FileN,HEX_EXPECTED)],
+		  set_charpos(LN3,CN3)
+	      )
+	    )
+	    */
+	; 
+	  (escape_char(C1,V) -> Chars=[V|Chs] ; Chars=[CH_BACKSLASH,C1|Chs]),
+	  TxChs=[C1|RestTx],
+	  get_char(LN2,CN2,C2,LN3,CN3),
+	  read_string(C2,LN2,CN2,LN3,CN3,LN1,CN1,Q,Chs,RestTx,LLN,LCN,Tks,Status)
+	).
+
+read_string(Q,LN,CN,LN1,CN1,_,_,Q,Chars,[Q|TxChs],LLN,LCN,Tks,Status) :-
+	!,
+	get_char(LN1,CN1,C1,LN2,CN2),
+	( C1 =:= Q ->
+	    Chars=[C1|Chs],
+	    TxChs=[C1|RestTx],
+	    get_char(LN2,CN2,C2,LN3,CN3),
+	    read_string(C2,LN2,CN2,LN3,CN3,LN1,CN1,Q,Chs,RestTx,LLN,LCN,Tks,Status)
+	;
+	  Chars=[],
+	  TxChs=[],
+	  LLN=LN,
+	  LCN=CN,
+	  read_tokens(C1,LN1,CN1,LN2,CN2,Tks,Status)
+	).
+
+read_string(CH_EOF_P,_,_,_,_,LLN,LCN,_,[],[],LLN,LCN,[],[FLORA_EOF,error(FileN,UNEXP_EOF)]) :-
+	(flora_current_compile_filename(FileN), ! ; true),
+	!.
+
+read_string(Ch,LN,CN,LN1,CN1,_,_,Q,[Ch|Chs],[Ch|TxChs],LLN,LCN,Tks,Status) :-
+        wait_for_input_prompt(Ch),
+	get_char(LN1,CN1,C1,LN2,CN2),
+	read_string(C1,LN1,CN1,LN2,CN2,LN,CN,Q,Chs,TxChs,LLN,LCN,Tks,Status).
+
+hex_symbol(Ch,Value) :-
+	( Ch >= CH_0, Ch =< CH_9 -> Value is Ch - CH_0
+	; Ch >= CH_a, Ch =< CH_f -> Value is Ch - CH_a + 10
+	; Ch >= CH_A, Ch =< CH_F -> Value is Ch - CH_A + 10
+	).
+
+decimal_symbol(Ch,Value) :-
+	Ch >= CH_0, Ch =< CH_9,
+        Value is Ch - CH_0.
+
+/*
+   Read HEX digits until the nearest |. Error if it does not find |
+   within 8 digits distance. (Unicode is at most 8 digits)
+
+   read_hex(+LNbeg,+CNbeg,+LNend,+CNend,
+	    -PrevLN,-PrevCN,-TextChars,
+	    -ChValOut,-Status)
+   read_hex(+Depth,+LNbeg,+CNbeg,+LNend,+CNend,
+	    -PrevLN,-PrevCN,-TextChars,
+	    -ChValIn,-ChValOut,-Status)
+read_hex(1,1,?LNend,?CNend,?PrevLN,?PrevCN,?TextChars,?ChValOut,?Status)@\plg(flrlexer)
+*/
+read_hex(LNbeg,CNbeg,LNcurr,CNcurr,ChCurr,LNend,CNend,PrevLN,PrevCN,TextChars,TailTextChars,ChValOut,Status) :-
+	read_hex(1,LNbeg,CNbeg,LNcurr,CNcurr,ChCurr,LNend,CNend,PrevLN,PrevCN,TextChars,TailTextChars,0,ChValOut,Status).
+read_hex(Depth,LNbeg,CNbeg,LNcurr,CNcurr,ChCurr,LNend,CNend,PrevLN,PrevCN,TextChars,TailTextChars,ChValIn,ChValOut,Status) :-
+	get_char(LNbeg,CNbeg,ChBeg,LN,CN),
+	Depth1 is Depth + 1,
+	(flora_current_compile_filename(FileN), ! ; true),
+	(ChBeg == CH_BAR ->
+	    get_char(LN,CN,ChNxt,LNNxt,CNNxt), %% skip backslash
+	    CNend = CNNxt, LNend = LNNxt, 
+	    LNcurr = LN, CNcurr = CN,
+	    ChCurr = ChNxt,
+	    PrevLN = LNbeg, PrevCN = CNbeg,
+	    ChValIn = ChValOut,
+	    TextChars = [ChCurr|_],
+	    TailTextChars = TextChars,
+	    Status = NO_ERRORS
+	; ChBeg == CH_EOF_P ->
+	    CNend = CN, LNend = LN, 
+	    LNcurr = LNbeg, CNcurr = CNbeg,
+	    ChCurr = ChBeg,
+	    PrevLN = LNbeg, PrevCN = CNbeg,
+	    ChValIn = ChValOut,
+	    %%TextChars = [ChCurr|_],
+	    TextChars = [],
+	    TailTextChars = TextChars,
+	    Status=[FLORA_EOF,error(FileN,UNEXP_EOF)]
+	; (Depth1 > 6 ; (integer(ChValIn), ChValIn > UNICODE_MAX_CODEPOINT))
+        -> %% unicode can't have > 6 hex chars
+	    TextChars = [ChBeg|_],
+	    CNend = CN, LNend = LN, 
+	    LNcurr = LNbeg, CNcurr = CNbeg,
+	    ChCurr = ChBeg,
+	    PrevLN = LNbeg, PrevCN = CNbeg,
+	    TailTextChars = TextChars,
+	    ChValIn = ChValOut,
+	    Status = [FLORA_NOT_EOF,error(FileN,UNICODE_TOO_LONG)]
+	; hex_symbol(ChBeg,Val) ->
+	    ChValOut1 is ChValIn*16+Val,
+	    TextChars = [ChBeg|TextChars1],
+	    read_hex(Depth1,LN,CN,LNcurr,CNcurr,ChCurr,LNend,CNend,PrevLN,PrevCN,TextChars1,TailTextChars,ChValOut1,ChValOut,Status)
+	; %% not yet 8 symbols, not a \, but hexadecimal sequence interrupted
+	    Status = [FLORA_NOT_EOF,error(FileN,HEX_EXPECTED)],
+	    TextChars = [ChBeg|_],
+	    TailTextChars = TextChars,
+	    CNend = CN, LNend = LN, 
+	    LNcurr = LNbeg, CNcurr = CNbeg,
+	    ChCurr = ChBeg,
+	    PrevLN = LNbeg, PrevCN = CNbeg,
+	    ChValIn = ChValOut
+	).
+
+read_decimal(LNbeg,CNbeg,LNcurr,CNcurr,ChCurr,LNend,CNend,PrevLN,PrevCN,TextChars,TailTextChars,ChValOut,Status) :-
+	read_decimal(1,LNbeg,CNbeg,LNcurr,CNcurr,ChCurr,LNend,CNend,PrevLN,PrevCN,TextChars,TailTextChars,0,ChValOut,Status).
+read_decimal(Depth,LNbeg,CNbeg,LNcurr,CNcurr,ChCurr,LNend,CNend,PrevLN,PrevCN,TextChars,TailTextChars,ChValIn,ChValOut,Status) :-
+	get_char(LNbeg,CNbeg,ChBeg,LN,CN),
+	Depth1 is Depth + 1,
+	(flora_current_compile_filename(FileN), ! ; true),
+	(ChBeg == CH_BAR ->
+	    get_char(LN,CN,ChNxt,LNNxt,CNNxt), %% skip backslash
+	    CNend = CNNxt, LNend = LNNxt, 
+	    LNcurr = LN, CNcurr = CN,
+	    ChCurr = ChNxt,
+	    PrevLN = LNbeg, PrevCN = CNbeg,
+	    ChValIn = ChValOut,
+	    TextChars = [ChCurr|_],
+	    TailTextChars = TextChars,
+	    Status = NO_ERRORS
+	; ChBeg == CH_EOF_P ->
+	    CNend = CN, LNend = LN, 
+	    LNcurr = LNbeg, CNcurr = CNbeg,
+	    ChCurr = ChBeg,
+	    PrevLN = LNbeg, PrevCN = CNbeg,
+	    ChValIn = ChValOut,
+	    %%TextChars = [ChCurr|_],
+	    TextChars = [],
+	    TailTextChars = TextChars,
+	    Status=[FLORA_EOF,error(FileN,UNEXP_EOF)]
+	; (Depth1 > 7 ; (integer(ChValIn), ChValIn > UNICODE_MAX_CODEPOINT))
+        -> %% unicode can't have > 7 decimal chars
+	    TextChars = [ChBeg|_],
+	    CNend = CN, LNend = LN, 
+	    LNcurr = LNbeg, CNcurr = CNbeg,
+	    ChCurr = ChBeg,
+	    PrevLN = LNbeg, PrevCN = CNbeg,
+	    TailTextChars = TextChars,
+	    ChValIn = ChValOut,
+	    Status = [FLORA_NOT_EOF,error(FileN,UNICODE_TOO_LONG)]
+	; decimal_symbol(ChBeg,Val) ->
+	    ChValOut1 is ChValIn*10+Val,
+	    TextChars = [ChBeg|TextChars1],
+	    read_decimal(Depth1,LN,CN,LNcurr,CNcurr,ChCurr,LNend,CNend,PrevLN,PrevCN,TextChars1,TailTextChars,ChValOut1,ChValOut,Status)
+	; %% not yet 7 symbols, not a \, but hexadecimal sequence interrupted
+	    Status = [FLORA_NOT_EOF,error(FileN,DEC_EXPECTED)],
+	    TextChars = [ChBeg|_],
+	    TailTextChars = TextChars,
+	    CNend = CN, LNend = LN, 
+	    LNcurr = LNbeg, CNcurr = CNbeg,
+	    ChCurr = ChBeg,
+	    PrevLN = LNbeg, PrevCN = CNbeg,
+	    ChValIn = ChValOut
+	).
+
+
+
+/****************************************************************************
+  This table is for ASCII.
+****************************************************************************/
+escape_char(CH_BACKSLASH, CH_BACKSLASH) :- !.	  % \\ = Backslash
+escape_char(CH_QUOTE, CH_QUOTE) :- !.	          % \' = Quote
+escape_char(CH_DOUBLEQUOTE, CH_DOUBLEQUOTE) :- !. % \" = Double quote
+escape_char(CH_n, CH_NEWLINE) :- !.		  % \n = NewLine
+escape_char(CH_N, CH_NEWLINE) :- !.		  % \N = NewLine
+escape_char(CH_t, CH_TAB) :- !.			  % \t = Tab
+escape_char(CH_T, CH_TAB) :- !.			  % \T = Tab
+escape_char(CH_r, CH_RETURN) :- !.		  % \r = Return
+escape_char(CH_R, CH_RETURN) :- !.		  % \R = Return
+escape_char(CH_v, CH_VERTAB) :- !.		  % \v = Vertical tab
+escape_char(CH_V, CH_VERTAB) :- !.		  % \V = Vertical tab
+escape_char(CH_a, CH_BACKSPACE) :- !.		  % \a = Backspace
+escape_char(CH_A, CH_BACKSPACE) :- !.		  % \A = Backspace
+escape_char(CH_b, CH_BACKSPACE) :- !.		  % \b = Backspace
+escape_char(CH_B, CH_BACKSPACE) :- !.		  % \B = Backspace
+escape_char(CH_f, CH_FORMFEED) :- !.		  % \f = FormFeed
+escape_char(CH_F, CH_FORMFEED) :- !.		  % \F = FormFeed
+escape_char(CH_e, CH_ESC) :- !.			  % \e = Escape
+escape_char(CH_E, CH_ESC) :- !.			  % \E = Escape
+escape_char(CH_d, CH_DELETE) :- !.		  % \d = Delete
+escape_char(CH_D, CH_DELETE) :- !.		  % \D = Delete
+escape_char(CH_s, CH_SPACE) :- !.		  % \s = visible Space
+escape_char(CH_S, CH_SPACE) :- !.		  % \S = visible Space
+
+
+/****************************************************************************
+  read_comment_line(+Ch,+LN,+CN,+LN1,+CN1,+PrevLN,+PrevCN,
+                    -TextChs,-LastLN,-LastCN,-Tokens,-Status)
+  is called when either // or % has been read. It scans the rest of the
+  line and starts reading tokens from the next line. (Ch,LN,CN) is a char
+  after // that is being screened. (LastLN,LastCN) is the position of
+  the last. (PrevLN,PrevCN) is the position of the previous character.
+****************************************************************************/
+read_comment_line(CH_NEWLINE,LN,CN,LN1,CN1,_,_,[CH_NEWLINE],LN,CN,Tokens,Status) :-
+	!,
+        wait_for_input_prompt(CH_NEWLINE),
+	get_char(LN1,CN1,C1,NextLN,NextCN),
+	read_tokens(C1,LN1,CN1,NextLN,NextCN,Tokens,Status).
+
+read_comment_line(CH_EOF_P,_,_,_,_,LN,CN,[],LN,CN,[],[FLORA_EOF]) :- !.
+
+read_comment_line(Ch,LN,CN,LN1,CN1,_,_,[Ch|TxChs],LLN,LCN,Tokens,Status) :-
+	!,
+	get_char(LN1,CN1,C1,NextLN,NextCN),
+	read_comment_line(C1,LN1,CN1,NextLN,NextCN,LN,CN,TxChs,LLN,LCN,Tokens,Status).
+
+
+/****************************************************************************
+  read_comment_block(+Ch,+LN,+CN,+NextLN,+NextCN,+PrevLN,+PrevCN,
+	             -TextChars,-LastLN,-LastCN,-Tokens,-Status)
+  is called when /* has been read. It skips everything up and including
+  * followed /, and then starts reading tokens thereafter. (Ch,LN,CN) is
+  being screen after / and * have been read. 
+****************************************************************************/
+read_comment_block(CH_STAR,LN,CN,LN1,CN1,_,_,[CH_STAR|TxChs],LLN,LCN,Tokens,Status) :-
+	!,
+	get_char(LN1,CN1,C1,LN2,CN2),
+	( C1 =:= CH_SLASH ->
+	    TxChs=[C1],
+	    LLN=LN1,
+	    LCN=CN1,
+	    get_char(LN2,CN2,C2,NextLN,NextCN),
+	    read_tokens(C2,LN2,CN2,NextLN,NextCN,Tokens,Status)
+	;
+	  read_comment_block(C1,LN1,CN1,LN2,CN2,LN,CN,TxChs,LLN,LCN,Tokens,Status)
+        ).
+
+read_comment_block(CH_EOF_P,_,_,_,_,LN,CN,[],LN,CN,[],[error(FileN,UNEXP_EOF)]) :-
+	(flora_current_compile_filename(FileN), ! ; true),
+	!.
+
+read_comment_block(Ch,LN,CN,LN1,CN1,_,_,[Ch|TxChs],LLN,LCN,Tokens,Status) :-
+	!,
+	get_char(LN1,CN1,C1,NextLN,NextCN),
+	read_comment_block(C1,LN1,CN1,NextLN,NextCN,LN,CN,TxChs,LLN,LCN,Tokens,Status).
+
+
+/****************************************************************************
+  read_symbols(+PrevLN,+PrevCN,+Ch,+LN,+CN,+NextLN,+NextCN,
+	       -Chars,-LastLN,-LastCN,-NextCh,-NLN,-NCN,-NNLN,-NNCN)
+  reads and collects a list of symbol characters starting from (Ch,LN,CN),
+  which is currently being screened. Any continuous sequence of symbol
+  characters will be read as a token. It
+  will be decided later by the  parser whether the use of it is appropriate.
+  (PrevLN,PrevCN) is the position of the character before (Ch,LN,CN).
+****************************************************************************/
+read_symbols(PL,PC,Ch,LN,CN,LN1,CN1,Chars,LLN,LCN,NextCh,NLN,NCN,NNLN,NNCN) :-
+	(symbol_char(Ch),
+	    FLPEEKC(PeekCh),
+	    \+quasi_or_builtin_start(Ch,PeekCh),
+	    \+twochar_symbol_breaker(Ch,PeekCh)
+	->
+	    Chars=[Ch|Chs],
+	    get_char(LN1,CN1,C1,LN2,CN2),
+	    read_symbols(LN,CN,C1,LN1,CN1,LN2,CN2,
+			 Chs,LLN,LCN,NextCh,NLN,NCN,NNLN,NNCN)
+	; Chars=[],
+            LLN=PL,
+            LCN=PC,
+            NextCh=Ch,
+            NLN=LN,
+            NCN=CN,
+            NNLN=LN1,
+            NNCN=CN1
+        ).
+
+%% 2-character symbol string breakers
+%% 1st arg is character, next is 1-char atom. Eg 0'$ '{'
+twochar_symbol_breaker(CH_DOLLAR,CH_LBRACE) :- !.  %% ${ - reification
+twochar_symbol_breaker(CH_BAR,CH_RBRACKET) :- !.   %% |] - FL_RIGHT_BRACKBAR
+twochar_symbol_breaker(CH_BAR,CH_RPAREN) :- !.     %% |) - FL_RIGHT_PARENBAR
+%% prevents ->-, ->+ followed by a digit from being a token
+%% but not good enough: also prevents :-, <- from being a token
+twochar_symbol_breaker(Ch,Ch2) :-
+        (Ch == CH_MINUS ; Ch == CH_PLUS),
+        is_digit(Ch2),
+        !.
+
+quasi_or_builtin_start(CH_SPECIAL_SYM,NextCh) :-
+	special_token_or_builtin_2nd_char(NextCh,_).
+
+/****************************************************************************
+  read_transactional_symbols(+Char,+PrevLN,+PrevCN,+LN,+CN,+NextLN,+NextCN,
+	       -TokenList,-Status)
+  Char is the first symbol following %  with LN and CN.
+  PrevLN and PrevCN are line number and char number of %.
+****************************************************************************/
+read_transactional_symbols(C2,LN1,CN1,LN2,CN2,LN,CN,TokenList,Status) :-
+	    get_char(LN,CN,Ch,NextLN,NextCN),
+	    read_symbols(LN2,CN2,Ch,LN,CN,NextLN,NextCN,
+                         Chs,LN3,CN3,NextCh,NLN,NCN,NNLN,NNCN),
+	    flora_transactional_symbol_token_struct([C2|Chs],LN1,CN1,LN3,CN3,Tk),
+	    TokenList=[Tk|Tokens],
+	    read_tokens(NextCh,NLN,NCN,NNLN,NNCN,Tokens,Status).
+
+/****************************************************************************
+  read_after_fullstop(+DLN,+DCN,+Ch,+LN,+CN,+NextLN,+NextCN,-Tokens,-Status)
+  handles the first character following a fullstop. (DLN,DCN) is the position
+  of the dot. (Ch,LN,CN) is the character immediately after the dot.
+****************************************************************************/
+read_after_fullstop(DLN,DCN,Ch,LN,CN,LN1,CN1,TokenList,Status) :-
+	( Ch =:= CH_EOF_P ->
+	    flora_rule_delimiter_struct([CH_RULE_DELIMITER],DLN,DCN,DLN,DCN,Tk),
+	    TokenList=[Tk],
+	    Status=[FLORA_EOF]
+
+	; is_whitespace(Ch) ->
+	    flora_rule_delimiter_struct([CH_RULE_DELIMITER,Ch],DLN,DCN,LN,CN,Tk),
+	    TokenList=[Tk],
+	    Status=[FLORA_NOT_EOF],
+	    set_charpos(LN1,CN1)
+	;
+	  read_symbols(DLN,DCN,Ch,LN,CN,LN1,CN1,
+	               Chs,LLN,LCN,NextCh,NLN,NCN,NNLN,NNCN),
+	  flora_symbol_token_struct([CH_DOT|Chs],DLN,DCN,LLN,LCN,Tk),
+	  TokenList=[Tk|Tokens],
+	  read_tokens(NextCh,NLN,NCN,NNLN,NNCN,Tokens,Status)
+	).
+
+
+/****************************************************************************
+  Any sequence of symbol characters makes up a token, except that this
+  sequence cannot contain any of the following substrings:
+  (1) / followed by *, which starts a comment block.
+  (2) . followed by whitespace, which denotes a rule delimiter.
+  (3) / followed by /, which starts a comment line.
+
+  Note that % is not a symbol character here.
+****************************************************************************/
+symbol_char(CH_DOT).         % .
+symbol_char(CH_STAR).        % *
+symbol_char(CH_COLON).       % :
+symbol_char(CH_LESS).        % <
+symbol_char(CH_EQUAL).       % =
+symbol_char(CH_GREATER).     % >
+%% disable '?' to avoid reading "->?" in "a[b->?x]" as one symbol
+%% ?- and ?variable have already been processed in read_tokens
+%% symbol_char(CH_QUESTION) :- !.    % ?
+symbol_char(CH_AT).          % @
+symbol_char(CH_BACKSLASH).   % \ 
+symbol_char(CH_TILDE).       % ~
+symbol_char(CH_EXCLAMATION). % !
+symbol_char(CH_AMPERSAND).   % &
+symbol_char(CH_BAR).         % |
+symbol_char(CH_PLUS).        % +
+symbol_char(CH_MINUS).       % -
+symbol_char(CH_HAT).         % ^
+%% Disable '%' to avoid reading =>%foo as one symbol
+%%symbol_char(CH_PERCENT).   % % 
+symbol_char(CH_HASH).        % #
+symbol_char(CH_DOLLAR).      % $
+symbol_char(CH_SLASH).       % /
+symbol_char(CH_BACKQUOTE).   % `
+
+
+/****************************************************************************
+  read_number(+Char,+LineNo,+CharNo,+NextLN,+NextCN,-Tokens,-Status)
+  Char is already known to be a digit.
+****************************************************************************/
+read_number(C1,LN1,CN1,LN,CN,TokenList,Status) :-
+	read_digits(LN1,CN1,LN,CN,IntList,TxChs,LN2,CN2,NextCh,NLN,NCN,NNLN,NNCN),
+	!,
+	number_codes(N,[C1|IntList]),
+	( NextCh =:= CH_QUOTE ->
+	    append([C1|TxChs],[CH_QUOTE],TxStr),
+	    read_after_base(NNLN,NNCN,N,TxStr,LN1,CN1,NLN,NCN,TokenList,Status)
+
+	%% '.', but not '..': '..' is a token used in cardinality constraints
+	; NextCh =:= CH_DOT, \+FLPEEKC(CH_DOT)
+	->
+	    get_char(NNLN,NNCN,Ch,LineNo,CharNo),
+	    ( is_digit(Ch) ->
+		append([C1|TxChs],[CH_DOT],TxStr),
+		read_float(Ch,NNLN,NNCN,LineNo,CharNo,[C1|IntList],
+		           TxStr,LN1,CN1,TokenList,Status)
+	    ; 
+	      lexer_number_struct(N,[C1|TxChs],LN1,CN1,LN2,CN2,Tk),
+	      TokenList=[Tk|Tokens],
+	      read_after_fullstop(NLN,NCN,Ch,NNLN,NNCN,LineNo,CharNo,Tokens,Status)
+	    )
+	;
+	  lexer_number_struct(N,[C1|TxChs],LN1,CN1,LN2,CN2,Tk),
+	  TokenList=[Tk|Tokens],
+	  read_tokens(NextCh,NLN,NCN,NNLN,NNCN,Tokens,Status)
+	).
+
+/****************************************************************************
+  read_transactional_number(+Char,+LNof%,+CNof%,+LN,+CN,+NextLN,+NextCN,-TokenList,-Status)
+  reads a number following a % 
+****************************************************************************/
+read_transactional_number(C2,LN1,CN1,LN2,CN2,LN,CN,TokenList,Status) :-
+	read_digits(LN2,CN2,LN,CN,IntList,TxChs,LN3,CN3,NextCh,NLN,NCN,NNLN,NNCN),
+	!,
+	number_codes(N,[C2|IntList]),
+	lexer_transactional_number_struct(N,[C2|TxChs],LN1,CN1,LN3,CN3,Tk),
+	TokenList=[Tk|Tokens],
+	read_tokens(NextCh,NLN,NCN,NNLN,NNCN,Tokens,Status).
+
+
+/****************************************************************************
+  read_digits(+LN,+CN,+LN1,+CN1,-Chars,-TextChs,-ELN,-ECN,
+              -NextCh,-NextLN,-NextCN,-NNLN,-NNCN)
+  returns in Chars a list of continuous digits. (LN,CN) is the position of
+  the previous digit. (NextCh,NextLN,NextCN) stores the next nondigit character
+  that is read. (LN1,CN1) is the position of the next character to be read
+  and screened.
+****************************************************************************/
+read_digits(LN,CN,LN1,CN1,Chars,TextChars,ELN,ECN,NextCh,NLN,NCN,NNLN,NNCN) :-
+	get_char(LN1,CN1,C1,LN2,CN2),
+	( is_digit(C1) ->
+	    Chars=[C1|Chs],
+	    TextChars=[C1|TxChs],
+	    read_digits(LN1,CN1,LN2,CN2,Chs,TxChs,ELN,ECN,NextCh,NLN,NCN,NNLN,NNCN)
+
+	; C1 =:= CH_UNDERSCORE ->
+	    TextChars=[C1|TxChs],
+	    read_digits(LN1,CN1,LN2,CN2,Chars,TxChs,ELN,ECN,NextCh,NLN,NCN,NNLN,NNCN)
+	;
+	  Chars=[],
+	  TextChars=[],
+	  ELN=LN,
+	  ECN=CN,
+	  NextCh=C1,
+	  NLN=LN1,
+	  NCN=CN1,
+	  NNLN=LN2,
+	  NNCN=CN2
+	).
+
+
+/****************************************************************************
+  read_based(+LN,+CN,+Base,+TextChars,+BeginLN,+BeginCN,+EndLN,+EndCN,
+             -TokenList,-Status)
+  is called when a base number N followed by a single quote (') has been
+  read. It returns in TokenList a list of tokens. (LN,CN) is the position of
+  the character to be read. (BeginLN,BeginCN) and (EndLN,EndCN) denote the
+  boundary of the text string that has been read.
+****************************************************************************/
+read_after_base(LN1,CN1,N,TxChs,BLN,BCN,ELN,ECN,TokenList,Status) :-
+	N >= 2, N =< 36,
+	!,
+	get_char(LN1,CN1,C1,LN2,CN2),
+	( symbol_value(N,C1,V) ->
+	    read_based_integer(LN1,CN1,LN2,CN2,N,V,Number,Tx,LLN,LCN,
+	                       NCh,NLN,NCN,NNLN,NNCN),
+	    append(TxChs,[C1|Tx],TxStr),
+	    !,
+	    lexer_number_struct(Number,TxStr,BLN,BCN,LLN,LCN,Tk),
+	    TokenList=[Tk|Tokens],
+	    read_tokens(NCh,NLN,NCN,NNLN,NNCN,Tokens,Status)
+	;
+	  ( C1 =:= CH_EOF_P ->
+	      lexer_number_struct(N,TxChs,BLN,BCN,ELN,ECN,Tk),
+	      TokenList=[Tk],
+	      (flora_current_compile_filename(FileN), ! ; true),
+	      Status=[FLORA_EOF,error(FileN,UNEXP_EOF)]
+	  ;
+	      append(TxChs,[C1],TxStr),
+	      lexer_number_struct(N,TxStr,BLN,BCN,LN1,CN1,Tk),
+	      TokenList=[Tk],
+	      (flora_current_compile_filename(FileN), ! ; true),
+	      Status=[FLORA_NOT_EOF,error(FileN,AFTER_RADIX)],
+	      set_charpos(LN2,CN2)
+	  )
+        ).
+
+read_after_base(LN1,CN1,N,TxChs,BLN,BCN,ELN,ECN,TokenList,Status) :-
+	N =:= 0,
+	!,
+	get_char(LN1,CN1,C1,LN2,CN2),
+	( C1 =:= CH_EOF_P ->
+	    lexer_number_struct(0,TxChs,BLN,BCN,ELN,ECN,Tk),
+	    TokenList=[Tk],
+	    (flora_current_compile_filename(FileN), ! ; true),
+	    Status=[FLORA_EOF,error(FileN,UNEXP_EOF)]
+
+	;
+	  append(TxChs,[C1],TxStr),
+	  lexer_number_struct(C1,TxStr,BLN,BCN,LN1,CN1,Tk),
+	  TokenList=[Tk|Tokens],
+	  get_char(LN2,CN2,C2,NextLN,NextCN),
+	  read_tokens(C2,LN2,CN2,NextLN,NextCN,Tokens,Status)
+        ).
+
+read_after_base(LN,CN,N,TxChs,LN1,CN1,LN2,CN2,TokenList,Status) :-
+	lexer_number_struct(N,TxChs,LN1,CN1,LN2,CN2,Tk),
+	TokenList=[Tk],
+	(flora_current_compile_filename(FileN), ! ; true),
+	Status=[FLORA_NOT_EOF,error(FileN,INVALID_RADIX)],
+	set_charpos(LN,CN).
+
+
+/****************************************************************************
+  read_based_integer(+PrevLN,+PrevCN,+LN,+CN,+Base,+N0,
+                     -Number,-TextChars,-LastLN,-LastCN,
+                     -NextCh,NextLN,-NextCN,-NNLN,-NNCN)
+  reads an integer in base Base. The base has been read as Base. (LN,CN) is
+  the position of the symbol to be read. (NextCh,NextLN,NextCN) is the next
+  nonsymbol character.
+****************************************************************************/
+read_based_integer(PN,PC,LN,CN,Base,N0,N,TextChars,LLN,LCN,NextCh,NL,NC,NNL,NNC) :-
+	get_char(LN,CN,Ch,NextLN,NextCN),
+	( symbol_value(Base,Ch,Int) ->
+	    N1 is N0*Base+Int,
+	    TextChars=[Ch|TxChs],
+	    read_based_integer(LN,CN,NextLN,NextCN,Base,N1,N,TxChs,LLN,LCN,
+	                       NextCh,NL,NC,NNL,NNC)
+
+	  ; Ch =:= CH_UNDERSCORE	->
+	    TxChs=[Ch|TxChs],
+	    read_based_integer(LN,CN,NextLN,NextCN,Base,N0,N,TxChs,LLN,LCN,
+	                       NextCh,NL,NC,NNL,NNC)
+	  ;
+	    N=N0,
+	    TextChars=[],
+	    LLN=PN,
+	    LCN=PC,
+	    NextCh=Ch,
+	    NL=LN,
+	    NC=CN,
+	    NNL=NextLN,
+	    NNC=NextCN
+	).
+
+
+/****************************************************************************
+  symbol_value(+Base,+Char,-Int)
+  checks whether Char denotes a valid symbol in base Base and returns the
+  value in Int.
+****************************************************************************/
+symbol_value(Base,Char,Int) :-
+	( Char >= CH_0, Char =< CH_9 ->
+	    Int is Char-CH_0
+
+	; Char >= CH_A, Char =< CH_Z ->
+	    Int is Char-CH_A+10
+
+	; Char >= CH_a, Char =< CH_z ->
+	    Int is Char-CH_a+10
+
+	;
+	  Int=99
+	),
+	Int < Base.
+
+
+/****************************************************************************
+  read_float(+Char,+LN,+CN,+NextLN,+NextCN,
+	     +Integer,+TxChs,+BLN,+BCN,-Tokens,-Status)
+  is called when we have parsed <digit>+ '. <digit>. Integer is the list of
+  digits preceding the decimal point, and Char is the first digit after the
+  decimal point. TxChs is the text string including the dot. Integer is the
+  digit string before the dot.
+****************************************************************************/
+read_float(Char,LN,CN,LN1,CN1,Integer,TxChs,BLN,BCN,TokenList,Status) :-
+	read_digits(LN,CN,LN1,CN1,Fraction,FractTx,LLN,LCN,C1,LNO1,CNO1,LNO2,CNO2),
+	append(Integer,[CH_DOT,Char|Fraction],L1), %% L1 is the number string
+	append(TxChs,[Char|FractTx],Tx1), %% Tx1 is the text string
+	!,
+	( C1 \/ 32 =:= CH_e -> %% exponent expected
+	    get_char(LNO2,CNO2,C2,LNO3,CNO3), %% C2 may be the sign
+	    ( C2 =\= CH_MINUS, C2 =\= CH_PLUS -> %% no +/- sign
+		Sign=[],
+		C3=C2,
+		LN3=LNO2,
+		CN3=CNO2,
+		LN4=LNO3,
+		CN4=CNO3,
+		ELN1=LNO1,
+		ECN1=CNO1
+	    ;
+	      Sign=[C2],
+	      get_char(LNO3,CNO3,C3,LN4,CN4),
+	      LN3=LNO3,
+	      CN3=CNO3,
+	      ELN1=LNO2,
+	      ECN1=CNO2
+	    ),
+	    %% (C3,LN3,CN3,LN4,CN4) is the next char to consider
+	    %% (ELN1,ECN1) is the new boundary
+	    append(L1,[C1|Sign],L2), %% L2 is the number string
+	    append(Tx1,[C1|Sign],Tx2), %% Tx2 is the text string
+	    !,
+	    ( is_digit(C3) ->
+		read_digits(LN3,CN3,LN4,CN4,Exponent,ExpTx,ELN2,ECN2,
+		            NextCh,NLN,NCN,NNLN,NNCN),
+		append(L2,[C3|Exponent],L3),
+		append(Tx2,[C3|ExpTx],Tx3),
+		!,
+		number_codes(Number,L3),
+		lexer_number_struct(Number,Tx3,BLN,BCN,ELN2,ECN2,Tk),
+		TokenList=[Tk|Tokens],
+		read_tokens(NextCh,NLN,NCN,NNLN,NNCN,Tokens,Status)
+	    ;
+	      ( C3 =:= CH_EOF_P ->
+		  lexer_number_struct(0,Tx2,BLN,BCN,ELN1,ECN1,Tk),
+		  TokenList=[Tk],
+		  (flora_current_compile_filename(FileN), ! ; true),
+		  Status=[FLORA_EOF,error(FileN,UNEXP_EOF)]
+	      ;
+		  append(Tx2,[C3],Tx3),
+		  !,
+		  lexer_number_struct(0,Tx3,BLN,BCN,LN3,CN3,Tk),
+		  TokenList=[Tk],
+		  (flora_current_compile_filename(FileN), ! ; true),
+		  Status=[FLORA_NOT_EOF,error(FileN,ERROR_EXPONENT)],
+		  set_charpos(LN4,CN4)
+	      )
+	    )
+
+	; %% no exponent
+	  number_codes(Number,L1),
+	  lexer_number_struct(Number,Tx1,BLN,BCN,LLN,LCN,Tk),
+	  TokenList=[Tk|Tokens],
+	  read_tokens(C1,LNO1,CNO1,LNO2,CNO2,Tokens,Status)
+	).
+
+
+
+%% quasi-variable or quasi-constant
+special_token_or_builtin_2nd_char(CH_HASH,quasi) :- !.
+special_token_or_builtin_2nd_char(CH_AT,quasi) :- !.
+special_token_or_builtin_2nd_char(CH_VARSYM,quasi) :- !.
+%% builtin or data type
+special_token_or_builtin_2nd_char(CH_UNDERSCORE,builtin) :- !.
+special_token_or_builtin_2nd_char(CH_DOUBLEQUOTE,builtin) :- !.
+special_token_or_builtin_2nd_char(Char,builtin) :- is_alphanum_int(Char).
+
+
+%% strip_preprocessor_directive(+Tokens,-JuicyTokens)
+%% This is used by flrutils in  util_read_parse_compile and
+%% util_read_parse_compile_add. Stripping is used by the studio
+%% to cope with preprocessor instructions
+strip_preprocessor_directive([SYMBOL_TOKEN(#,_),IDENTIFIER(_,_)|Rest],JuicyTokens) :- !,
+	remove_until_eol(Rest,JuicyTokens).
+strip_preprocessor_directive(Tokens,Tokens).
+
+remove_until_eol([Tk|JuicyTokens],JuicyTokens) :- lexer_whitespace_struct([CH_NEWLINE],_LN1,_CN1,_LN1,_CN1,Tk), !.
+remove_until_eol([_|Rest],JuicyTokens) :- !, remove_until_eol(Rest,JuicyTokens).
+remove_until_eol([],[]).
+
+wait_for_input_prompt(Ch) :-
+        (Ch == CH_NEWLINE, \+flora_current_compile_filename(_),
+            seeing(Stream), Stream == STDIN ->
+            set_lexer_waits_for_input,
+            flora_secondary_prompt
+        ; true
+        ).
+
+lexer_waits_for_input :- flora_get_counter(FL_LEXER_WAITS_INPUT,1).
+set_lexer_waits_for_input :-
+        %% set lexer waits for input
+        flora_set_counter(FL_LEXER_WAITS_INPUT,1).
+reset_lexer_waits_for_input :-
+        %% set lexer not waiting for input
+        flora_set_counter(FL_LEXER_WAITS_INPUT,0).

@@ -1,0 +1,457 @@
+/* File:      flrprint.P
+**
+** Author(s): Guizhen Yang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**      Coherent Knowledge Systems, LLC, 2014-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "standard.h"
+#include "flora_terms.flh"
+#include "flora_characters.flh"
+#include "flora_exceptions.flh"
+
+:- dynamic
+	flora_err_stream(_), flora_warn_stream(_),
+	flora_dbg_steam(_),
+	flora_msg_stream(_), flora_fdbk_stream(_).
+
+:- import
+	flora_get_break_level/1
+   from flora2.
+
+?- (flora_err_stream(Stream) -> close(Stream), retractall(flora_err_stream(_))
+   ; assert(flora_err_stream(STDERR))
+   ).
+?- (flora_warn_stream(Stream) -> close(Stream), retractall(flora_warn_stream(_))
+   ; assert(flora_warn_stream(STDWARN))
+   ).
+?- (flora_dbg_steam(Stream) -> close(Stream), retractall(flora_dbg_steam(_))
+   ; assert(flora_dbg_steam(STDDBG))
+   ).
+?- (flora_msg_stream(Stream) -> close(Stream), retractall(flora_msg_stream(_))
+   ; assert(flora_msg_stream(STDMSG))
+   ).
+?- (flora_fdbk_stream(Stream) -> close(Stream), retractall(flora_fdbk_stream(_))
+   ; assert(flora_fdbk_stream(STDFDBK))
+   ).
+
+#define OUTPUT_CTL_CHAR    1
+
+#define STDDFLTCTL
+#define STDOUTCTL
+#define STDERRCTL
+#define STDWARNCTL
+#define STDMSGCTL
+#define STDDBGCTL
+#define STDFDBKCTL
+#define STDPROMPTCTL
+#define STDCLRLDCTL
+
+#define PROMPTSTRING_AUX(Str)    flora_stdfdbk_string(Str)
+
+#include "extensions/flrprint_ctl.P"
+
+/*************************************************************************
+  print utilities
+*************************************************************************/
+flora_current_out_string(Str) :- write(Str). %% must be write/1, not format/2!
+%% Use format/2 so that we would be able to put formatting, like ~n in the Str
+flora_current_out_string(Fmt,Args) :- format(Fmt,Args).
+flora_current_out_nl :- nl.
+
+flora_current_out_line(Str) :-
+	flora_current_out_string(Str),
+	flora_current_out_nl.
+
+flora_current_out_line(Fmt,Args) :-
+	flora_current_out_string(Fmt,Args),
+	flora_current_out_nl.
+
+flora_stream_out_nl(Stream) :- nl(Stream).
+%% Use format/2 so that we would be able to put formatting, like ~n in the Str
+flora_stream_out_string(Stream,Str) :-
+	format(Stream,Str,[]).
+flora_stream_out_string(Stream,Fmt,Args) :-
+	format(Stream,Fmt,Args).
+
+flora_stream_out_line(Stream,Str) :-
+	flora_stream_out_string(Stream,Str),
+	flora_stream_out_nl(Stream).
+
+flora_stream_out_line(Stream,Fmt,Args) :-
+	flora_stream_out_string(Stream,Fmt,Args),
+	flora_stream_out_nl(Stream).
+
+flora_stderr_nl :- flora_err_stream(Stream), nl(Stream).
+flora_stderr_string(Str) :-
+	flora_err_stream(Stream),
+	write(Stream,Str).
+%% Use format/3 so that we would be able to put formatting, like ~w in the Str
+flora_stderr_string(Fmt,Args) :-
+	flora_err_stream(Stream),
+	format(Stream,Fmt,Args).
+
+flora_stdwarn_nl :- flora_warn_stream(Stream), nl(Stream).
+flora_stdwarn_string(Str) :- flora_warn_stream(Stream), format(Stream,Str,[]).
+flora_stdwarn_string(Fmt,Args) :- 
+	flora_warn_stream(Stream),
+	format(Stream,Fmt,Args).
+flora_stdwarn_flush :- flora_warn_stream(Stream), file_flush(Stream,_).
+
+
+flora_stdmsg_nl :- flora_msg_stream(Stream), nl(Stream).
+flora_stdmsg_string(Str) :-
+	flora_msg_stream(Stream),
+	write(Stream,Str).
+flora_stdmsg_string(Fmt,Args) :- 
+	flora_msg_stream(Stream),
+	format(Stream,Fmt,Args).
+flora_stdmsg_line(M) :-
+	flora_msg_stream(Stream),
+	format(Stream,M,[]),
+	nl(Stream).
+flora_stdmsg_line(Fmt,Args) :- 
+	flora_msg_stream(Stream),
+	format(Stream,Fmt,Args),
+	nl(Stream).
+
+
+flora_stdfdbk_nl :-
+	flora_fdbk_stream(Stream),
+	nl(Stream).
+flora_stdfdbk_string(Str) :-
+	flora_fdbk_stream(Stream),
+	format(Stream,Str,[]),
+	file_flush(Stream,_).
+flora_stdfdbk_string(Fmt,Args) :- 
+	flora_fdbk_stream(Stream),
+	format(Stream,Fmt,Args),
+	file_flush(Stream,_).
+flora_stdfdbk_line(M) :-
+	flora_fdbk_stream(Stream),
+	format(Stream,M,[]),
+	nl(Stream),
+	file_flush(Stream,_).
+
+flora_stdfdbk_writeln(Msg) :- 
+	flora_fdbk_stream(Stream),
+	writeln(Stream,Msg),
+	file_flush(Stream,_).
+
+flora_prompt_string(Str) :-
+	send_prompt_control_seq,
+	STDPROMPTCTL
+	print_break_level_prefix,
+	PROMPTSTRING_AUX(Str),
+	STDDFLTCTL
+	true.
+
+flora_prompt_string_no_breaklevel(Str) :-
+	send_prompt_control_seq,
+	STDPROMPTCTL
+	PROMPTSTRING_AUX(Str),
+	STDDFLTCTL
+	true.
+
+send_prompt_control_seq :-
+	(flora_configuration(promptctl,yes) ->
+	    flora_fdbk_stream(Stream),
+	    file_put_code(Stream,OUTPUT_CTL_CHAR),
+	    file_put_code(Stream,OUTPUT_CTL_CHAR)
+	; true
+	).
+
+print_break_level_prefix :-
+	flora_get_break_level(Blevel),
+	(Blevel == 0 -> true
+	; flora_stdfdbk_string('~n~w',[Blevel]),
+	    flora_stdfdbk_string(': ')
+	).
+
+flora_send_abnormality_ctl_chars(Type) :-
+	flora_configuration(uimode,studio),
+	!,
+	(Type == error ->
+	    flora_err_stream(Stream),
+	    file_put_code(Stream,OUTPUT_CTL_CHAR),
+	    file_put_code(Stream,CH_E)
+	; Type == load ->
+	    flora_err_stream(Stream),
+	    file_put_code(Stream,OUTPUT_CTL_CHAR),
+	    file_put_code(Stream,CH_L)
+	; Type == warning ->
+	    flora_warn_stream(Stream),
+	    file_put_code(Stream,OUTPUT_CTL_CHAR),
+	    file_put_code(Stream,CH_W)
+	; flora_abort('Bug!!! Invalid flora_send_abnormality_ctl_chars type',
+		      FLORA_ABORT_NOTRACE)
+	).
+flora_send_abnormality_ctl_chars(_).
+
+
+#mode save
+#mode nostring "\!#'"
+flora_abort_heading :-
+	STDERRCTL
+	flora_stderr_string('++Abort[FLSYSTEM_UNQ]> ').
+flora_error_heading :-
+	STDERRCTL
+	flora_stderr_string('++Error[FLSYSTEM_UNQ]> ').
+flora_error_indentline :- flora_stderr_string('                ').
+
+flora_warning_heading :-
+	STDWARNCTL
+	flora_stdwarn_string('++Warning[FLSYSTEM_UNQ]> ').
+flora_warning_indentline :- flora_stdwarn_string('                  ').
+
+flora_message_heading :-
+	STDMSGCTL
+	plain_message_heading.
+plain_message_heading :-
+	flora_stdmsg_string('[FLSYSTEM_UNQ: ').
+flora_message_tail :- flora_stdmsg_line(']').
+#mode restore
+
+flora_error_line(Str) :-
+	flora_error_heading,
+	flora_stderr_string(Str),
+	STDDFLTCTL
+	flora_stderr_nl.
+
+flora_error_line(Fmt,Args) :-
+	flora_error_heading,
+	flora_stderr_string(Fmt,Args),
+	STDDFLTCTL
+	flora_stderr_nl.
+
+flora_error_line_noheader(Str) :-
+	STDERRCTL
+	flora_stderr_string(Str),
+	STDDFLTCTL
+	flora_stderr_nl.
+
+flora_error_line_noheader(Fmt,Args) :-
+	STDERRCTL
+	flora_stderr_string(Fmt,Args),
+	STDDFLTCTL
+	flora_stderr_nl.
+
+flora_error_writeln(Msg) :-
+	flora_err_stream(Stream),
+	flora_error_heading,
+	write(Stream,Msg),
+	STDDFLTCTL
+	flora_stderr_nl.
+
+flora_error_writeln_noheader(Msg) :-
+	flora_err_stream(Stream),
+	STDERRCTL
+	write(Stream,Msg),
+	STDDFLTCTL
+	flora_stderr_nl.
+
+flora_abort_line(Str) :-
+	flora_abort_heading,
+	flora_stderr_string(Str),
+	STDDFLTCTL
+	flora_stderr_nl.
+
+flora_abort_line(Fmt,Args) :-
+	flora_abort_heading,
+	flora_stderr_string(Fmt,Args),
+	STDDFLTCTL
+	flora_stderr_nl.
+
+
+flora_abort_writeln(Msg) :-
+	flora_err_stream(Stream),
+	flora_abort_heading,
+	write(Stream,Msg),
+	STDDFLTCTL
+	flora_stderr_nl.
+
+flora_warning_line(Str) :-
+	flora_warning_heading,
+	flora_stdwarn_string(Str),
+	flora_stdwarn_nl,
+	STDDFLTCTL
+	flora_stdwarn_flush.
+
+flora_warning_line(Fmt,Args) :-
+	flora_warning_heading,
+	flora_stdwarn_string(Fmt,Args),
+	flora_stdwarn_nl,
+	STDDFLTCTL
+	flora_stdwarn_flush.
+
+flora_warning_line_noheader(Str) :-
+	STDWARNCTL
+	flora_stdwarn_string(Str),
+	flora_stdwarn_nl,
+	STDDFLTCTL
+	flora_stdwarn_flush.
+
+flora_warning_line_noheader(Fmt,Args) :-
+	STDWARNCTL
+	flora_stdwarn_string(Fmt,Args),
+	flora_stdwarn_nl,
+	STDDFLTCTL
+	flora_stdwarn_flush.
+
+flora_warning_string(Str) :-
+	STDWARNCTL
+	flora_stdwarn_string(Str),
+	STDDFLTCTL
+	flora_stdwarn_flush.
+
+
+flora_warning_writeln(Msg) :-
+	flora_warn_stream(Stream),
+	flora_warning_heading,
+	write(Stream,Msg),
+	STDDFLTCTL
+	flora_stderr_nl.
+
+flora_warning_writeln_noheader(Msg) :-
+	flora_warn_stream(Stream),
+	STDWARNCTL
+	write(Stream,Msg),
+	STDDFLTCTL
+	flora_stderr_nl.
+
+flora_message_line(Str) :-
+	flora_message_heading,
+	flora_stdmsg_string(Str),
+	flora_message_tail,
+	STDDFLTCTL
+	true.
+
+flora_message_line(Fmt,Args) :-
+	flora_message_heading,
+	flora_stdmsg_string(Fmt,Args),
+	flora_message_tail,
+	STDDFLTCTL
+	true.
+
+flora_message_line_noheader(Str) :-
+	STDMSGCTL
+	flora_stdmsg_string(Str),
+	STDDFLTCTL
+	flora_stdmsg_nl.
+
+flora_message_line_noheader(Fmt,Args) :-
+	STDMSGCTL
+	flora_stdmsg_string(Fmt,Args),
+	STDDFLTCTL
+	flora_stdmsg_nl.
+
+flora_message_writeln(Msg) :-
+	flora_msg_stream(Stream),
+	flora_message_heading,
+	write(Stream,Msg),
+	STDDFLTCTL
+	flora_stderr_nl.
+
+flora_message_writeln_noheader(Msg) :-
+	flora_msg_stream(Stream),
+	STDMSGCTL
+	write(Stream,Msg),
+	STDDFLTCTL
+	flora_stderr_nl.
+
+flora_loader_message(Str) :-
+	(flora_banner_control(quietload) -> true
+	; flora_message_line(Str,[])
+	).
+
+flora_loader_message(Fmt,Args) :-
+	(flora_banner_control(quietload) -> true
+	; flora_message_line(Fmt,Args)
+	).
+flora_loader_msg_nl :-
+	(flora_banner_control(quietload) -> true
+	; flora_msg_stream(Stream), nl(Stream)
+	).
+
+flora_loader_message(Str) :-
+	(flora_banner_control(quietload) -> true
+	;
+	    STDCLRLDCTL
+	    plain_message_heading,
+	    flora_stdmsg_string(Str),
+	    flora_message_tail,
+	    STDDFLTCTL
+	    true
+	).
+flora_loader_done_message(Fmt,Args) :-
+	STDCLRLDCTL
+	(flora_banner_control(quietload), flora_configuration(uimode,studio) ->
+	    flora_stdmsg_nl,
+	    flora_stdmsg_string('... '),
+	    flora_stdmsg_string(Fmt,Args),
+	    flora_stdmsg_string(' ...\n\n')
+	; flora_banner_control(quietload) -> true
+	;
+	    plain_message_heading,
+	    flora_stdmsg_string(Fmt,Args),
+	    flora_message_tail
+	),
+	STDDFLTCTL
+	true.
+
+
+flora_secondary_prompt :-
+        flora_configuration(uimode,studio),
+        !,
+        set_ergo_studio_state(wait4input).
+
+#define COMPLETION_REMINDER  '>>> complete the query >>>'
+#define REMINDER_ERASER '\r                          \n'
+flora_secondary_prompt :-
+        flora_prompt_string_no_breaklevel(COMPLETION_REMINDER),
+        sleep_ms(500),
+        flora_prompt_string_no_breaklevel(REMINDER_ERASER),
+        (flora_running_as(ergo) ->
+            flora_prompt_string_no_breaklevel('      ')
+        ;
+            flora_prompt_string_no_breaklevel('         ')
+        ).
+
+flora_status_msg(Status) :-
+        flora_configuration(uimode,studio),
+        !,
+        set_ergo_studio_state(Status).
+
+flora_status_msg(Status) :-
+        flora_get_counter(flora_verbose_feedback,1),
+        !,
+        (Status == run     -> Msg = 'Running...\b\b\b\b\b\b\b\b\b\b'
+        ; Status == pause  -> Msg = 'Pausing...\b\b\b\b\b\b\b\b\b\b'
+        ; Status == resume -> Msg = 'Resuming...\b\b\b\b\b\b\b\b\b\b'
+        ),
+        flora_prompt_string_no_breaklevel(Msg).
+
+flora_status_msg(_).

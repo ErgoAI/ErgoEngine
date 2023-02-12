@@ -1,0 +1,125 @@
+
+:- use_argumentation_theory{AT}.
+?- [ogclpe>>AT].
+
+/*
+  Group 1
+  Here \neg A1 and B1 refute each other and are disqualigied
+  (transitively defeat each other).
+*/
+@{t1,t1n} \neg A1.
+@{tt1n,tt1} B1.
+\opposes(tt1,B1,t1,\neg A1).
+
+%tst1 :- write('test1: ')@\plg,
+	 ?L = collectset{?R|status(?I,\neg A1)[howDefeated->?Z]@AT, ?R=(?I/(\neg A1),?Z)},
+	 writeln(?L)@\io.
+%tst2 :- write('test2: ')@\plg,
+	 ?L = collectset{?R|status(?I,B1)[howDefeated->?Z]@AT, ?R=(?I/B1,?Z)},
+	 writeln(?L)@\io.
+
+/*
+  Group 2
+  Differs from new GCLP
+
+    Here B2 > A2 and A2 > C2, but not B2 > C2
+    B2 does not oppose C2, but A2 opposes everything.
+
+  New GCL:
+    B2 is true, A2 is false. c2/C2 is disqualified with truth value
+    unknown.  So, it is defeated with truth value unknown, and so its
+    truth value is unknown also.
+
+  Old GCL:
+    The only difference is that c2/C2 is false rather than unknown.
+    It is false because it is refuted.
+*/
+
+@{a2} A2.
+@{b2,b2n} B2.
+@{c2n,c2} C2.
+
+\overrides(a2,c2).
+\overrides(b2,a2).
+\opposes(A2,B2).
+\opposes(A2,C2).
+
+%tst3 :- write('test3: ')@\plg,
+          true{B2}, false{C2}, false{A2}, writeln(success)@\plg.
+// this test first time does not return anything. XSB bug? Omit.
+%tst4 :- write('test4: ')@\plg,
+          ?L = collectset{?R|status(?I,A2)[howDefeated->?Z]@AT, ?R=(?I/A2,?Z)},
+          writeln(?L)@\io.
+// C2 is not defeated, so ?L should be an empty list
+%tst5 :- write('test5: ')@\plg,
+          ?L = collectset{?R | status(?I,C2)[howDefeated->?Z]@AT,
+	                       ?R = (?I/C2 , ?Z)},
+          writeln(?L)@\io.
+
+/*
+  Group 3
+  B3 > A3 > C3
+
+  GCLPs and ATCK1,2:
+      B3 - \true
+      A3, C3 - defeated
+*/
+
+@{a3,a3n} A3.
+@{b3} B3.
+@{c3n,c3} C3.
+
+\overrides(a3,c3).
+\overrides(b3,a3).
+\overrides(b3,c3). 
+\opposes(A3,B3).
+\opposes(A3,C3).
+\opposes(B3,C3).
+
+%tst6 :- write('test6: ')@\plg,
+          true{B3}, false{C3}, false{A3}, writeln(success)@\plg.
+
+/*
+  Group 4
+  t4 > r4
+  t4<->tt4 - conflict, A4/\neg A4 - conflict
+  Here t4 refutes r4. (r4 is therefore never rebutted)
+  So, r4/A4 is false.
+  tt4/B4 and t4/\neg A4 rebut each other, so they are presumed false
+             but \neg A4 is "redeemed" -- see below.
+  t4/\neg A4 remains true.
+  s4/\neg A4 is not defeated because it is not rebutted by r4/A4, and
+  it does not oppose tt4/B4 (so tt4/B4 does not rebut s4/\neg A4 either.
+*/
+
+@{r4} A4.
+@{s4,s4n} \neg A4.
+
+@{t4n,t4} \neg A4.
+@{tt4n,tt4} B4.
+
+\overrides(t4,r4).
+\opposes(tt4,B4,t4,\neg A4).
+
+
+%tst7 :- write('test7: ')@\plg,
+         false{B4}, true{\neg A4}, false{A4}, writeln(success)@\plg.
+%tst8 :- write('test8: ')@\plg,
+         ?L = collectset{?R|status(r4,A4)[howDefeated->?Z]@AT, ?R=(r4/A4,?Z)},
+          writeln(?L)@\io.
+%tst9 :- write('test9: ')@\plg,
+         ?L = collectset{?R|status(s4,\neg A4)[info->?Z]@AT, ?R=(s4/A4,?Z)},
+	 numbervars(?L)@\plg(num_vars),
+	 writeln(?L)@\io.
+
+// test 4 is omitted: misbehaves. The first time ?L = [].
+// Only the second time it returns the right answer.
+%pretest :- %tst1, %tst2, %tst3, %tst5, %tst6, %tst7, %tst8, %tst9.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	\abolishtables,
+	%pretest,
+	told@\plg.

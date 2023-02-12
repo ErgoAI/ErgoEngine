@@ -1,0 +1,45 @@
+textit{?_t:trade[(\naf Trade_ID->'D2D'), Trade_ID->?tid, Acct__->?acct, \neg Quantity->?quantity, Price->?price]@data,'trade %s except D2D, for account %s, quantity %s @ price %s', [?tid, ?acct, ?quantity, ?price]}.
+// separate for naf
+textit{\naf ?_t[Trade_ID->'D2D']@data,'trade %s is not D2D', [?_t]}.
+textit{?_t[Trade_ID->'D2D']@data,'trade %s is D2D', [?_t]}.
+// textit without naf
+textit{?_t:trade[Trade_ID->?tid, Acct__->?acct, Quantity->?quantity, Price->?price]@data,'trade %s for account %s, quantity %s @ price %s', [?tid, ?acct, ?quantity, ?price]}.
+
+?- newmodule{data},
+        insert{123:trade[Trade_ID->aaa, Acct__->acct, \neg Quantity->quantity, Price->567]@data}.
+ 
+
+// orig query
+%tst1 :-
+        ?t:trade[(\naf Trade_ID->'D2D'), Trade_ID->?tid, Acct__->?acct,
+                  \neg Quantity->?quantity, Price->?price]@data,
+        ${?t:trade[(\naf Trade_ID->'D2D'), Trade_ID->?tid, Acct__->?acct,
+                    \neg Quantity->?quantity, Price->?price]@data}
+        [why(full, textonly)->?explanation]@\why,
+        writeln(test1=?explanation)@\io.
+
+
+// split query
+%tst2 :-
+        ?t:trade[\naf Trade_ID->'D2D']@data,
+        ?t:trade[Trade_ID->?tid, Acct__->?acct, \neg Quantity->?quantity,
+                  Price->?price]@data,
+        ${\naf ?t:trade[Trade_ID->'D2D']@data,
+           ?t:trade[Trade_ID->?tid, Acct__->?acct, \neg Quantity->?quantity,
+                     Price->?price]@data}
+        [why(full, textonly)->?explanation]@\why,
+        writeln(test2=?explanation)@\io.
+
+?- [+textit1_aux>>QRE].
+
+%tst3 :- ${pppp(?)@QRE}[why(full,textonly)->?E]@\why,
+         writeln(test3=?E)@\io.
+
+
+%pretest :- %tst1, %tst2, %tst3.
+
+
+%test :- tell(temp)@\plg,
+	%pretest,
+	told@\plg.
+

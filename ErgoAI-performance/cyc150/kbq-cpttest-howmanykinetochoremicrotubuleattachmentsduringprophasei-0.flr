@@ -1,0 +1,97 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-HowManyKinetochoreMicrotubuleAttachmentsDuringProphaseI (query 0)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_In-House_8_.28Moderate.29
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Explicit Background Rules
+backwardSentence(relationExistsCountInstance(eventOccursAt, MicrotubuleConnectsToKinetochore, ?CELL, ?N)) :- mtVisible(MicrobiologyMt), naf backchainForbidden(relationExistsCountInstance), organismDiploidNumber(?ORG, ?N), cellSource(?CELL, ?ORG), isa(?CELL, CellTypeByCellLifeStageFn(ProphaseI)).
+backwardSentence(not(isa(?CELL, CellTypeByCellLifeStageFn(ProphaseI)))) :- mtVisible(MicrobiologyMt), naf backchainForbidden(isa), organismDiploidNumber(?ORG, ?N), cellSource(?CELL, ?ORG), not(relationExistsCountInstance(eventOccursAt, MicrotubuleConnectsToKinetochore, ?CELL, ?N)).
+backwardSentence(not(cellSource(?CELL, ?ORG))) :- mtVisible(MicrobiologyMt), naf backchainForbidden(cellSource), organismDiploidNumber(?ORG, ?N), isa(?CELL, CellTypeByCellLifeStageFn(ProphaseI)), not(relationExistsCountInstance(eventOccursAt, MicrotubuleConnectsToKinetochore, ?CELL, ?N)).
+backwardSentence(not(organismDiploidNumber(?ORG, ?N))) :- mtVisible(MicrobiologyMt), naf backchainForbidden(organismDiploidNumber), cellSource(?CELL, ?ORG), not(relationExistsCountInstance(eventOccursAt, MicrotubuleConnectsToKinetochore, ?CELL, ?N)), isa(?CELL, CellTypeByCellLifeStageFn(ProphaseI)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259630', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259630', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-CellTypeByCellLifeStageFnProphaseI-259631', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259630', isa('HYP-CellTypeByCellLifeStageFnProphaseI-259631', CellTypeByCellLifeStageFn(ProphaseI))).
+istAsserted(UniversalVocabularyMt, isa('HYP-EukaryoticOrganism-259632', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259630', isa('HYP-EukaryoticOrganism-259632', EukaryoticOrganism)).
+istAsserted('Hypothesis-HypotheticalContext-259630', cellSource('HYP-CellTypeByCellLifeStageFnProphaseI-259631', 'HYP-EukaryoticOrganism-259632')).
+istAsserted('Hypothesis-HypotheticalContext-259630', organismDiploidNumber('HYP-EukaryoticOrganism-259632', 46)).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259641', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259641', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-CellTypeByCellLifeStageFnProphaseI-259642', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259641', isa('HYP-CellTypeByCellLifeStageFnProphaseI-259642', CellTypeByCellLifeStageFn(ProphaseI))).
+istAsserted(UniversalVocabularyMt, isa('HYP-EukaryoticOrganism-259643', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259641', isa('HYP-EukaryoticOrganism-259643', EukaryoticOrganism)).
+istAsserted('Hypothesis-HypotheticalContext-259641', cellSource('HYP-CellTypeByCellLifeStageFnProphaseI-259642', 'HYP-EukaryoticOrganism-259643')).
+istAsserted('Hypothesis-HypotheticalContext-259641', organismDiploidNumber('HYP-EukaryoticOrganism-259643', 46)).
+
+// Query
+queryMt('Hypothesis-HypotheticalContext-259641').
+//REMOVED TITLE('KBQ  : $CPTTest-HowManyKinetochoreMicrotubuleAttachmentsDuringProphaseI 0').
+%pretest :- relationExistsCountInstance(eventOccursAt, MicrotubuleConnectsToKinetochore, 'HYP-CellTypeByCellLifeStageFnProphaseI-259642', ?N), %write_results('SUCCESS  : $CPTTest-HowManyKinetochoreMicrotubuleAttachmentsDuringProphaseI 0').
+
+// Debugging
+proof(2349, 0) :- isa('HYP-CellTypeByCellLifeStageFnProphaseI-259642', CellTypeByCellLifeStageFn(ProphaseI)).
+proof(2349, 1) :- cellSource('HYP-CellTypeByCellLifeStageFnProphaseI-259642', 'HYP-EukaryoticOrganism-259643').
+proof(2349, 2) :- cellSource('HYP-CellTypeByCellLifeStageFnProphaseI-259642', 'HYP-EukaryoticOrganism-259643').
+proof(2349, 3) :- organismDiploidNumber('HYP-EukaryoticOrganism-259643', 46).
+proof(2349, 4) :- organismDiploidNumber('HYP-EukaryoticOrganism-259643', 46).
+proof(2349, 5) :- organismDiploidNumber('HYP-EukaryoticOrganism-259643', 46).
+proof(2349, 6) :- organismDiploidNumber('HYP-EukaryoticOrganism-259643', 46), cellSource('HYP-CellTypeByCellLifeStageFnProphaseI-259642', 'HYP-EukaryoticOrganism-259643').
+proof(2349, 7) :- isa('HYP-CellTypeByCellLifeStageFnProphaseI-259642', CellTypeByCellLifeStageFn(ProphaseI)), organismDiploidNumber('HYP-EukaryoticOrganism-259643', 46), cellSource('HYP-CellTypeByCellLifeStageFnProphaseI-259642', 'HYP-EukaryoticOrganism-259643').
+proof(2349, 8) :- relationExistsCountInstance(eventOccursAt, MicrotubuleConnectsToKinetochore, 'HYP-CellTypeByCellLifeStageFnProphaseI-259642', 46).
+
+proof(2349, 1000) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(2349, 1001) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(2349, 1002) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(2349, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-259641', 1, genlMt).
+proof(2349, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-259641', 2, genlMt).
+proof(2349, 2002) :- genlMt('Hypothesis-HypotheticalContext-259641', UniversalVocabularyMt).
+proof(2349, 2003) :- genlMt('Hypothesis-HypotheticalContext-259641', 'Hypothesis-HypotheticalContext-259641').
+proof(2349, 2004) :- genlMt('Hypothesis-HypotheticalContext-259641', MicrobiologyMt).
+proof(2349, 2005) :- isa('HYP-CellTypeByCellLifeStageFnProphaseI-259642', CellTypeByCellLifeStageFn(ProphaseI)). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

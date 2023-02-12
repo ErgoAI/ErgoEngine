@@ -1,0 +1,99 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-AmitoticTissueHasNoCellsBetweenSPhaseAndG2Phase (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(typedGenlPreds, genlPreds)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, transitiveViaArgInverse(relationNotExistsExists, genlPreds, 1)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(BiologyMt, superEventTypes(InterphaseOfEukaryoticCellCycle, EukaryoticCellCycle)).
+istAsserted(UniversalVocabularyMt, isa(superEventTypes, TransitiveBinaryPredicate)).
+istAsserted(BaseKB, termOfUnit(EntityOfTypeBetweenStagesFn(EukaryoticCell, InterphaseOfEukaryoticCellCycle, SPhase, G2Phase), EntityOfTypeBetweenStagesFn(EukaryoticCell, InterphaseOfEukaryoticCellCycle, SPhase, G2Phase))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(BiologyMt, superEventTypes(SPhase, EukaryoticCellCycle)).
+istAsserted(UniversalVocabularyMt, genlPreds(uniqueSuperEventTypes, superEventTypes)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, typedGenlPreds(tissueHasCells, groupMembers)).
+istAsserted(BiologyMt, uniqueSuperEventTypes(G2Phase, InterphaseOfEukaryoticCellCycle)).
+istAsserted(BiologyMt, groupTypeCharacterisicallyLacksSitTypeParticipants(AmitoticTissue, EukaryoticCellCycle)).
+
+// Implicit Background Rules
+forwardSentence(relationNotExistsExists(groupMembers, ?GROUP_TYPE, ?OBJECT_TYPE)) :- removalSentence(groupTypeCharacterisicallyLacksSitTypeParticipants(?GROUP_TYPE, ?EVENT_TYPE)), removalSentence(entityOfTypeBetweenStages(?XOBJ_TYPE, ?TYPE, ?SUB_EVENT_TYPE1, ?SUB_EVENT_TYPE2, ?OBJECT_TYPE)), removalSentence(superEventTypes(?TYPE, ?EVENT_TYPE)), removalSentence(superEventTypes(?SUB_EVENT_TYPE1, ?EVENT_TYPE)), removalSentence(superEventTypes(?SUB_EVENT_TYPE2, ?EVENT_TYPE)).
+forwardSentence(entityOfTypeBetweenStages(?OBJ_TYPE, ?SIT_TYPE, ?SUBSIT_TYPE1, ?SUBSIT_TYPE2, ?ENTITYOFTYPEBETWEENSTAGESFN)) :- removalSentence(termOfUnit(?ENTITYOFTYPEBETWEENSTAGESFN, EntityOfTypeBetweenStagesFn(?OBJ_TYPE, ?SIT_TYPE, ?SUBSIT_TYPE1, ?SUBSIT_TYPE2))).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-AmitoticTissueHasNoCellsBetweenSPhaseAndG2Phase 0').
+%pretest :- relationNotExistsExists(tissueHasCells, AmitoticTissue, EntityOfTypeBetweenStagesFn(EukaryoticCell, InterphaseOfEukaryoticCellCycle, SPhase, G2Phase)), %write_results('SUCCESS  : $CPTTest-AmitoticTissueHasNoCellsBetweenSPhaseAndG2Phase 0').
+
+// Debugging
+proof(8502, 0) :- relationNotExistsExists(tissueHasCells, AmitoticTissue, EntityOfTypeBetweenStagesFn(EukaryoticCell, InterphaseOfEukaryoticCellCycle, SPhase, G2Phase)).
+
+proof(8502, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(8502, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(8502, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(8502, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(8502, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(8502, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(8502, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(8502, 1007) :- superEventTypes(SPhase, EukaryoticCellCycle).
+proof(8502, 1008) :- genlPreds(tissueHasCells, groupMembers).
+proof(8502, 1009) :- entityOfTypeBetweenStages(EukaryoticCell, InterphaseOfEukaryoticCellCycle, SPhase, G2Phase, EntityOfTypeBetweenStagesFn(EukaryoticCell, InterphaseOfEukaryoticCellCycle, SPhase, G2Phase)).
+proof(8502, 1010) :- relationNotExistsExists(groupMembers, AmitoticTissue, EntityOfTypeBetweenStagesFn(EukaryoticCell, InterphaseOfEukaryoticCellCycle, SPhase, G2Phase)).
+
+proof(8502, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(8502, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(8502, 2002) :- admittedArgument(SecondFn(21, MinuteFn(14, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(8502, 2003) :- admittedArgument(SecondFn(21, MinuteFn(14, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(8502, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(8502, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(8502, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiologyMt).
+proof(8502, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(8502, 2008) :- genlPreds(typedGenlPreds, genlPreds).
+proof(8502, 2009) :- superEventTypes(G2Phase, EukaryoticCellCycle).
+proof(8502, 2010) :- superEventTypes(SPhase, EukaryoticCellCycle).
+proof(8502, 2011) :- relationNotExistsExists(tissueHasCells, AmitoticTissue, EntityOfTypeBetweenStagesFn(EukaryoticCell, InterphaseOfEukaryoticCellCycle, SPhase, G2Phase)).
+proof(8502, 2012) :- superEventTypes(G2Phase, EukaryoticCellCycle). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

@@ -1,0 +1,65 @@
+
+:- symbol_context{tst3/0, tst5/0}.
+
+%tst1 :- a[b->?X]@foo, 
+	 write('tst1: ')@\plg(),	 
+	 writeln(?X)@\plg(),
+	 \false.
+
+%tst1 :- \true.
+
+%tst2 :- ?_[?Y->f]@foo,
+	 write('tst2: ')@\plg(),	 
+	 writeln(?Y)@\plg(),
+	 \false.
+
+%tst2 :- \true.
+
+%tst3 :- ?L=setof{?Z|p(?Z)@foo},
+	 %writelst(?L,tst3).
+
+%tst4 :- //?N = count{?O1|?O1[name->?_name1, spouse ->?_O2[name->?_name2]]@foo},
+	 write('tst4: ')@\plg(),	 
+	 //writeln(?N)@\plg(),
+	 ?XX=setof{?O1|?O1[name->?_name1, spouse ->?_O2[name->?_name2]]@foo},
+	 ?XX[length->?XXX]@\basetype,
+	 writeln(?XXX)@\plg.
+
+%tst5 :- ?L=setof{?NN|?O1[name->?Name1, spouse ->?O2[name->?Name2]]@foo,
+	               isskolem{?O1}, isskolem{?O2},
+		       ?NN = ?Name1/?Name2},
+	 %writelst(?L,tst5).
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5.
+
+%pretest1 :- writeln('[add1>>foo],[+add2>>foo]')@\plg(), 
+	     [add1>>foo], [+add2>>foo],
+	     %pretest.
+
+%pretest2 :- writeln('[add1>>foo], [+add2>>foo], [+add2>>foo], compileadd{add2>>foo}, add{add2>>foo}')@\plg, 
+	     // add1 wipes out everything
+	     // add2 was already compiled, so adding it twice won't increase
+             // the number of Skolem oids.
+	     [add1>>foo], [+add2>>foo], [+add2>>foo],
+	     // a new compile - but since add2.flr hasn't been modified,
+	     // no recompile and no new oid's added.
+	     // But: FLORA_COMPILATION_ID may change between runs, so
+	     // sometimes the results might be different
+	     compileadd{add2>>foo}, add{add2>>foo},
+	     \abolishtables,
+	     %pretest.
+
+%test :- tell(temp)@\plg, 
+        Method[mustDefine(on)]@\sys,
+	%pretest1, %pretest2,
+        Method[mustDefine(off)]@\sys,
+	%pretest1, %pretest2,
+	told@\plg.	     
+
+
+%writelst([],?_Header) :- !.
+%writelst([?H|?R],?Header) :-
+	(write(?Header),
+	 write(': '),
+	 writeln(?H))@\plg,
+	 %writelst(?R,?Header).

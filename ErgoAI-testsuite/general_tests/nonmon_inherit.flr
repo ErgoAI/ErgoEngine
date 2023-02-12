@@ -1,0 +1,79 @@
+/* This demo shows various cases of non-monotonic inheritance */
+
+//q.q[]. path expression is illegal in rule head now.
+
+a[|b -> c|].
+a[|b1 -> c1|].
+aa:a.
+aa[b->d].
+
+%tst1 :- aa[b->?X], writeln(?X)@\plg(), \false.      // X=d
+%tst1 :- \true.
+
+aaa::a.
+%tst2 :- aaa[|?U->?Y|],
+	write(?U)@\plg(), write('  ')@\plg(), writeln(?Y)@\plg(), \false.
+%tst2 :- \true.
+
+a1[|b -> d|].
+aaaa:a1.
+aaaa:a.
+%tst3 :- aaaa[?U->?Y],
+	write(?U)@\plg(), write('  ')@\plg(), writeln(?Y)@\plg(), \false.
+%tst3 :- \true.
+
+//------------------
+
+
+ab[|b -> {cc,dd}|].
+ab[|b2 -> {cc2,dd2}|].
+
+abb:ab.
+abb[b -> tt].
+%tst4 :- abb[?M -> ?K],
+	write(?M)@\plg(), write('  ')@\plg(), writeln(?K)@\plg(), \false.
+%tst4 :- \true.
+
+aabb:ab.
+%tst5 :- aabb[?M -> ?K],
+	write(?M)@\plg(), write('  ')@\plg(), writeln(?K)@\plg(), \false.
+%tst5 :- \true.
+
+abbb::ab.
+abbb[|b -> e|].
+%tst6 :- abbb[|?M -> ?K|],
+	write(?M)@\plg(), write('  ')@\plg(), writeln(?K)@\plg(), \false.
+%tst6 :- \true.
+
+ab1[|b -> ttt|].
+ab1::ab.
+bbb[|b2 -> {e}|].
+aabb1:bbb.
+aabb1:ab1.
+
+%tst7 :- aabb1[?M -> ?K],
+	write(?M)@\plg(),write('  ')@\plg(),writeln(?K)@\plg(),\false.
+%tst7 :- \true.
+
+Organization[| orgForm(federalTax) -> partnership, orgForm2(federalTax) -> 1 |].
+Organization[| orgForm(stateCorporate) -> corporation |].
+
+Schmorganization[|orgForm2(stateCorporate) -> 2 |].
+
+entity1:{Organization, Schmorganization}.
+
+%tst8 :- entity1[orgForm(?X)->?V], writeln(test8=?X+?V)@\plg.
+
+%tst9 :- \naf entity1[orgForm2(?) -> ?], writeln(test9=ok)@\plg.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+
+

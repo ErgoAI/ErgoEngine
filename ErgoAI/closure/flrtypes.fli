@@ -1,0 +1,170 @@
+/*******************************************************************************
+  file: closure/flrtypes.fli - Axioms for primitive data types
+
+  Author(s): Michael Kifer
+
+  Contact:   flora-users@lists.sourceforge.net
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+*******************************************************************************/
+
+#include "flora_terms.flh"
+
+#define ground_and_acyclic(X)  (ground(X),is_acyclic(X))
+
+:- import flora_when/2 from flrwhen.
+:- import
+	dtype_sub/2,
+	dtype_isa/2,
+        dtype_isa_base/2,
+	FLORA_SYMBOL('isa_long')/1,
+	FLORA_SYMBOL('isa_float')/1,
+	FLORA_SYMBOL('isa_symbol')/1,
+	FLORA_SYMBOL('isa_listtype')/1,
+	FL_TYPE_GUARD/1,
+	FL_TYPE_GUARD/2,
+	FL_TYPE_ESCAPE/0
+   from flrdtype_sub.
+
+%% We do not want the silent ISA relationships to be shown by the debugger
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+FLTRAILERPREFIX(WRAP_SUB)(X,Y,_FWContext) :- dtype_sub(X,Y).
+FLTRAILERPREFIX(WRAP_ISA)(X,Y,_FWContext) :- dtype_isa_base(X,Y).
+%% not using dtype_isa/2 because transitivity w.r.t. :: is ensured
+%% by the other ISA-axioms.
+%%FLTRAILERPREFIX(WRAP_ISA)(X,Y,_FWContext) :- dtype_isa(X,Y).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Type combinators
+%% Restrictions on C1, C2 are precautions against infinite loops
+%% due to things like (\string,(\string,(\string,...)...))
+FLTRAILERPREFIX(WRAP_ISA)(X, (C1,C2),FL_CONTEXT(Caller,_,_)) :-
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,'FLORA_THIS_MODULE_NAME'),
+	(FL_TYPE_GUARD(C1), FL_TYPE_GUARD(C2) ->
+		WRAP_ISA(X,C1,FL_CONTEXT(Caller,_,_)),
+	    	WRAP_ISA(X,C2,FL_CONTEXT(Caller,_,_))
+	; FL_TYPE_ESCAPE
+	).
+
+%% The glb rule
+FLTRAILERPREFIX(WRAP_SUB)(X, (C1,C2),FL_CONTEXT(Caller,_,_)) :-
+	X \== FL_TOPTYPE,
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,'FLORA_THIS_MODULE_NAME'),
+	(FL_TYPE_GUARD(C1), FL_TYPE_GUARD(C2) ->
+		WRAP_SUB(X,C1,FL_CONTEXT(Caller,_,_)),
+	    	WRAP_SUB(X,C2,FL_CONTEXT(Caller,_,_)),
+		FLORA_NAF_PREDICATE(FL_TABLED_NAF_CALL(WRAP_DIFFOBJEQL(X,(C1,C2),FL_CONTEXT(Caller,_,_)))),
+	    	X \= (C1,C2), X \= (C2,C1)
+	; FL_TYPE_ESCAPE
+	).
+
+FLTRAILERPREFIX(WRAP_SUB)((C11,C2),C1,_FWContext) :-
+	C2 \== FL_TOPTYPE,
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,'FLORA_THIS_MODULE_NAME'),
+	(FL_TYPE_GUARD(C1,C11) ->
+	      WRAP_OBJEQL(C1,C11,FL_CONTEXT(Caller,_,_)),
+	      (nonvar(C2) ->
+		  FLORA_NAF_PREDICATE(FL_TABLED_NAF_CALL(WRAP_SUB(C1,C2,FL_CONTEXT(Caller,_,_)))),
+		  FLORA_NAF_PREDICATE(FL_TABLED_NAF_CALL(WRAP_DIFFOBJEQL(C1,C2,FL_CONTEXT(Caller,_,_))))
+	      %% need a better alternative here: maybe C2-delayed undefined
+	      ; true
+	      )
+	; FL_TYPE_ESCAPE
+	).
+
+FLTRAILERPREFIX(WRAP_SUB)((C1,C22),C2,_FWContext) :-
+        C1 \== FL_TOPTYPE,
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,'FLORA_THIS_MODULE_NAME'),
+	(FL_TYPE_GUARD(C2,C22) ->
+	      WRAP_OBJEQL(C2,C22,FL_CONTEXT(Caller,_,_)),
+	      (nonvar(C1) ->
+		  FLORA_NAF_PREDICATE(FL_TABLED_NAF_CALL(WRAP_SUB(C2,C1,FL_CONTEXT(Caller,_,_)))),
+		  FLORA_NAF_PREDICATE(FL_TABLED_NAF_CALL(WRAP_DIFFOBJEQL(C1,C2,FL_CONTEXT(Caller,_,_))))
+	      %% need a better alternative here: maybe C1-delayed undefined
+	      ; true
+	      )
+	; FL_TYPE_ESCAPE
+	).
+
+%% Restrictions on C1, C2 are precautions against infinite loops
+%% due to things like (\string,(\string,(\string,...)...))
+FLTRAILERPREFIX(WRAP_ISA)(X, (C1;C2),FL_CONTEXT(Caller,_,_)) :-
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,'FLORA_THIS_MODULE_NAME'),
+	( \+FL_TYPE_GUARD(C1), \+FL_TYPE_GUARD(C2) -> FL_TYPE_ESCAPE
+	; FL_TYPE_GUARD(C1), WRAP_ISA(X,C1,FL_CONTEXT(Caller,_,_))
+	; FL_TYPE_GUARD(C2), WRAP_ISA(X,C2,FL_CONTEXT(Caller,_,_))
+	).
+
+%% The lub rule
+FLTRAILERPREFIX(WRAP_SUB)((C1;C2),X,FL_CONTEXT(Caller,_,_)) :-
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,'FLORA_THIS_MODULE_NAME'),
+	(FL_TYPE_GUARD(C1), FL_TYPE_GUARD(C2) ->
+		WRAP_SUB(C1,X,FL_CONTEXT(Caller,_,_)),
+		WRAP_SUB(C2,X,FL_CONTEXT(Caller,_,_)),
+		FLORA_NAF_PREDICATE(FL_TABLED_NAF_CALL(WRAP_DIFFOBJEQL(X,(C1;C2),FL_CONTEXT(Caller,_,_)))),
+		X \= (C1;C2), X \= (C2;C1)
+	; FL_TYPE_ESCAPE
+	).
+
+FLTRAILERPREFIX(WRAP_SUB)(C1,(C11;C2),_FWContext) :-
+	C1 \== FL_TOPTYPE,
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,'FLORA_THIS_MODULE_NAME'),
+	(FL_TYPE_GUARD(C1,C11) ->
+	      WRAP_OBJEQL(C1,C11,FL_CONTEXT(Caller,_,_)),
+	      (nonvar(C2) ->
+		  FLORA_NAF_PREDICATE(FL_TABLED_NAF_CALL(WRAP_SUB(C2,C1,FL_CONTEXT(_,_,_)))),
+		  FLORA_NAF_PREDICATE(FL_TABLED_NAF_CALL(WRAP_DIFFOBJEQL(C1,C2,FL_CONTEXT(_,_,_))))
+	      %% need a better alternative here: maybe C2-delayed undefined
+	      ; true
+	      )
+	; FL_TYPE_ESCAPE
+	).
+
+FLTRAILERPREFIX(WRAP_SUB)(C2,(C1;C22),_FWContext) :-
+	C2 \== FL_TOPTYPE,
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,'FLORA_THIS_MODULE_NAME'),
+	(FL_TYPE_GUARD(C2,C22) ->
+	      WRAP_OBJEQL(C2,C22,FL_CONTEXT(Caller,_,_)),
+	      (nonvar(C1) ->
+		  FLORA_NAF_PREDICATE(FL_TABLED_NAF_CALL(WRAP_SUB(C1,C2,FL_CONTEXT(_,_,_)))),
+		  FLORA_NAF_PREDICATE(FL_TABLED_NAF_CALL(WRAP_DIFFOBJEQL(C2,C1,FL_CONTEXT(_,_,_))))
+	      %% need a better alternative here: maybe C1-delayed undefined
+	      ; true
+	      )
+	; FL_TYPE_ESCAPE
+	).
+
+
+%% C2 must be ground, since they are under NOT
+%% (semantics for non-ground NOT is NOT EXISTS)
+FLTRAILERPREFIX(WRAP_ISA)(X, (C1-C2),FL_CONTEXT(Caller,_,_)) :-
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,'FLORA_THIS_MODULE_NAME'),
+	ground_and_acyclic(C2),
+	WRAP_ISA(X,C1,FL_CONTEXT(Caller,_,_)),
+	FLORA_NAF_EXISTS(WRAP_ISA(X,C2,FL_CONTEXT(Caller,_,_))).
+
+FLTRAILERPREFIX(WRAP_SUB)((C11-C2),C1,_FWContext) :-
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,'FLORA_THIS_MODULE_NAME'),
+	(FL_TYPE_GUARD(C1,C11) -> C1 = C11
+	; FL_TYPE_ESCAPE
+	).
+
+/********************* End of standard type definitions *******************/
+#undef ground_and_acyclic

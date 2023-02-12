@@ -1,0 +1,208 @@
+tst0: ${f(a)}  f(a)@main res = ${f(a)@main}
+tst1: f(a)  res = f(a)
+tst2: f(g(${a[b->c]}))(a)  f(g(${a[b->c]@main}))(a)
+tst3: f(a)  f(a)@main
+tst4: f(g(${a[b->c]}))(a)  f(g(${a[b->c]@main}))(a)@main
+tst5: f(g(b),g(${a[b->c]}))  f(g(b),g(${a[b->c]@main}))
+tst6: f(g(b),g(${a[b->c]}))  f(g(b),g(${a[b->c]@main}))
+tst7: f(g(${a[b->c]}))(a)  f(g(${a[b->c]@main}))(a)@main
+tst8: f(g,g(${a[b->c]})@\plg())@\plg()  f(g,g(${a[b->c]@main})@\prolog)@\prolog
+tst9: f(a)@foobar  f(a)@foobar
+tst10: f(a)  res = f(a)
+tst11: atom(a)  res = atom(a)
+tst12: p(a)  p(a)
+tst13: (\+ ppp)  \+ ppp
+tst14: (\+ ppp)  \+ ppp@main
+tst15: call(ppp)  call(ppp)
+tst16: res=\naf(ppp)  res = \naf ppp (here \naf is a HiLog function symbol)
+tst17: \naf(ppp)  \naf ppp (here \naf is also a HiLog function symbol)
+tst18: \naf(ppp)  (\naf ppp@main)
+tst19: atom(a)  atom(a)
+tst20: a+b  a + b
+tst21: ${f(a)@foo}  res = ${f(a)@foo}
+tst22: ${f(a)@foobar}  res = ${f(a)@foobar}
+tst23: a[b->c]  a[b->c]@main
+tst24: a[b->c(ff(${dd[dd->dd]}))]  a[b->c(ff(${dd[dd->dd]@main}))]@main
+tst25: g(a)[f(b)->h(c)]  g(a)[f(b)->h(c)]@main
+tst26: ${g(a)[|p(d)->h|]}[f(b)->h(c)]  ${g(a)[|p(d)->h|]@main}[f(b)->h(c)]@main
+tst27: ${a[b->c]}  res = ${a[b->c]@main}
+tst28: ${a[b->c]@foo}  res = ${a[b->c]@foo}
+tst29: ${a[b->c]@bar}  res = ${a[b->c]@bar}
+tst30: a[b->c]@bar  a[b->c]@bar
+tst31: ${a[|b->c|]}  res = ${a[|b->c|]@main}
+tst32: ${a[b{1..1}=>c]}  res = (${a[b=>c]@main}, ${a[b{1..1}=>?]@main})
+tst33: ${a[|b{1..1}=>c|]}  res = (${a[|b=>c|]@main}, ${a[|b{1..1}=>?|]@main})
+tst34: ${a[b->c]}  res = ${a[b->c]@main}
+tst35: ${a[b->{c,d}]}  res = (${a[b->c]@main}, ${a[b->d]@main})
+tst36: ${a[b->->c]}  res = ${a[b->->c]@main}
+tst37: ${a[|b->->c|]}  res = ${a[|b->->c|]@main}
+tst38: ${a[|b->c|]}  res = ${a[|b->c|]@main}
+tst39: ${a[|b+>>c|]}  res = ${a[|b+>>c|]@main}
+tst40: a[|b+>>c|]  a[|b+>>c|]@main
+tst41: ${a[b=>c]}  res = ${a[b=>c]@main}
+tst42: ${a[|b=>c|]}  res = ${a[|b=>c|]@main}
+tst43: ${a[pp(a,y)]}  res = ${a[pp(a,y)]@main}
+tst44: ${a[|pp(a,y)|]}  res = ${a[|pp(a,y)|]@main}
+tst45: ${a[%pp(a,y)]}  res = ${a[%pp(a,y)]@main}
+tst46: ${a:=:b}  res = ${a:=:b@main}
+tst47: ${f(a):=:g(b,p)}  res = ${f(a):=:g(b,p)@main} f(a):=:g(b,p)@main
+tst48: p(y)@\plg()  res = p(y)@\prolog
+tst49: p(y)@\plg(aaa)  res = p(y)@\prolog(aaa)
+tst50: p(y)@\plg(aaa)  p(y)@\prolog(aaa)
+tst51: ${p(y)@foo}  res = ${p(y)@foo}
+tst52: ${a[b->c]@foo}  res = ${a[b->c]@foo}
+tst53: ${\if a[b->c]@foo \then b[y->p] \else g(c)}  res = ${\if (a[b->c]@foo) \then (b[y->p]@main) \else (g(c)@main)} \if (a[b->c]@foo) \then (b[y->p]@main) \else (g(c)@main)
+tst54: ${\if (a[b->c]@foo, p(a)) \then b}  res = ${\if ((a[b->c]@foo, p(a)@main)) \then (b@main)}
+tst55: \unless a[b->c]@foo \do b  \unless (a[b->c]@foo) \do (b@main)
+tst56: ${\while a[b->c]@foo \do b}  res = ${\while (a[b->c]@foo) \do (b@main)}
+tst57: ${\while a[b->c]@foo \loop p[%p(r)]}  res = ${\while (a[b->c]@foo) \loop (p[%p(r)]@main)}
+tst58: \loop a[b->c]@foo \until b  \loop (a[b->c]@foo) \until (b@main)
+tst59: ${\do a[b->c]@foo \until b}  res = ${\do (a[b->c]@foo) \until (b@main)}
+tst62: ${insert{a[b->c]}}  res = ${insert{ a[b->c]@main }}
+tst63: ${insert{a[b->c],e[f->g]}}  res = ${insert{ a[b->c]@main, e[f->g]@main }}
+tst64: ${insert{a[b->c]|e[f->g],2>1}}  res = ${insert{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst65: ${delete{a[b->c],e[f->g]}}  res = ${delete{ a[b->c]@main, e[f->g]@main }}
+tst66: ${delete{a[b->c]|e[f->g],2>1}}  res = ${delete{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst67: ${deleteall{a[b->c]|e[f->g],2>1}}  res = ${deleteall{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst68: ${eraseall{a[b->c]| 2>1}}  res = ${eraseall{ a[b->c]@main|2 > 1 }}
+tst69: ${erase{a[b->c]|e[f->g],2>1}}  res = ${erase{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst70: ${t_insert{a[b->c],e[f->g]}}  res = ${t_insert{ a[b->c]@main, e[f->g]@main }}
+tst71: ${t_insert{a[b->c]|e[f->g],2>1}}  res = ${t_insert{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst72: ${t_delete{a[b->c],e[f->g]}}  res = ${t_delete{ a[b->c]@main, e[f->g]@main }}
+tst73: ${t_delete{a[b->c]|e[f->g],2>1}}  res = ${t_delete{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst74: ${t_deleteall{a[b->c]|e[f->g],2>1}}  res = ${t_deleteall{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst75: ${t_erase{a[b->c]}}  res = ${t_erase{ a[b->c]@main }}
+tst76: ${t_erase{a[b->c]|e[f->g],2>1}}  res = ${t_erase{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst77: ${t_eraseall{a[b->c]|e[f->g],2>1}}  res = ${t_eraseall{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst78: ${F=avg{?Y|e[?Y->g],2>1}}  res = ${?E = avg{ ?A|(e[?A->g]@main, 2 > 1) }}
+tst79: ${?F=avg{?Y [?Z]|e[?Y->g],?Z>1}}  res = ${?F = avg{ ?A[?C]|(e[?A->g]@main, ?C > 1) }} ?F = avg{ ?A[?C]|(e[?A->g]@main, ?C > 1) }
+tst80: ${?F=avg{?Y [?Z,?V]|e[?Y->g],?Z>?V}}  res = ${?G = avg{ ?A[?C,?D]|(e[?A->g]@main, ?C > ?D) }}
+tst81: ${?F=count{?Y|e[?Y->g],2>1}}  res = ${?E = count{ ?A|(e[?A->g]@main, 2 > 1) }}
+tst82: ${p2h{f(s),g(p,a)}}  res = p2h{ f(s),g(p,a) }
+tst83: ${refresh{a[b->c]}}  res = ${refresh{ a[b->c]@main }}
+tst84: ${refresh{a[b->c],d[g->p]}}  res = ${refresh{ a[b->c]@main, d[g->p]@main }}
+tst85: ${throw{a(b,c)}}  res = ${throw{ a(b,c) }}
+tst86: throw{a(b,c)}  throw{ a(b,c) }
+tst87: ${catch{a[b->c],f(a),p(oo)}}  res = ${catch{ a[b->c]@main,f(a),p(oo)@main }}
+tst88: res = (((${a[%pp(a,y)]@main}, ${a[pp(g(a),h(y))]@main}); ${a[f(a)->b]@main}), ${a[|pp(a,y)|]@main})
+tst89: ${a:b[b->c,e->f]}  res = ((${a[b->c]@main}, ${a[e->f]@main}), ${a:b@main})
+tst90: ${a[b->c;p->q]}  res = (${a[b->c]@main}; ${a[p->q]@main})
+tst91: ${a[b->c,e->f;p->{q,r},oo+>>you]}  res = ((${a[b->c]@main}, ${a[e->f]@main}); ((${a[p->q]@main}, ${a[p->r]@main}), ${a[oo+>>you]@main}))
+tst92: ${(a[b->c,e->f],ppp[p->{q,r}] ; qq[oo+>>you])}  res = (((${a[b->c]@main}, ${a[e->f]@main}), (${ppp[p->q]@main}, ${ppp[p->r]@main})); ${qq[oo+>>you]@main})
+tst93: [${a[b->c,e->f]},fff(y,pp),${(ppp[p->{q,r}],qq[oo+>>you])}]  res = [(${a[b->c]@main}, ${a[e->f]@main}), fff(y,pp), ((${ppp[p->q]@main}, ${ppp[p->r]@main}), ${qq[oo+>>you]@main})]
+tst94: [${a[b->c,e->f]},fff(y,pp),(${(ppp[p->{q,r}],qq[oo+>>you])})]  res = [(${a[b->c]@main}, ${a[e->f]@main}), fff(y,pp), ((${ppp[p->q]@main}, ${ppp[p->r]@main}), ${qq[oo+>>you]@main})]
+tst96: p([f(a) - g(b), h(s) - j(o)])
+tst97: res = [f(a - b), h(s) - j(o)]
+tst98: \# - \#2 + \#2
+tst99: ((a[b->c]@main, a[d->e]@main), (p(a)@main, (delete{ foo(?A)@main|a[?A->2]@main }, ?A = avg{ ?B|p(?B)@main })))
+tst0_2: ${%f(a)}  %f(a)@main res = ${%f(a)@main}
+tst3_2: %f(a)  %f(a)@main
+tst4_2: %f(g(${a[b->c]}))(a)  %f(g(${a[b->c]@main}))(a)@main
+tst7_2: %f(g(${a[b->c]}))(a)  %f(g(${a[b->c]@main}))(a)@main
+tst9_2: %f(a)@foobar  %f(a)@foobar
+tst21_2: ${%f(a)@foo}  res = ${%f(a)@foo}
+tst22_2: ${%f(a)@foobar}  res = ${%f(a)@foobar}
+tst0: ${f(a)}  f(a)@main res = ${f(a)@main}
+tst1: f(a)  res = f(a)
+tst2: f(g(${a[b->c]}))(a)  f(g(${a[b->c]@main}))(a)
+tst3: f(a)  f(a)@main
+tst4: f(g(${a[b->c]}))(a)  f(g(${a[b->c]@main}))(a)@main
+tst5: f(g(b),g(${a[b->c]}))  f(g(b),g(${a[b->c]@main}))
+tst6: f(g(b),g(${a[b->c]}))  f(g(b),g(${a[b->c]@main}))
+tst7: f(g(${a[b->c]}))(a)  f(g(${a[b->c]@main}))(a)@main
+tst8: f(g,g(${a[b->c]})@\plg())@\plg()  f(g,g(${a[b->c]@main})@\prolog)@\prolog
+tst9: f(a)@foobar  f(a)@foobar
+tst10: f(a)  res = f(a)
+tst11: atom(a)  res = atom(a)
+tst12: p(a)  p(a)
+tst13: (\+ ppp)  \+ ppp
+tst14: (\+ ppp)  \+ ppp@main
+tst15: call(ppp)  call(ppp)
+tst16: res=\naf(ppp)  res = \naf ppp (here \naf is a HiLog function symbol)
+tst17: \naf(ppp)  \naf ppp (here \naf is also a HiLog function symbol)
+tst18: \naf(ppp)  (\naf ppp@main)
+tst19: atom(a)  atom(a)
+tst20: a+b  a + b
+tst21: ${f(a)@foo}  res = ${f(a)@foo}
+tst22: ${f(a)@foobar}  res = ${f(a)@foobar}
+tst23: a[b->c]  a[b->c]@main
+tst24: a[b->c(ff(${dd[dd->dd]}))]  a[b->c(ff(${dd[dd->dd]@main}))]@main
+tst25: g(a)[f(b)->h(c)]  g(a)[f(b)->h(c)]@main
+tst26: ${g(a)[|p(d)->h|]}[f(b)->h(c)]  ${g(a)[|p(d)->h|]@main}[f(b)->h(c)]@main
+tst27: ${a[b->c]}  res = ${a[b->c]@main}
+tst28: ${a[b->c]@foo}  res = ${a[b->c]@foo}
+tst29: ${a[b->c]@bar}  res = ${a[b->c]@bar}
+tst30: a[b->c]@bar  a[b->c]@bar
+tst31: ${a[|b->c|]}  res = ${a[|b->c|]@main}
+tst32: ${a[b{1..1}=>c]}  res = (${a[b=>c]@main}, ${a[b{1..1}=>?]@main})
+tst33: ${a[|b{1..1}=>c|]}  res = (${a[|b=>c|]@main}, ${a[|b{1..1}=>?|]@main})
+tst34: ${a[b->c]}  res = ${a[b->c]@main}
+tst35: ${a[b->{c,d}]}  res = (${a[b->c]@main}, ${a[b->d]@main})
+tst36: ${a[b->->c]}  res = ${a[b->->c]@main}
+tst37: ${a[|b->->c|]}  res = ${a[|b->->c|]@main}
+tst38: ${a[|b->c|]}  res = ${a[|b->c|]@main}
+tst39: ${a[|b+>>c|]}  res = ${a[|b+>>c|]@main}
+tst40: a[|b+>>c|]  a[|b+>>c|]@main
+tst41: ${a[b=>c]}  res = ${a[b=>c]@main}
+tst42: ${a[|b=>c|]}  res = ${a[|b=>c|]@main}
+tst43: ${a[pp(a,y)]}  res = ${a[pp(a,y)]@main}
+tst44: ${a[|pp(a,y)|]}  res = ${a[|pp(a,y)|]@main}
+tst45: ${a[%pp(a,y)]}  res = ${a[%pp(a,y)]@main}
+tst46: ${a:=:b}  res = ${a:=:b@main}
+tst47: ${f(a):=:g(b,p)}  res = ${f(a):=:g(b,p)@main} f(a):=:g(b,p)@main
+tst48: p(y)@\plg()  res = p(y)@\prolog
+tst49: p(y)@\plg(aaa)  res = p(y)@\prolog(aaa)
+tst50: p(y)@\plg(aaa)  p(y)@\prolog(aaa)
+tst51: ${p(y)@foo}  res = ${p(y)@foo}
+tst52: ${a[b->c]@foo}  res = ${a[b->c]@foo}
+tst53: ${\if a[b->c]@foo \then b[y->p] \else g(c)}  res = ${\if (a[b->c]@foo) \then (b[y->p]@main) \else (g(c)@main)} \if (a[b->c]@foo) \then (b[y->p]@main) \else (g(c)@main)
+tst54: ${\if (a[b->c]@foo, p(a)) \then b}  res = ${\if ((a[b->c]@foo, p(a)@main)) \then (b@main)}
+tst55: \unless a[b->c]@foo \do b  \unless (a[b->c]@foo) \do (b@main)
+tst56: ${\while a[b->c]@foo \do b}  res = ${\while (a[b->c]@foo) \do (b@main)}
+tst57: ${\while a[b->c]@foo \loop p[%p(r)]}  res = ${\while (a[b->c]@foo) \loop (p[%p(r)]@main)}
+tst58: \loop a[b->c]@foo \until b  \loop (a[b->c]@foo) \until (b@main)
+tst59: ${\do a[b->c]@foo \until b}  res = ${\do (a[b->c]@foo) \until (b@main)}
+tst62: ${insert{a[b->c]}}  res = ${insert{ a[b->c]@main }}
+tst63: ${insert{a[b->c],e[f->g]}}  res = ${insert{ a[b->c]@main, e[f->g]@main }}
+tst64: ${insert{a[b->c]|e[f->g],2>1}}  res = ${insert{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst65: ${delete{a[b->c],e[f->g]}}  res = ${delete{ a[b->c]@main, e[f->g]@main }}
+tst66: ${delete{a[b->c]|e[f->g],2>1}}  res = ${delete{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst67: ${deleteall{a[b->c]|e[f->g],2>1}}  res = ${deleteall{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst68: ${eraseall{a[b->c]| 2>1}}  res = ${eraseall{ a[b->c]@main|2 > 1 }}
+tst69: ${erase{a[b->c]|e[f->g],2>1}}  res = ${erase{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst70: ${t_insert{a[b->c],e[f->g]}}  res = ${t_insert{ a[b->c]@main, e[f->g]@main }}
+tst71: ${t_insert{a[b->c]|e[f->g],2>1}}  res = ${t_insert{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst72: ${t_delete{a[b->c],e[f->g]}}  res = ${t_delete{ a[b->c]@main, e[f->g]@main }}
+tst73: ${t_delete{a[b->c]|e[f->g],2>1}}  res = ${t_delete{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst74: ${t_deleteall{a[b->c]|e[f->g],2>1}}  res = ${t_deleteall{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst75: ${t_erase{a[b->c]}}  res = ${t_erase{ a[b->c]@main }}
+tst76: ${t_erase{a[b->c]|e[f->g],2>1}}  res = ${t_erase{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst77: ${t_eraseall{a[b->c]|e[f->g],2>1}}  res = ${t_eraseall{ a[b->c]@main|(e[f->g]@main, 2 > 1) }}
+tst78: ${F=avg{?Y|e[?Y->g],2>1}}  res = ${?E = avg{ ?A|(e[?A->g]@main, 2 > 1) }}
+tst79: ${?F=avg{?Y [?Z]|e[?Y->g],?Z>1}}  res = ${?F = avg{ ?A[?C]|(e[?A->g]@main, ?C > 1) }} ?F = avg{ ?A[?C]|(e[?A->g]@main, ?C > 1) }
+tst80: ${?F=avg{?Y [?Z,?V]|e[?Y->g],?Z>?V}}  res = ${?G = avg{ ?A[?C,?D]|(e[?A->g]@main, ?C > ?D) }}
+tst81: ${?F=count{?Y|e[?Y->g],2>1}}  res = ${?E = count{ ?A|(e[?A->g]@main, 2 > 1) }}
+tst82: ${p2h{f(s),g(p,a)}}  res = p2h{ f(s),g(p,a) }
+tst83: ${refresh{a[b->c]}}  res = ${refresh{ a[b->c]@main }}
+tst84: ${refresh{a[b->c],d[g->p]}}  res = ${refresh{ a[b->c]@main, d[g->p]@main }}
+tst85: ${throw{a(b,c)}}  res = ${throw{ a(b,c) }}
+tst86: throw{a(b,c)}  throw{ a(b,c) }
+tst87: ${catch{a[b->c],f(a),p(oo)}}  res = ${catch{ a[b->c]@main,f(a),p(oo)@main }}
+tst88: res = (((${a[%pp(a,y)]@main}, ${a[pp(g(a),h(y))]@main}); ${a[f(a)->b]@main}), ${a[|pp(a,y)|]@main})
+tst89: ${a:b[b->c,e->f]}  res = ((${a[b->c]@main}, ${a[e->f]@main}), ${a:b@main})
+tst90: ${a[b->c;p->q]}  res = (${a[b->c]@main}; ${a[p->q]@main})
+tst91: ${a[b->c,e->f;p->{q,r},oo+>>you]}  res = ((${a[b->c]@main}, ${a[e->f]@main}); ((${a[p->q]@main}, ${a[p->r]@main}), ${a[oo+>>you]@main}))
+tst92: ${(a[b->c,e->f],ppp[p->{q,r}] ; qq[oo+>>you])}  res = (((${a[b->c]@main}, ${a[e->f]@main}), (${ppp[p->q]@main}, ${ppp[p->r]@main})); ${qq[oo+>>you]@main})
+tst93: [${a[b->c,e->f]},fff(y,pp),${(ppp[p->{q,r}],qq[oo+>>you])}]  res = [(${a[b->c]@main}, ${a[e->f]@main}), fff(y,pp), ((${ppp[p->q]@main}, ${ppp[p->r]@main}), ${qq[oo+>>you]@main})]
+tst94: [${a[b->c,e->f]},fff(y,pp),(${(ppp[p->{q,r}],qq[oo+>>you])})]  res = [(${a[b->c]@main}, ${a[e->f]@main}), fff(y,pp), ((${ppp[p->q]@main}, ${ppp[p->r]@main}), ${qq[oo+>>you]@main})]
+tst96: p([f(a) - g(b), h(s) - j(o)])
+tst97: res = [f(a - b), h(s) - j(o)]
+tst98: \# - \#2 + \#2
+tst99: ((a[b->c]@main, a[d->e]@main), (p(a)@main, (delete{ foo(?A)@main|a[?A->2]@main }, ?A = avg{ ?B|p(?B)@main })))
+tst0_2: ${%f(a)}  %f(a)@main res = ${%f(a)@main}
+tst3_2: %f(a)  %f(a)@main
+tst4_2: %f(g(${a[b->c]}))(a)  %f(g(${a[b->c]@main}))(a)@main
+tst7_2: %f(g(${a[b->c]}))(a)  %f(g(${a[b->c]@main}))(a)@main
+tst9_2: %f(a)@foobar  %f(a)@foobar
+tst21_2: ${%f(a)@foo}  res = ${%f(a)@foo}
+tst22_2: ${%f(a)@foobar}  res = ${%f(a)@foobar}

@@ -1,0 +1,16 @@
+
+#include "standard.h"
+
+:- iriprefix{ptop = 'http://www.sri.com/top#'}.
+
+%pretest :- [importloop_aux1>>abox1, importloop_aux2>>abox2].
+
+%test :-
+	(File[exists(importloop_old)]@\io -->> File[unlink(importloop_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(importloop_flora_old,importloop_old)]@\io
+	;  File[link(importloop_ergo_old,importloop_old)]@\io
+        ),
+	file_reopen(temp,w,STDERR,?)@\plg(file_io),
+	%pretest,
+	file_close(STDERR)@\plg(file_io).

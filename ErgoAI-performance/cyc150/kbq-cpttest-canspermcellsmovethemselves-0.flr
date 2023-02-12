@@ -1,0 +1,91 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-CanSpermCellsMoveThemselves (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(BaseKB, transitiveViaArgInverse(TypeCapableFn(behaviorCapable), genls, 1)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genls(SpermCell, 'Cell-MotileByFlagellum')).
+istAsserted(MicrobiologyMt, TypeCapableFn(behaviorCapable)('Cell-Motile', LocomotionProcess, providerOfMotiveForce)).
+istAsserted(UniversalVocabularyMt, genls('Cell-MotileByFlagellum', 'Cell-Motile')).
+
+// Explicit Background Rules
+backwardSentence(behaviorCapable(?INST, ?EVENT_TYPE, ?ROLE)) :- mtVisible(BaseKB), naf backchainForbidden(behaviorCapable), TypeCapableFn(behaviorCapable)(?COL, ?EVENT_TYPE, ?ROLE), isa(?INST, ?COL).
+backwardSentence(not(isa(?INST, ?COL))) :- mtVisible(BaseKB), naf backchainForbidden(isa), TypeCapableFn(behaviorCapable)(?COL, ?EVENT_TYPE, ?ROLE), not(behaviorCapable(?INST, ?EVENT_TYPE, ?ROLE)).
+backwardSentence(not(TypeCapableFn(behaviorCapable)(?COL, ?EVENT_TYPE, ?ROLE))) :- mtVisible(BaseKB), naf backchainForbidden(TypeCapableFn(behaviorCapable)), isa(?INST, ?COL), not(behaviorCapable(?INST, ?EVENT_TYPE, ?ROLE)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260422', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260422', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-SpermCell-260423', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260422', MtTimeDimFn(Now)), isa('HYP-SpermCell-260423', SpermCell)).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260422')).
+//REMOVED TITLE('KBQ  : $CPTTest-CanSpermCellsMoveThemselves 0').
+%pretest :- behaviorCapable('HYP-SpermCell-260423', LocomotionProcess, providerOfMotiveForce), %write_results('SUCCESS  : $CPTTest-CanSpermCellsMoveThemselves 0').
+
+// Debugging
+proof(5345, 0) :- isa('HYP-SpermCell-260423', SpermCell).
+proof(5345, 1) :- isa('HYP-SpermCell-260423', SpermCell).
+proof(5345, 2) :- TypeCapableFn(behaviorCapable)(SpermCell, LocomotionProcess, providerOfMotiveForce).
+proof(5345, 3) :- TypeCapableFn(behaviorCapable)(SpermCell, LocomotionProcess, providerOfMotiveForce).
+proof(5345, 4) :- isa('HYP-SpermCell-260423', SpermCell), TypeCapableFn(behaviorCapable)(SpermCell, LocomotionProcess, providerOfMotiveForce).
+proof(5345, 5) :- behaviorCapable('HYP-SpermCell-260423', LocomotionProcess, providerOfMotiveForce).
+
+proof(5345, 1000) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(5345, 1001) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(5345, 1002) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(5345, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-260422', 1, genlMt).
+proof(5345, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-260422', 2, genlMt).
+proof(5345, 2002) :- admittedArgument(SecondFn(59, MinuteFn(44, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(5345, 2003) :- admittedArgument(SecondFn(59, MinuteFn(44, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(5345, 2004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260422'), UniversalVocabularyMt).
+proof(5345, 2005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260422'), BaseKB).
+proof(5345, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260422'), MicrobiologyMt).
+proof(5345, 2007) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260422'), MtSpace('Hypothesis-HypotheticalContext-260422', MtTimeDimFn(Now))).
+proof(5345, 2008) :- isa('HYP-SpermCell-260423', SpermCell).
+proof(5345, 2009) :- TypeCapableFn(behaviorCapable)(SpermCell, LocomotionProcess, providerOfMotiveForce). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

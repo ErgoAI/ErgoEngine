@@ -1,0 +1,42 @@
+
+// here we keep tests that make sure that inheritance trailers are not
+// easily broken
+
+:- ignore_depchk{%uca(?_,?_)}.
+
+// the Titi test
+?V[less->?W]:- ?V < ?W.
+
+// Charity test
+o2 : o1.
+o1[|m(q)->r|].
+o2[m(?B1)->?B2] :- %uca(?B1,?B2).
+o3[mmmm(?B1)->?B2] :- %uca(?B1,?B2).
+%uca(?A1,?_A2) :- \if \isvar(?A1) \then writeln(error)@\plg()
+              \else writeln(ok)@\plg().
+
+%tst1 :- \if 1[less->2] \then writeln('tst1: 1 < 2')@\plg()
+        \else writeln('tst1 failed')@\plg().
+%tst2 :- \if 3[less->2] \then writeln('tst2: failed')@\plg()
+        \else writeln('tst2: \\naf 3 < 2')@\plg().
+
+%tst3 :- write('tst3: ')@\plg(), o2.m(hee)[].
+
+%tst4 :- write('tst4: ')@\plg(), o3.mmmm(hee)[].
+
+
+%pretest :- %tst1, %tst2,
+	    %tst3, refresh{o2.m(hee)[]},
+	    %tst4, refresh{o3.mmmm(hee)[]}.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	!,
+	abolish_all_tables@\plg, // need this for the reactive tabling case
+	//\abolishtables,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+
+

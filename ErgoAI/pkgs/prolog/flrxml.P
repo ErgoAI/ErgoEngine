@@ -1,0 +1,175 @@
+/* File:      flrxml.P
+**
+** Author(s): Rohan Shirwaikar
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2017.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+
+:- import 
+        flora_split_atom_at_whitespace/2,
+        flora_abort/2,
+        flora_set_counter/2,
+        flora_increment_counter/4
+   from flrporting.
+
+:- import ('\\flimport')/1 from flora2.
+
+:-'\\flimport' flrelement/4 as flrelement(_,_,_, _)
+           from flrxmllib >> FLSYSMODXML.
+:-'\\flimport' flrattribute/4 as flrattribute(_,_,_, _)
+	   from flrxmllib >> FLSYSMODXML.
+:-'\\flimport' flrattributefunc/5 as flrattributefunc(_,_,_,_,_)
+	   from flrxmllib >> FLSYSMODXML.
+
+:-export
+        set_mode/1,
+        get_mode/1,
+        flrxml_newoid/1,
+        xml_parse_doc/2.
+
+
+xml_parse_doc(D, M) :- 
+        %%writeq(D), nl,    %% for debugging
+	flrxml_newoid(C),
+        (get_mode(navlinks) ->
+            flrattribute(C, '\\order', 0, M)
+        ; true
+        ),
+	xml_parse_root(C, D, leftmost, 1, _, 0, M).
+
+xml_parse_root(C, [X|Y], Left, Oin, Oout, Child, M) :- 
+	parse_xml_element(C, X, C1, Oin, Otemp, M),
+	!,
+	Child1 is Child + 1,	
+        (get_mode(navlinks) ->
+            flrattributefunc(C, '\\child', Child, C1, M)
+        ; true
+        ),
+	(Left = leftmost -> true 
+	; get_mode(navlinks) ->
+            flrattribute(Left, '\\rightsibling', C1, M),
+	    flrattribute(C1, '\\leftsibling', Left, M)
+        ; true
+	),	
+	xml_parse_root(C, Y, C1, Otemp, Oout, Child1, M).
+
+xml_parse_root(_, [], _, Oin, Oin, _, _).
+
+%% Is this clause ever used??? Z (ie, contents of element), is always a list
+parse_xml_element(C, element(X,Y,Z), C1, Oin, Oout, M):- 
+	\+is_list(Z),
+	\+is_element_text(Z), 
+	flrelement(C, X, C1, M),
+        parse_xml_attribute(C1, Y, M),
+        Otemp is Oin + 1,
+        Oout is Otemp + 1,
+        (get_mode(navlinks) ->
+            flrattribute(C1, '\\order', Oin, M),
+            %%flrattribute(C1, '\\content', Z, M),
+            flrelement(C1, '\\text', C2, M),
+            flrattributefunc(C1, '\\child', 0, C2, M),
+            flrattribute(C2, '\\order', Otemp, M),
+            flrattribute(C2, '\\string', Z, M)
+        %% nonavlinks: put text directly under \text property
+        ; flrattribute(C1, '\\text', Z, M)
+        ),
+	!.
+
+parse_xml_element(C, element(X,Y,Z), C1, Oin, Oout, M):- 
+	flrelement(C, X, C1, M),
+	parse_xml_attribute(C1, Y, M),  
+        (get_mode(navlinks) ->
+            flrattribute(C1, '\\order', Oin, M)
+        ; true
+        ),
+	Otemp is Oin + 1, 
+	xml_parse_root(C1, Z, leftmost, Otemp, Oout, 0, M),
+        !.
+
+parse_xml_element(C, X, C1, Oin, Oout, M) :- 
+        Oout is Oin + 1,
+        (get_mode(navlinks) ->
+            flrelement(C, '\\text', C1, M),
+            flrattribute(C1, '\\order', Oin, M),
+            flrattribute(C1, '\\string', X, M)
+        ; flrattribute(C, '\\text', X, M)
+        ).
+
+
+parse_xml_attribute(C1, [ =(X,Y) |Z], M):- 
+        (is_list(Y) -> split_IDREFS(Y,YY)
+        ; YY = Y
+        ),
+	flrattribute(C1, WRAP_HILOG(attribute,X), YY, M), 
+	parse_xml_attribute(C1, Z, M).
+parse_xml_attribute(_, [], _). 
+
+is_element_text([element(_,_,_)]).
+
+/*
+   The XML parser seems to have a bug: for an IDREFS attribute "a b c"
+   it returns a list ['a b c', 'b c', c] instead of [a,b,c]. We fix that here.
+*/
+split_IDREFS(In,Out) :-
+        In = [IdRefs|_],
+        !,
+        flora_split_atom_at_whitespace(IdRefs,Out).
+
+
+#define  OBJECT_COUNTER  'flrxml$obj$counter'
+
+?- flora_set_counter(OBJECT_COUNTER,0).
+
+flrxml_newoid(X) :-
+        flora_increment_counter(OBJECT_COUNTER,1,_,Val),
+        fmt_write_string(X, 'obj%d', arg(Val)).
+
+:- dynamic flrxml_mode/1.
+
+?- assert(flrxml_mode(data)),
+   assert(flrxml_mode(nonavlinks)),
+   assert(flrxml_mode(nodebug)).
+
+set_mode(Mode) :-
+        nonvar(Mode),
+        opposite_mode(Mode,OpMode),
+        !,
+        (flrxml_mode(Mode) -> true
+        ; retractall(flrxml_mode(OpMode)),
+            assert(flrxml_mode(Mode))
+        ).
+set_mode(Mode) :-
+        flora_abort(['set_mode(...)@\\xml: invalid XML processing mode, ', Mode],
+                    FLORA_ABORT_NOTRACE).
+
+get_mode(Mode) :- flrxml_mode(Mode).
+
+opposite_mode(raw,data).
+opposite_mode(data,raw).
+opposite_mode(debug,nodebug).
+opposite_mode(nodebug,debug).
+opposite_mode(navlinks,nonavlinks).
+opposite_mode(nonavlinks,navlinks).

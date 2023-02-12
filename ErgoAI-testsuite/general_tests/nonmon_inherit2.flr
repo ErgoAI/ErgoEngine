@@ -1,0 +1,44 @@
+ChristianityMt[|known(CH) -> {${?GOD : MythologicalThing}}|] :-
+   mtVisible(ChristianityMt), WorldMythologyMt[|known(WM) -> ${?GOD : God}|].
+
+WorldMythologyMt[|known(WM) -> {${Zeus : God}}|].
+WorldMythologyMt[|known(WM) -> {${Jupiter : God}}|].
+
+ChristianityMt[|known(CH) -> {${Jesus : God}}|].
+
+mtVisible(ChristianityMt).
+ChristianityMt :: WorldMythologyMt.
+JohnBelief:ChristianityMt.
+
+a:c.
+a:d.
+c[|m(k) ->f|].
+d[|m(u) ->f|].
+
+%test1 :- ChristianityMt[|known(?_X)->?_Y|],
+	write('test1 ')@\plg,
+	flora_write_goal(belief(?_X) = ?_Y)@\plg(flrdecode),
+	nl@\plg,
+	\false.
+%test1 :- !.
+%test2 :- JohnBelief[known(?_X)->?_Y],
+	write('test2 ')@\plg,
+	flora_write_goal(belief(?_X) = ?_Y)@\plg(flrdecode),
+	nl@\plg,
+	\false.
+%test2 :- !.
+
+%test3 :- \if a[m(k)->?; m(u)->?; ?->?]
+          \then writeln('test3 failed')@\plg
+          \else writeln('test3 succeeded')@\plg.
+
+
+%pretest :- %test1, %test2, %test3.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

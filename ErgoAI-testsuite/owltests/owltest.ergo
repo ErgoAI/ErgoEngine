@@ -1,0 +1,70 @@
+:- symbol_context{
+                   rdf_load/5
+                 }.
+
+// Import wine.owl and wine.rdf
+%tst1 :- System[rdf_load('data/wine.owl',Module123)]@\owl,
+        count{?R| ?S[?P->?O]@Module123, ?R= (?S,?P,?O)}=?C,
+        writeln(test1=?C)@\plg.
+%tst2 :-  // data is added
+        System[rdf_load('data/wine.rdf',Module123)]@\owl,
+        countdistinct{?R| ?S[?P->?O]@Module123, ?R= (?S,?P,?O)}=?C,
+        writeln(test2=?C)@\plg.
+
+// same, but take wine.rdf from the Web
+%tst3 :-  %cleanup,
+        System[rdf_load(url('http://www.w3.org/TR/owl-guide/wine.rdf'),Module123)]@\owl,
+        count{?R| ?S[?P->?O]@Module123, ?R= (?S,?P,?O)}=?C,
+        writeln(test3=?C)@\plg.
+
+// import location-mapping.ttl
+%tst4 :- %cleanup,
+        System[rdf_load('data/location-mapping.ttl',Module123)]@\owl,
+        count{?R| ?S[?P->?O]@Module123, ?R= (?S,?P,?O)}=?C,
+        writeln(test4=?C)@\plg.
+// import family.owl
+%tst5 :- %cleanup,
+         System[rdf_load('data/family.owl','',fastload,'',Module123)]@\owl,
+        count{?R| ?S[?P->?O]@Module123, ?R= (?S,?P,?O)}=?C,
+        writeln(test5=?C)@\plg.
+
+
+// Adding/deleting data after import
+// add John[friend -> {Bob,Mary,Kate}]
+%tst6 :- Module123[rdf_insert(John,friend,{Bob,Mary,Kate})]@\owl,
+        !,
+        (John[friend -> ?P]@Module123,
+          writeln(test6=?P)@\plg,
+          \false
+        ; \true
+        ).
+// add Bob is not a friend any more
+%tst7 :- Module123[rdf_delete(John,friend,Bob)]@\owl,
+        !,
+       ( \if John[friend -> ?P]@Module123 \then
+            writeln(test7=?P)@\plg,
+         \false
+       ; \true
+       ).
+// check who's still a friend: query the RDF module Module123
+//?P = Kate
+//?P = Mary
+
+// this is unrelated to owl, but also uses fastload, like owl does internally
+%tst8 :- fastload{'data/fastload_data.P',MyStorage},
+        (fastquery{MyStorage,?F},
+          writeln(test8=?F)@\io,
+          \false
+        ; \true
+        ).
+
+
+// wipe out all the imported/added data in the given module
+%cleanup :- Module123[rdf_deleteall]@\owl.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8.
+
+%test :- tell(temp)@\plg,
+         %pretest,
+         told@\plg.
+

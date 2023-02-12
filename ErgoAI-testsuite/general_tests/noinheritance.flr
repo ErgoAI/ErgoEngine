@@ -1,0 +1,95 @@
+
+
+:- setsemantics{inheritance=none}.
+
+c1[|aaa {1..1}=>  \symbol|].
+c1[|bbb => \symbol|].
+c1[|aaa ->  b|].
+c1[|bbb -> c|].
+
+c2::c1.
+o1:c1.
+
+// value inheritance - should not work
+%tst1 :- write('tst1: ')@\plg(),
+	\if o1[aaa ->  ?_X]
+        \then writeln(failed)@\plg()
+        \else writeln(succeeded)@\plg().
+%tst2 :- write('tst2: ')@\plg(),
+	\if o1[bbb ->  ?_X]
+        \then writeln(failed)@\plg()
+        \else writeln(succeeded)@\plg().
+// classes
+%tst3 :- write('tst3: ')@\plg(),
+	\if c2[|aaa ->  ?_X|]
+        \then writeln(failed)@\plg()
+        \else writeln(succeeded)@\plg().
+%tst4 :- write('tst4: ')@\plg(),
+	\if c2[|bbb ->  ?_X|]
+        \then writeln(failed)@\plg()
+        \else writeln(succeeded)@\plg().
+
+// type inheritance - should work
+%tst5 :- write('tst5: ')@\plg(),
+	\if o1[aaa {1..1}=>  ?_X]
+        \then writeln(succeeded)@\plg()
+        \else writeln(failed)@\plg().
+%tst6 :- write('tst6: ')@\plg(),
+	\if o1[bbb =>  ?_X]
+        \then writeln(succeeded)@\plg()
+        \else writeln(failed)@\plg().
+// classes
+%tst7 :- write('tst7: ')@\plg(),
+	\if c2[|aaa {1..1}=>  ?_X|]
+        \then writeln(succeeded)@\plg()
+        \else writeln(failed)@\plg().
+%tst8 :- write('tst8: ')@\plg(),
+	\if c2[|bbb =>  ?_X|]
+        \then writeln(succeeded)@\plg()
+        \else writeln(failed)@\plg().
+
+
+// Change semantics before tst9: Now value inheritance should start working
+%tst9 :- write('tst9: ')@\plg(),
+	\if o1[aaa ->  ?_X]
+        \then writeln(succeeded)@\plg()
+        \else writeln(failed)@\plg().
+%tst10 :- write('tst10: ')@\plg(),
+	\if o1[bbb ->  ?_X]
+        \then writeln(succeeded)@\plg()
+        \else writeln(failed)@\plg().
+// classes
+%tst11 :- write('tst11: ')@\plg(),
+	\if c2[|aaa ->  ?_X|]
+        \then writeln(succeeded)@\plg()
+        \else writeln(failed)@\plg().
+%tst12 :- write('tst12: ')@\plg(),
+	\if c2[|bbb ->  ?_X|]
+        \then writeln(succeeded)@\plg()
+        \else writeln(failed)@\plg().
+
+// type inheritance - should continue working
+%tst13 :- write('tst13: ')@\plg(),
+	\if o1[aaa {1..1}=>  ?_X]
+        \then writeln(succeeded)@\plg()
+        \else writeln(failed)@\plg().
+// classes
+%tst14 :- write('tst14: ')@\plg(),
+	\if c2[|aaa {1..1}=>  ?_X|]
+        \then writeln(succeeded)@\plg()
+        \else writeln(failed)@\plg().
+
+%pretest :- 
+	    setsemantics{inheritance=none},
+	    %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8,
+	    setsemantics{inheritance=flogic},
+	    %tst9, %tst10, %tst11, %tst12, %tst13, %tst14.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+
+

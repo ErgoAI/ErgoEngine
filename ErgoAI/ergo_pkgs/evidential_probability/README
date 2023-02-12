@@ -1,0 +1,33 @@
+
+The demo
+../../ergo_demos/evidential_probability/bikes.ergo
+can be used as an example (perhaps other examples to come).
+
+The file that uses evidential probability (like bikes.ergo)
+should expect to invoke evidential probability in module \ep.
+
+Probabilistic data must be in the 4-ary predicate named \pct.
+If the module containing \pct(?,?,?,?) is encapsulated then this predicate
+must be exported in addition to whatever the user wants to export:
+
+:- export{\pct(?,?,?,?)}.
+
+Do not include the above statement if the module holding \pct is not
+encapsulated.
+
+Next: load the user program containing probabilistic data. For instance,
+
+ergo> [bikes].
+
+To pose a probabilistic query, use something like this:
+
+?- ep(TargetClass,Class,?LowProb,?HighProb)@\ep.
+
+?- ep(stolen,redRacingDomestic,?L,?H)@\ep.
+
+?L = 0
+?H = 0.0506
+
+1 solution(s) in 0.0040 seconds
+
+Yes

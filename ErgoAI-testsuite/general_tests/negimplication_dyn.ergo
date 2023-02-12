@@ -1,0 +1,84 @@
+:- compiler_options{expert=on, omni=on}.
+
+:- symbol_context{ddd1(*)@?, ddd11(*)@?, bbb11(*)@?, bbb1(*)@?}.
+
+?- insert{(aaa(?X),ccc(?X),eee) ==> (bbb(?X),ddd(?X),fff)}.
+aaa(1),ccc(1).
+eee.
+
+?- insert{${bbb1,ddd1 <== eee;aaa(1)}}.
+?- insertrule{bbb11,ddd11 <== eee;aaa(1) :- \true}.
+?- insert{eee1,fff1<==ppp}.
+
+${?- insert{bbb(?X),ddd(?X) <==> bbb1(?X),ddd1(?X)}}.
+
+?- insertrule{${bbb(?X),ddd(?X) <==> bbb11(?X),ddd11(?X) :- \true}}.
+
+%tst1 :- write('test1: ')@\plg,
+	bbb(?X),ddd(?X),fff,
+	bbb1(?X),ddd1(?X),
+	bbb11(?X),ddd11(?X),
+	bbb1,ddd1,
+	bbb11,ddd11,
+	\naf eee1, \naf fff1,
+	writeln(?X)@\plg.
+
+?- insert{p({1,2,3})}.
+q.
+?- insert{${forall(?X)^p(?X) ==> (q ==> r)}}.
+?- insertrule{forall(?X)^p(?X) ==> (q ==> r22) :- \true}.
+%tst2 :- 
+        setruntime{unsafe_naf(ignoreonce)},
+        write('test2: ')@\plg,
+        undefined{r},
+        undefined{r22},
+        writeln(ok)@\plg.
+
+aaa3, \neg eee3.
+aaa33, \neg eee33.
+?- insert{aaa3,\neg(ccc3,eee3) ==> bbb3, \neg(ddd3;fff3)}.
+?- insertrule{aaa33,\neg(ccc33,eee33) ==> bbb33, \neg(ddd33;fff33) :- \true}.
+%tst3 :-  write('test3: ')@\plg,
+	  bbb3, \neg ddd3, \neg fff3,
+	  writeln(ok)@\plg.
+%tst33 :-  write('test33: ')@\plg,
+	  bbb33, \neg ddd33, \neg fff33,
+	  writeln(ok)@\plg.
+
+?- insert{exists(?X)^(a4(?X);c4(?X) <== b4(?X))}.
+?- insertrule{exists(?X)^(a44(?X);c44(?X) <== b44(?X)) :- \true}.
+b4(?).
+\neg c4(?).
+b44(?).
+\neg c44(?).
+
+?- insert{eee ==> (q <==>r6)}.
+?- insertrule{aa9<==q :- \true}.
+
+%tst4 :-  write('test4: ')@\plg,
+	  a4(?), r6, aa9,
+	  writeln(ok)@\plg.
+%tst44 :-  write('test44: ')@\plg,
+	  a44(?),
+	  writeln(ok)@\plg.
+
+%tst5 :- write('test5: ')@\plg,
+	 insertrule{a55 <== b55 :- q}, insert{b55},
+	 insertrule{aa55 ; bb55 :- q}, insert{\neg bb55},
+	 a55, aa55,
+	 writeln(ok)@\plg.
+
+%tst6 :- write('test6: ')@\plg,
+	 deleterule{a55 <== b55 :- q},
+	 deleterule{aa55 ; bb55 :- q},
+	 \naf a55, \naf aa55,
+	 writeln(ok)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst33, %tst4, %tst44, %tst5, %tst6.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().

@@ -1,0 +1,150 @@
+test1 = 1
+test2 = ok
+test3 = ok
+test4 = ccc
+test5 = ok
+test6 = ok
+test7 = 222 + [ccc,ddd,eee]
+test8 = ok
+test9 = ok
+test10 = ok
+
+++Warning[Ergo]> [constraints1.ergo] <Dependency check>
+                  non-transactional predicate or method in a rule that starts with `callback_s(?A,?B)' near line(30)/char(1)  depends on side-effectful operation `writeln(3,'callback from s(?):' = ?A + ?B)@\io' near line(30)/char(22) in [constraints1.ergo]
+++Warning[Ergo]> [constraints1.ergo] <Dependency check>
+                  non-transactional predicate or method in a rule that starts with `callback_p(?A,?B,?C)' near line(31)/char(1)  depends on side-effectful operation `writeln(3,'callback from p:' = ?B + ?C + ?A)@\io' near line(31)/char(25) in [constraints1.ergo]
+
+++2 warnings
+
+
+## adding constr1
+
+*** A violation of the constraint activated on line 11 in file constraints1.ergo
+    existed prior to activation of this constraint
+    The offending instances of the constraint are:
+	p@foo
+
+## adding constr2
+
+*** A violation of the constraint activated on line 14 in file constraints1.ergo
+    existed prior to activation of this constraint
+    The offending instances of the constraint are:
+	q@foo
+
+## adding constr3+4 - no warnings, as they are not violated
+
+## inserting forbidden(1) NON-transactionally: should trigger 3 warnings
+
+*** A violation of the constraint activated on line 17 in file constraints1.ergo
+    is detected after the transaction (writeln(3,'## inserting forbidden(1) NON-transactionally: should trigger 3 warnings')@\prolog, (feedback{ tempoff }, insert{ forbidden(1)@foo, forbidden(a)@foo }))
+    The offending instances of the constraint are:
+	r(1)@foo
+	r(a)@foo
+
+
+*** A violation of the constraint activated on line 11 in file constraints1.ergo
+    is detected after the transaction (writeln(3,'## inserting forbidden(1) NON-transactionally: should trigger 3 warnings')@\prolog, (feedback{ tempoff }, insert{ forbidden(1)@foo, forbidden(a)@foo }))
+    The offending instances of the constraint are:
+	p@foo
+
+
+*** A violation of the constraint activated on line 14 in file constraints1.ergo
+    is detected after the transaction (writeln(3,'## inserting forbidden(1) NON-transactionally: should trigger 3 warnings')@\prolog, (feedback{ tempoff }, insert{ forbidden(1)@foo, forbidden(a)@foo }))
+    The offending instances of the constraint are:
+	q@foo
+
+## inserting forbidden2(aaa) TRANSACTIONALLY: should trigger 4 warnings, but change should roll back
+
+*** A violation of the constraint activated on line 17 in file constraints1.ergo
+    is detected after the transaction (writeln(3,'## inserting forbidden2(aaa) TRANSACTIONALLY: should trigger 4 warnings, but change should roll back')@\prolog, (feedback{ tempoff }, (t_insert{ forbidden2(aaa)@foo }, t_insert{ forbidden2(bbb)@foo })))
+    The offending instances of the constraint are:
+	r(1)@foo
+	r(a)@foo
+
+
+*** A violation of the constraint activated on line 11 in file constraints1.ergo
+    is detected after the transaction (writeln(3,'## inserting forbidden2(aaa) TRANSACTIONALLY: should trigger 4 warnings, but change should roll back')@\prolog, (feedback{ tempoff }, (t_insert{ forbidden2(aaa)@foo }, t_insert{ forbidden2(bbb)@foo })))
+    The offending instances of the constraint are:
+	p@foo
+
+
+*** A violation of the constraint activated on line 14 in file constraints1.ergo
+    is detected after the transaction (writeln(3,'## inserting forbidden2(aaa) TRANSACTIONALLY: should trigger 4 warnings, but change should roll back')@\prolog, (feedback{ tempoff }, (t_insert{ forbidden2(aaa)@foo }, t_insert{ forbidden2(bbb)@foo })))
+    The offending instances of the constraint are:
+	q@foo
+
+
+*** A violation of the constraint activated on line 18 in file constraints1.ergo
+    is detected after the transaction (writeln(3,'## inserting forbidden2(aaa) TRANSACTIONALLY: should trigger 4 warnings, but change should roll back')@\prolog, (feedback{ tempoff }, (t_insert{ forbidden2(aaa)@foo }, t_insert{ forbidden2(bbb)@foo })))
+    The offending instances of the constraint are:
+	s(aaa)@foo
+	s(bbb)@foo
+
+## test 3: r(?), p, q are still violated.
+
+*** A violation of the constraint activated on line 17 in file constraints1.ergo
+    is detected after the transaction (%tst1@foo, (%tst2@foo, (%tst3@foo, (!, %tst4@foo))))
+    The offending instances of the constraint are:
+	r(1)@foo
+	r(a)@foo
+
+
+*** A violation of the constraint activated on line 11 in file constraints1.ergo
+    is detected after the transaction (%tst1@foo, (%tst2@foo, (%tst3@foo, (!, %tst4@foo))))
+    The offending instances of the constraint are:
+	p@foo
+
+
+*** A violation of the constraint activated on line 14 in file constraints1.ergo
+    is detected after the transaction (%tst1@foo, (%tst2@foo, (%tst3@foo, (!, %tst4@foo))))
+    The offending instances of the constraint are:
+	q@foo
+
+## test 5: constr p, q are still violated.
+
+*** A violation of the constraint activated on line 11 in file constraints1.ergo
+    is detected after the transaction %tst5@foo
+    The offending instances of the constraint are:
+	p@foo
+
+
+*** A violation of the constraint activated on line 14 in file constraints1.ergo
+    is detected after the transaction %tst5@foo
+    The offending instances of the constraint are:
+	q@foo
+
+## test 6: constr r(?) becomes violated
+
+## executing test 7 (together with test6: test6 violations appear after this)
+
+*** A violation of the constraint activated on line 17 in file constraints1.ergo
+    is detected after the transaction (%tst6@foo, %tst7@foo)
+    The offending instances of the constraint are:
+	r(222)@foo
+
+
+## Adding constraints that have callbacks:
+'callback from s(?):' = 'constraints1.ergo' + [${s(ccc)@foo}, ${s(eee)@foo}]
+'callback from p:' = 'constraints1.ergo' + foo + [${p@foo}]
+
+## executing test 8
+'callback from s(?):' = 'constraints1.ergo' + [${s(111)@foo}, ${s(222)@foo}, ${s(ccc)@foo}, ${s(eee)@foo}]
+
+*** A violation of the constraint activated on line 17 in file constraints1.ergo
+    is detected after the transaction %tst8@foo
+    The offending instances of the constraint are:
+	r(222)@foo
+
+'callback from p:' = 'constraints1.ergo' + foo + [${p@foo}]
+
+## executing test 9
+'callback from s(?):' = 'constraints1.ergo' + [${s(111)@foo}, ${s(222)@foo}, ${s(333)@foo}, ${s(ccc)@foo}, ${s(eee)@foo}]
+
+*** A violation of the constraint activated on line 17 in file constraints1.ergo
+    is detected after the transaction %tst9@foo
+    The offending instances of the constraint are:
+	r(222)@foo
+
+
+## executing test 10
+'callback from s(?):' = 'constraints1.ergo' + [${s(111)@foo}, ${s(222)@foo}, ${s(ccc)@foo}, ${s(eee)@foo}]

@@ -1,0 +1,35 @@
+
+// more complex test for symbol warnings in different files, including those
+// incorporated via #include
+
+%tst1 :- [+incinc].
+
+p(aaaa(1,2)).
+%tst2 :- [+inc2].
+
+%pretest :- %tst1, %tst2.
+
+#include "standard.h"
+
+?- flora_set_maxwarnings(60)@\plg(flrutils).
+
+%test :-
+	(File[exists(in_old)]@\io -->> File[unlink(in_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(in_old_flora,in_old)]@\io
+	;  File[link(in_old_ergo,in_old)]@\io
+        ),
+	shell('touch incinc.flr')@\plg(shell),
+	flora_set_maxerrors(60)@\plg(flrutils),
+	flora_set_maxwarnings(60)@\plg(flrutils),
+	file_reopen(temp,w,STDERR,?_)@\plg(file_io),
+	file_reopen(temp1,w,STDWARN,?_)@\plg(file_io),
+	%pretest,
+	file_close(STDWARN)@\plg(file_io),
+	file_close(STDERR)@\plg(file_io),
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp)@\plg,append,?Port2)@\plg,
+	copyIOport(?Port1,?Port2)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	flora_file_op(unlink,temp1)@\plg(flrporting).

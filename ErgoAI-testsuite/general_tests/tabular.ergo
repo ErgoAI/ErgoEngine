@@ -1,0 +1,62 @@
+
+:- symbol_context{
+                   '+'/2, currency/?, qqq/?
+                 }.
+
+:- prolog{p/3,q/1,qq/1}.
+
+?- [e2dsv>>data].
+
+?- dsv_load('auxfiles/example.csv',p/3,csv)@data.
+
+%tst1 :- p(?X,?Y,?Z)@data,
+        \if isvar{?Z} \then ?Z=null,
+        writeln(= 'test1=' || ?X || + || ?Y || + || ?Z)@\io,
+        \false.
+%tst1 :- \true.
+
+%tst2 :- \e2dsv(p,3,?)[arg(1)->?X,arg(2)->?Y,arg(3)->?Z]@data,
+        \if isvar{?Z} \then ?Z=null,
+        writeln(= 'test2=' || ?X || + || ?Y || + || ?Z)@\io,
+        \false.
+%tst2 :- \true.
+
+?- dsv_load('auxfiles/employee.psv',q,psv+titles)@data.
+
+
+%tst3 :- q(?X)@data,
+        writeln(test3=?X)@\plg,
+        \false.
+%tst3 :- \true.
+
+%tst4 :- \e2dsv(q,1,?)[arg(1)->?X]@data,
+        writeln(test4=?X)@\plg,
+        \false.
+%tst4 :- \true.
+
+?- dsv_load('auxfiles/salary.dsv',qq,[separator="\\>"^^\charlist, titles])@data.
+
+%tst5 :- qq(?X)@data,
+        writeln(test5=?X)@\plg,
+        \false.
+%tst5 :- \true.
+
+%tst6 :- \e2dsv(qq,1,?)[arg(1)->?X]@data,
+        writeln(test6=?X)@\plg,
+        \false.
+%tst6 :- \true.
+
+?- dsv_load('auxfiles/salary.dsv',qqq(integer,currency(usd),currency),[separator="\\>"^^\charlist, titles])@data.
+
+%tst7 :- \e2dsv(qqq,3,?)[arg(1)->?X,arg(2)->?Y,arg(3)->?Z]@data,
+        \if isvar{?Z} \then ?Z=null,
+        writeln(= 'test7 = ' || ?X || ' , ' || ?Y || ' , ' || ?Z)@\io,
+        \false.
+%tst7 :- \true.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7.
+
+%test :- 
+	tell(temp)@\plg,
+	%pretest,
+	told@\plg.

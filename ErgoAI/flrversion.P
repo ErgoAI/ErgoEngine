@@ -1,0 +1,51 @@
+/* File:      flrversion.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "version.flh"
+
+:- import str_match/5, substring/4 from string.
+:- import flora_configuration/2 from flrregistry.
+:- import
+	flora_build_id/1,
+	flora_build_date/1,
+	flora_concat_atoms/2
+   from flrporting.
+
+?- '_$_flora_full_name'(FloraFullName),
+   flora_build_date(Date),
+   assert(flora_configuration(releasedate,Date)),
+   assert(flora_configuration(name,ERGO_NAME)),
+   assert(flora_configuration(version,ERGO_VERSION)),
+   flora_build_id(Build),
+   assert(flora_configuration(build,Build)).
+
+
+'_$_flora_full_name'(X) :-
+	flora_concat_atoms([ERGO_VERSION,
+			    ' (', ERGO_NAME, ') of ',
+			    ERGO_DATE], X).

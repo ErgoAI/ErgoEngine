@@ -1,0 +1,92 @@
+/* File:      flogic_basics.flr
+*/
+
+
+
+// ===========================================================================
+// SOME SIMPLE EXAMPLES SHOWING SEVERAL F-LOGIC FEATURES 
+// ===========================================================================
+
+:- ignore_depchk{%e(?,?)}.
+
+%time_flies_like_an_arrow.	     // a 0-ary PREDICATE (proposition)
+fruit_flies_like_an_apple[].	     // an OBJECT with empty specification []
+
+
+%e(a,b). %e(b,a). %e(b,c).	     // a binary PREDICATE (graph)
+%e(b,d).
+
+tc(?X,?Y) :- %e(?X,?Y).			// a RULE and ...
+tc(?X,?Y) :- tc(?X,?Z), tc(?Z,?Y).	// ... a (doubly) RECURSIVE RULE
+ 
+person :: animal.
+animal::object.
+superman :: person.
+dangerous_hobby :: object.
+john:employee.				// INSTANCE : CLASS 
+employee::person.			// SUBCLASS :: SUPERCLASS
+secretary::employee.
+bob:person.
+tim:person.
+betty:employee.
+sally:secretary.
+
+person[|age          =>integer, 
+	kids         =>person, 
+	salary(year) =>integer, 
+	hobbies      =>hobby, 
+	believes_in  =>something,
+	=> married(year)
+|].
+person[
+	=> %testmethod,
+	instances => person
+].
+
+mary:employee[			       // a more complex MOLECULE involving
+	age->29,		       // ... a SINGLE-VALUED method
+	kids -> {tim,leo,betty,bob},   // ... a MULTI-VALUED method
+	salary(1998) -> a_lot	       // ... a PARAMETERIZED method
+].
+
+father(mary):person[age->66].
+
+tim[hobbies -> {stamps, snowboard}].	// somebodies hobbies
+betty[hobbies ->{fishing,diving}].
+
+snowboard:dangerous_hobby.		// isn't it??
+diving:dangerous_hobby.
+
+?_X[self-> ?_X].			// define self
+
+
+tim[believes_in->luck].
+mary[believes_in->[magic,wand]].
+
+person[|believes_in ->			// INHERITABLE method
+	   {something, something_else}|].	
+
+person[instances -> ?X] :- ?X:person.   // NON-INHERITABLE method of person
+
+
+// ===========================================================================
+// now ask some QUERIES here (or INTERACTIVELY from the FLORA SHELL)
+// ===========================================================================
+
+?- %time_flies_like_an_arrow.	// ==> `yes'
+
+?- fruit_flies_like_a_banana[].	// ==> `yes'
+
+?- tc(?X,?Y).			// computes the transitive closure of e(?,?)
+
+?- ?X:person.			// What persons are there?
+?- person[instances -> ?X].	// ...same Q, but asked differently (see above)
+
+?- ?X[believes_in -> ?Y].	// Who believes in ?Y
+
+?- ?X.kids[			   // Whose kids
+     self -> ?K,		   // ... who is ?K
+     hobbies -> ?H:dangerous_hobby // ... and has dangerous hobbies
+]. 
+
+?- writeln('Thanks for using FLORA!') @ \prolog.

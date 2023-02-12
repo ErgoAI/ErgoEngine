@@ -1,0 +1,343 @@
+/* File:      flrtypeconstraint.flr
+**
+** Author(s): Hui Wan
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options{production=on}.
+
+/*
+  This module MUST be tabled. Otherwise, if this module is imported then calls
+  to Type[check(...) will loop. This is because Type[check(Frame)@\typecheck
+  calls Frame@caller, and Frame@caller will call (through importaxioms.fli)
+  Frame@\typecheck. Since the latter is not tabled, we run into an
+  infinite loop.
+*/
+//:- \nontabled_module.
+
+#include "flora_terms.flh"
+
+:- suppress_rule_signatures.
+:- symbol_context{check(?,?), check(?,?,?)}.
+
+:- prolog{boundViolated/5, 
+	  not_complies_with_type_list/3, checkBounds/2}.
+:- prolog{is_native/1, typeCheckInternal/6, typeCheckBoolInternal/6}.
+
+:- export{
+       ?[check(?,?)],
+       ?[check(?)]}.
+
+Cardinality[check(?Spec)] :-
+	?Spec !~ ?Obj[?Meth => ?]@?Mod,
+	?Spec !~ ?Obj[?Meth {?LowBound..?HighBound} => ?]@?Mod,
+	?Spec !~ ?Obj[|?Meth => ?|]@?Mod,
+	?Spec !~ ?Obj[|?Meth {?LowBound..?HighBound} => ?|]@?Mod,
+	flora_decode_goal_as_atom(?Spec,?AtmString)@\prolog(flrdecode),
+	abort(['Cardinality[check(',
+		 ?AtmString,
+		 ')]@\\typecheck: Invalid signature argument'])@\sys.
+
+Cardinality[check(?Spec)] :-
+	( ?Spec ~ ?Obj[?Meth => ?]@?Mod
+        ; ?Spec ~ ?Obj[?Meth {?LowBound..?HighBound} => ?]@?Mod
+        ),
+	// ?Mod==FLSYSMODTYPECHECK, if module wasn't specified
+	\if ?Mod == FLSYSMODTYPECHECK \then caller{?RealMod} \else ?RealMod=?Mod,
+	checkBounds(?LowBound,?HighBound),
+	/*
+	(is_native(${?[?Meth=>?]@?RealMod})
+         ; is_native(${?[|?Meth=>?|]@?RealMod})
+        ),
+	*/
+	generalize_method_eq(?Meth,?GenMeth,?MArgs,?GMArgs,${?:=:?@?RealMod})@\prolog(flrauxil),
+	?Obj[?GenMeth {?Low..?High}  => ?]@?RealMod,
+	// check if ?GMArgs subsume ?MArgs, ie, ?GenMeth ISA-subsumes ?Meth
+	list_isa_eq(?MArgs,?GMArgs,${?:?@?RealMod},${?:=:?@?RealMod})@\prolog(flrauxil),
+	(is_native(${?[?Meth->?]@?RealMod})
+	; is_native(${?[?Meth->{}]@?RealMod})
+        ),
+	?Count = count{?V | ?Obj[?Meth -> ?V]@?RealMod},
+	// use @> to compare ?Count and ?High since ?High may be '*'
+	(?Count < ?Low ; ?Count @> ?High),
+	boundViolated(?Count,?Low,?High,?LowBound,?HighBound).
+	
+
+Cardinality[check(?Spec)] :-
+	( ?Spec ~ ?Obj[|?Meth => ?|]@?Mod
+        ; ?Spec ~ ?Obj[|?Meth {?LowBound..?HighBound} => ?|]@?Mod
+        ),
+	// ?Mod==FLSYSMODTYPECHECK, if module wasn't specified
+	\if ?Mod == FLSYSMODTYPECHECK \then caller{?RealMod} \else ?RealMod=?Mod,
+	checkBounds(?LowBound,?HighBound),
+	/*
+	(is_native(${?[|?Meth->?|]@?RealMod})
+	 ; is_native(${?[|?Meth=>?|]@?RealMod})
+        ),
+	*/
+	generalize_method_eq(?Meth,?GenMeth,?MArgs,?GMArgs,${?:=:?@?RealMod})@\prolog(flrauxil),
+	?Obj[|?GenMeth {?Low..?High}  => ?|]@?RealMod,
+	// check if ?GMArgs subsume ?MArgs, ie, ?GenMeth ISA-subsumes ?Meth
+	list_isa_eq(?MArgs,?GMArgs,${?:?@?RealMod},${?:=:?@?RealMod})@\prolog(flrauxil),
+	(is_native(${?[|?Meth->?|]@?RealMod})
+	; is_native(${?[|?Meth->{}|]@?RealMod})
+        ),
+	?Count = count{?V | ?Obj[|?Meth -> ?V|]@?RealMod},
+	// use @> to compare ?Count and ?High since ?High may be '*'
+	(?Count < ?Low ; ?Count @> ?High),
+	boundViolated(?Count,?Low,?High,?LowBound,?HighBound).
+
+/*****************************************************************************
+    Utilities for cardinality check
+*****************************************************************************/
+
+/*****************************************************************************
+	    checkBounds(-LowBound,-HighBound)
+
+  Verify that ?LowBound and ?HighBound should be unbound variables,
+  and should not be equal.
+*****************************************************************************/
+checkBounds(?LowBound,?HighBound) :-
+	\if ?HighBound == ?LowBound  \then
+	    abort('Error in Cardinality[check(?[?Method {?Low..?High} => ?])]@\\typecheck: Low and high bounds must be different')@\sys,
+	\if isnonvar{?LowBound} \then  
+	    abort('Error in Cardinality[check(?[?Method {?Low..?High} => ?])]@\\typecheck: ?Low must be an unbound variable')@\sys,
+	\if isnonvar{?HighBound} \then 
+	    abort('Error in Cardinality[check(?[?Method {?Low..?High} => ?])]@\\typecheck: ?High must be an unbound variable')@\sys.
+
+
+/*****************************************************************************
+	    boundViolated(+Count,+Low,+High,-LowBound,-HighBound)
+
+  ?Count is the actual cardinality, ?Low and ?High are the bounds,
+  ?LowBound and ?HighBound signal the violated bounds.
+*****************************************************************************/
+boundViolated(?Count,?Low,?High,?LowBound,?HighBound) :-
+	\if ?Count < ?Low \then
+	    ?LowBound = ?Low // The lower bound is violated, bind ?LowBound
+          	             // to the violated lower bound; else, bind to 'ok'.
+	\else ?LowBound = NOT_VIOLATED,
+	\if ?Count @> ?High \then
+	    ?HighBound = ?High // The higher bound is violated, bind ?HighBound
+	                       // to the violated high bound; else bind to 'ok'.
+	\else ?HighBound = NOT_VIOLATED.
+
+
+
+/******************************************************************************
+   Type checking;
+      Type[typeCheck(+?Spec,-?Result)
+      If ?Spec = [...->...] \then both [...->...] and [|...->...|] are checked.
+			    Missing types are flagged.
+	 ?Spec = [|...->...|] \then only [|...->...|] are checked.
+                            Missing types not flagged
+	 ?Spec = [...=>...] \then [...->...] and [|...->...|] are checked.
+                            Missing types not flagged (semistructured data)
+	 ?Spec = [|...=>...|] \then only [|...->...|] are checked.
+                            Missing types not flagged
+******************************************************************************/
+
+Type[check(?Spec,?Result)] :-
+	caller{?CallerMod},
+        Method[mustDefine(?Stat(?CallerMod))]@\sys,
+        Method[mustDefine(off(?CallerMod))]@\sys,
+	?Result = setof{?Res|true{Type[check(?Spec,?CallerMod,?Res)]}},
+        Method[mustDefine(?Stat(?CallerMod))]@\sys.
+
+// check/3 - internal
+Type[check(?Spec,?CallerMod,?Result)] :-
+	?Spec ~ ?Class[?Meth -> ?]@?,
+	isloaded{?CallerMod},
+	!,
+	typeCheckInternal(?,?,?Class,?Meth,?CallerMod,?Result).
+
+Type[check(?Spec,?CallerMod,?Result)] :-
+	?Spec ~ ?Class[|?Meth -> ?|]@?,
+	isloaded{?CallerMod},
+	!,
+	typeCheckInternal(defaultonly,?,?Class,?Meth,?CallerMod,?Result).
+
+Type[check(?Spec,?CallerMod,?Result)] :-
+	?Spec ~ ?Class[?Meth => ?]@?,
+	isloaded{?CallerMod},
+	!,
+	typeCheckInternal(?,nonstrict,?Class,?Meth,?CallerMod,?Result).
+
+Type[check(?Spec,?CallerMod,?Result)] :-
+	?Spec ~ ?Class[|?Meth => ?|]@?,
+	isloaded{?CallerMod},
+	!,
+	typeCheckInternal(defaultonly,nonstrict,?Class,?Meth,?CallerMod,?Result).
+
+// For Boolean methods
+Type[check(?Spec,?CallerMod,?Result)] :-
+	?Spec ~ ?Class[?Meth]@?,
+	isloaded{?CallerMod},
+	!,
+	typeCheckBoolInternal(?,?,?Class,?Meth,?CallerMod,?Result).
+
+Type[check(?Spec,?CallerMod,?Result)] :-
+	?Spec ~ ?Class[|?Meth|]@?,
+	isloaded{?CallerMod},
+	!,
+	typeCheckBoolInternal(defaultonly,?,?Class,?Meth,?CallerMod,?Result).
+
+Type[check(?Spec,?CallerMod,?Result)] :-
+	?Spec ~ ?Class[=>?Meth]@?,
+	isloaded{?CallerMod},
+	!,
+	typeCheckBoolInternal(?,nonstrict,?Class,?Meth,?CallerMod,?Result).
+
+Type[check(?Spec,?CallerMod,?Result)] :-
+	?Spec ~ ?Class[|=>?Meth|]@?,
+	isloaded{?CallerMod},
+	!,
+	typeCheckBoolInternal(defaultonly,nonstrict,?Class,?Meth,?CallerMod,?Result).
+
+Type[check(?Spec,?_Mod,?_Result)] :-
+	flora_decode_goal_as_atom(?Spec,?AtmString)@\prolog(flrdecode),
+	abort(['Type[check(',
+		 ?AtmString,',?Result',
+		 ')]@\\typecheck: Invalid first argument'])@\sys.
+
+
+	
+// wrong type, nondefault, nonstrict
+typeCheckInternal(allsigns,?,?Class,?Method,?Module,?Result) :- 
+	isloaded{?Module},
+	(is_native(${?[?Method->?]@?Module})
+	; is_native(${?[|?Method->?|]@?Module})
+        ),
+	?O[?Method->?Val, ?Method=>?Type]@?Module,
+	\if isnonvar{?Class} \then ?O:?Class@?Module,
+	\naf ?Val:?Type@?Module,
+	?Result ~ ?O[?Method->?Val, ?Method=>?Type]@?Module.
+
+// missing type, nondefault sign, strict
+typeCheckInternal(allsigns,strict,?Class,?Method,?Module,?Result) :-
+	isloaded{?Module},
+	(is_native(${?[?Method  -> ?]@?Module})
+        ; is_native(${?[?Method  -> {}]@?Module})
+	; is_native(${?[|?Method-> ?|]@?Module})
+        ),
+	(
+	    (?O[?Method -> ?Val], ?Result ~ ?O[?Method -> ?Val]
+	    ; ?O[?Method -> {}],  ?Result ~ ?O[?Method -> {}]
+	    ),
+	    \naf ?O[?Method => ?]
+	)@?Module,
+	\if isnonvar{?Class} \then ?O:?Class@?Module,
+	?Result ~ ?O[?Method -> ?Val]@?Module.
+
+// wrong type, default sign, nonstrict
+typeCheckInternal(?,?,?Class,?Method,?Module,?Result) :- 
+	isloaded{?Module},
+	is_native(${?[|?Method->?|]@?Module}),
+	?O[|?Method->?Val, ?Method=>?Type|]@?Module,
+	\if isnonvar{?Class} \then ?O:?Class@?Module,
+	\naf ?Val:?Type@?Module,
+	?Result ~ ?O[|?Method->?Val, ?Method=>?Type|]@?Module.
+
+// missing type, default sign, strict (not checked if nonstrict)
+typeCheckInternal(?,strict,?Class,?Method,?Module,?Result) :-
+	isloaded{?Module},
+	(is_native(${?[|?Method->?|]@?Module})
+	; is_native(${?[|?Method->{}|]@?Module})
+        ),
+        (
+	    (?O[|?Method -> ?Val|], ?Result ~ ?O[|?Method -> ?Val|]
+	    ; ?O[|?Method -> {}|], ?Result ~ ?O[|?Method -> {}|]
+	    ),
+	    \naf ?O[|?Method => ?|]
+	)@?Module,
+	\if isnonvar{?Class} \then ?O:?Class@?Module.
+
+
+
+// Same for Boolean methods
+// wrong type, nondefault, nonstrict
+typeCheckBoolInternal(allsigns,?,?Class,?Method,?Module,?Result) :- 
+	isloaded{?Module},
+	(is_native(${?[?Method]@?Module})
+	; is_native(${?[|?Method|]@?Module})
+        ),
+	?O[?Method]@?Module,
+	generalize_method(?Method,?MethodType,?MethArgs,?Types)@\plg(flrauxil),
+	?O[=>?MethodType]@?Module,
+	\if isnonvar{?Class} \then ?O:?Class@?Module,
+	not_complies_with_type_list(?MethArgs,?Types,?Module),
+	?Result ~ ?O[?Method, =>?MethodType]@?Module.
+
+// missing type, nondefault sign, strict
+typeCheckBoolInternal(allsigns,strict,?Class,?Method,?Module,?Result) :-
+	isloaded{?Module},
+	(is_native(${?[?Method]@?Module})
+	; is_native(${?[|?Method|]@?Module})
+        ),
+        ?O[?Method]@?Module,
+	generalize_method(?Method,?MethodType,?,?)@\plg(flrauxil),
+	\naf ?O[=>?MethodType]@?Module,
+	\if isnonvar{?Class} \then ?O:?Class@?Module,
+	?Result ~ ?O[?Method]@?Module.
+
+// wrong type, default sign, nonstrict
+typeCheckBoolInternal(?,?,?Class,?Method,?Module,?Result) :- 
+	isloaded{?Module},
+	is_native(${?[|?Method|]@?Module}),
+	?O[|?Method|]@?Module,
+	generalize_method(?Method,?MethodType,?MethArgs,?Types)@\plg(flrauxil),
+	?O[|=>?MethodType|]@?Module,
+	\if isnonvar{?Class} \then ?O:?Class@?Module,
+	not_complies_with_type_list(?MethArgs,?Types,?Module),
+	?Result ~ ?O[|?Method, =>?MethodType|]@?Module.
+
+// missing type, default sign, strict (not checked if nonstrict)
+typeCheckBoolInternal(?,strict,?Class,?Method,?Module,?Result) :-
+	isloaded{?Module},
+	is_native(${?[|?Method|]@?Module}),
+        ?O[|?Method|]@?Module,
+	generalize_method(?Method,?MethodType,?,?)@\plg(flrauxil),
+	\naf ?O[|=>?MethodType|]@?Module,
+	\if isnonvar{?Class} \then ?O:?Class@?Module,
+	?Result ~ ?O[|?Method|]@?Module.
+
+
+/*************************************************************************
+  Utilities
+*************************************************************************/
+not_complies_with_type_list([], [], ?) :- !, \false.
+not_complies_with_type_list([?Arg|?], [?Type|?], ?Module) :-
+	\naf ?Arg : ?Type@?Module,
+	!.
+not_complies_with_type_list([?Arg|?ArgList], [?Type|?TypeList], ?Module) :-
+	?Arg : ?Type@?Module,
+	not_complies_with_type_list(?ArgList,?TypeList,?Module).
+
+// tests if ?Call has been defined in its module
+// this blocks out various imported modules
+/*
+is_native(?Call) :-
+	clause{?Call,?},
+	!.
+is_native(?Call) :- isbasefact{?Call}.
+*/
+is_native(?Call) :- is_native(?Call)@\prolog(flrauxil).

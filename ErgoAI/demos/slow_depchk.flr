@@ -1,0 +1,41 @@
+/*
+out.?X : (tl1.'Core'.'Class') [name -> ?N] :-
+   in.?X : (sl1.'Core'.'Class') [name -> ?N] ;
+   in.?X : (sl1.'Core'.'Interface') [name -> ?N].
+
+out.?F [ scope -> tl1.'Core'.'JavaScopeKind'.instance_level ] :-
+   out.?F [ ] ,
+   in.?F [ ownerScope -> sl1.'Data_Types'.'ScopeKind'.sk_instance ].
+ 
+out.?F [ scope -> tl1.'Core'.'JavaScopeKind'.class_level ] :-
+   out.?F [ ] ,
+   in.?F [ ownerScope -> sl1.'Data_Types'.'ScopeKind'.sk_classifier ].
+ 
+out.?X : (tl1.'Core'.'Class') [ supertype -> out.?SUPER ] :-
+   in.?X : (sl1.'Core'.'Class') [ generalization -> in.?SUPER ] ;
+   in.?X : (sl1.'Core'.'Interface') [ generalization -> in.?SUPER ].
+ 
+out.?X : (tl1.'Core'.'Class') [ isInterface -> true ] :-
+   in.?X : (sl1.'Core'.'Interface') [ ] ,  out.?X : (tl1.'Core'.'Class')  [ ].
+ 
+out.?F : (tl1.'Core'.'Field') [ name -> ?N ],
+   out.?X : (tl1.'Core'.'Class')  [ contents -> out.?F ] :-
+   (
+   in.?X : (sl1.'Core'.'Interface') [ feature(?_) -> in.?F ] ;
+   in.?X : (sl1.'Core'.'Class') [ feature (?_) -> in.?F ]
+   ) ,
+   in.?F : (sl1.'Core'.'Attribute') [ name -> ?N ].
+  
+out.?F [ modifier -> ?A ] :-
+   out.?F : (tl1.'Core'.'ClassInheritanceElement') [ ] , 
+   in.?F [ isAbstract -> ?A ].
+ 
+out.?F [ isArray -> true ] :-
+   out.?F : (tl1.'Core'.'TypedElement') [ ] ,
+   max { ?U | in.?F.multiplicity.range [ upper -> ?U ] } > 1 .
+ 
+out.?F [ final -> ?F ] :-
+   out.?F : (tl1.'Core'.'ClassInheritanceElement') [ ] ,
+   in.?F [ isFinal -> ?F ].
+*/
+?- writeln('This demo is temporarily disabled since path expression is now illegal in rule head.')@\plg.

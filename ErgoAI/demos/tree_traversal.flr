@@ -1,0 +1,51 @@
+/* This simple program traverses a binary tree and sums up
+** the values in each node.
+*/
+
+:- ignore_depchk{writeln(?)@\plg, writeln(?)@\plg(usermod), write(?)@\plg}.
+
+
+n1[val->50,
+   left->n2,
+   right->n3 ].
+n2[val->40,
+   left->n4,
+   right->n5 ].
+n4[val->20,
+   left->leaf,
+   right->leaf ].
+n5[val->30,
+   left->leaf,
+   right->leaf ].
+n3[val->40,
+   left->n6,
+   right->n7 ].
+n6[val->30,
+   left->leaf,
+   right->leaf ].
+n7[val->30,
+   left->leaf,
+   right->leaf ].
+
+?X[dfs -> ?Val] :-
+	?X[val->?ValSelf, left->?L, right->?R],
+	?L[dfs->?ValLeft],
+	?R[dfs->?ValRight],
+	?Val \is ?ValLeft + ?ValRight + ?ValSelf.
+
+leaf[dfs->0].
+
+// This one measures cpu time for method M.
+?X[cpu(?M)->?T] :-
+	cputime(?T0)@\plg(), atom(?M)@\plg(), ?X[?M->?V], cputime(?T1)@\plg(),
+	?T \is ?T1-?T0,
+	write('Value of ')@\plg(),
+	write(?X)@\plg(),
+	write('.')@\plg(),
+	writeln(?M)@\plg(),
+	write('is: ')@\plg(),
+	writeln(?V)@\plg().
+
+?- n1[dfs->?V].
+?- n1[cpu(dfs)->?Cpu].
+

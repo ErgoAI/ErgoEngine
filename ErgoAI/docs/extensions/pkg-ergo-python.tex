@@ -1,0 +1,422 @@
+\chapter[Python-to-\ERGO Interface]
+{pyergo: A Python-to-\ERGO Interface \\ 
+  {\Large by Michael Kifer}}
+
+This interface allows Python programs to start \ERGO, load knowledge bases
+into it, and then query and modify them.  One can also talk directly to the
+underlying Prolog engine, XSB.
+This API works both with Python 2.7 and 3+.
+
+\section{Introduction}
+
+The \emph{pyergo} interface consists of four types of APIs: one for
+starting and closing \ERGO sessions, one for querying \ERGO,
+one for talking directly to XSB, and one for parsing the results.
+A fairly extensive example of a program that does both is found in
+%% 
+\begin{verbatim}
+    .../ErgoAI/python/pyergo_example.py
+\end{verbatim}
+%% 
+in the \ERGO distribution. This program provides several examples of using
+the \texttt{pyergo} interface, including various edge cases and exception
+handling. 
+The easiest way to try these examples is via the provided shell scripts,
+%% 
+\begin{verbatim}
+    .../ErgoAI/python/runpyergo.sh    -- Linux/Mac
+    .../ErgoAI/python/runpyergo.bat   -- Windows
+\end{verbatim}
+%% 
+One only has to change the two variables in those scripts \texttt{ERGOROOT}
+and \texttt{XSBARCHDIR}.
+
+To make it possible for your Python program
+find \ERGO, two parameters are to be provided: the architecture directory,
+called \texttt{XSBARCHDIR} in those scripts and in
+\texttt{pyergo\_example.py}, and the root directory for the \ERGO reasoner,
+which we called \texttt{ERGOROOT}. The names of these variables are, of
+course immaterial, but we will use these names here for easy reference.
+Pay attention to how this information is passed from the scripts to the
+program via the \texttt{sys.argv}  array, as this is one of the most
+convenient methods.
+
+How will you know what to substitute for the aforesaid \texttt{ERGOROOT}
+and \texttt{XSBARCHDIR}? Easy! Just start \ERGO and type these two
+queries:
+%% 
+\begin{verbatim}
+    ?- system{installdir=?Ins}.  // gives ERGOROOT
+    ?- system{archdir=?Arch}.    // yields XSBARCHDIR
+\end{verbatim}
+%% 
+The first query will give you \texttt{ERGOROOT} and the second
+\texttt{XSBARCHDIR}.
+
+Next your program needs to be told where the interface can be found. In our
+example, this is accomplished via
+%% 
+\begin{verbatim}
+    import sys
+    sys.path.append(ERGOROOT.replace('\\','/') + '/python')
+\end{verbatim}
+%% 
+Of course, you will have to replace \texttt{ERGOROOT} here appropriately,
+as explained.
+Note that forward slashes are preferred, although backward slashes are also
+recognized in Windows (sometimes they must be escaped with another
+backslash to satisfy Python syntax).
+Finally, import the API as follows:
+%% 
+\begin{alltt}
+from pyergo import \bs
+    pyergo_start_session, pyergo_end_session, \bs  \emph{\color{blue}to start/end Ergo session}
+    pyergo_command, pyergo_query,            \bs   \emph{\color{blue}to talk to Ergo}
+    HILOGFunctor, PROLOGFunctor,             \bs   \emph{\color{blue}to parse results from Ergo}
+    ERGOVariable, ERGOString, ERGOIRI, ERGOSymbol, \bs
+    ERGOIRI, ERGOCharlist, ERGODatetime,     \bs
+    ERGODuration, ERGOUserDatatype,          \bs
+    pyxsb_query, pyxsb_command,              \bs   \emph{\color{blue}to talk to XSB directly}
+    XSBFunctor, XSBVariable, XSBAtom,        \bs   \emph{\color{blue}to parse results from XSB}
+    XSBString,                               \bs
+    PYERGOException, PYXSBException              \emph{\color{blue}to process exceptions}
+\end{alltt}
+%% 
+In most cases you will need only a small subset of these functions, but
+importing them all is easy, does not hurt,
+and is useful in case you later extend your program.
+(Of course, delete the blue comments.)
+
+\section{Connecting to \ERGO}
+
+This part of the
+API consists of two commands: \texttt{pyergo\_start\_session()} --- to
+start \ERGO and
+connect to it, and \texttt{pyergo\_end\_session()} --- to unload \ERGO.  
+%% 
+\begin{itemize}
+\item  \texttt{pyergo\_start\_session()}: This takes two arguments, 
+  the aforementioned directories:
+  %% 
+\begin{verbatim}
+     pyergo_start_session(XSBARCHDIR,ERGOROOT)  
+\end{verbatim}
+  %% 
+  Do not forget to replace \texttt{XSBARCHDIR} and \texttt{ERGOROOT}, as
+  discussed.  Errors will be thrown if one of these directories is missing,
+  unreadable, or does not look like belonging to a valid \ERGO
+  installation.
+\item \texttt{pyergo\_end\_session()}: Used to unload \ERGO. For example,
+  %% 
+\begin{verbatim}
+    pyergo_end_session()  
+\end{verbatim}
+  %% 
+  This command is not needed if your program exits soon after unloading,
+  but it can save resources, if your Python program uses \ERGO in the
+  beginning only and then continues to work for a significant period of
+  time till the end, without accessing the knowledge base.
+\end{itemize}
+%% 
+
+
+\section{Talking to \ERGO}\label{sec-pyergo-query}
+
+This part of the 
+API consists of two commands also: \texttt{pyergo\_command()} and
+\texttt{pyergo\_query()}. The difference is that the first is not expected
+to return any results and exception is thrown if the command returns
+\emph{False}. It also throws exceptions if something went wrong during the
+compilation or execution of the command. In contrast,
+\texttt{pyergo\_query()} throws far fewer exceptions.
+%% 
+\begin{itemize}
+\item  \texttt{pyergo\_command()}: Execute an \ERGO command passed as a
+  parameter. Takes a
+  query and treats it as a command, i.e., ignores the results and expects
+  it to succeed. This is
+  usually used to load a file, do something that does not return results
+  (e.g., insert facts or rules),
+  and when the command returns \emph{False} then it is treated as an error
+  so an exception is raised. For example,
+  %% 
+\begin{verbatim}
+    pyergo_command("writeln(Ergo = 'aaaa bbb')@\\io.")
+    pyergo_command('insert{qq({11,fff(22)},33)}.')  
+    pyergo_command("\\false.")  # will throw an error
+\end{verbatim}
+  %% 
+  Note that whenever \ERGO requires backslashes, they must be doubled and
+  the commands must end with a period, as usual.
+\item \texttt{pyergo\_query()}: Execute a query passed as a parameter
+  and get results.
+  Like \texttt{pyergo\_command()}, it takes an \ERGO query, but that
+  query may or may not have results and when it does the results are returned.
+  The results are returned as an array of 4-tuples, which can be iterated
+  over, as explained in the example below.
+  Note: \texttt{pyergo\_command()} never throws an exception that has to
+  do with the compilation or execution of a query. Instead, it
+  returns that exception information as part of the result.
+  The only exception it is supposed to throw is when a query returns
+  an unsupported variable binding, i.e., something that is not a Prolog or
+  HiLog term (like, for example, a reified formula).
+\end{itemize}
+%% 
+Here is how one gets results from a query. Suppose \texttt{qq/1}  was previously
+assigned the tuples $\tt(11,33)$ and $\tt(fff(22),33)$. Then:
+%% 
+\begin{verbatim}
+    for row in pyergo_query('qq(?X,?Y).  '):
+        print("result: ",row[0],row[1],row[2],row[3].value)
+\end{verbatim}
+%% 
+will print (except the top line, which is added for readability):
+%% 
+\begin{verbatim}
+   # Result                   Compile Status      Truth Value    Exception
+   [('?X',11),('?Y',33)]   ('not_eof','success')    True           normal
+   [('?X',HILOGFunctor(name=fff,args=[22])),('?Y',33)]
+                           ('not_eof','success')    True           normal
+\end{verbatim}
+%% 
+Here the compile status says whether the query was compiled without errors
+and whether an end of file (or string)
+was reached. In our case, it was not (\texttt{not\_eof}) because the
+query string has some white space after the period, but usually it says
+\texttt{eof}. The truth value can be \emph{True}, \emph{False}, or
+\emph{None}---the latter standing for ``undefined'' in \ERGO terms.    
+Finally, exception is \texttt{normal}, if no runtime exception 
+happened in the query execution, and the actual exception is shown
+otherwise.
+
+The most important component is the first, \texttt{row[0]}.
+It is a list of variable name/binding pairs, where the variable names are
+taken from the query (\texttt{'?X'} and \texttt{'?Y'} in our case).
+These are the actual query answers. If a query has no output variables, but
+the query is true, an empty list is returned. Silent variables (the ones
+that start with an underscore) are not returned.
+Note that the results returned can be complex terms (they are always returned as
+Prolog, not HiLog terms), like the Python object
+\texttt{HILOGFunctor(name=fff,args=[22])}  in our case.
+We will provide the details of that part of the API in 
+Section~\ref{sec-py-unpack},
+but here is an example of how to unpack such objects:
+%% 
+\begin{verbatim}
+  for row in pyergo_query('qq(?X,?Y).  '):
+      [(XVarname,XVarVal),(YVarname,YVarVal)] = row[0]
+      if isinstance(XVarVal,HILOGFunctor):
+          #Xresult=XVarname+'='+str(XVarVal.name)+' '+str(XVarVal.args)
+          Xresult=XVarname+'='+str(XVarVal)
+      elif isinstance(XVarVal,PROLOGFunctor):
+          #Xresult=XVarname+'='+str(XVarVal.name)+' '+str(XVarVal.args)+'@\\plg'
+          Xresult=XVarname+'='+str(XVarVal)
+      else:
+          Xresult=XVarname+'='+str(XVarVal)
+      if isinstance(YVarVal,HILOGFunctor):
+          #Yresult=YVarname+'='+str(YVarVal.name)+' '+str(YVarVal.args)
+          Yresult=YVarname+'='+str(YVarVal)
+      elif isinstance(YVarVal,PROLOGFunctor):
+          #Yresult=YVarname+'='+str(YVarVal.name)+' '+str(YVarVal.args)+'@\\plg'
+          Yresult=YVarname+'='+str(YVarVal)
+      else:
+          Yresult=YVarname+'='+str(YVarVal)
+      print("result: ",Xresult+" and "+Yresult,row[1],row[2],row[3].value)
+\end{verbatim}
+%% 
+The commented out parts of this example show how to access various parts of
+the complex answers returned as HiLog or Prolog terms.
+
+Note: only elementary data types, Prolog, and HiLog terms can be returned
+from Ergo to Python. More complex things, like reified predicates and
+frames, cannot be returned.
+
+The commands \texttt{pyergo\_query()} and
+\texttt{pyergo\_command()} raise Python exceptions, if bad things happen
+during the execution. These exceptions are Python objects of the form
+%% 
+\begin{verbatim}
+    PYERGOException(query=..., command=..., message=...)
+\end{verbatim}
+%% 
+Some of the components may be missing in specific cases (e.g.,
+\texttt{query} in case of a command, and vice versa).
+
+
+\section{Talking to XSB}\label{sec-pyxsb-query}
+
+This part of the 
+API is \textbf{for expert users only} whose applications require talking to
+the underlying XSB engine directly. It
+consists of the commands  \texttt{pyxsb\_command()} and
+\texttt{pyxsb\_query()}.
+The first is like
+\texttt{pyergo\_command()} except that Prolog syntax is used for the
+query.  The second, \texttt{pyxsb\_query()}, differs more.  Like
+\texttt{pyergo\_query()}, it returns an iterable array of tuples, but the
+number of components in those tuples is arbitrary and each element
+corresponds to a variable binding in the query. The bindings are listed in
+the lexical order of appearance of the variables in the query.  Silent variables
+are treated as any other variable, duplicate occurrences of the same
+variable are omitted, and the names of the variables are not made
+available.  Likewise, compilation information is not returned and neither
+is the truth value, so it is not easily possible to tell whether a query is
+true or undefined.
+For example,
+%% 
+\begin{verbatim}
+    for row in pyxsb_query("p(X,Y,Y,_W).") :
+            print(row[0],row[1],row[2])
+\end{verbatim}
+%% 
+Here \texttt{row[0]} corresponds to \texttt{X}, \texttt{row[1]}  
+to \texttt{Y}, and \texttt{row[2]} to \texttt{\_W} (recall that silent
+variables are \emph{not} ignored in the XSB interface).
+True and undefined answers to the query will be printed without
+distinction. To separate these two types of answers, the XSB predicate
+\texttt{call\_tv/2} can be used (read about it in the XSB manual). 
+
+Like with \ERGO queries, the bindings (\texttt{row[0]}, \texttt{row[1]},
+etc.)
+can be complex terms and variables. Unpacking that information is the
+subject of the next section.
+
+One last difference is that \texttt{pyxsb\_query()} and
+\texttt{pyxsb\_command()} raise Python exceptions, if bad things happen
+during the execution. The exceptions are Python objects of the form
+%% 
+\begin{verbatim}
+   PYXSBException(code=..., query=..., command=..., type=..., message=...)
+\end{verbatim}
+%% 
+Some of the components may be missing in specific cases (e.g.,
+\texttt{query} in case of a command, and vice versa).
+
+
+\section{Unpacking the Results}\label{sec-py-unpack}
+
+Unpacking the results returned by \ERGO and XSB is conceptually similar.
+For integers, floats, and lists, both \ERGO and XSB use the same native
+Python classes.
+However, for more complex data structures, \texttt{pyergo\_query()} and
+\texttt{pyxsb\_query()} use different
+Python classes. \ERGO has more data types than XSB and thus needs more
+classes to represent them, so we discuss these issues separately.
+
+
+\subsection{Unpacking Results from pyergo\_query()}
+
+%% 
+\begin{itemize}
+\item  \texttt{ERGOSymbol(value=}\emph{string}\texttt{)}: this represents
+  \ERGO abstract symbols (\texttt{"..."$\hat{~}\hat{~}$\bs{}symbol}). To get
+  the actual string out of an
+  \texttt{XSBAtom}-object, just use \emph{obj}.\texttt{value}.      
+\item  \texttt{ERGOString(value=}\emph{string}\texttt{)}: this represents
+  the \ERGO datatype \texttt{"..."$\hat{~}\hat{~}$\bs{}string}.
+\item  \texttt{ERGOCharlist(value=}\emph{string}\texttt{)}: this represents
+  lists or Unicode characters and corresponds to the
+  \ERGO datatype \texttt{\bs{}charlist}.
+\item \texttt{ERGOIRI(value=}\emph{string}\texttt{)}: this type of an
+  object comes from an \ERGO \texttt{\bs{}iri} literal.
+\item
+  \texttt{ERGODatetime(date=}\emph{date-list},\texttt{time=}\emph{time-list}\texttt{)}. A
+  Python object of this form would come from an \ERGO
+  \texttt{\bs{}datetime} literal.  For instance,
+  the \ERGO \texttt{\bs{}datetime}-literal
+  \verb|"2008-6-27T10:30:55.23456-0:20"^^\datetime| will give rise to
+  \texttt{ERGODatetime(date=[1,2008,6,27],time=[10,30,55.23456,-1,0,20])}.
+  In a date-list like \texttt{[1,2008,6,27]}, 1 means the year is CE and -1
+  means BCE. The rest stands for the year, month, and day. In a time-list,
+  the elements are hours, minutes, seconds, UTC offset sign (1 or -1), UTC
+  offset hour, and UTC offset minutes. Seconds and milliseconds are
+  represented together using one positive decimal number.
+
+  A \texttt{\bs{}time} object from \ERGO would give rise to an
+  \texttt{ERGODatetime} object in Python in which the \texttt{date}
+  component is absent. A \texttt{\bs{}date} object in \ERGO would give rise
+  to a \texttt{ERGODatetime} object in which the \texttt{time}-component is
+  absent.
+\item \texttt{ERGODuration(value=}\emph{duration-list}\texttt{)}.
+  This type of a Python object corresponds to an \ERGO
+  \texttt{\bs{}duration}-literal. For instance,
+  \verb|"-P22Y2M10DT1H2M3.0S"^^\duration| would give rise to a Python
+  object of the form
+  \texttt{ERGODuration(value=[-1,22,2,10,1,2,3.0])}. The components of the
+  \emph{duration-list} are sign (of the duration, 1 or -1), years, months,
+  days, hours, minutes, and seconds (which is a decimal number that
+  represents both seconds and milliseconds).
+\item  \texttt{ERGOVariable(name=}\emph{string}\texttt{)}: this type of
+  objects may be returned if query results contain unbound variables.
+  Note that the actual names of these variables are immaterial and they are
+  almost always different from what was in the query. The only thing that
+  matters is the equality among these names. For instance, if a tuple of
+  bindings like \texttt{(ERGOVariable(name='\_Var123'), ERGOSymbol(value='abc'),
+    ERGOVariable(name='\_Var123'))} is returned, it means that the first and the
+  last components in that answer are the same variable.
+\item
+  \texttt{PROLOGFunctor(name=}\emph{string}, \texttt{args}=\emph{list}, \texttt{module=}\emph{xsb-module}\texttt{)}
+  and
+  \\
+  \texttt{HILOGFunctor(name=}\emph{string}, \texttt{args}=\emph{list}\texttt{)}:
+  these classes are used to represent
+  Prolog and HiLog terms, respectively.
+\end{itemize}
+%% 
+Typically, unpacking of an answer takes the form or testing what kind of
+object it is (e.g., \texttt{isinstance(obj,ERGOVariable)},
+\texttt{isinstance(obj,ERGOString)},
+\texttt{isinstance(obj,ERGOIRI)},
+%%\texttt{isinstance(obj,ERGODatetime)},
+\texttt{isinstance(obj,HILOGFunctor)},
+\texttt{isinstance(obj,int)})
+and then proceeding to extract the relevant attributes of the object. An
+example of this was shown in Section~\ref{sec-pyergo-query}.
+
+
+\subsection{Unpacking Results from pyxsb\_query()}
+
+The function \texttt{pyxsb\_query()} uses these classes for the data types
+it returns: 
+%% 
+\begin{itemize}
+\item  \texttt{XSBAtom(name=}\emph{string}\texttt{)}: this represents XSB
+  atoms (i.e., \ERGO symbols). To get the actual atom out of an
+  \texttt{XSBAtom}-object, just use \emph{obj}.\texttt{name}.      
+\item  \texttt{XSBString(value=}\emph{string}\texttt{)}: this represents
+  lists or Unicode characters. This class is provided for easier
+  readability: this data type does not really exists in XSB in its own
+  right.
+\item  \texttt{XSBVariable(name=}\emph{string}\texttt{)}: this type of
+  objects may be returned if query results contain unbound variables.
+  Note that the actual names of these variables are immaterial and they are
+  almost always different from what was in the query. The only thing that
+  matters is the equality among these names. For instance, if a tuple of
+  bindings like \texttt{(XSBVariable(name='\_Var123'), XSBAtom(name='abc'),
+  XSBVariable(name='\_Var123'))} is returned, it means that the first and the
+last components in that answer are the same variable.
+\item
+  \texttt{XSBFunctor(name=}\emph{string},\texttt{args}=\emph{list},\texttt{module=}\emph{xsb-module}\texttt{)}:
+  this represents a complex term with the functor name \emph{string} and
+  arguments \emph{lists}. The elements of the list can be terms, atoms,
+  variables, etc.  
+  \texttt{XSBFunctor}  objects is used only by \texttt{pyxsb\_query()}.
+\end{itemize}
+%% 
+
+Typically, unpacking of an answer takes the form or testing what kind of
+object it is (e.g., \texttt{isinstance(obj,XSBVariable)},
+\texttt{isinstance(obj,XSBString)}, \texttt{isinstance(obj,XSBFunctor)},
+\texttt{isinstance(obj,HILOGFunctor)},
+\texttt{isinstance(obj,int)})
+and then proceeding to extract the relevant attributes of the object. An
+example of this was shown in Section~\ref{sec-pyergo-query}.
+
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora-packages"
+%%% End: 
+

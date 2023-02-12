@@ -1,0 +1,135 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-NumberOfChromatidsInCellWith4DuplicatedChromosomes (query 1)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28derived_from.29_Barron.27s_Chapter_7_quiz.2C_Question_3
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(relationExistsUniqueAll, relationExistsAll)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genls(DuplicatedChromosome, EukaryoticChromosome)).
+istAsserted(MolecularBiologyMt, partTypeCount(DuplicatedChromosome, Chromatid, 2)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genls(EukaryoticChromosome, Chromosome)).
+istAsserted(UniversalVocabularyMt, isa(Chromatid, ChromosomeRegionType)).
+
+// Implicit Background Rules
+backwardSentence(relationAllExistsCount(parts, ?OBJ_TYPE, ?PART_TYPE, ?NUMBER)) :- mtVisible(BaseKB), naf backchainForbidden(relationAllExistsCount), partTypeCount(?OBJ_TYPE, ?PART_TYPE, ?NUMBER).
+backwardSentence(not(partTypeCount(?OBJ_TYPE, ?PART_TYPE, ?NUMBER))) :- mtVisible(BaseKB), naf backchainForbidden(partTypeCount), not(relationAllExistsCount(parts, ?OBJ_TYPE, ?PART_TYPE, ?NUMBER)).
+forwardSentence(normalWholeTypeForPartType(?PART_TYPE, ?WHOLE_TYPE)) :- removalSentence(relationExistsAll(properPhysicalParts, ?WHOLE_TYPE, ?PART_TYPE)).
+forwardSentence(relationExistsUniqueAll(properPhysicalParts, Chromosome, ?REGION_TYPE)) :- removalSentence(isa(?REGION_TYPE, ChromosomeRegionType)).
+
+// Explicit Background Facts
+istAsserted(MolecularBiologyMt, normalWholeTypeForPartType(Chromatid, DuplicatedChromosome)).
+
+// Explicit Background Rules
+backwardSentence(relationInstanceExistsCount(parts, ?INS, ?OTHER, ?TIMESFN)) :- mtVisible(BaseKB), naf backchainForbidden(relationInstanceExistsCount), relationInstanceExistsCount(parts, ?INS, ?TYPE, ?N), relationAllExistsCount(parts, ?TYPE, ?OTHER, ?M), evaluate(?TIMESFN, TimesFn(?M, ?N)), normalWholeTypeForPartType(?OTHER, ?GENL), genls(?TYPE, ?GENL).
+backwardSentence(not(normalWholeTypeForPartType(?OTHER, ?GENL))) :- mtVisible(BaseKB), naf backchainForbidden(normalWholeTypeForPartType), relationInstanceExistsCount(parts, ?INS, ?TYPE, ?N), genls(?TYPE, ?GENL), relationAllExistsCount(parts, ?TYPE, ?OTHER, ?M), evaluate(?TIMESFN, TimesFn(?M, ?N)), not(relationInstanceExistsCount(parts, ?INS, ?OTHER, ?TIMESFN)).
+backwardSentence(not(genls(?TYPE, ?GENL))) :- mtVisible(BaseKB), naf backchainForbidden(genls), relationInstanceExistsCount(parts, ?INS, ?TYPE, ?N), relationAllExistsCount(parts, ?TYPE, ?OTHER, ?M), evaluate(?TIMESFN, TimesFn(?M, ?N)), not(relationInstanceExistsCount(parts, ?INS, ?OTHER, ?TIMESFN)), normalWholeTypeForPartType(?OTHER, ?GENL).
+backwardSentence(not(relationInstanceExistsCount(parts, ?INS, ?TYPE, ?N))) :- mtVisible(BaseKB), naf backchainForbidden(relationInstanceExistsCount), relationAllExistsCount(parts, ?TYPE, ?OTHER, ?M), normalWholeTypeForPartType(?OTHER, ?GENL), genls(?TYPE, ?GENL), evaluate(?TIMESFN, TimesFn(?M, ?N)), not(relationInstanceExistsCount(parts, ?INS, ?OTHER, ?TIMESFN)).
+backwardSentence(not(relationAllExistsCount(parts, ?TYPE, ?OTHER, ?M))) :- mtVisible(BaseKB), naf backchainForbidden(relationAllExistsCount), relationInstanceExistsCount(parts, ?INS, ?TYPE, ?N), genls(?TYPE, ?GENL), normalWholeTypeForPartType(?OTHER, ?GENL), evaluate(?TIMESFN, TimesFn(?M, ?N)), not(relationInstanceExistsCount(parts, ?INS, ?OTHER, ?TIMESFN)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-261170', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-261170', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-261171', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261170', MtTimeDimFn(Now)), isa('HYP-Cell-261171', Cell)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261170', MtTimeDimFn(Now)), relationInstanceExistsCount(parts, 'HYP-Cell-261171', DuplicatedChromosome, 4)).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261170')).
+//REMOVED TITLE('KBQ  : $CPTTest-NumberOfChromatidsInCellWith4DuplicatedChromosomes 1').
+%pretest :- relationInstanceExistsCount(parts, 'HYP-Cell-261171', Chromatid, ?N), %write_results('SUCCESS  : $CPTTest-NumberOfChromatidsInCellWith4DuplicatedChromosomes 1').
+
+// Debugging
+proof(8469, 0) :- relationInstanceExistsCount(parts, 'HYP-Cell-261171', DuplicatedChromosome, 4).
+proof(8469, 1) :- relationInstanceExistsCount(parts, 'HYP-Cell-261171', DuplicatedChromosome, 4).
+proof(8469, 2) :- relationAllExistsCount(parts, DuplicatedChromosome, Chromatid, 2).
+proof(8469, 3) :- relationAllExistsCount(parts, DuplicatedChromosome, Chromatid, 2).
+proof(8469, 4) :- evaluate(8, TimesFn(2, 4)).
+proof(8469, 5) :- evaluate(8, TimesFn(2, 4)).
+proof(8469, 6) :- evaluate(8, TimesFn(2, 4)).
+proof(8469, 7) :- evaluate(8, TimesFn(2, 4)), relationAllExistsCount(parts, DuplicatedChromosome, Chromatid, 2).
+proof(8469, 8) :- normalWholeTypeForPartType(Chromatid, DuplicatedChromosome).
+proof(8469, 9) :- normalWholeTypeForPartType(Chromatid, DuplicatedChromosome).
+proof(8469, 10) :- normalWholeTypeForPartType(Chromatid, Chromosome).
+proof(8469, 11) :- normalWholeTypeForPartType(Chromatid, Chromosome).
+proof(8469, 12) :- genls(DuplicatedChromosome, DuplicatedChromosome).
+proof(8469, 13) :- genls(DuplicatedChromosome, DuplicatedChromosome).
+proof(8469, 14) :- genls(DuplicatedChromosome, DuplicatedChromosome), normalWholeTypeForPartType(Chromatid, DuplicatedChromosome).
+proof(8469, 15) :- genls(DuplicatedChromosome, DuplicatedChromosome), evaluate(8, TimesFn(2, 4)), relationAllExistsCount(parts, DuplicatedChromosome, Chromatid, 2), normalWholeTypeForPartType(Chromatid, DuplicatedChromosome).
+proof(8469, 16) :- genls(DuplicatedChromosome, DuplicatedChromosome), evaluate(8, TimesFn(2, 4)), relationAllExistsCount(parts, DuplicatedChromosome, Chromatid, 2), normalWholeTypeForPartType(Chromatid, DuplicatedChromosome).
+proof(8469, 17) :- genls(DuplicatedChromosome, DuplicatedChromosome), evaluate(8, TimesFn(2, 4)), relationAllExistsCount(parts, DuplicatedChromosome, Chromatid, 2), relationInstanceExistsCount(parts, 'HYP-Cell-261171', DuplicatedChromosome, 4), normalWholeTypeForPartType(Chromatid, DuplicatedChromosome).
+proof(8469, 18) :- relationInstanceExistsCount(parts, 'HYP-Cell-261171', Chromatid, 8).
+proof(8469, 19) :- genls(DuplicatedChromosome, Chromosome).
+proof(8469, 20) :- genls(DuplicatedChromosome, Chromosome).
+proof(8469, 21) :- genls(DuplicatedChromosome, Chromosome), normalWholeTypeForPartType(Chromatid, Chromosome).
+proof(8469, 22) :- genls(DuplicatedChromosome, Chromosome), evaluate(8, TimesFn(2, 4)), relationAllExistsCount(parts, DuplicatedChromosome, Chromatid, 2), normalWholeTypeForPartType(Chromatid, Chromosome).
+proof(8469, 23) :- genls(DuplicatedChromosome, Chromosome), evaluate(8, TimesFn(2, 4)), relationAllExistsCount(parts, DuplicatedChromosome, Chromatid, 2), normalWholeTypeForPartType(Chromatid, Chromosome).
+proof(8469, 24) :- genls(DuplicatedChromosome, Chromosome), evaluate(8, TimesFn(2, 4)), relationAllExistsCount(parts, DuplicatedChromosome, Chromatid, 2), relationInstanceExistsCount(parts, 'HYP-Cell-261171', DuplicatedChromosome, 4), normalWholeTypeForPartType(Chromatid, Chromosome).
+proof(8469, 25) :- relationInstanceExistsCount(parts, 'HYP-Cell-261171', Chromatid, 8).
+
+proof(8469, 1000) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(8469, 1001) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(8469, 1002) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(8469, 1003) :- relationExistsUniqueAll(properPhysicalParts, Chromosome, Chromatid).
+proof(8469, 1004) :- relationAllExistsCount(parts, DuplicatedChromosome, Chromatid, 2).
+proof(8469, 1005) :- normalWholeTypeForPartType(Chromatid, Chromosome).
+
+proof(8469, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-261170', 1, genlMt).
+proof(8469, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-261170', 2, genlMt).
+proof(8469, 2002) :- admittedArgument(DuplicatedChromosome, 1, genls).
+proof(8469, 2003) :- admittedArgument(DuplicatedChromosome, 2, genls).
+proof(8469, 2004) :- admittedArgument(SecondFn(58, MinuteFn(13, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(8469, 2005) :- admittedArgument(SecondFn(58, MinuteFn(13, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(8469, 2006) :- evaluate(8, TimesFn(2, 4)).
+proof(8469, 2007) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261170'), UniversalVocabularyMt).
+proof(8469, 2008) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261170'), BaseKB).
+proof(8469, 2009) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261170'), MolecularBiologyMt).
+proof(8469, 2010) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261170'), MicrobiologyMt).
+proof(8469, 2011) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261170'), MtSpace('Hypothesis-HypotheticalContext-261170', MtTimeDimFn(Now))).
+proof(8469, 2012) :- genlPreds(relationExistsUniqueAll, relationExistsAll).
+proof(8469, 2013) :- genls(DuplicatedChromosome, Chromosome).
+proof(8469, 2014) :- genls(DuplicatedChromosome, DuplicatedChromosome).
+proof(8469, 2015) :- isa(Chromatid, ChromosomeRegionType). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

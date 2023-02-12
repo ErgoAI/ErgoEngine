@@ -1,0 +1,57 @@
+\udf foo(?x,?a,?b):=?y \if pred(?x,?a,?b,?y).
+\udf moo(?x):=?y \if mooDef(?x,?y).
+
+pred(a,b,c,d).
+pred(t,r,m,n).
+
+mooDef(d,e).
+
+p(d).
+s(t,r,m).
+f(foo).
+ff(moo).
+p(x(a,a,a)).
+qq(t,r,m).
+pp(a,b,c).
+ppp(e).
+
+q(?x,?y,?z) :- p(?_(?x,?y,?z)).
+
+q1(?x,?y,?z) :- f(?n), p(?n(?x,?y,?z)).
+
+m(?f(?x,?y,?z)) :- s(?x,?y,?z),f(?f).
+
+q(?n) :- p(?n(?_x,?_y,?_z)).
+
+
+p0(?f(?x,?y,?z)) :- ?f=foo, qq(?x,?y,?z).
+
+p1(?f1(?f2(?x,?y,?z))) :- pp(?x,?y,?z), f(?f2), ff(?f1). 
+
+p2 :- ppp(?_f1(?_f2(?x,?y,?z))), pp(?x,?y,?z). 
+
+%pretest :-
+	 q(?x,?y,?z),
+	 writeln(?x)@\plg,
+	 writeln(?y)@\plg,
+	 writeln(?z)@\plg,
+	 q1(?x1,?y1,?z1),
+	 writeln(?x1)@\plg,
+	 writeln(?y1)@\plg,
+	 writeln(?z1)@\plg,
+	 m(?var1),
+	 writeln(?var1)@\plg,
+	 p0(?var2),
+	 writeln(?var2)@\plg,
+	 p1(?var3),
+	 writeln(?var3)@\plg,
+	 q(?var4),
+	 writeln(?var4)@\plg,
+	 p2,
+	 \false.
+%pretest:-\true.
+
+%test :- tell(temp)@\plg,
+	 %pretest,
+	 told@\plg.
+

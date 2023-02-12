@@ -1,0 +1,463 @@
+/*
+   THIS FILE IS IN THE PUBLIC DOMAIN.
+
+   IT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+   IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+   OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+   OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+/*
+    Tests for extended_example_KB.ergo
+*/
+
+?- [+extended_example_KB].  // ensure the KB is added.
+?- feedback{off}.  // want only our own write statements, no Ergo feedback
+
+
+
+/***************************** Section 1 basic tests **************************/
+V1:Vehicle.
+V2:Vehicle.
+DRV1:Drive[agent->V1, surface->S1, heading->Uphill, blockedBy->V2].
+DRV2:Drive[agent->V2, surface->S1, heading->Downhill, blockedBy->V1].
+S1 : {NarrowDrivingSurface, SteepDrivingSurface}.
+R1:Reverse[agent->V2].
+I1:DrivingSituation[participant->V1, participant->V2].
+
+// test queries
+?- \if I1:Impasse \then
+       writeln(test1_1=ok)@\io
+   \else writeln(test1_1=failed)@\io.
+?- \if (I1[response->?x], ?x==R1) \then
+       writeln(test1_2=ok)@\io
+   \else writeln(test1_2=failed)@\io.
+?- \if (I1[rightOfWay->?x], ?x==V1) \then
+       writeln(test1_3=ok)@\io
+   \else writeln(test1_3=failed)@\io.
+
+
+/*********************** Section 2 basic tests *******************************/
+D1:DrivingEntity.
+DR1:Drive[agent->D1, speed->51, inSpeedZone->Z].
+Z:SpeedZone[speedLimit->50].
+
+D2:DrivingEntity.
+DR2:Drive[agent->D2].
+R2:ReduceSpeed[agent->D2].
+H:HazardousConditions[participant->D2, response->not(R2)].
+
+D3:DrivingEntity.
+P1:Pedestrian.
+DR3:Drive[agent->D3, aheadInLane->P1].
+R3:ReduceSpeed[agent->D3].
+D:DrivingSituation[participant->D3, participant->P1, response->not(R3)].
+
+D5:DrivingEntity.
+P2:Bicyclist.
+DR5:Drive[agent->D5, aheadInLane->P2, speed->37, inSpeedZone->Z2].
+R5:ReduceSpeed[agent->D5].
+H:WetDrivingSurface[participant->D5, participant->P2, response->not(R5)].
+Z2:SpeedZone[speedLimit->30].
+
+// test queries
+?- \if {DR1,DR2,DR3,DR5}:Speeding \then
+       writeln(test2=ok)@\io
+   \else writeln(test2=failed)@\io.
+
+
+/************************ Section 3 basic tests ******************************/
+Z6:Highway.
+Z7:SpeedZone.
+Z8:TwoLaneUndividedHighway.
+
+D6:VehicleTowingTrailer.
+DR6:Drive[agent -> D6, speed -> 60].
+
+DR7:Drive[agent -> D5, inSpeedZone -> Z2].
+R7:ReduceSpeed[agent -> D5].
+H:ConstructionZone[participant -> D5, response -> not(R7)].
+
+// test queries
+?- \if (Z6[speedLimit->?x], ?x==65) \then
+       writeln(test3_1=ok)@\io
+   \else writeln(test3_1=failed)@\io.
+?- \if (Z7[speedLimit->?x], ?x==70) \then
+       writeln(test3_2=ok)@\io
+   \else writeln(test3_2=failed)@\io.
+?- \if (Z8[speedLimit->?x], ?x==50) \then
+       writeln(test3_3=ok)@\io
+   \else writeln(test3_3=failed)@\io.
+?- \if (Z6[speedLimit->?x], ?x==65) \then
+       writeln(test3_4=ok)@\io
+   \else writeln(test3_4=failed)@\io.
+?- \if {DR6,DR7}:Speeding \then
+       writeln(test3_5=ok)@\io
+   \else writeln(test3_5=failed)@\io.
+
+
+/************************ Section 4 basic tests *******************************/
+D8:DrivingEntity.
+D9:DrivingEntity.
+DR8:Drive[agent->D8, speed->30, inSpeedZone->Z8, lane->L8].
+DR9:Drive[agent->D9, speed->40, inSpeedZone->Z8, inFront->D8].
+L8:UnmarkedLane.
+Z8:SpeedZone[speedLimit->50].
+S8:DrivingSituation[participant->D8, participant->D9, response->M8].
+M8:MoveRight[agent->D8].
+
+// test queries
+?- \if DR8:BlockTraffic \then
+       writeln(test4=ok)@\io
+   \else writeln(test4=failed)@\io.
+
+
+/*********************** Section 5 basics tests ******************************/
+D10:Truck[axleCount -> 3].
+DR10:Drive[agent -> D10, lane -> L10, surface -> S].
+L10:UnmarkedLane.
+
+D11:Bus.
+DR11:Drive[agent -> D11, surface -> S, lane -> L10].
+S:RoadHalfAllUnmarked[laneCount -> 4].
+
+// test queries
+?- \if {DR10,DR11}:IllegalLaneUse \then
+       writeln(test5=ok)@\io
+   \else writeln(test5=failed)@\io.
+
+
+/************************ Section 6 basic tests *******************************/
+D12:DrivingEntity.
+DR12:Drive[agent -> D12, speed -> 30, distanceTo(SC12) -> 650].
+SC12:School[childrenOut -> \true, speedZone -> Z12].
+Z12:SchoolZone.
+
+// test queries
+?- \if DR12:Speeding \then
+       writeln(test6_1=ok)@\io
+   \else writeln(test6_1=failed)@\io.
+?- \if (Z12[speedLimit->?x], ?x==25) \then
+       writeln(test6_2=ok)@\io
+   \else writeln(test6_2=failed)@\io.
+?- \if (SC12[hasFence->?x], ?x==\true) \then
+       writeln(test6_3=ok)@\io
+   \else writeln(test6_3=failed)@\io.
+
+
+/************************ Section 7 basic tests *******************************/
+D13:DrivingEntity.
+C13:CrossingGuard.
+R13:Road[crossing -> C13].
+DR13:Drive[agent -> D13, surface -> R13].
+S13:Drive.
+DS13:CrossingGuardOnRoad[participant->D13, participant->C13, response->S13].
+
+D14:DrivingEntity.
+DR14:Drive[agent -> D14, surface -> S14].
+DR142:Drive[agent -> SB14, surface -> S14].
+S14:RoadHalf.
+SB14:SchoolBus[yellowLightsFlashing -> \true].
+DS14:SchoolBusAhead[participant -> D14, participant -> SB14].
+
+D15:DrivingEntity.
+DR15:Drive[agent -> D15, surface -> S15].
+DR152:Drive[agent -> SB15, surface -> S15].
+S15:RoadHalf.
+SB15:SchoolBus[redLightsFlashing -> \true].
+DS15:SchoolBusAhead[participant -> D15, participant -> SB15].
+
+// test queries
+?- \if {DR13,DR14}:IllegalNoStop \then
+       writeln(test7_1=ok)@\io
+   \else writeln(test7_1=failed)@\io.
+?- \if DR15:IllegalNoStopOnRed \then
+       writeln(test7_2=ok)@\io
+   \else writeln(test7_2=failed)@\io.
+?- \if (DR15[maxPenalty->?x], ?x==1000,
+        DR15[maxPenalty->?y], ?y=="P12M"^^\duration)
+   \then
+       writeln(test7_3=ok)@\io
+   \else writeln(test7_3=failed)@\io.
+
+
+/************************ Section 8 basic tests *******************************/
+D16:DrivingEntity.
+R16:Roundabout.
+E161:RightMostLane.
+E162:LeftMostLane.
+DR16:RightRoundaboutTurn[agent -> D16, roundabout -> R16,
+                         entryLane -> E161, exitLane -> E162].
+
+DR17:LeftRoundaboutTurn[agent -> D16, roundabout -> R16,
+                        entryLane -> E162, exitLane -> E161].
+
+DR18:UseRoundabout[agent -> D16, roundabout -> R16,
+                   entryLane -> E162, exitLane -> E161].
+
+// test queries
+?- \if {DR16,DR17,DR18}:IllegalLaneUse \then
+       writeln(test8=ok)@\io
+   \else writeln(test8=failed)@\io.
+
+
+/************************* More complex tests ********************************/
+
+/******************************* Test 9 **************************************/
+// If it's snowing and the driver does not reduce speed, is the driver speeding?
+D4:DrivingEntity.
+DR4:Drive[agent -> D4].
+R4 : (Drive - ReduceSpeed)[agent -> D4].
+//R4:Drive[agent -> D4]. \neg R4:ReduceSpeed.
+H:Snowing[participant -> D4, response -> R4].
+
+// Test 9 queries
+?- \if DR4:Speeding \then 
+       writeln(test9=ok)@\io
+   \else writeln(test9=failed)@\io.
+
+
+/******************************* Test 10 *************************************/
+// If a truck is going up a steep, narrow road and a bus is coming down,
+// who has right of way?
+D191:Truck.
+D192:Bus.
+DR191:Drive[agent->D191, surface->S19, heading->Uphill, blockedBy->D192].
+DR192:Drive[agent->D192, surface->S19, heading->Downhill, blockedBy->D191].
+S19:{NarrowDrivingSurface, SteepDrivingSurface}.
+R19:Reverse[agent->D192].
+I19:DrivingSituation[participant->D191, participant->D192].
+
+// Test 10 queries
+?- \if (I19[rightOfWay->?x], ?x==D191) \then
+       writeln(test10=ok)@\io
+   \else writeln(test10=failed)@\io.
+
+
+/******************************* Test 11 *************************************/
+// If a vehicle is driving in the left most lane at 48mph in a 50pmh zone
+// and a bus is behind it driving at 55mph and the car doesn't move right,
+// is it blocking traffic?
+D201:Vehicle.
+D202:Bus.
+DR201:Drive[agent->D201, speed->48, inSpeedZone->Z20, lane->L20].
+DR202:Drive[agent->D202, speed->55, inSpeedZone->Z20, inFront->D201].
+L20:LeftMostLane.
+Z20:SpeedZone[speedLimit->50].
+DS20:DrivingSituation[participant->D201, participant->D202].
+
+// Test 11 queries
+?- \if DR201:BlockTraffic \then  // must cwgive a No
+       writeln(test11_1=failed)@\io
+   \else writeln(test11_1=ok)@\io.
+?- \if DR202:Speeding \then
+       writeln(test11_2=ok)@\io
+   \else writeln(test11_2=failed)@\io.
+
+
+/******************************* Test 12 *************************************/
+// If a school bus is flashing its red lights on a highway with 3 lanes and
+// a truck is present, must the truck stop?
+D211:Truck.
+D212:SchoolBus[redLightsFlashing->\true].
+DR211:Drive[agent->D211, surface->S21].
+DR211:Drive[agent->D212, surface->S21].
+S21:Highway[laneCount->3].
+R21:(Drive - Stop).
+//R21:Drive. \neg R21:Stop.
+SB:SchoolBusAhead[participant->D211, participant->D212, response->R21].
+
+// Test 12 queries
+?- \if DR211:IllegalNoStopOnRed \then
+       writeln(test12=ok)@\io
+   \else writeln(test12=failed)@\io.
+
+
+/******************************* Test 13 *************************************/
+// If a vehicle is driving at 30mph 800 feet from a school with no children
+// outside, is the vehicle speeding?
+D22:Vehicle.
+DR22:Drive[agent -> D22, speed -> 30, distanceTo(SC22) -> 800].
+SC22:School[childrenOut -> \false, speedZone -> Z22].
+Z22:SchoolZone.
+
+
+// If a vehicle towing a trailer is driving 60mph on a standard highway,
+// is the vehicle speeding?
+D23:VehicleTowingTrailer.
+DR23:Drive[agent -> D23, speed -> 60, surface -> S23].
+S23:Highway.
+
+// Test 13 queries
+?- \if (\naf DR22:Speeding, DR23:Speeding) \then
+       writeln(test13=ok)@\io
+   \else writeln(test13=failed)@\io.
+
+
+/******************************* Test 14 *************************************/
+// A truck with 5 axles is driving in the second right most lane on the highway.
+// Is this illegal?
+D24:Truck[axleCount -> 5].
+DR24:Drive[agent -> D24, lane -> L24, surface -> S24].
+L24:SecondRightMostLane.
+S24:Highway[laneCount -> 6].
+
+DR25:Drive[agent -> D24, lane -> L24, surface -> S25].
+S25:RoadHalfAllUnmarked[laneCount -> 4].
+
+// Test 14 queries
+?- \if (DR24:IllegalLaneUse, \naf DR25:IllegalLaneUse) \then
+       writeln(test14=ok)@\io
+   \else writeln(test14=failed)@\io.
+
+
+/*************** Additional Questions, not prepared in advance ***************/
+
+/******************************* Test N1 *************************************/
+// On a highway with no posted speed limit, what is the maximum legal speed
+// for a vehicle towing a trailer? [55 mph]
+D26:VehicleTowingTrailer.
+DR26:Drive[agent -> D26, surface -> S26].
+S26:Highway.
+
+// Test N1 queries
+?- \if (D26[speedLimit->?x], ?x==55) \then
+       writeln(testN1=ok)@\io
+   \else writeln(testN1=failed)@\io.
+
+
+/******************************* Test N2 *************************************/
+// Can you ever be cited for driving slower than the speed limit? [Yes]
+// Here we test whether such a drive blocks traffic.
+D271:DrivingEntity.
+D272:DrivingEntity.
+// DR271 drived at least 5mph slowed than DR272, so it must be blocking traffic
+DR271:Drive[agent->D271, speed->35, lane->L27, inSpeedZone->Z27].
+DR272:Drive[agent->D272, speed->45, inSpeedZone->Z27, inFront->D271].
+Z27:SpeedZone[speedLimit->50].
+L27:(RoadLane - RightMostLane).
+//L27:RoadLane. \neg L27:RightMostLane.
+DS27:DrivingSituation[participant->D271, participant->D272].
+
+// Test N2 queries
+?- \if DR271:BlockTraffic \then
+       writeln(testN2=ok)@\io
+   \else writeln(testN2=failed)@\io.
+
+
+/******************************* Test N3 *************************************/
+// If you are driving within 1000 feet of a school while children are outside
+// with no posted school-zone speed limit, what is your maximum legal
+// speed? [25 mph]
+D28:DrivingEntity.
+DR28:Drive[agent -> D28, distanceTo(SC28) -> 1000].
+SC28:School[childrenOut -> \true, speedZone -> Z28].
+Z28:SchoolZone.
+
+// Test N3 queries
+?- \if (Z28[speedLimit->?x],?x==25) \then
+       writeln(testN3=ok)@\io
+   \else writeln(testN3=failed)@\io.
+
+
+/******************************* Test N4 *************************************/
+// If you are driving a bus, large truck, or towing a vehicle or trailer
+// on a road with three lanes, which lanes may you drive in (left, middle,
+// and/or right)? [Right (you may not drive in the middle or left lanes)]
+D301:VehicleTowingVehicle.
+DR301:Drive[agent -> D301, surface -> S30, lane -> L301].
+DR302:Drive[agent -> D301, surface -> S30, lane -> L302].
+DR303:Drive[agent -> D301, surface -> S30, lane -> L303].
+L301:LeftMostLane.
+L302:UnmarkedLane.
+\neg L302:{LeftMostLane,RightMostLane}.
+L303:RightMostLane.
+S30:Road[laneCount -> 3].
+
+// Test N4 queries
+?- \if (?Result=setof{?R| ?D:IllegalLaneUse[lane->?x], ?R=?D+?x},
+        // NOTE: \in and count() are in Ergo only. In Flora-2, as shown below
+        DR301+L301 \in ?Result,
+        //?Result[member(DR301+L301)]@\basetype,  // use this in Flora-2 & below
+        DR302+L302 \in ?Result,
+        DR10+L10 \in ?Result,
+        DR11+L10 \in ?Result,
+        DR24+L24 \in ?Result,
+        5 \is count(?Result)
+        //?Result[length->5]@\basetype  // use this in Flora-2 instead of count
+       )
+   \then writeln(testN4=ok)@\io
+   \else writeln(testN4=failed)@\io.
+
+
+/******************************* Test N5 *************************************/
+// Can you be fined more than $1000 for passing a school bus with flashing red
+// lights? [No (you may be fined up to $1000)]
+D31:DrivingEntity.
+DR311:Drive[agent -> D31, surface -> S31].
+DR312:Drive[agent -> SB31, surface -> S31].
+S31:Road[laneCount -> 2].
+SB31:SchoolBus[redLightsFlashing -> \true].
+SBA31:SchoolBusAhead[participant -> D31, participant -> SB31].
+
+// Test N5 queries
+?- \if DR311:IllegalNoStopOnRed \then
+       writeln(testN5_1=ok)@\io
+   \else writeln(testN5_1=failed)@\io.
+?- \if (DR311[maxPenalty->?x], ?x==1000) \then
+       writeln(testN5_2=ok)@\io
+   \else writeln(testN5_2=failed)@\io.
+
+
+/******************************* Test N6 *************************************/
+// Is it legal to drive in the opposite direction past a school bus with
+// flashing red lights on a road without a divider? [No]
+D32:DrivingEntity.
+DR321:Drive[agent -> D32, surface -> S32].
+DR322:Drive[agent -> SB32, surface -> S32].
+S32:UndividedHighway[laneCount -> 2].
+SB32:SchoolBus[redLightsFlashing -> \true].
+SBA32:SchoolBusAhead[participant -> D32, participant -> SB32].
+
+// Test N6 queries
+?- \if DR321:IllegalNoStopOnRed \then
+       writeln(testN6=ok)@\io
+   \else writeln(testN6=failed)@\io.
+
+
+/******************************* Test N7 *************************************/
+// Is it legal to drive faster than the posted speed limit? [No]
+D34:DrivingEntity.
+DR34:Drive[agent -> D34, inSpeedZone -> Z34, speed -> 41].
+Z34:SpeedZone[speedLimit -> 40].
+
+// Test N7 queries
+?- \if DR34:Speeding \then
+       writeln(testN7=ok)@\io
+   \else writeln(testN7=failed)@\io.
+
+
+/*************************** Type violation test *****************************/
+
+/*
+  As a final test, we will check if the KB has any type violations.
+*/
+
+?-  Type[check(?[|?->?|],?Result)]@\typecheck,
+    \if ?Result==[] \then
+        writeln('\nNo type violations were found.')@\io
+    \else (
+        writeln('\nType violations were found:')@\io,
+        fmt_write('\t %S\n', args(?Result))@\io
+    ).
+
+// the above does not reveal any type violations
+
+
+/************************* End of Tests **************************************/
+
+
+?- feedback{on}.  // restore feedback

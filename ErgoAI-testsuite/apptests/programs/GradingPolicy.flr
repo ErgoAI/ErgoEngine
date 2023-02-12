@@ -1,0 +1,106 @@
+
+/************ Grading Policy -- Change values as appropriate ************/
+
+// After you look at the histogram, fill out
+//   gradeMap(Course)[
+//    	'A'  ->100,
+//    	'A-' ->90,
+//    	'B+' ->82,
+//    	'B'  ->74,
+//    	'B-' ->66,
+//    	'C+' ->60,
+//    	'C'  ->54,
+//    	'C-' ->48,
+//    	'D'  ->38,
+//    	'F'  ->1
+//    	'NR' ->0
+//   ].
+//   Then let the program produce the full report and automatically grade 
+//   students. This also produces a listing suitable for posting on the Web.
+
+:- ignore_depchk{(%?)@?}.
+
+weights(?_Course):weights.
+ranges(?_Course):ranges.
+thresholds(?_Course):thresholds.
+gradeMap(?_Course):gradeMap.
+
+/*
+// This overrides the default for cse587 -- an example
+weights(cse587)[
+    proj1   ->10
+   ,proj2   ->10
+   ,proj3   ->10
+   ,midterm ->20
+   ,final   ->30
+].
+*/
+weights[|
+    proj1   ->20
+   ,proj2   ->10
+   ,midterm ->30
+   ,final   ->40
+|].
+
+ranges[|
+    proj1   ->[0,100]
+   ,proj2   ->[0,100]
+   ,midterm ->[0,100]
+   ,final   ->[0,100]
+|].
+ranges[|averages -> [?Low,?High]|] :-
+	?Low1 = avg{?L | ranges[|?Asg -> [?L,?_]|], ?Asg \== averages},
+	?High1 = avg{?H | ranges[|?Asg -> [?_,?H]|], ?Asg \== averages},
+	%round(?Low1,?Low)@grade,
+	%round(?High1,?High)@grade.
+ranges(?Crs)[averages -> [?Low,?High]] :-
+	?Low1 = avg{?L | ranges(?Crs)[?Asg -> [?L,?_]], ?Asg \== averages},
+	?High1 = avg{?H | ranges(?Crs)[?Asg -> [?_,?H]], ?Asg \== averages},
+	%round(?Low1,?Low)@grade,
+	%round(?High1,?High)@grade.
+// Where to cut off irrelevant scores
+thresholds[|
+    average   ->30,
+    histogram ->40
+|].
+/*
+// This overrides the default for cse306 -- an example
+thresholds(cse306)[
+    average   ->30,
+    histogram ->40
+].
+
+
+gradeMap(cse306)[
+    'A'  ->84,
+    'A-' ->81,
+    'B+' ->76,
+    'B'  ->72,
+    'B-' ->67,
+    'C+' ->60,
+    'C'  ->52,
+    'C-' ->42,
+    'D'  ->38,
+    'F'  ->1,
+    // Must be zero
+    'NR' ->0
+].
+*/
+
+gradeMap[|
+    'A'  ->90,
+    'A-' ->87,
+    'B+' ->82,
+    'B'  ->76,
+    'B-' ->70,
+    'C+' ->62,
+    'C'  ->55,
+    'C-' ->50,
+    'D'  ->45,
+    'F'  ->1,
+    // Must be zero
+    'NR' ->0
+|].
+
+
+

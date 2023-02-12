@@ -1,0 +1,96 @@
+a(abc):-u(1).
+a(abc):-u(2).
+u(1).
+c(123):-w(1).
+c(123):-w(2).
+w(1).
+
+aa[bb->cc] :- qq(1).
+aa[bb->cc] :- qq(2).
+qq(1).
+aa[|bb->cc|] :- qq2(1).
+aa[|bb->cc|] :- qq2(2).
+qq2(1).
+
+aa[bb=>cc] :- rr(1).
+aa[bb=>cc] :- rr(2).
+rr(1).
+aa[|bb=>cc|] :- rr2(1).
+aa[|bb=>cc|] :- rr2(2).
+rr2(1).
+
+?- insertrule{(b(cde):-v(1)),(b(cde):-v(2))}, insert{v(1)}.
+
+%tst1 :-
+	write('test1: ')@\plg,
+	refresh{a(?)},
+	?G = ${a(?)}, traced_call(?G,?CalledId,?F,?M)@\plg(flrcallflora),
+	delete{u(1)}, insert{u(2)},
+	refresh{a(?)},
+	traced_call(?G,?CalledId2,?F2,?M2)@\plg(flrcallflora),
+	writeln(?CalledId+?CalledId2+?F+?F2+?M+?M2)@\plg.
+
+%tst2 :-
+	write('test2: ')@\plg,
+	refresh{b(?)},
+	?G = ${b(?)}, traced_call(?G,?CalledId,?F,?M)@\plg(flrcallflora),
+	delete{v(1)}, insert{v(2)},
+	refresh{b(?)},
+	traced_call(?G,?CalledId2,?F2,?M2)@\plg(flrcallflora),
+	writeln(?CalledId+?CalledId2+?F+?F2+?M+?M2)@\plg.
+
+%tst3 :-
+	write('test3: ')@\plg,
+	refresh{c(?)},
+	traced_call(${c(?)},?CalledId,?F,?M)@\plg(flrcallflora),
+	delete{w(1)}, insert{w(2)},
+	refresh{c(?)},
+	traced_call(${c(?)},?CalledId2,?F2,?M2)@\plg(flrcallflora),
+	writeln(?CalledId+?CalledId2+?F+?F2+?M+?M2)@\plg.
+
+%tst4 :-
+	write('test4: ')@\plg,
+	refresh{aa[bb->?]},
+	?G = ${aa[bb->?]}, traced_call(?G,?CalledId,?F,?M)@\plg(flrcallflora),
+	delete{qq(1)}, insert{qq(2)},
+	refresh{aa[bb->?]},
+	traced_call(?G,?CalledId2,?F2,?M2)@\plg(flrcallflora),
+	writeln(?CalledId+?CalledId2+?F+?F2+?M+?M2)@\plg.
+
+%tst5 :-
+	write('test5: ')@\plg,
+	refresh{aa[|bb->?|]},
+	?G = ${aa[|bb->?|]}, traced_call(?G,?CalledId,?F,?M)@\plg(flrcallflora),
+	delete{qq2(1)}, insert{qq2(2)},
+	refresh{aa[|bb->?|]},
+	traced_call(?G,?CalledId2,?F2,?M2)@\plg(flrcallflora),
+	writeln(?CalledId+?CalledId2+?F+?F2+?M+?M2)@\plg.
+
+%tst6 :-
+	write('test6: ')@\plg,
+	refresh{aa[bb=>?]},
+	?G = ${aa[bb=>cc]}, traced_call(?G,?CalledId,?F,?M)@\plg(flrcallflora),
+	delete{rr(1)}, insert{rr(2)},
+	refresh{aa[bb=>?]},
+	traced_call(?G,?CalledId2,?F2,?M2)@\plg(flrcallflora),
+	writeln(?CalledId+?CalledId2+?F+?F2+?M+?M2)@\plg.
+
+%tst7 :-
+	write('test7: ')@\plg,
+	refresh{aa[|bb=>?|]},
+	?G = ${aa[|bb=>cc|]}, traced_call(?G,?CalledId,?F,?M)@\plg(flrcallflora),
+	delete{rr2(1)}, insert{rr2(2)},
+	refresh{aa[|bb=>?|]},
+	traced_call(?G,?CalledId2,?F2,?M2)@\plg(flrcallflora),
+	writeln(?CalledId+?CalledId2+?F+?F2+?M+?M2)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7.
+
+%test :- tell(temp)@\plg(),
+	%pretest,
+	Method[mustDefine(on)]@\sys,
+	delete{u(2),v(2),w(2),qq(2),qq2(2),rr(2),rr2(2)},
+	insert{u(1),v(1),w(1),qq(1),qq2(1),rr(1),rr2(1)},
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	told@\plg().

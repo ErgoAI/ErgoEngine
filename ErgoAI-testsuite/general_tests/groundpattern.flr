@@ -1,0 +1,29 @@
+:- setsemantics{tabling=reactive}.
+groundPattern([], []).
+groundPattern([?F|?R],[True |?RP]) :-
+	isnonvar{?F},
+	groundPattern(?R,?RP).
+groundPattern([?F|?R],[False|?RP]) :- 
+	isvar{?F},
+	groundPattern(?R,?RP).
+
+%tst1 :- ?R = bagof{?PAT|true{groundPattern([], ?PAT)}}, writeln(test1 = ?R)@\plg .
+%tst2 :- ?R = bagof{?PAT|true{groundPattern([(1)], ?PAT)}}, writeln(test2 = ?R)@\plg .
+%tst3 :- ?R = bagof{?PAT|true{groundPattern([?_X], ?PAT)}}, writeln(test3 = ?R)@\plg .
+%tst4 :- ?R = bagof{?PAT|true{groundPattern([(1), (2)], ?PAT)}}, writeln(test4 = ?R)@\plg .
+%tst5 :- ?R = bagof{?PAT|true{groundPattern([(1), ?_X], ?PAT)}}, writeln(test5 = ?R)@\plg .
+%tst6 :- ?R = bagof{?PAT|true{groundPattern([?_X, (2)], ?PAT)}}, writeln(test6 = ?R)@\plg .
+%tst7 :- ?R = bagof{?PAT|true{groundPattern([?_X, ?_Y], ?PAT)}}, writeln(test7 = ?R)@\plg .
+
+%tst8 :- ?R = bagof{?PAT|true{groundPattern([(1), (2)], ?PAT)}}, writeln(test8 = ?R)@\plg .
+%tst9 :- ?R = bagof{?PAT|true{groundPattern([(1), ?_X], ?PAT)}}, writeln(test9 = ?R)@\plg .
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7,
+            %tst8, %tst9.
+
+%test :- tell(temp)@\plg(), 
+	%pretest,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	told@\plg().

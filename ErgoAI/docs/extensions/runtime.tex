@@ -1,0 +1,208 @@
+
+  \subsection{Runtime Inspection of Computation}\label{sec-runtime}
+
+  \index{showgoals\{...\} primitive}
+  \ERGO allows the user to stop any computation by hitting \texttt{Ctrl-C}
+  in the terminal or by clicking the \texttt{Pause} button in the \ERGO
+  listener.
+  During the pause, one can ask certain queries about the state of the
+  computation, but not arbitrary queries. Specifically, no tabled
+  (non-transactional) queries are allowed and insert/delete operations are
+  not permitted either.
+  The most useful queries that one \emph{can} ask are described below.
+
+  The \texttt{showgoals\{...\}} command to display information about 
+  the goals still being computed. The information shown is the number of
+  answers for each goal computed so far and the number of calls to each goal.
+  The output is sorted first by the number of answers and then by the
+  number of calls. There are two types of the \texttt{showgoals} command:
+  %% 
+  \begin{itemize}
+  \item    \texttt{showgoals\{\}}: this shows all incomplete subgoals that
+    have over 1000 calls or over 50 answers.
+  \item   \texttt{showgoals\{\normalfont{\emph{CallCutoff,AnwerCutoff}}\}}:
+    This will show only the subgoals that have more than \emph{CallCutoff} calls or
+    over \emph{AnswerCutoff} answers.  
+  \end{itemize}
+  %% 
+
+  \index{showtables\{...\} primitive}
+  \ERGO also provides a companion primitive,  \texttt{showtables\{...\}},
+  which is usually more convenient
+  than the table dump because it provides a more focused output and is
+  easier to use. This primitive is intended not for the pause in computation
+  but for analysis to be performed
+  after a query of interest is finished. It then displays subgoals
+  that took part in the computation of the last (and previous queries)
+  using the same format as \texttt{showgoals\{...\}}.
+  There are two types of the \texttt{showtables} command:
+  %% 
+  \begin{itemize}
+  \item    \texttt{showtables\{\}}: this shows all incomplete subgoals that
+    have over 1000 calls or over 50 answers.
+  \item   \texttt{showtables\{\normalfont{\emph{CallCutoff,AnwerCutoff}}\}}:
+    This will show only the subgoals that have over \emph{CallCutoff} calls or
+    more than \emph{AnswerCutoff} answers.  
+  \end{itemize}
+  %% 
+
+  The \texttt{showgoals\{...\}} primitive is typically used to investigate
+  reasons for \emph{runaway} computation, i.e., non-termination of queries
+  as well as diagnose performance problems. It is designed to be used
+  during pauses in query computation, before the query finishes. The
+  \texttt{showtables\{...\}} primitive is designed to be used after the
+  query finishes and thus is useful only for analyzing the performance
+  aspect of runaway computations. The call and answer cutoffs must be
+  chosen judiciously.
+  In both of the
+  above runaway cases, the goals of interest are those that either have
+  many calls to them (in the thousands, but depends on the case at hand) or
+  have many answers (in the tens or hundreds, as appropriate).  Examining
+  the information provided by \ERGO during pauses and after query
+  completion can provide a number of insights:
+  %% 
+  \begin{itemize}
+  \item \emph{Compare the number of active goals and the number of active
+      recursive
+      components,} which is shown when the computation is paused.
+    The active goals/components are the ones that are currently being computed
+    and therefore are of interest during pauses in the computation.
+    %% 
+    \begin{itemize}
+    \item Check the \emph{ratio} of the \emph{number of active recursive
+        components to the number of active goals.}  This ration is
+      normally $\leq 1$, but if it is very small (say, under 3\% and keeps
+      falling during subsequent pauses), then it is an indication that
+      the rules are poorly structured. Every subgoal depends on many other
+      subgoals and there likely are too many calls that do not contribute
+      to the query results, but just waste the computational
+      resources. Consider restructuring the rules so that the recursive
+      components form some kind of a hierarchy. The use of \ERGO modules is
+      strongly recommended in this case. Also, try to mix HiLog and
+      frame-based representation.
+  \item If the aforesaid ratio stays
+    approximately constant and \emph{both} the number of active recursive
+    components and the number of active goals climb steadily,
+    it is an indication of an infinite recursion where subgoals are
+    called with increasingly deeply nested terms (e.g., \texttt{p(f(a))},
+    \texttt{p(f(f(a)))}, \texttt{p(f(f(f(a))))}, etc.).
+    The aforesaid ratio in such cases is typically non-negligible ($> 0.3$).
+    \end{itemize}
+    %% 
+  \item \emph{Check the memory usage}, which is shown during each pause.
+    If memory usage keeps climbing steadily, it might indicate a runaway
+    computation or a possible scalability problem.
+  \item \emph{Watch the cpu time} shown during each pause.  It can be
+    helpful as a way of tracking progress.
+    This is cpu time since the time \ERGO started; it includes all the
+    pauses.
+  \item \emph{Check the number of derived facts} shown at each pause.
+    If this number does not grow and \ERGO keeps going on and on, it is an
+    indication of some kind of a runaway computation.
+  \item \emph{Use \texttt{showgoals} during the computation pauses.}
+    As mentioned earlier, you will likely be interested in goals with many
+    calls or many answers. Keep increasing the cutoffs during subsequent
+    pauses. Examining the active goals can indicate two things:
+    %% 
+    \begin{itemize}
+    \item   Weird, unexpected stuff showing up as active goals
+      might provide a hint about a possible bug in the user's rules.
+    \item  Some goals have unusually high numbers or calls and/or answers.
+      This may mean two things:
+      %% 
+      \begin{itemize}
+      \item      Non-terminating computation. The goals in question might
+        be involved in a non-terminating recursive loop. \emph{Terminyzer}
+        (Section~\ref{sec-terminyzer}) may
+        supply additional information if this is the case, including the
+        information about the rules that are involved in such a loop.
+      \item  Gross inefficiency. The computation may be terminating but,
+        for some reason, the goals in question get called unusually often or
+        they produce too many results. The latter might also indicate a
+        bug.
+      \end{itemize}
+      %% 
+    \end{itemize}
+    %% 
+
+  \item \emph{Use \texttt{showtables} after the computation.}
+    This is used after and if the query finishes. In that case, the query
+    obviously terminates, but one might be still dissatisfied with the
+    performance. The \texttt{showtables} primitive supplies the same kind
+    of information as \texttt{showgoals}, but since the former is called
+    after the query is done, it supplies complete information about the
+    subgoals that took part in the computation.
+    This can give too kinds of hints:
+    a possible bug or a possible inefficiency. As before, a bug may be
+    lurking if unexpected subgoals show up in the output of
+    \texttt{showtables}. Inefficiency should be suspected if some subgoals
+    have unusually high number of calls and/or answers.
+
+    The table dump described in Section~\ref{sec-tabledump} provides much
+    additional information, but examining it manually is usually overwhelming.
+    The table dump feature is designed for expert users who know how to
+    write Prolog and/or \ERGO programs to analyze such dumps automatically
+    and check the various hypotheses about the computational behavior of
+    queries.
+  \end{itemize}
+  %% 
+
+  Another very useful informational primitive that is allowed during pauses is
+  \texttt{peek\{}\emph{query}\texttt{\}}, where \emph{query} is an atomic
+  subgoal (tabled, non-transactional). It examines the current state of
+  the computation of \emph{query} and reports the answers that have 
+  been computed so far. This primitive is described in more detail in
+  Section~\ref{sec-peek}.
+
+\subsection{Continuous Runtime Monitoring}\label{sec-monitor}
+
+Sometimes, especially when queries take a long time, it might be useful to see
+the various statistics pertaining the queries. To request this service, the
+user can execute the following command in the \FLSYSTEM shell:
+\index{setmonitor{...}}
+%% 
+\begin{alltt}
+   \prompt setmonitor\{\emph{Secs},\emph{Type}\}. 
+\end{alltt}
+%% 
+The effect will be that all subsequent queries will be monitored and every
+\emph{Secs} seconds certain statistics will be printed out to the standard
+output. Here \textit{Type} is the type of
+the monitor. The \texttt{heartbeat} monitor just shows the elapsed time.
+The \texttt{performance} monitor shows time, memory, and other
+key statistics. The \texttt{extended} monitor shows additional
+statistics of interest.
+
+\emph{Secs} must be a non-negative integer. If \emph{Secs} = 0, monitoring
+is turned off.  Note: it is not guaranteed that the statistics will be
+refreshed every \emph{Secs} seconds, as certain intermediate
+computations are not
+interruptable and may take several seconds. In such cases, the next
+statistics report would be output right after such a non-interruptable
+computation ends.
+
+If the user instead types
+%% 
+\begin{alltt}
+   \prompt setmonitor\{\}. 
+\end{alltt}
+%% 
+then the parameters can be input via a dialog window, which will pop up.
+
+If \ERGO is run under the studio or in a graphical desktop environment out
+of a command line window, the output from the monitor will go into a
+separate pop-up window. Otherwise, it will be redirected to the standard
+output (which might
+interfere with the output of the query \emph{if}  the query has
+write-statements of its own; this \emph{does not} interfere with the
+display of the query results however).
+
+Some of the statistics shown by the \texttt{performance} and
+\texttt{heartbeat} monitors are described in Section~\ref{sec-runtime} on
+runtime inspection of computation and they thus provide indication
+of the state of the system as described there.
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

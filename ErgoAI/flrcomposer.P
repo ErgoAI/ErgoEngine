@@ -1,0 +1,1536 @@
+/* File:      flrcomposer.P  -- Flora Composer
+**
+** Author(s): Guizhen Yang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018;
+**      and Vulcan, Inc., 2008-2013;
+**      Coherent Knowledge Systems, LLC, 2014
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+%%#define SHOW_COMPOSER_INPUT
+
+#define PREOP		preop	/* PREOP(Op,Associativity,Precedence,Index) */
+#define INFOP		infop	/* INFOP(Op,Left,Right,Precedence,Index) */
+#define SUFOP		sufop	/* SUFOP(Op,Associativity,Precedence,Index) */
+#define FUNCT		funct	/* FUNCT(Term) */
+#define OPRND		oprnd	/* OPRND(Term) */
+#define BRACE		brace	/* BRACE(Symbol,Index) */
+
+#define TKCNT		tkcnt	/* index counter for tokens */
+#define RLCNT		rlcnt	/* sequence number counter for rules */
+
+%% The fictitious infix operator which is assumed to invisibly exist
+%% between the annotation (with metadata) and the following term.
+#define DESCRIPTOR_INFOP         INFOP(FL_DESCRIPTORFUNC,x,x,2000,NO_INDEX)
+
+#include "flora_characters.flh"
+#include "flora_errors.flh"
+#include "flora_terms.flh"
+#include "flora_contexts.flh"
+
+set_context(X) :-
+	(atom(X) -> flora_set_counter(X,1)
+	; abort([X, ': ',FLSYSTEM,' compiler bug. Invalid composer context'])
+	).
+
+%%has_context(X) :- flora_get_counter(X,1).
+has_context(X) :- flora_get_counter(X,V), V>0.
+
+clear_context(X) :-
+	atom(X),
+	!,
+	flora_set_counter(X,0).
+
+
+push_context(X) :-
+	(atom(X) ->
+	    flora_get_counter(X,V),
+	    V1 is V+1,
+	    flora_set_counter(X,V1)
+	; abort([X, ': ',FLSYSTEM,' compiler bug. Invalid composer context'])
+	).
+
+pop_context(X) :-
+	atom(X),
+	!,
+	flora_get_counter(X,V),
+	V1 is V-1,
+	flora_set_counter(X,V1).
+
+flora_composer_context(X) :- has_context(X).
+flora_set_composer_context(X) :- set_context(X).
+flora_clear_composer_context(X) :- clear_context(X).
+
+
+/***************************************************************************
+  flora_nth_token(+IndexNumber,-Token)
+***************************************************************************/
+flora_nth_token(N,T) :-
+	indexed_token(N,_,T).
+
+
+/***************************************************************************
+  flora_token_rulenum(+IndexNumber,-RuleNum)
+***************************************************************************/
+flora_token_rulenum(N,RuleNum) :-
+	indexed_token(N,RuleNum,_),
+	!.
+flora_token_rulenum(_N,NO_RULE).
+
+
+/***************************************************************************
+  index_tokens(+TokensList,+IndexNumber,+RuleNumber)
+***************************************************************************/
+index_tokens([],N,RuleNum) :-
+	!,
+	%% Store the sequence number for the next rule.
+	X is RuleNum+1,
+	flora_set_counter(RLCNT,X),
+	%% Store the index sequence number after indexing all tokens.
+	flora_set_counter(TKCNT,N).
+
+index_tokens([T|Ts],N,RuleNum) :-
+	assert(indexed_token(N,RuleNum,T)),
+	M is N+1,
+	index_tokens(Ts,M,RuleNum),
+	!.
+
+
+/***************************************************************************
+  token_by_index(?Index,?Token)
+***************************************************************************/
+token_by_index(Index,Token) :-
+	var(Index),
+	!,
+	indexed_token(Index,_,Token).
+
+token_by_index(Index,Token) :-
+	number(Index),
+	!,
+	indexed_token(Index,_,Token).
+
+token_by_index(Index,Token) :-
+	%% Index can be an arithmetic expression, so evaluate it
+	%% Should use M is N, but some onscure bug in XSB prevents
+	eval(Index,N),
+	indexed_token(N,_,Token).
+
+
+/***************************************************************************
+  is_next_token(+Index,+Token)
+
+  It checks if the token index by "Index" matches "Token". If it is a
+  whitespace or comment, it will be skipped until a nonwhitespace.
+***************************************************************************/
+is_next_token(Index,Token) :-
+	token_by_index(Index,T),
+	( T=Token ->
+	    !,
+	    true
+
+	; (T=WHITESPACE(_); T=COMMENT(_)) ->
+	    N is Index+1,
+	    is_next_token(N,Token)
+	;
+	  !,
+	  fail
+        ).
+
+
+/**************************************************************************
+  if_flora_gpp_markup(+Token)
+**************************************************************************/
+is_flora_gpp_markup(QUOTED_ATOM(FLORA_GPP_MARKUP,_)).
+
+
+/**************************************************************************
+  is_descriptor_function(+Object)
+**************************************************************************/
+is_descriptor_function(Object) :-  is_tag_descriptor_function(Object), !.
+is_descriptor_function(Object) :-  is_ruleid_descriptor_function(Object), !.
+is_descriptor_function(Object) :-  is_bool_descriptor_function(Object).
+
+is_tag_descriptor_function(FUNCTION(OBJECT(SYMBOL_TOKEN(FL_TAG_DESCR_OP),_),_Arg)).
+is_ruleid_descriptor_function(FUNCTION(OBJECT(SYMBOL_TOKEN(FL_RULEID_OP),_),_Arg)).
+is_bool_descriptor_function(FUNCTION(OBJECT(SYMBOL_TOKEN(FL_BOOL_DESCR_OP),_),_Arg)).
+
+is_descriptor_token(SYMBOL_TOKEN(FL_DESCRIPTOROP,_)).
+
+is_descriptor_op(OBJECT(SYMBOL_TOKEN(FL_DESCRIPTOROP),TokenN),TokenN).
+descriptor_funct_struct(Arg,Struct) :-
+	get_rightmost_index(Arg,Idx),
+	argument_struct(FL_BRACE,Arg,NO_INDEX,Idx,ArgStruct),
+	is_descriptor_op(DescrToken,Idx),
+	function_struct(DescrToken,ArgStruct,Struct).
+
+is_bool_descriptor_op(OBJECT(SYMBOL_TOKEN(FL_BOOL_DESCR_SYM),TokenN),TokenN).
+bool_descriptor_funct_struct(Arg,Struct) :-
+	get_rightmost_index(Arg,Idx),
+	argument_struct(FL_BRACE,Arg,NO_INDEX,Idx,ArgStruct),
+	is_bool_descriptor_op(DescrToken,Idx),
+	function_struct(DescrToken,ArgStruct,Struct).
+
+is_ruleid_op(OBJECT(SYMBOL_TOKEN(FL_RULEID_SYM),TokenN),TokenN).
+ruleid_funct_struct(Arg,Struct) :-
+	get_rightmost_index(Arg,Idx),
+	argument_struct(FL_BRACE,Arg,NO_INDEX,Idx,ArgStruct),
+	is_ruleid_op(RuleidToken,Idx),
+	function_struct(RuleidToken,ArgStruct,Struct).
+
+/**************************************************************************
+  Symbol tokens are allowed to be operands. They are equal to quoted atoms.
+
+  Special tokens are treated as if they were just operands.
+**************************************************************************/
+is_sole_operand(VARIABLE(_,_)) :- !.
+is_sole_operand(NUMBER(_,_)) :- !.
+is_sole_operand(ASCII_STRING(_,_)) :- !.
+is_sole_operand(SPECIAL_TOKEN(_,_)) :- !.
+
+%%  support for numbered anon oids
+is_sole_operand(SPECIAL_TOKEN(_,_,_)) :- !.
+
+is_sole_operand(TRANSACTIONAL_IDENTIFIER(_,_)) :- !.
+is_sole_operand(TRANSACTIONAL_QUOTED_ATOM(_,_)) :- !.
+is_sole_operand(TRANSACTIONAL_ASCII_STRING(_,_)) :- !.
+is_sole_operand(TRANSACTIONAL_VARIABLE(_,_)) :- !.
+is_sole_operand(TRANSACTIONAL_NUMBER(_,_)) :- !.
+is_sole_operand(TRANSACTIONAL_SYMBOL_TOKEN(_,_)) :- !.
+is_sole_operand(TRANSACTIONAL_BUILTIN(_,_)) :- !.
+
+
+is_sole_operand(IDENTIFIER(I,_)) :-
+	!,
+	(has_context(CONTEXT_COMPOSER_TEXTUAL_MODE) -> true
+	; \+ flora_opdef(_,_,I),
+	    \+ flora_op_synonym(I,_)
+	).
+is_sole_operand(QUOTED_ATOM(QA,_)) :-
+	!,
+	(has_context(CONTEXT_COMPOSER_TEXTUAL_MODE) -> true
+	%% quoted atoms are never synonymized
+	; \+ flora_opdef(_,_,QA)
+	).
+is_sole_operand(BUILTIN_IDENTIFIER(BI,_)) :-
+	!,
+	(has_context(CONTEXT_COMPOSER_TEXTUAL_MODE) -> true
+	; \+ flora_opdef(_,_,BI),
+	    \+ flora_op_synonym(BI,_)
+	).
+%% don't check textual_mode: we want the symbols like ':' to be operators
+%% in the textual mode
+is_sole_operand(SYMBOL_TOKEN(ST,_)) :-
+	!,
+	\+ flora_opdef(_,_,ST),
+	\+ flora_op_synonym(ST,_).
+
+coder_op_synonym(IDENTIFIER(I,_)) :- flora_op_synonym(I,_), !.
+%% Quoted atoms are never synonymized
+%%coder_op_synonym(QUOTED_ATOM(I,_)) :- flora_op_synonym(I,_), !.
+coder_op_synonym(SYMBOL_TOKEN(I,_)) :- flora_op_synonym(I,_), !.
+coder_op_synonym(BUILTIN_IDENTIFIER(I,_)) :- flora_op_synonym(I,_), !.
+
+/***************************************************************************
+  These symbol tokens are not allowed to be directly used as atoms.
+  They continue to serve as operators even in textual mode.
+***************************************************************************/
+is_sole_operator(SYMBOL_TOKEN(Op,_),Op) :- sole_operator(Op), !.
+is_sole_operator(SYMBOL_TOKEN(Op,_),NewOp) :-
+	flora_op_synonym(Op,Synonym),
+	is_sole_operator(SYMBOL_TOKEN(Synonym,_),NewOp).
+is_sole_operator(BUILTIN_IDENTIFIER(Op,_),NewOp) :-
+	flora_op_synonym(Op,Synonym),
+	is_sole_operator(SYMBOL_TOKEN(Synonym,_),NewOp).
+
+sole_operator(FL_AND_CONNECTIVE).
+sole_operator(FL_OR_CONNECTIVE).
+sole_operator(FL_IMPLYOP).
+sole_operator(FL_QUERYOP).
+%% FL_LATENT_QUERYOP must not be sole operator: it is annotatable
+%% so should be composable with FL_DESCRIPTOROP
+sole_operator(FL_CURIOP).
+sole_operator(FL_RULELOGNAF).
+sole_operator(FL_NEG).
+sole_operator(FL_DATATYPE_CONNECTOR).
+sole_operator(FL_PROLOG_IFTHEN) :- flora_opdef(_,_,FL_PROLOG_IFTHEN).
+
+
+/**************************************************************************/
+is_base_atom_operator(IDENTIFIER(Op,_Info)) :- flora_opdef(_,_,Op), !.
+is_base_atom_operator(QUOTED_ATOM(Op,_Info)) :- flora_opdef(_,_,Op), !.
+is_base_atom_operator(BUILTIN_IDENTIFIER(Op,_Info)) :- flora_opdef(_,_,Op), !.
+
+is_atom_operator(X,X) :- is_base_atom_operator(X), !.
+is_atom_operator(IDENTIFIER(Synonym,_Info),IDENTIFIER(Op,_Info)) :-
+	flora_op_synonym(Synonym,Op),
+	flora_opdef(_,_,Op),
+	!.
+%% Don't synonymize quoted atoms. For instance, 'if'(a) should not
+%% be treated as an if-operation, but as a regular predicate
+is_atom_operator(QUOTED_ATOM(Op,_Info),QUOTED_ATOM(Op,_Info)) :-
+	flora_opdef(_,_,Op),
+	!.
+is_atom_operator(BUILTIN_IDENTIFIER(Synonym,_Info),BUILTIN_IDENTIFIER(Op,_Info)) :-
+	flora_op_synonym(Synonym,Op),
+	flora_opdef(_,_,Op),
+	!.
+
+/**************************************************************************/
+%% Operator, that is a symbol
+is_base_symobject_operator(SYMBOL_TOKEN(Op,_Info)) :- flora_opdef(_,_,Op), !.
+
+is_symobject_operator(X,X) :- is_base_symobject_operator(X), !.
+is_symobject_operator(SYMBOL_TOKEN(Synonym,_Info),SYMBOL_TOKEN(Op,_Info)) :-
+	flora_op_synonym(Synonym,Op),
+	flora_opdef(_,_,Op),
+	!.
+
+/**************************************************************************/
+is_infix(O,L,R,P) :-
+	flora_opdef(P,S,O),
+	flratom_char_code(S,1,CH_f),
+	substring(S,0,1,L),
+	substring(S,2,3,R).
+
+
+/**************************************************************************/
+is_prefix(O,A,P) :-
+	flora_opdef(P,S,O),
+	atom_length(S,2),
+	flratom_char_code(S,0,CH_f),
+	substring(S,1,2,A).
+
+
+/**************************************************************************/
+is_suffix(O,A,P) :-
+	flora_opdef(P,S,O),
+	atom_length(S,2),
+	flratom_char_code(S,1,CH_f),
+	substring(S,0,1,A).
+
+
+/**************************************************************************/
+is_left_brace(SYMBOL_TOKEN(Paren,_),Paren) :- left_brace(Paren).
+left_brace(FL_PARENTHESIS).    % (
+left_brace(FL_BRACKET).        % [
+left_brace(FL_BRACE).          % {
+left_brace(FL_PARENBAR).       % (|
+left_brace(FL_BRACKBAR).       % [|
+left_brace(FL_BRACEBAR).       % {|
+%%left_brace(FL_BRACEBRACE).     % {{
+left_brace(FL_BACKPAREN).      % \(
+left_brace(FL_BACKBRACK).      % \[
+left_brace(FL_BACKBRACE).      % \{
+
+
+/**************************************************************************/
+is_right_brace(SYMBOL_TOKEN(RightBrace,_),LeftBrace) :-
+	right_left_brace(RightBrace,LeftBrace).
+right_left_brace(FL_RIGHT_PARENTHESIS,FL_PARENTHESIS) :- !.  % )
+right_left_brace(FL_RIGHT_BRACKET,FL_BRACKET) :- !.          % ]
+right_left_brace(FL_RIGHT_BRACE,FL_BRACE) :- !.              % }
+right_left_brace(FL_RIGHT_PARENBAR,FL_PARENBAR) :- !.        % |)
+right_left_brace(FL_RIGHT_BRACKBAR,FL_BRACKBAR) :- !.        % |]
+right_left_brace(FL_RIGHT_BRACEBAR,FL_BRACEBAR) :- !.        % |}
+%%right_left_brace(FL_RIGHT_BRACEBRACE,FL_BRACEBRACE) :- !.    % }}
+right_left_brace(FL_RIGHT_BACKPAREN,FL_BACKPAREN) :- !.      % \)
+right_left_brace(FL_RIGHT_BACKBRACK,FL_BACKBRACK) :- !.      % \]
+right_left_brace(FL_RIGHT_BACKBRACE,FL_BACKBRACE) :- !.      % \}
+
+is_operand_objarg(OPRND(ObjArg)) :- object_arg(ObjArg).
+object_arg(OBJECT(_O,_I)).
+object_arg(ARGUMENT(_S,_O,_I)).
+object_arg(ARGUMENT(_S,_O,_I1,_I2)).
+object_arg(FUNCTION(_F,_A)).
+
+%% braces [,(,[|,(| where ->, =>, etc. are allowed as operators
+%% Info == 0, if the parens were inserted by the composer and not the user
+is_framey_brace(SYMBOL_TOKEN(Paren,Info)) :- framey_brace(Paren), Info \== 0.
+framey_brace(FL_BRACKET).
+framey_brace(FL_RIGHT_BRACKET).
+framey_brace(FL_BRACKBAR).
+framey_brace(FL_RIGHT_BRACKBAR).
+framey_brace(FL_PARENTHESIS) :- permissive_context.
+framey_brace(FL_RIGHT_PARENTHESIS) :- permissive_context.
+framey_brace(FL_PARENBAR) :- permissive_context.
+framey_brace(FL_RIGHT_PARENBAR) :- permissive_context.
+
+is_listy_brace(SYMBOL_TOKEN(Paren,Info)) :- listy_bace(Paren), Info\== 0.
+listy_bace(FL_BRACKET).
+
+%% we don't want | to be an operator outside of aggregates
+is_aggr_or_update(PrevToken,Brace) :-
+	Brace == FL_BRACE,
+	PrevToken = OPRND(OBJECT(IDENTIFIER(Op),_)),
+	(is_aggregtop(Op) -> true
+	; is_updateop(Op) -> true
+	; flora_special_builtin_synonym(Op,OpSyn), Op \== OpSyn ->
+	    (is_aggregtop(OpSyn) ; is_updateop(OpSyn))
+	).
+
+is_symbol_context_directive(PrevToken,Brace) :-
+        Brace == FL_BRACE,
+	PrevToken = OPRND(OBJECT(IDENTIFIER(FL_SYMBOL_CONTEXT),_)).
+
+/**************************************************************************/
+infix_struct(S,L,R,I,INFIX(S,L,R,Idx)) :-
+	((has_context(CONTEXT_COMPOSER_OMITTING_INDEX) ;
+	    has_context(CONTEXT_COMPOSER_TEXTUAL_MODE)) ->
+	    put_attr(Idx,FLTOKENIDX,I)
+	; Idx = I
+	).
+prefix_struct(S,O,I,PREFIX(S,O,Idx)) :-
+	((has_context(CONTEXT_COMPOSER_OMITTING_INDEX) ;
+	    has_context(CONTEXT_COMPOSER_TEXTUAL_MODE)) ->
+	    put_attr(Idx,FLTOKENIDX,I)
+	; Idx = I
+	).
+suffix_struct(S,O,I,SUFFIX(S,O,Idx)) :-
+	((has_context(CONTEXT_COMPOSER_OMITTING_INDEX) ;
+	    has_context(CONTEXT_COMPOSER_TEXTUAL_MODE)) ->
+	    put_attr(Idx,FLTOKENIDX,I)
+	; Idx = I
+	).
+
+%% S = brace, O - object
+argument_struct(S,O,I1,I2,ARGUMENT(S,O,Idx1,Idx2)) :-
+	((has_context(CONTEXT_COMPOSER_OMITTING_INDEX) ;
+	    has_context(CONTEXT_COMPOSER_TEXTUAL_MODE)) ->
+	    put_attr(Idx1,FLTOKENIDX,I1),
+	    put_attr(Idx2,FLTOKENIDX,I2)
+	; Idx1 = I1, Idx2 = I2
+	).
+argument_struct(S,I1,I2,ARGUMENT(S,Idx1,Idx2)) :-
+	((has_context(CONTEXT_COMPOSER_OMITTING_INDEX) ;
+	    has_context(CONTEXT_COMPOSER_TEXTUAL_MODE)) ->
+	    put_attr(Idx1,FLTOKENIDX,I1),
+	    put_attr(Idx2,FLTOKENIDX,I2)
+	; Idx1 = I1, Idx2 = I2
+	).
+
+function_struct(F,A,FUNCTION(F,A)).
+
+object_struct(O,I,OBJECT(T,Idx)) :-
+	%% Strip textual information.
+	( O =.. [F,N,_], T =.. [F,N]
+	; O =.. [F,N,Num,_], T =.. [F,N,Num]
+	),
+	((has_context(CONTEXT_COMPOSER_OMITTING_INDEX) ;
+	    has_context(CONTEXT_COMPOSER_TEXTUAL_MODE)) ->
+	    put_attr(Idx,FLTOKENIDX,I)
+	; Idx = I
+	).
+
+
+/**************************************************************************/
+get_rightmost_index(OBJECT(_O,I),I) :- !.
+get_rightmost_index(INFIX(_S,_L,R,_I),I) :- !, get_rightmost_index(R,I).
+get_rightmost_index(PREFIX(_S,O,_I),I) :- !, get_rightmost_index(O,I).
+get_rightmost_index(SUFFIX(_S,_O,I),I) :- !.
+get_rightmost_index(ARGUMENT(_S,_O,_I1,I2),I2) :- !.
+get_rightmost_index(ARGUMENT(_S,_I1,I2),I2) :- !.
+get_rightmost_index(FUNCTION(_F,A),I) :- !, get_rightmost_index(A,I).
+
+
+/**************************************************************************
+   Reporting an error does not mean an error, if flora_compose/3 succeeds.
+   Only if it fails, then choose_error/3 is called to pick up a suitable
+   error to report.
+**************************************************************************/
+report_error(Indx,Msg) :- assert(composing_error(Indx,Msg)).
+report_error(I1,I2,Msg) :- assert(composing_error(I1,I2,Msg)).
+
+
+composing_warning(I1,I2,Msg,warning(I1,I2,Msg)).
+
+
+/**************************************************************************/
+retract_error :-
+	clear_context(CONTEXT_COMPOSER_FRAME_FORMULA),
+	clear_context(CONTEXT_COMPOSER_LIST),
+	clear_context(CONTEXT_COMPOSER_AGGREGATE),
+	clear_context(CONTEXT_COMPOSER_SYMBOL_CTXT_DIRECT),
+	clear_context(CONTEXT_COMPOSER_TEXTUAL_MODE),
+	flora_retractall_substitute(composing_error(_,_)),
+	flora_retractall_substitute(composing_error(_,_,_)).
+
+
+/**************************************************************************/
+choose_error(error(I,UNEXP_ENDCLAUSE)) :-
+	composing_error(I,UNEXP_ENDCLAUSE),
+	!.
+
+choose_error(E) :-
+	findall(composing_error(I,Msg1),composing_error(I,Msg1),L1),
+	findall(composing_error(I1,I2,Msg2),composing_error(I1,I2,Msg2),L2),
+	max_error1(L1,E1),
+	max_error2(L2,E2),
+	( E1 == NULL, E2 == NULL ->
+	    E=error(UNKNOWN_ERROR)
+
+	; E1 == NULL ->
+	    E2=composing_error(N21,N22,M2),
+	    E=error(N21,N22,M2)
+
+	; E2 == NULL ->
+	    E1=composing_error(N1,M1),
+	    E=error(N1,M1)
+        ;
+	  E1=composing_error(N1,M1),
+	  E2=composing_error(N21,N22,M2),
+	  (N22 >= N1 -> E=error(N21,N22,M2) ; E=error(N1,M1))
+        ).
+
+max_error1([],NULL).
+
+max_error1([H|T],M) :- max_error1(H,T,M).
+
+max_error1(X,[],X).
+
+max_error1(composing_error(N1,M1),[composing_error(N2,M2)|T],X) :-
+	( N1 >= N2 -> max_error1(composing_error(N1,M1),T,X)
+	;
+	    max_error1(composing_error(N2,M2),T,X)
+        ).
+
+max_error2([],NULL).
+
+max_error2([H|T],M) :- max_error2(H,T,M).
+
+max_error2(X,[],X).
+
+max_error2(composing_error(N11,N12,M1),[composing_error(N21,N22,M2)|T],X) :-
+	( N12 >= N22 -> max_error2(composing_error(N11,N12,M1),T,X)
+	;
+	    max_error2(composing_error(N21,N22,M2),T,X)
+        ).
+
+
+/***************************************************************************
+  flora_reset_composer/0
+***************************************************************************/
+flora_reset_composer :-
+	retractall(indexed_token(_,_,_)),
+	%% this is set externally/globally, so clearing it out only once
+	clear_context(CONTEXT_COMPOSER_OMITTING_INDEX),
+	flora_set_counter(RLCNT,LOW_INDEX),
+	flora_set_counter(TKCNT,LOW_INDEX).
+
+
+/***************************************************************************
+  flora_compose(+Tokens,-Term,-Status)
+  is the main function to compose high level intermediate tokens from a
+  list of primitive tokens returned by the Flora Lexer.
+
+  types of errors:
+  (1) error(Index1,Index2,Message)
+  (2) error(Index,Message)
+  (3) error(Message) for unknown errors (or bug)
+
+  In case of multiple known errors, one is arbitrarily chosen and returned.
+  But type (1) is prefered over type (2). 
+***************************************************************************/
+flora_compose([],NULL,[]) :- !.
+
+flora_compose(_,_,_) :-
+	retract_error,
+	fail.
+
+flora_compose(Tokens,Term,Status) :-
+#ifdef SHOW_COMPOSER_INPUT
+        DBGOUTLN('-------------- composer input ----------------'),
+	DBGOUTLN(Tokens),
+	DBGOUTLN('----------------------------------------------'),
+#endif
+	%% Get the rule sequence number.
+	flora_get_counter(RLCNT,RuleNum),
+	%% Get the index sequence number.
+	flora_get_counter(TKCNT,N),
+	index_tokens(Tokens,N,RuleNum),
+	flora_compose(NULL,[],[],N,Term,Status),
+	!.
+
+%% Note: if the previous clause succeeds, no errors will be issued even if
+%% some were reported and placed into the composing_error/2 or /3 predicates.
+flora_compose(_,_,[ErrorMsg]) :-
+	choose_error(ErrorMsg),
+	!.
+
+
+/***************************************************************************
+  flora_compose/6:
+    flora_compose(+PrevToken,+TmStack,+OpStack,+N,-Term,-Status)
+
+  flora_compose/7:
+      flora_compose(+PrevToken,+TmStack,+OpStack,+N,+CurToken,-Term,-Status)
+
+  parameters:
+  (1)PrevToken: previous token read
+  (2)TmStack: terms stack, growing leftwards
+  (3)OpStack: operators stack, growing leftwards
+  (4)N: index of the current token
+  (5)CurToken: current token seen
+  (6)Term: composed term
+  (7)Status: status of composing (error(TkIndx,Msg), warning(TkIndx,Msg))
+***************************************************************************/
+%% flora_compose/6
+flora_compose(PrevToken,TmStack,OpStack,N,Term,Status) :-
+	%% N can be an arithmetic expression, so evaluate it
+	%% Should use M is N, but some obscure XSB bug prevents
+	eval(N,M),
+	( token_by_index(M,CurToken) ->
+	    flora_compose(PrevToken,TmStack,OpStack,M,CurToken,Term,Status)
+
+	; PrevToken == NULL, TmStack == [], OpStack == [] ->
+	    Term=NULL,
+	    Status=[]
+
+	; K is M-1,
+	  report_error(K,UNEXP_EOR),
+	  fail
+        ).
+
+%% flora_compose/7
+
+/*
+%% Debugging
+flora_compose(PrevToken,TmStack,OpStack,N,CurToken,_Term,_Status) :-
+	fail.
+*/
+
+%% Case of rule descriptor enclosed in braces
+%% @{...} rule
+%% Here we intercept the rule descriptor construct and attach it to next term
+%% using FL_DESCRIPTORFUNC (which is the operator used in the
+%% fictitious DESCRIPTOR_INFOP)
+flora_compose(OPRND(O),TmStack,OpStack,N,CurToken,Term,Status) :-
+	is_descriptor_function(O),
+	CurToken \= WHITESPACE(_),
+	CurToken \= RULE_DELIMITER(_),
+	\+ is_sole_operator(CurToken,_),
+	%% the next one prevents using DESCRIPTOR_INFOP in situations like
+	%% ?- @!{aaaa}. This is translated as ?-(@!(aaa)).
+	\+ is_right_brace(CurToken,FL_PARENTHESIS),
+	!,
+	flora_compose(DESCRIPTOR_INFOP,[OPRND(O)|TmStack],OpStack,N,Term,Status).
+
+/* Case where
+       @descriptor rule
+   occurs WITHOUT braces: {, (, [.
+   We then read the descriptor as much as possible.
+   The trick is that we push a marker to
+   the op-stack and some other clause checks for this marker.
+   So, flora_compose returns instead of failing even though the above construct
+   is not composed normally.
+
+   NEXT RULE is mostly BROKEN!!!!
+   Does not deal with @descr occurring inside clause{...} and insertrule{...}
+*/
+flora_compose(NULL,[],[],N,CurToken,Term,Status) :-
+	is_descriptor_token(CurToken),
+	M is N+1,
+	flora_compose(marker(M,NxtN),[],[],M,Descr,DescrStatus),
+	!, %% cut should be after composing the descriptor
+	(DescrStatus == []
+	->
+	    %% Should simplify and get rid of the @ function completely.
+	    %% (Will break backward compatibility for @{foo} rule.)
+	    %% Then we won't need to create descriptor_funct_struct here.
+	    %% This should be reflected in the parser.
+	    Descr = OPRND(Descr0),
+	    descriptor_funct_struct(Descr0,DescrStruct),
+	    flora_compose(NULL,[],[],NxtN,RestStmt,Status),
+	    infix_struct(FL_DESCRIPTORFUNC,DescrStruct,RestStmt,NO_INDEX,Term)
+	; Status = DescrStatus
+	).
+
+flora_compose(PrevToken,TmStack,OpStack,N,WHITESPACE(_),Term,Status) :-
+	!,
+	see_whitespace(PrevToken,TmStack,OpStack,N,Term,Status).
+
+flora_compose(PrevToken,TmStack,OpStack,N,CurToken,Term,Status) :-
+	is_left_brace(CurToken,B),
+	!,
+	(B==FL_BACKPAREN -> push_context(CONTEXT_COMPOSER_TEXTUAL_MODE)
+	; true
+	),
+	%% CONTEXT_COMPOSER_FRAME_FORMULA is used to contextualize operators,
+	%% like ->, =>, ->->, so that they would be valid only in
+	%% frame/predicate contexts
+	(is_framey_brace(CurToken), is_operand_objarg(PrevToken) ->
+	    %% CONTEXT_COMPOSER_FRAME_FORMULA context is set here,
+	    %% but checked in flroperator.P
+	    push_context(CONTEXT_COMPOSER_FRAME_FORMULA)
+	; is_framey_brace(CurToken), has_context(CONTEXT_COMPOSER_FRAME_FORMULA) ->
+	    push_context(CONTEXT_COMPOSER_FRAME_FORMULA)
+	; true
+	),
+	( %% Composing list. Used to contextualize '|' inside lists
+	    is_listy_brace(CurToken) -> set_context(CONTEXT_COMPOSER_LIST)
+	; true
+	),
+	%% Composing inside aggregates. Set here, checked in flroperator.P
+	%% Used to contextualize the '|' operator inside aggregates
+	(is_aggr_or_update(PrevToken,B) ->
+	    set_context(CONTEXT_COMPOSER_AGGREGATE)
+	; true
+	),
+        (is_symbol_context_directive(PrevToken,B) ->
+            set_context(CONTEXT_COMPOSER_SYMBOL_CTXT_DIRECT)
+	; true
+	),
+
+	see_left_brace(PrevToken,TmStack,OpStack,N,B,Term,Status),
+
+	(is_framey_brace(CurToken), is_operand_objarg(PrevToken) ->
+	    clear_context(CONTEXT_COMPOSER_FRAME_FORMULA)
+	; true
+	),
+	( is_listy_brace(CurToken) -> clear_context(CONTEXT_COMPOSER_LIST)
+	; true
+	),
+	(is_aggr_or_update(PrevToken,B) ->
+	    clear_context(CONTEXT_COMPOSER_AGGREGATE)
+	; true
+	),
+	(is_symbol_context_directive(PrevToken,B) ->
+	    clear_context(CONTEXT_COMPOSER_SYMBOL_CTXT_DIRECT)
+	; true
+	),
+	(B==FL_BACKPAREN -> clear_context(CONTEXT_COMPOSER_TEXTUAL_MODE)
+	; true
+	).
+
+flora_compose(PrevToken,TmStack,OpStack,N,CurToken,Term,Status) :-
+	is_right_brace(CurToken,B),
+	!,
+	(is_framey_brace(CurToken),has_context(CONTEXT_COMPOSER_FRAME_FORMULA) ->
+	    pop_context(CONTEXT_COMPOSER_FRAME_FORMULA)
+	; true
+	),
+	(B==FL_BACKPAREN, has_context(CONTEXT_COMPOSER_TEXTUAL_MODE) ->
+	    pop_context(CONTEXT_COMPOSER_TEXTUAL_MODE)
+	; true
+	),
+	see_right_brace(PrevToken,TmStack,OpStack,N,B,Term,Status).
+
+flora_compose(PrevToken,TmStack,OpStack,N,CurToken,Term,Status) :-
+	is_sole_operator(CurToken,Op),
+	!,
+	compose_sole_operator(PrevToken,TmStack,OpStack,N,Op,Term,Status).
+
+/*
+   Catch the case when a descriptor that is not enclosed in braces is composed.
+   This is determined by finding the fictitious marker operation previously
+   inserted. The marker also captures the last token number of the descriptor.
+   Currently this can handle only the cases of descriptors of the form
+   @term[...] rule
+   which is all we need at this stage.
+
+   NEXT 3 RULES OF flora_compose ARE BROKEN!!!!
+   Deal with @descr, @!descr @@descr
+*/
+flora_compose(OPRND(Obj),[],[marker(_N,N1)],N1,_CurTk,OPRND(Obj),[]) :-
+	\+is_ruleid_op(Obj,_),
+	\+is_bool_descriptor_op(Obj,_),
+	!.
+%% the case of @!foo
+flora_compose(OPRND(Obj),[],[marker(_N,NxtN)],_N3,_CurTk,OPRND(Term),Status) :-
+	is_ruleid_op(Obj,N2),
+	M is N2+1,
+	flora_compose(marker(M,NxtN),[],[],M,Descr,Status),
+	(Status == []
+	->  Descr = OPRND(Descr0),
+	    ruleid_funct_struct(Descr0,Term)
+	; true
+	),
+	!.
+%% the case of  @@strict/@@defeasible
+flora_compose(OPRND(Obj),[],[marker(_N,NxtN)],_N3,_CurTk,OPRND(Term),Status) :-
+	is_bool_descriptor_op(Obj,N2),
+	M is N2+1,
+	flora_compose(marker(M,NxtN),[],[],M,Descr,Status),
+	(Status == []
+	->  Descr = OPRND(Descr0),
+	    %% change this to something else
+	    bool_descriptor_funct_struct(Descr0,Term)
+	; true
+	),
+	!.
+
+%% Handle infix operators that must be immediately enclosed in
+%% parentheses, like # (IRI prefix op).  This is not ideal here: it
+%% ignores operator grammar for such operators and simply inserts
+%% parentheses. Ideally we would like to be able to write things like
+%% a.rif#rif#foo[] and have it interpreted as a.(rif#(rif#foo))[].
+%% This does not matter for #, since # does not allow such constructs,
+%% and so far # is the only operator handled with flora_parenthesized_op/1.
+flora_compose(PrevToken,[Fst|TmStack],OpStack,N,CurToken,Term,Status) :-
+	PrevToken=INFOP(Op,_,_,_,_), flora_parenthesized_op(Op),
+	(is_sole_operand(CurToken) ; coder_op_synonym(CurToken)),
+	!,
+	object_struct(CurToken,N,CurTokenObj),
+	flora_compose(OPRND(CurTokenObj),
+		      [Fst,BRACE(FL_PARENTHESIS,NO_INDEX)|TmStack],
+		      [PrevToken,BRACE(FL_PARENTHESIS,NO_INDEX)|OpStack],
+		      N,
+		      SYMBOL_TOKEN(FL_RIGHT_PARENTHESIS,NO_INDEX),
+		      Term,Status).
+
+flora_compose(PrevToken,TmStack,OpStack,N,CurToken,Term,Status) :-
+	is_sole_operand(CurToken),
+	!,
+	see_operand(PrevToken,TmStack,OpStack,N,CurToken,Term,Status).
+
+flora_compose(PrevToken,TmStack,OpStack,N,CurToken,Term,Status) :-
+	is_symobject_operator(CurToken,_),
+	!,
+	compose_symobject_operator(PrevToken,TmStack,OpStack,N,CurToken,Term,Status).
+
+flora_compose(PrevToken,TmStack,OpStack,N,CurToken,Term,Status) :-
+	is_atom_operator(CurToken,_),
+	\+has_context(CONTEXT_COMPOSER_TEXTUAL_MODE),
+	!,
+	compose_atom_operator(PrevToken,TmStack,OpStack,N,CurToken,Term,Status).
+
+flora_compose(PrevToken,TmStack,OpStack,N,COMMENT(_),Term,Status) :-
+	!,
+	see_comment(PrevToken,TmStack,OpStack,N,Term,Status).
+
+flora_compose(PrevToken,TmStack,OpStack,N,RULE_DELIMITER(_),Term,Status) :-
+	!,
+	see_end(PrevToken,TmStack,OpStack,N,Term,Status).
+
+
+/***************************************************************************
+  compose_sole_operator(+PrevToken,+TmStack,+OpStack,+N,+Op,-Term,-Status)
+  
+  Called when a symbol token is read.
+***************************************************************************/
+compose_sole_operator(PrevToken,TmStack,OpStack,N,Op,Term,Status) :-
+	is_infix(Op,L,R,P),
+	see_infix(PrevToken,TmStack,OpStack,N,Op,L,R,P,Term,Status).
+
+compose_sole_operator(PrevToken,TmStack,OpStack,N,Op,Term,Status) :-
+	is_prefix(Op,A,P),
+	see_prefix(PrevToken,TmStack,OpStack,N,Op,A,P,Term,Status).
+
+compose_sole_operator(PrevToken,TmStack,OpStack,N,Op,Term,Status) :-
+	is_suffix(Op,A,P),
+	see_suffix(PrevToken,TmStack,OpStack,N,Op,A,P,Term,Status).
+
+
+/***************************************************************************
+  compose_atom_operator(+PrevToken,+TmStack,+OpStack,+N,+Token,-Term,-Status)
+
+  Called when an atom/operator is read. Ambiguity might arise.
+
+  Potentially ambiguous use of atom operator can be avoided by a pair of
+  parentheses.
+***************************************************************************/
+compose_atom_operator(BRACE(B,I),TmStack,OpStack,N,CurToken,Term,Status) :-
+	%% Check if the next token is a matching right parenthesis.
+	is_right_brace(X,B),
+	M is N+1,
+	is_next_token(M,X),
+	!,
+	CurToken = IntendedToken,
+	see_operand(BRACE(B,I),TmStack,OpStack,N,IntendedToken,Term,Status).
+
+compose_atom_operator(PrevToken,TmStack,OpStack,N,CurToken,Term,Status) :-
+	is_atom_operator(CurToken,IntendedToken),
+	( IntendedToken=IDENTIFIER(I,_) ->
+	    compose_sole_operator(PrevToken,TmStack,OpStack,N,I,Term,Status)
+	;
+	    IntendedToken=QUOTED_ATOM(QA,_) ->
+	    compose_sole_operator(PrevToken,TmStack,OpStack,N,QA,Term,Status)
+	;
+	    IntendedToken=BUILTIN_IDENTIFIER(QA,_),
+	    compose_sole_operator(PrevToken,TmStack,OpStack,N,QA,Term,Status)
+        ).
+
+compose_atom_operator(OPRND(_),_TmStack,_OpStack,_N,_CurToken,_Term,_Status) :-
+	!,
+	fail.
+
+compose_atom_operator(PrevToken,TmStack,OpStack,N,CurToken,Term,Status) :-
+	%% case of a non-operator occurrence?
+	see_operand(PrevToken,TmStack,OpStack,N,CurToken,Term,Status).
+
+
+/***************************************************************************
+  compose_symobject_operator(+PrevToken,+TmStack,+OpStack,+N,+Token,-Term,-Status)
+  is called when a symbol or an operator is read. Ambiguity might arise.
+***************************************************************************/
+compose_symobject_operator(BRACE(B,I),TmStack,OpStack,N,CurToken,Term,Status) :-
+	is_right_brace(X,B),
+	M is N+1,
+	is_next_token(M,X),
+	!,
+	is_symobject_operator(CurToken,IntendedToken),
+	see_operand(BRACE(B,I),TmStack,OpStack,N,IntendedToken,Term,Status).
+
+compose_symobject_operator(PrevToken,TmStack,OpStack,N,SYMBOL_TOKEN(S,_),Term,Status) :-
+	is_symobject_operator(SYMBOL_TOKEN(S,_),SYMBOL_TOKEN(IntendedS,_)),
+	%% must NOT put a cut here!
+	compose_sole_operator(PrevToken,TmStack,OpStack,N,IntendedS,Term,Status).
+
+compose_symobject_operator(OPRND(_),_TmStack,_OpStack,_N,_CurToken,_Term,_Status) :-
+	!,
+	fail.
+
+compose_symobject_operator(PrevToken,TmStack,OpStack,N,CurToken,Term,Status) :-
+	%% case of a non-operator occurrence?
+	see_operand(PrevToken,TmStack,OpStack,N,CurToken,Term,Status).
+
+
+/***************************************************************************
+  see_whitespace(+PrevToken,+TmStack,+OpStack,+N,-Term,-Status)
+  is called when a whitespace is read.
+***************************************************************************/
+see_whitespace(P,TS,OS,N,Term,Status) :-
+	flora_compose(P,TS,OS,N+1,Term,Status).
+
+
+/***************************************************************************
+  see_comment(+PrevToken,+TmStack,+OpStack,+N,-Term,-Status)
+  is called when a whitespace is read.
+***************************************************************************/
+see_comment(P,TS,OS,N,Term,Status) :-
+	flora_compose(P,TS,OS,N+1,Term,Status).
+
+
+/***************************************************************************
+  see_operand(+PrevToken,+TmStack,+OpStack,+N,+Operand,-Term,-Status)
+  is called when a token that is interpreted as an operand is read.
+***************************************************************************/
+see_operand(NULL,[],[],N,O,Term,Status) :-
+	!,
+	object_struct(O,N,T),
+	flora_compose(OPRND(T),[],[],N+1,Term,Status).
+see_operand(marker(N1,N2),[],[],N,O,Term,Status) :-
+	!,
+	object_struct(O,N,T),
+	flora_compose(OPRND(T),[],[marker(N1,N2)],N+1,Term,Status).
+
+see_operand(INFOP(S,L,R,P,I),TS,OS,N,O,Term,Status) :-
+	!,
+	( is_flora_gpp_markup(O) ->
+	    report_error(I,UNEXP_ENDCLAUSE),
+	    fail
+	;
+	    object_struct(O,N,T),
+	    flora_compose(OPRND(T),TS,[INFOP(S,L,R,P,I)|OS],N+1,Term,Status)
+	).
+
+see_operand(BRACE(B,I),TS,OS,N,O,Term,Status) :-
+	!,
+	( is_flora_gpp_markup(O) ->
+	    report_error(I,UNEXP_ENDCLAUSE),
+	    fail
+	;
+	    object_struct(O,N,T),
+	    flora_compose(OPRND(T),[BRACE(B,I)|TS],[BRACE(B,I)|OS],N+1,Term,Status)
+	).
+
+see_operand(PREOP(S,A,P,I),TS,OS,N,O,Term,Status) :-
+	!,
+	( is_flora_gpp_markup(O) ->
+	    report_error(I,UNEXP_ENDCLAUSE),
+	    fail
+	;
+	    object_struct(O,N,T),
+	    flora_compose(OPRND(T),TS,[PREOP(S,A,P,I)|OS],N+1,Term,Status)
+	).
+
+
+%%#define COMPOSERDBG
+
+%% The fictitious operator used to tie things up in ErgoText templates
+#define WORD_TIE_INFOP              INFOP(ERGOTEXT_WORD_CONNECTOR,x,y,1400,0)
+#define ERGOTXT_SEPARATOR           OPRND(OBJECT(IDENTIFIER(ERGOTEXT_WORD_CONNECTOR_FILLER),_))
+
+
+%% Intercept composition in textual mode 
+%% This clause is hit when we can't compose Operand with TS (term stack)
+%% using OS (op stack)
+see_operand(Operand,TS,OS,N,O,Term,Status) :-
+	has_context(CONTEXT_COMPOSER_TEXTUAL_MODE),
+	!,
+	%% convert anon variable to question mark
+	(O = VARIABLE(FL_ANON_VAR,Text) -> OO = SYMBOL_TOKEN('?',Text)
+	; OO = O
+	),
+	object_struct(OO,N,T),
+        /*
+           Below is an attempt to mark spaces in templates using
+           ERGOTEXT_WORD_CONNECTOR_FILLER so that we could distinguish commas
+           from spaces. However, this seems problematic: if template has
+           \(a b, c\) and the user writes \(a b c\) then there is a mismatch.
+           Maybe we should ignore :, ;, / etc?
+        */
+	%%flora_compose(OPRND(T),[ERGOTXT_SEPARATOR,Operand|TS],[WORD_TIE_INFOP,WORD_TIE_INFOP|OS],N+1,Term,Status),
+	flora_compose(OPRND(T),[Operand|TS],[WORD_TIE_INFOP|OS],N+1,Term,Status),
+#ifdef COMPOSERDBG
+	DBGOUTLN('***term '=Term),
+#endif
+	true.
+
+
+see_operand(SUFOP(_S,_A,_P,I),_TS,_OS,N,O,_Term,_Status) :-
+	!,
+	( is_flora_gpp_markup(O) ->
+	    report_error(I,UNEXP_ENDCLAUSE)
+	;
+	    report_error(N,UNEXP_OPERAND)
+	),
+	fail.
+
+see_operand(OPRND(X),_TS,_OS,N,O,_Term,_Status) :-
+	!,
+	( is_flora_gpp_markup(O) ->
+	    get_rightmost_index(X,I),
+	    report_error(I,UNEXP_ENDCLAUSE)
+	;
+	    report_error(N,UNEXP_OPERAND)
+	),
+	fail.
+
+
+/***************************************************************************
+  see_infix(+PrevToken,+TmStack,+OpStack,+N,+Operator,+L,+R,+P,-Term,-Status)
+  is called when a token interpreted as an infix operator is read. Passed
+  as arguments are its left and right associativity, and precedence.
+***************************************************************************/
+see_infix(OPRND(O),TS,OS,N,S,L,R,P,Term,Status) :-
+	!,
+	get_indexing_tag(OS,IndexTag),
+	solve_infix(IndexTag,[OPRND(O)|TS],OS,N,S,L,R,P,Term,Status).
+
+see_infix(SUFOP(_S1,_A,P1,N1),TS,OS,N2,S2,L,R,P2,Term,Status) :-
+	!,
+	( P1 > P2 ->
+	    report_error(N1,N2,WRONG_PRECEDENCE),
+	    fail
+
+	; P1 == P2, L == x ->
+	    report_error(N1,N2,WRONG_ASSOCIATE),
+	    fail
+	;
+	    get_indexing_tag(OS,IndexTag),
+	    solve_infix(IndexTag,TS,OS,N2,S2,L,R,P2,Term,Status)
+        ).
+
+see_infix(BRACE(_B,_I),_TS,_OS,N,_O,_L,_R,_P,_Term,_Status) :-
+	!,
+	report_error(N,UNEXP_OPERATOR),
+	fail.
+
+see_infix(NULL,[],[],N,_O,_L,_R,_P,_Term,_Status) :-
+	!,
+	report_error(N,UNEXP_OPERATOR),
+	fail.
+
+see_infix(INFOP(_O1,_L1,_R1,_P1,_N1),_TS,_OS,N2,_O2,_L2,_R2,_P2,_Term,_Status) :-
+	!,
+	report_error(N2,UNEXP_OPERATOR),
+	fail.
+
+see_infix(PREOP(_O1,_A,_P1,_N1),_TS,_OS,N2,_O2,_L,_R,_P2,_Term,_Status) :-
+	!,
+	report_error(N2,UNEXP_OPERATOR),
+	fail.
+
+
+/***************************************************************************
+  see_prefix(+PrevToken,+TmStack,+OpStack,+N,+Operator,+A,+P,-Term,-Status)
+  is called when a token interpreted as a prefix operator is read. Passed
+  as arguments are its associativity and precedence.
+***************************************************************************/
+see_prefix(BRACE(B,I),TS,OS,N,S,A,P,Term,Status) :-
+	!,
+	flora_compose(PREOP(S,A,P,N),[BRACE(B,I)|TS],[BRACE(B,I)|OS],N+1,Term,Status).
+
+see_prefix(PREOP(S1,A1,P1,N1),TS,OS,N2,S2,A2,P2,Term,Status) :-
+	!,
+	( P1 < P2 ->
+	    report_error(N1,N2,WRONG_PRECEDENCE),
+	    fail
+
+	; P1 == P2, A1 == x ->
+	    report_error(N1,N2,WRONG_ASSOCIATE),
+	    fail
+	;
+	  flora_compose(PREOP(S2,A2,P2,N2),TS,[PREOP(S1,A1,P1,N1)|OS],
+                        N2+1,Term,Status)
+        ).
+
+see_prefix(INFOP(S1,L,R,P1,N1),TS,OS,N2,S2,A,P2,Term,Status) :-
+	!,
+	( P1 < P2 ->
+	    report_error(N1,N2,WRONG_PRECEDENCE),
+	    fail
+
+	; P1 == P2, R == x ->
+	    report_error(N1,N2,WRONG_ASSOCIATE),
+	    fail
+	;
+	  flora_compose(PREOP(S2,A,P2,N2),TS,[INFOP(S1,L,R,P1,N1)|OS],
+                        N2+1,Term,Status)
+        ).
+
+see_prefix(NULL,[],[],N,S,A,P,Term,Status) :-
+	!,
+	flora_compose(PREOP(S,A,P,N),[],[],N+1,Term,Status).
+
+see_prefix(OPRND(_O),_TS,_OS,N,_S,_A,_P,_Term,_Status) :-
+	!,
+	report_error(N,UNEXP_OPERATOR),
+	fail.
+
+see_prefix(SUFOP(_S1,_A1,_P1,_N1),_TS,_OS,N2,_S2,_A2,_P2,_Term,_Status) :-
+	!,
+	report_error(N2,UNEXP_OPERATOR),
+	fail.
+
+
+/***************************************************************************
+  see_suffix(+PrevToken,+TmStack,+OpStack,+N,+Operator,+A,+P,-Term,-Status)
+  is called when a token interpreted as an suffix operator is read. Passed
+  as arguments are its associativity and precedence.
+***************************************************************************/
+see_suffix(OPRND(O),TS,OS,N,S,A,P,Term,Status) :-
+	!,
+	get_indexing_tag(OS,IndexTag),
+	solve_suffix(IndexTag,[OPRND(O)|TS],OS,N,S,A,P,Term,Status).
+
+see_suffix(SUFOP(_S1,_A1,P1,N1),TS,OS,N2,S2,A2,P2,Term,Status) :-
+	!,
+	( P1 > P2 ->
+	    report_error(N1,N2,WRONG_PRECEDENCE),
+	    fail
+
+	; P1 == P2, A2 == x ->
+	    report_error(N1,N2,WRONG_ASSOCIATE),
+	    fail
+	;
+	    get_indexing_tag(OS,IndexTag),
+	    solve_suffix(IndexTag,TS,OS,N2,S2,A2,P2,Term,Status)
+        ).
+
+see_suffix(BRACE(_B,_I),_TS,_OS,N,_S,_A,_P,_Term,_Status) :-
+	!,
+	report_error(N,UNEXP_OPERATOR),
+	fail.
+
+see_suffix(PREOP(_S1,_A1,_P1,_N1),_TS,_OS,N2,_S2,_A2,_P2,_Term,_Status) :-
+	!,
+	report_error(N2,UNEXP_OPERATOR),
+	fail.
+
+see_suffix(INFOP(_S1,_L,_R,_P1,_N1),_TS,_OS,N2,_S2,_A,_P2,_Term,_Status) :-
+	!,
+	report_error(N2,UNEXP_OPERATOR),
+	fail.
+
+see_suffix(NULL,[],[],N,_S,_A,_P,_Term,_Status) :-
+	!,
+	report_error(N,UNEXP_OPERATOR),
+	fail.
+
+
+/***************************************************************************
+  see_left_brace(+PrevToken,+TmStack,+OpStack,+N,+Brace,-Term,-Status)
+  is called when a token interpreted as a left brace is read.
+***************************************************************************/
+see_left_brace(OPRND(O),TS,OS,N,B,Term,Status) :-
+	!,
+	flora_compose(BRACE(B,N),[FUNCT(O)|TS],OS,N+1,Term,Status).
+
+see_left_brace(INFOP(S,L,R,P,I),TS,OS,N,B,Term,Status) :-
+	!,
+	flora_compose(BRACE(B,N),TS,[INFOP(S,L,R,P,I)|OS],N+1,Term,Status).
+
+see_left_brace(BRACE(B1,N1),TS,OS,N2,B2,Term,Status) :-
+	!,
+	flora_compose(BRACE(B2,N2),[BRACE(B1,N1)|TS],[BRACE(B1,N1)|OS],
+	              N2+1,Term,Status).
+
+see_left_brace(PREOP(S,A,P,I),TS,OS,N,B,Term,Status) :-
+	!,
+	flora_compose(BRACE(B,N),TS,[PREOP(S,A,P,I)|OS],N+1,Term,Status).
+
+see_left_brace(NULL,[],[],N,B,Term,Status) :-
+	!,
+	flora_compose(BRACE(B,N),[],[],N+1,Term,Status).
+
+see_left_brace(SUFOP(_S,_A,_P,_I),_TS,_OS,N,_B,_Term,_Status) :-
+	!,
+	report_error(N,UNEXP_LEFT),
+	fail.
+
+
+/***************************************************************************
+  see_right_brace(+PrevToken,+TmStack,+OpStack,+N,+Brace,-Term,-Status)
+  is called when a token interpreted as a right brace is read. It normally
+  solves the stacks.
+***************************************************************************/
+see_right_brace(OPRND(O),TS,OS,N,B,Term,Status) :-
+	!,
+	get_indexing_tag(OS,IndexTag),
+	solve_right(IndexTag,[OPRND(O)|TS],OS,N,B,Term,Status).
+
+see_right_brace(BRACE(B1,N1),TS,OS,N2,B2,Term,Status) :-
+	!,
+	solve_right(BRACE,[BRACE(B1,N1)|TS],[BRACE(B1,N1)|OS],N2,B2,Term,Status).
+
+see_right_brace(SUFOP(_O,_A,_P,_I),TS,OS,N,B,Term,Status) :-
+	!,
+	get_indexing_tag(OS,IndexTag),
+	solve_right(IndexTag,TS,OS,N,B,Term,Status).
+
+see_right_brace(INFOP(_S,_L,_R,_P,_I),_TS,_OS,N,_B,_Term,_Status) :-
+	!,
+	report_error(N,UNEXP_RIGHT),
+	fail.
+
+see_right_brace(PREOP(_S,_A,_P,_I),_TS,_OS,N,_B,_Term,_Status) :-
+	!,
+	report_error(N,UNEXP_RIGHT),
+	fail.
+
+see_right_brace(NULL,[],[],N,_B,_Term,_Status) :-
+	!,
+	report_error(N,UNEXP_RIGHT),
+	fail.
+
+
+/***************************************************************************
+  see_end(+PrevToken,+TmStack,+OpStack,+N,-Term,-Status)
+  is called when a rule delimiter is read.
+***************************************************************************/
+see_end(OPRND(O),TS,OS,N,Term,Status) :-
+	!,
+	get_indexing_tag(OS,IndexTag),
+	solve_end(IndexTag,[OPRND(O)|TS],OS,N,Term,Status).
+
+see_end(SUFOP(_S,_A,_P,_I),TS,OS,N,Term,Status) :-
+	!,
+	get_indexing_tag(OS,IndexTag),
+	solve_end(IndexTag,TS,OS,N,Term,Status).
+
+see_end(BRACE(_B,_I),_TS,_OS,N,_Term,_Status) :-
+	!,
+	report_error(N,UNEXP_END),
+	fail.
+
+see_end(INFOP(_S,_L,_R,_P,_I),_TS,_OS,N,_Term,_Status) :-
+	!,
+	report_error(N,UNEXP_END),
+	fail.
+
+see_end(PREOP(_S,_A,_P,_I),_TS,_OS,N,_Term,_Status) :-
+	!,
+	report_error(N,UNEXP_END),
+	fail.
+
+see_end(NULL,[],[],N,_Term,_Status) :-
+	!,
+	report_error(N,UNEXP_END),
+	fail.
+
+
+/***************************************************************************
+  solve_infix(+IndexingTag,+TmStack,+OpStack,+N,+Operator,+L,+R,+P,-Term,-Status)
+  is called when an infix operator that is just read results in solving
+  the stacks.
+  IndexingTag is the functor of the first member in the 2nd argument list.
+  Used for better indexing.
+***************************************************************************/
+solve_infix([],TS,[],N,O,L,R,P,Term,Status) :-
+	!,
+	flora_compose(INFOP(O,L,R,P,N),TS,[],N+1,Term,Status).
+
+%% catches the case when an infix operator binds rule descriptors, e.g., 
+%% @foo+bar rule  or  @foo,bar rule
+%% give an error in this case
+solve_infix(marker,_,[marker(_,_)],N,_,_,_,_,_,_) :-
+	!,
+	report_error(N,UNEXP_OPERATOR),
+	fail.
+
+solve_infix(BRACE,TS,[BRACE(B,I)|OS],N,O,L,R,P,Term,Status) :-
+	!,
+	flora_compose(INFOP(O,L,R,P,N),TS,[BRACE(B,I)|OS],N+1,Term,Status).
+
+solve_infix(INFOP,TS,[INFOP(S1,L1,R1,P1,N1)|OS],N2,S2,L2,R2,P2,Term,Status) :-
+	!,
+	TS=[OPRND(O2),OPRND(O1)|Opnds],
+	( P1 < P2 ->
+	    infix_struct(S1,O1,O2,N1,T),
+	    get_indexing_tag(OS,IndexTag),
+	    solve_infix(IndexTag,[OPRND(T)|Opnds],OS,N2,S2,L2,R2,P2,Term,Status)
+
+        ; P1 == P2 ->
+	    ( L2 == y ->
+		( R1 == y ->
+		    composing_warning(N1,N2,OP_AMBIGUITY,Warn),
+		    Status=[Warn|NewStatus]
+		;
+		  NewStatus=Status
+	        ),
+		infix_struct(S1,O1,O2,N1,T),
+		get_indexing_tag(OS,IndexTag),
+		solve_infix(IndexTag,[OPRND(T)|Opnds],OS,N2,S2,L2,R2,P2,Term,NewStatus)
+
+	    ; R1 == x ->
+	        report_error(N1,N2,WRONG_ASSOCIATE),
+		fail
+	    ;
+	      flora_compose(INFOP(S2,L2,R2,P2,N2),TS,[INFOP(S1,L1,R1,P1,N1)|OS],
+			    N2+1,Term,Status)
+	    )
+        ;
+	  flora_compose(INFOP(S2,L2,R2,P2,N2),TS,[INFOP(S1,L1,R1,P1,N1)|OS],
+		        N2+1,Term,Status)
+        ).
+
+solve_infix(PREOP,TS,[PREOP(S1,A,P1,N1)|OS],N2,S2,L,R,P2,Term,Status) :-
+	!,
+	TS=[OPRND(O)|Opnds],
+	( P1 < P2 ->
+	    prefix_struct(S1,O,N1,T),
+	    get_indexing_tag(OS,IndexTag),
+	    solve_infix(IndexTag,[OPRND(T)|Opnds],OS,N2,S2,L,R,P2,Term,Status)
+
+        ; P1 == P2 ->
+	    ( L == y ->
+		( A == y ->
+		    composing_warning(N1,N2,OP_AMBIGUITY,Warn),
+		    Status=[Warn|NewStatus]
+		;
+		  NewStatus=Status
+	        ),
+		prefix_struct(S1,O,N1,T),
+		get_indexing_tag(OS,IndexTag),
+		solve_infix(IndexTag,[OPRND(T)|Opnds],OS,N2,S2,L,R,P2,Term,NewStatus)
+
+	    ; A == x ->
+	        report_error(N1,N2,WRONG_ASSOCIATE),
+		fail
+	    ;
+	      flora_compose(INFOP(S2,L,R,P2,N2),TS,[PREOP(S1,A,P1,N1)|OS],
+	                    N2+1,Term,Status)
+	    )
+        ;
+	  flora_compose(INFOP(S2,L,R,P2,N2),TS,[PREOP(S1,A,P1,N1)|OS],
+		        N2+1,Term,Status)
+        ).
+
+
+/***************************************************************************
+  solve_suffix(+IndexingTag,+TmStack,+OpStack,+N,+Operator,+A,+P,-Term,-Status)
+  is called when a suffix operator that is just read results in solving
+  the stacks.
+  IndexingTag is the functor of the first member in the 2nd argument list.
+  Used for better indexing.
+***************************************************************************/
+solve_suffix([],[OPRND(O)|TS],[],N,S,A,P,Term,Status) :-
+	!,
+	suffix_struct(S,O,N,T),
+	flora_compose(SUFOP(S,A,P,N),[OPRND(T)|TS],[],N+1,Term,Status).
+
+solve_suffix(BRACE,[OPRND(O)|TS],[BRACE(B,I)|OS],N,S,A,P,Term,Status) :-
+	!,
+	suffix_struct(S,O,N,T),
+	flora_compose(SUFOP(S,A,P,N),[OPRND(T)|TS],[BRACE(B,I)|OS],N+1,Term,Status).
+
+solve_suffix(INFOP,TS,[INFOP(S1,L,R,P1,N1)|OS],N2,S2,A,P2,Term,Status) :-
+	!,
+	TS=[OPRND(O2),OPRND(O1)|Opnds],
+	( P1 < P2 ->
+	    infix_struct(S1,O1,O2,N1,T),
+	    get_indexing_tag(OS,IndexTag),
+	    solve_suffix(IndexTag,[OPRND(T)|Opnds],OS,N2,S2,A,P2,Term,Status)
+
+        ; P1 == P2 ->
+	    ( A == y ->
+		( R == y ->
+		    composing_warning(N1,N2,OP_AMBIGUITY,Warn),
+		    Status=[Warn|NewStatus]
+		;
+		  NewStatus=Status
+	        ),
+		infix_struct(S1,O1,O2,N1,T),
+		get_indexing_tag(OS,IndexTag),
+		solve_suffix(IndexTag,[OPRND(T)|Opnds],OS,N2,S2,A,P2,Term,NewStatus)
+
+	    ; R == x ->
+	        report_error(N1,N2,WRONG_ASSOCIATE),
+		fail
+	    ;
+	      suffix_struct(S2,O2,N2,T),
+              flora_compose(SUFOP(S2,A,P2,N2),[OPRND(T),OPRND(O1)|Opnds],
+ 		            [INFOP(S1,L,R,P1,N1)|OS],N2+1,Term,Status)
+	    )
+        ;
+	  suffix_struct(S2,O2,N2,T),
+          flora_compose(SUFOP(S2,A,P2,N2),[OPRND(T),OPRND(O1)|Opnds],
+ 		        [INFOP(S1,L,R,P1,N1)|OS],N2+1,Term,Status)
+        ).
+
+solve_suffix(PREOP,TS,[PREOP(S1,A1,P1,N1)|OS],N2,S2,A2,P2,Term,Status) :-
+	!,
+	TS=[OPRND(O)|Opnds],
+	( P1 < P2 ->
+	    prefix_struct(S1,O,N1,T),
+	    get_indexing_tag(OS,IndexTag),
+	    solve_suffix(IndexTag,[OPRND(T)|Opnds],OS,N2,S2,A2,P2,Term,Status)
+
+        ; P1 == P2 ->
+	    ( A2 == y ->
+		( A1 == y ->
+		    composing_warning(N1,N2,OP_AMBIGUITY,Warn),
+		    Status=[Warn|NewStatus]
+		;
+		  NewStatus=Status
+	        ),
+		prefix_struct(S1,O,N1,T),
+		get_indexing_tag(OS,IndexTag),
+		solve_suffix(IndexTag,[OPRND(T)|Opnds],OS,N2,S2,A2,P2,Term,NewStatus)
+
+	    ; A1 == x ->
+	        report_error(N1,N2,WRONG_ASSOCIATE),
+		fail
+	    ;
+	      suffix_struct(S2,O,N2,T),
+              flora_compose(SUFOP(S2,A2,P2,N2),[OPRND(T)|Opnds],
+ 		            [PREOP(S1,A1,P1,N1)|OS],N2+1,Term,Status)
+	    )
+        ;
+  	  suffix_struct(S2,O,N2,T),
+	  flora_compose(SUFOP(S2,A2,P2,N2),[OPRND(T)|Opnds],
+	                [PREOP(S1,A1,P1,N1)|OS],N2+1,Term,Status)
+        ).
+
+
+/***************************************************************************
+  solve_right(+IndexingTag,+TmStack,+OpStack,+N,+Brace,-Term,-Status)
+  is called when a right brace is just read.
+  IndexingTag is the functor of the first member in the 2nd argument list.
+  Used for better indexing.
+***************************************************************************/
+solve_right(INFOP,TS,[INFOP(S,_L,_R,_P,I)|OS],N,B,Term,Status) :-
+	!,
+	TS=[OPRND(O2),OPRND(O1)|Opnds],
+	infix_struct(S,O1,O2,I,T),
+	get_indexing_tag(OS,IndexTag),
+	solve_right(IndexTag,[OPRND(T)|Opnds],OS,N,B,Term,Status).
+
+solve_right(PREOP,TS,[PREOP(S,_A,_P,I)|OS],N,B,Term,Status) :-
+	!,
+	TS=[OPRND(O)|Opnds],
+	prefix_struct(S,O,I,T),
+	get_indexing_tag(OS,IndexTag),
+	solve_right(IndexTag,[OPRND(T)|Opnds],OS,N,B,Term,Status).
+
+solve_right(BRACE,TS,[BRACE(B1,N1)|OS],N2,B2,Term,Status) :-
+	!,
+	( B1 \== B2 ->
+	    report_error(N1,N2,UNMATCHED_LEFT),
+	    fail
+
+	; TS=[OPRND(O),BRACE(B1,N1),FUNCT(F)|Opnds] ->
+	    argument_struct(B2,O,N1,N2,AT),
+	    function_struct(F,AT,FT),
+	    flora_compose(OPRND(FT),Opnds,OS,N2+1,Term,Status)
+
+	; TS=[OPRND(O),BRACE(B1,N1)|Opnds] ->
+	    argument_struct(B2,O,N1,N2,AT),
+	    flora_compose(OPRND(AT),Opnds,OS,N2+1,Term,Status)
+
+	; TS=[BRACE(B1,N1),FUNCT(F)|Opnds] ->
+	    argument_struct(B2,N1,N2,AT),
+	    function_struct(F,AT,FT),
+	    flora_compose(OPRND(FT),Opnds,OS,N2+1,Term,Status)
+
+	; TS=[BRACE(B1,N1)|Opnds] ->
+	    (
+	      /*
+	      %% we DO allow terms like () in signature specifications: a[b=>()]
+	      B1 == FL_PARENTHESIS ->
+		report_error(N2,UNEXP_RIGHT),
+		fail
+	    ;
+	      */
+	      argument_struct(B2,N1,N2,AT),
+	      flora_compose(OPRND(AT),Opnds,OS,N2+1,Term,Status)
+	    )
+        ).
+
+solve_right([],_TS,[],N2,_B2,_Term,_Status) :-
+	!,
+	report_error(N2,UNMATCHED_RIGHT),
+	fail.
+
+
+/***************************************************************************
+  solve_end(+IndexingTag,+TmStack,+OpStack,+N,-Term,-Status)
+  is called when a rule delimiter is just read.
+  IndexingTag is the functor of the first member in the 2nd argument list.
+  Used for better indexing.
+***************************************************************************/
+solve_end(INFOP,TS,[INFOP(S,_L,_R,_P,I)|OS],N,Term,Status) :-
+	!,
+	TS=[OPRND(O2),OPRND(O1)|Opnds],
+	infix_struct(S,O1,O2,I,T),
+	get_indexing_tag(OS,IndexTag),
+	solve_end(IndexTag,[OPRND(T)|Opnds],OS,N,Term,Status).
+
+solve_end(PREOP,TS,[PREOP(S,_A,_P,I)|OS],N,Term,Status) :-
+	!,
+	TS=[OPRND(O)|Opnds],
+	prefix_struct(S,O,I,T),
+	get_indexing_tag(OS,IndexTag),
+	solve_end(IndexTag,[OPRND(T)|Opnds],OS,N,Term,Status).
+
+solve_end([],[OPRND(Term)],[],_N,Term,[]) :- !.
+
+solve_end(BRACE,_TS,[BRACE(_B,I)|_OS],N,_Term,_Status) :-
+	!,
+	report_error(I,N,UNMATCHED_LEFT),
+	fail.
+
+
+%% this is used to optmize solve_* clauses
+get_indexing_tag([],[]) :- !.
+get_indexing_tag([First|_],IndexTag) :- functor(First,IndexTag,_).
+
+
+permissive_context :-
+	(has_compiler_persistentoption(FL_EXPERT)
+	; flrparser:has_parser_context(CONTEXT_PARSER_NL_TEMPLATES)
+	; flrparser:has_parser_context(CONTEXT_PARSER_USING_NL_TEMPLATE)
+	),
+	!.

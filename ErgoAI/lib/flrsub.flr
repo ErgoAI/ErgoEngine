@@ -1,0 +1,127 @@
+/* File:      flrsub.flr  - auxiliary subclass/isa predicates
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@one.sourceforge.net
+**
+** Copyright (C) by
+**      Coherent Knowledge SYstems, 2016-2018,
+**      The Research Foundation of the State University of New York, 2016-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options{production=on}.
+
+/*
+  Finding immediate ISA/SUB relations;
+  works only for classes that are atomic strings - for now
+
+  3-argument versions are for calling from prolog; module must be specified.
+  2-argument versions can be called from Flora-2 and the module will
+  be determined automatically.
+*/
+
+:- symbol_context{
+          sub(?,?,?)@?, sub(?,?)@?,
+          immediate_sub(?,?,?)@?, immediate_sub(?,?)@?,
+          isa(?,?,?)@?, isa(?,?)@?,
+          immediate_isa(?,?,?)@?, immediate_isa(?,?)@?,
+          intermediate_sub(?,?,?)@?, intermediate_isa(?,?,?)@?,
+          sub_plg/3,
+          immediate_sub_plg/3,
+          isa_plg/3,
+          immediate_isa_plg/3,
+          intermediate_sub_plg/3
+         }.
+
+:- export{
+           sub(?,?,?), sub(?,?),
+           immediate_sub(?,?,?), immediate_sub(?,?),
+           isa(?,?,?), isa(?,?),
+           immediate_isa(?,?,?), immediate_isa(?,?),
+           ensure_loaded
+         }.
+
+:- nontabled_module.
+:- suppress_rule_signatures.
+
+:- prolog{sub_plg/3,
+          immediate_sub_plg/3,
+          isa_plg/3,
+          immediate_isa_plg/3
+         }.
+:- table{intermediate_sub_plg/3, intermediate_isa_plg/3}.
+
+ensure_loaded.
+
+// Bridge rules from HiLog to Prolog
+
+sub(?X,?Y) :-
+        caller{?M},
+        !,
+        sub_plg(?X,?Y,?M).
+sub(?X,?Y,?Z) :- sub_plg(?X,?Y,?Z).
+isa(?X,?Y) :-
+        caller{?M},
+        !,
+        isa_plg(?X,?Y,?M).
+isa(?X,?Y,?Z) :- isa_plg(?X,?Y,?Z).
+
+immediate_sub(?X,?Y) :-
+        caller{?M},
+        !,
+        immediate_sub_plg(?X,?Y,?M).
+immediate_sub(?X,?Y,?Z) :- immediate_sub_plg(?X,?Y,?Z).
+immediate_isa(?X,?Y) :-
+        caller{?M},
+        !,
+        immediate_isa_plg(?X,?Y,?M).
+immediate_isa(?X,?Y,?Z) :- immediate_isa_plg(?X,?Y,?Z).
+
+// SUB
+
+sub_plg(?A,?B,?Mod) :-
+	?A::?B@?Mod,
+        \+flora_builtin_class(?B)@\prolog(flrdatatype),
+	isatomic{?A},
+	isatomic{?B}.
+
+immediate_sub_plg(?A,?B,?Mod) :-
+	sub_plg(?A,?B,?Mod),
+	\naf intermediate_sub_plg(?A,?B,?Mod).
+
+intermediate_sub_plg(?A,?B,?Mod):-
+		      sub_plg(?A,?C,?Mod),
+		      sub_plg(?C,?B,?Mod),
+		      ?C \= ?B,?C \= ?A.
+
+// ISA
+
+isa_plg(?A,?B,?Mod) :-
+	?A:?B@?Mod,
+        \+flora_builtin_class(?B)@\prolog(flrdatatype),
+	isatomic{?A},
+	isatomic{?B}.
+
+immediate_isa_plg(?A,?B,?Mod) :-
+	isa_plg(?A,?B,?Mod),
+	\naf intermediate_isa_plg(?A,?B,?Mod).
+
+intermediate_isa_plg(?A,?B,?Mod):-
+		      isa_plg(?A,?C,?Mod),
+		      sub_plg(?C,?B,?Mod),
+		      ?C \= ?B,?C \= ?A.

@@ -1,0 +1,110 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhatPhasesAlternateInTheEukaryoticCellCycle (query 2)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28derived_from.29_Biology_Chapter_12_Review
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlPreds('functionCorrespondingPredicate-Canonical', functionCorrespondingPredicate)).
+istAsserted(UniversalVocabularyMt, genlPreds('functionCorrespondingPredicate-Canonical', functionCorrespondsToPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, isa('partwiseDisjoint-TypeType', SymmetricBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, 'functionCorrespondingPredicate-Canonical'(SingleIterationThroughCycleTypeFn, iteratedSubsituationTypeOfSerialCycleType, 2)).
+istAsserted(BaseKB, termOfUnit(SingleIterationThroughCycleTypeFn(TheEukaryoticCellCycle), SingleIterationThroughCycleTypeFn(TheEukaryoticCellCycle))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(BiologyMt, 'partwiseDisjoint-TypeType'(G0Phase, TheEukaryoticCellCycle)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, negationPreds('partwiseDisjoint-TypeType', 'shareParts-TypeType')).
+
+// Implicit Background Rules
+forwardSentence(?PRED(?ARG, ?TOU)) :- naf impPred(?PRED), removalSentence(functionCorrespondingPredicate(?FUNC, ?PRED, 2)), removalSentence(termOfUnit(?TOU, ?FUNC(?ARG))).
+forwardSentence(genlInverse(?PRED, ?PRED)) :- removalSentence(isa(?PRED, SymmetricBinaryPredicate)).
+forwardSentence(?PRED(?ARG, ?TOU)) :- naf impPred(?PRED), removalSentence(functionCorrespondsToPredicate(?FUNC, ?PRED, 2)), removalSentence(termOfUnit(?TOU, ?FUNC(?ARG))).
+forwardSentence('partwiseDisjoint-TypeType'(?EVENT_TYPE, ?ITERATION_TYPE)) :- removalSentence(iteratedSubsituationTypeOfSerialCycleType(?CYCLE, ?ITERATION_TYPE)), removalSentence('partwiseDisjoint-TypeType'(?CYCLE, ?EVENT_TYPE)).
+
+// Explicit Background Facts
+
+// Explicit Background Rules
+backwardSentence(properSubEventTypes(?TYPE, ?PHASE1)) :- mtVisible(BaseKB), naf backchainForbidden(properSubEventTypes), iteratedSubsituationTypeOfSerialCycleType(?CYCLE_TYPE, ?TYPE), phasesAlternateInCycleType(?CYCLE_TYPE, ?XPHASE2, ?PHASE1).
+backwardSentence(not(iteratedSubsituationTypeOfSerialCycleType(?CYCLE_TYPE, ?TYPE))) :- mtVisible(BaseKB), naf backchainForbidden(iteratedSubsituationTypeOfSerialCycleType), phasesAlternateInCycleType(?CYCLE_TYPE, ?XPHASE2, ?PHASE1), not(properSubEventTypes(?TYPE, ?PHASE1)).
+backwardSentence(not(phasesAlternateInCycleType(?CYCLE_TYPE, ?XPHASE2, ?PHASE1))) :- mtVisible(BaseKB), naf backchainForbidden(phasesAlternateInCycleType), iteratedSubsituationTypeOfSerialCycleType(?CYCLE_TYPE, ?TYPE), not(properSubEventTypes(?TYPE, ?PHASE1)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-WhatPhasesAlternateInTheEukaryoticCellCycle 2').
+%pretest :- neg phasesAlternateInCycleType(TheEukaryoticCellCycle, G2Phase, G0Phase), %write_results('SUCCESS  : $CPTTest-WhatPhasesAlternateInTheEukaryoticCellCycle 2').
+
+// Debugging
+proof(7280, 0) :- iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, SingleIterationThroughCycleTypeFn(TheEukaryoticCellCycle)).
+proof(7280, 1) :- iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, SingleIterationThroughCycleTypeFn(TheEukaryoticCellCycle)).
+proof(7280, 2) :- not(properSubEventTypes(SingleIterationThroughCycleTypeFn(TheEukaryoticCellCycle), G0Phase)).
+proof(7280, 3) :- not(properSubEventTypes(SingleIterationThroughCycleTypeFn(TheEukaryoticCellCycle), G0Phase)).
+proof(7280, 4) :- iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, SingleIterationThroughCycleTypeFn(TheEukaryoticCellCycle)), not(properSubEventTypes(SingleIterationThroughCycleTypeFn(TheEukaryoticCellCycle), G0Phase)).
+proof(7280, 5) :- not(phasesAlternateInCycleType(TheEukaryoticCellCycle, G2Phase, G0Phase)).
+
+proof(7280, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(7280, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(7280, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(7280, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(7280, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(7280, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(7280, 1006) :- genlInverse('partwiseDisjoint-TypeType', 'partwiseDisjoint-TypeType').
+proof(7280, 1007) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(7280, 1008) :- iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, SingleIterationThroughCycleTypeFn(TheEukaryoticCellCycle)).
+proof(7280, 1009) :- 'partwiseDisjoint-TypeType'(G0Phase, SingleIterationThroughCycleTypeFn(TheEukaryoticCellCycle)).
+
+proof(7280, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(7280, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(7280, 2002) :- admittedArgument(SecondFn(43, MinuteFn(2, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(7280, 2003) :- admittedArgument(SecondFn(43, MinuteFn(2, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(7280, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(7280, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(7280, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiologyMt).
+proof(7280, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(7280, 2008) :- genlPreds('functionCorrespondingPredicate-Canonical', functionCorrespondsToPredicate).
+proof(7280, 2009) :- genlPreds('functionCorrespondingPredicate-Canonical', functionCorrespondingPredicate).
+proof(7280, 2010) :- genlInverse('partwiseDisjoint-TypeType', 'partwiseDisjoint-TypeType').
+proof(7280, 2011) :- isa('partwiseDisjoint-TypeType', SymmetricBinaryPredicate).
+proof(7280, 2012) :- negationInverse('partwiseDisjoint-TypeType', properSubEventTypes). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

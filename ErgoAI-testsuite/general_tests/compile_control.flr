@@ -1,0 +1,107 @@
+
+:- compiler_options{omni=on}.
+
+// warnings
+%m_as_p(?M)(?O) :- ?O[%?M].
+
+%splice(?L,?Off,?Len,?Rep,?L2,?Lx) :-
+	%append(?Begin,?Rep,?End,?L2).
+?O[%set(?N,?V)] :- %splice(?L,?N,1,[?V],?L1,?_).
+?O:project[%foo(?D)] :- %m_as_p(bar(?D))(f1).
+:- compiler_options{expert=on}.
+?O:project[%foo(?D)] :- %m_as_p(bar(?D))(f1).
+
+// errors
+%p :- \if %a \then %b \else (\if %a \then %b \else (\if %a \then %b \then %c)).
+%p :- \if %a \then %b \then %c.
+%p :- \if (%b \then %c) \then %d.
+%p :- %b \then %c.
+%p :- (\if %a \then %b) @ m.
+%p(\if a).
+%p :- insert{\if %a}.
+
+
+%p :- \while %a \do %b.
+%p :- \while %a \loop %b.
+%p :- \loop %a \until %b.
+%p :- \do %a \until %b.
+%p :- \unless %a \do %b.
+\do(a,b) :- \true.
+\until(a,b) :- \true.
+\loop(a,b) :- \true.
+\while(b) :- \true.
+\loop(b) :- \true.
+\unless(b) :- \true.
+
+?- insert{\neg (a,b)@w}. // should give an error, if in Flora
+
+
+
+"bla"^^\string[a => +a<b[foo->blob]].
+// these should not give an error
+"bla"^^\string[a => +a<b],b[foo->blob].
+pppp(a<1).
+
+
+
+
+p(a.b[]).
+p(a[d].b).
+?- p(a.b[e]).
+?- p(a[d].b).
+?- p(a[d].b[h]).
+?- a =.. b[c].
+?- p(a:b).
+?- p(a::b[p]).
+p(a::b[p]).
+p(a::b).
+a[g]:b[c].
+?- a[g]:b[c].
+
+?- insert{a::b[p]}.
+?- insert{p(a::b[p])}.
+?- insert{p(a[d].b)}.
+?- delete{p(a[d].b[p])}.
+?- insert{a[d].b[p]}.
+
+// these should generate errors and not cause infinite loop
+aa \or ?bb :- \true.
+aa \or ?bb.
+
+// errors
+?- aaaa(%"abc"^^\string(p)).
+?- aaaa(%"abc"^^\string).
+aaaa(%"abc"^^\string(p)).
+aaaa(%"abc"^^\string).
+?- insert{aaaa(%"abc"^^\string)}.
+?- insert{aaaa(%"abc"^^\string(?))}.
+
+// not errors
+?- ${wish(nonvar(?X))^jjj(?X)}=?.
+jjj(${wish(nonvar(?_X))^p(?_X)}).
+iii :- wish(nonvar(?X))^jjj(?X).
+${a:-b}[c->d].
+${a}[c->d].
+
+?- ?X = avg{?A[?S,?X]| p(?U,?S,?X,?A,?O), ?Z=sum{?S1[?O1]|qqq(?X,?O1,?W,?S1)}}.
+?- ?X = avg{?A[?S,?X]| p(?U,?S,?X,?A,?O), ?Z=sum{?S[?O]|qqq(?X,?O,?W,?S)}}.
+?- (?XX = avg{?A[?S,?X]| p(?U,?S,?X,?A,?O), ?Z=sum{?S[?O1]|qqq(?X,?O1,?W,?S)}}
+   ; \true).
+?- (?XS = avg{?A[?S,?X]| p(?U,?S,?X,?A,?O), ?Z=sum{?S1[?O1]|qqq(?X,?O1,?W,?S1)}}, pp(?S,O1); \true).
+
+qq(?_AA) :- ?_XX = avg{?A[?S,?X]| p(?_U,?S,?X,?A,?_O), ?_Z=sum{?S1[?O1]|qqq(?X,?O1,?_W,?S1)}}.
+qq(?A) :- ?_XX = avg{?A[?S,?X]| p(?U,?S,?X,?A,?O), ?Z=sum{?S1[?OO,?O]|qqq(?X,?O,?OO,?_W,?S1)}}.
+qq(?A) :- ppp(?X), ?_XX = avg{?A[?S,?X]| p(?U,?S,?X,?A,?O), ?Z=sum{?S[?O1]|qqq(?X,?O1,?_W,?S)}}.
+qq(?_AA) :- ?_XX = avg{?A[?S,?X]| p(?_U,?S,?X,?A,?_O), ?_Z=sum{?S1[?O1]|qqq(?X,?O1,?_W,?S1)}}, qqq2(?S,?O1).
+
+// this used to produce a fake warning. now testing that it does not
+?- insertrule{p3(?XX,=1+?YY,?ZZ) :- q(?YY), r(?XX,?ZZ)}.
+
+// these used to produce internal errors
+?- "1"^^\integer.
+?- "2.3"^^\double.
+"1"^^\integer.
+"2.3"^^\double.
+
+// this file has no fina newline. Should NOT cause an error
+#include "no_newline.flr"

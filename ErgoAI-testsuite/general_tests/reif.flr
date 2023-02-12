@@ -1,0 +1,165 @@
+
+:- symbol_context{a/0, %foo(?,?)@?}.
+
+?- [reif_foo>>foo].
+
+ppp(a).
+?- delete{ppp(?_)}.
+
+a[b->c] :-
+	caller{?X},
+	\if ?X==main
+	\then writeln(caller1ok=?X)@\plg()
+        \else writeln(caller1wrong=?X)@\plg().
+
+
+?- newmodule{bar}.
+?- insertrule{(fff[dppp->eeee] :-
+		caller{?X},
+		\if ?X == main
+	        \then writeln(caller2ok=?X)@\plg()
+	        \else writeln(caller2wrong=?X)@\plg())@bar}.
+
+?- insertrule{(abc[d->eeee] :-
+		caller{?X},
+		\if ?X == foo
+	        \then writeln(caller3ok=?X)@\plg()
+	        \else writeln(caller3wrong=?X)@\plg())@bar}.
+
+%myquery(?QuerySpec) :- ?QuerySpec.
+
+%tst1 :- write('tst1: ')@\plg(),
+	refresh{?_[?_->?_]@foo},
+	refresh{?_[?_->?_]},
+	john[believes->?X]@foo,
+	?X,
+	write('tst1: John believes: ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst1b :- write('tst1b: ')@\plg(),
+	john[%(believes)->?X]@foo,
+	write('tst1b should be "main": ')@\plg(),
+	?X.
+
+%tst2 :- write('tst2: Calling fff[dppp->eeee] directly: ')@\plg(),
+	refresh{?_[?_->?_]@bar},
+	refresh{?_[?_->?_]@foo},
+	fff[dppp->eeee]@bar.
+
+%tst3 :- writeln('tst3: Calling fff[dppp->eeee] via bill[likes->X]@foo')@\plg(),
+	refresh{?_[?_->?_]@bar},
+	refresh{?_[?_->?_]@foo},
+	bill[likes->?X]@foo,
+	write('tst3: ')@\plg(),
+	?X,
+	write('tst3: calling reified goal: ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+
+%tst4 :- write('tst4: Call bill[likes-> ${fff[dppp->eeee]@bar}] directly: ')@\plg(),
+	refresh{?_[?_->?_]@bar},
+	refresh{?_[?_->?_]@foo},
+	\if bill[likes-> ${fff[dppp->eeee]@bar}]@foo
+	\then writeln('instantiated-ok')@\plg()
+        \else writeln('instantiated-wrong')@\plg().
+
+%tst5 :- write('tst5: Calling rule in @bar through module foo: ')@\plg(),
+	refresh{?_[?_->?_]@bar},
+	refresh{?_[?_->?_]@foo},
+	%call_bar@foo.
+
+%tst6 :- writeln('tst6: Calling bar(2) via foo[believes->X]@foo')@\plg(),
+	refresh{?_[?_->?_]@bar},
+	refresh{?_[?_->?_]@foo},
+	foo[believes->?X]@foo,
+	write('tst6: calling reified goal: ')@\plg(),
+	?X,
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg(),
+	?X~ ?_(?_,?Caller)@ ?_M,
+	\if ?Caller==main
+        \then writeln(tst6=ok)@\plg()
+        \else writeln(tst6=failed)@\plg().
+        
+
+%tst7 :- writeln('tst7: Calling %foo(3) via bar[knows->X]@foo')@\plg(),
+	refresh{?_[?_->?_]@bar},
+	refresh{?_[?_->?_]@foo},
+	bar[knows->?X]@foo,
+	write('tst7: calling reified goal: ')@\plg(),
+	%?X@foo,
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg(),
+	?X~ %?_(?_,?Caller)@ ?_M,
+	\if ?Caller==main
+        \then writeln(tst7=ok)@\plg()
+        \else writeln(tst7=failed)@\plg().
+
+%tst8 :- writeln('tst8: Calling %foo(_)@X directly')@\plg(),
+	%foo(?_,?Caller)@?Mod,
+	\if (?Caller==main, ?Mod==foo)
+        \then writeln(tst8=ok)@\plg()
+        \else writeln(tst8=failed)@\plg().
+
+%tst9 :- writeln('tst9: Calling bar(_)@X directly')@\plg(),
+	refresh{bar(?_,?_)@foo},
+	bar(?_,?Caller)@?Mod,
+	\if (?Caller==main, ?Mod==foo)
+        \then writeln(tst9=ok)@\plg()
+        \else writeln(tst9=failed)@\plg().
+
+%tst10 :- write('tst10: ')@\plg(),
+	  %myquery(${\naf ppp(?_S)}),
+	  writeln(succeeded)@\plg().
+
+%tst11 :- write('tst11: ')@\plg(),
+	  %myquery(${\if isvar{?Total} \then ?Total = '??'}),
+	  writeln(succeeded)@\plg.
+
+%tst12 :- write('tst12: ')@\plg,
+	  %myquery(${
+	      ?L=collectset{?S |
+			       //?S:people@foo, \naf exist(?A)^(?S[has(moo)->?A]@foo,?A[type->bar]@foo)
+			       ?S:people@foo, \naf ?S.has(moo)[type->bar]@foo
+			   },
+	      bob.has(?_)[]@foo,
+	      write(?L)@\plg()
+		    }),
+	  writeln(' succeeded')@\plg.
+
+%tst13 :- insert{sssss[of->${baz}]@foo}, delete{sssss[of->${baz}]@foo},
+           writeln('test13: ok')@\plg.
+
+%tst14 :- ?X ~ sssss[of->${baz}]@foo, insert{?X}, delete{?X},
+           writeln('test14: ok')@\plg.
+
+%tst15 :- ?X ~ sssss[of->${baz}]@foo, insert{?X},
+          (delete{sssss[of->${baz}]@foo} -->> writeln('test15: strange')@\plg
+          ;
+            delete{?X},
+            writeln('test15: ok')@\plg
+          ).
+
+%tst16 :- ?X ~ sssss[of->${baz}]@foo, insert{sssss[of->${baz}]@foo},
+          (delete{?X} -->> writeln('test16: strange')@\plg
+          ;
+            delete{sssss[of->${baz}]@foo},
+            writeln('test16: ok')@\plg
+          ).
+
+
+%pretest :-
+	%tst1, %tst1b, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9,
+	%tst10, %tst11, %tst12,
+	%tst13, %tst14, %tst15, %tst16.
+
+
+%test :- tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	!,
+	abolish_all_tables@\plg,
+	//\abolishtables,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.

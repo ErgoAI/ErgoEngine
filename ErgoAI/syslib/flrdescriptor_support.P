@@ -1,0 +1,586 @@
+/* File:      flrdescriptor_support.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2012-2018;
+**      and Vulcan, Inc., 2012-2013.
+**      Coherent Knowledge Systems, LLC, 2015-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_tabling_methods.flh"
+#include "flora_exceptions.flh"
+
+:- table
+	%% tabling get_tag_descriptor_info_with_rulehead/6 helps about 10%
+	get_tag_descriptor_info_with_rulehead/6,
+	is_defeasible_rule/3,
+	is_strict_rule/3
+   as AUXILIARY_TABLING_TYPE.
+/*
+%% this tabling does not help
+:- table
+	get_bool_descriptor_info_with_rulehead/6,
+	get_ruleid_by_tag_or_head/5
+   as AUXILIARY_TABLING_TYPE.
+*/
+
+:- import
+	FL_TAG_DESCRIPTOR_META_PREDICATE/5,
+	FL_BOOL_DESCRIPTOR_META_PREDICATE/5,
+	FL_PROP_DESCRIPTOR_META_PREDICATE/6,
+	FL_FORCED_DEFEASIBILITY_UNION/4,
+	FL_RULE_ENABLER/3
+   from usermod.
+
+:- import term_arg/3 from machine.
+
+:- import
+	flora_decode_module_name/2,
+	flora_modularize_atom/3
+   from flrwrapper.
+:- import
+	flora_refresh_tables/1
+   from flrtables.
+:- import
+	convert_to_head_literal/2,
+        matching_query_signature/4,
+	query_signature_member/3,
+        show_rule_signature/13
+   from flrcanon.
+	
+:- import
+	flora_adaptive_assert/1,
+	flora_adaptive_retract/1
+   from flrstoragebase.
+
+:- import
+        flora_match_substring/5,
+	flora_abort/2,
+	flora_file_op/3
+   from flrporting.
+:- import
+        flora_load_registry/7
+   from flrregistry.
+
+:- export
+	get_tag_descriptor_info/5,
+	get_bool_descriptor_info/5,
+	get_prop_descriptor_info/6,
+
+	get_tag_descriptor_info_with_rulehead/6,
+	get_bool_descriptor_info_with_rulehead/6,
+
+	get_ruleid_by_tag_or_head/5,
+
+	synonymous_tag/3,
+	synonymous_tag_with_head/4,
+
+	is_defeasible_rule/3,
+	is_defeasible_tag/3,
+	is_strict_rule/3,
+	make_rule_defeasible/3,
+	make_rule_strict/3,
+
+	test_latent_query/3,
+	call_metafacts/1,
+
+	disable_rule_by_id/3,
+	enable_rule_by_id/3,
+	disable_rule_by_id_trans/3,
+	enable_rule_by_id_trans/3,
+	is_enabled_rule/3,
+	is_disabled_rule/3,
+
+	get_module_from_metafacts/2,
+	get_file_from_metafacts/2,
+
+	extract_stmt_fileinfo_from_filespec/4,
+
+	clear_bool_metafacts_by_ruleid/3,
+	clear_tag_metafacts_by_ruleid/3,
+	clear_prop_metafacts_by_ruleid/3,
+	flora_clear_all_metafacts_by_ruleid/3,
+	flora_reset_descriptor_meta_predicates/1.
+
+:- export
+        strip_module_from_call/2,
+        extract_data_from_meta_call/2.
+
+
+get_tag_descriptor_info(RuleId,FileName,Module,Tag,VarTerm) :-
+	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,Tag,VarTerm).
+get_bool_descriptor_info(RuleId,FileName,Module,BoolProp,VarTerm) :-
+	FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,BoolProp,VarTerm).
+get_prop_descriptor_info(RuleId,FileName,Module,PropName,PropValue,VarTerm) :-
+	FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,PropName,PropValue,VarTerm).
+
+
+%% if Tag and Id are vars, try to index on Head
+get_tag_descriptor_info_with_rulehead(RuleId,FileName,Module,Tag,Head,VarTerm) :-
+	var(RuleId),
+	var(Tag),
+	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
+	-> RealMod = HeadMod
+	;
+	    RealMod = Module
+	),
+	!,
+	show_rule_signature(RuleId,FileName,VarTerm,_Prefix,RealMod,_RuleNum,
+			    Head,
+			    _Body,_H2BSig,_PreBody,_PostBody,
+			    _DefeatCond,_RuleList),
+	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag,VarTerm).
+get_tag_descriptor_info_with_rulehead(RuleId,FileName,Module,Tag,Head,VarTerm) :-
+	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
+	-> RealMod = HeadMod
+	;
+	    RealMod = Module
+	),
+	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag,VarTerm),
+	show_rule_signature(RuleId,FileName,VarTerm,_Prefix,RealMod,_RuleNum,
+			    Head,
+			    _Body,_H2BSig,_PreBody,_PostBody,
+			    _DefeatCond,_RuleList).
+
+get_ruleid_by_tag_or_head(Tag,Head,Module,RuleId,FileName) :-
+	nonvar(Tag),
+	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
+	-> RealMod = HeadMod
+	;
+	    RealMod = Module
+	),
+	!,
+	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag,VarTerm),
+	show_rule_signature(RuleId,FileName,VarTerm,_Prefix,RealMod,_RuleNum,
+			    Head,
+			    _Body,_H2BSig,_PreBody,_PostBody,
+			    _DefeatCond,_RuleList).
+get_ruleid_by_tag_or_head(Tag,Head,Module,RuleId,FileName) :-
+	%% Tag is a var
+	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
+	-> RealMod = HeadMod
+	;
+	    RealMod = Module
+	),
+	show_rule_signature(RuleId,FileName,VarTerm,_Prefix,RealMod,_RuleNum,
+			    Head,
+			    _Body,_H2BSig,_PreBody,_PostBody,
+			    _DefeatCond,_RuleList),
+	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag,VarTerm).
+
+get_bool_descriptor_info_with_rulehead(RuleId,FileName,Module,BoolProp,Head,VarTerm) :-
+	nonvar(RuleId),
+	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
+	-> RealMod = HeadMod
+	;
+	    RealMod = Module
+	),
+	!,
+	FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,BoolProp,VarTerm),
+	show_rule_signature(RuleId,FileName,VarTerm,_Prefix,RealMod,_RuleNum,
+			    Head,
+			    _Body,_H2BSig,_PreBody,_PostBody,
+			    _DefeatCond,_RuleList).
+%% if Id is a var, try to index on Head
+get_bool_descriptor_info_with_rulehead(RuleId,FileName,Module,BoolProp,Head,VarTerm) :-
+	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
+	-> RealMod = HeadMod
+	;
+	    RealMod = Module
+	),
+	show_rule_signature(RuleId,FileName,VarTerm,_Prefix,RealMod,_RuleNum,
+			    Head,
+			    _Body,_H2BSig,_PreBody,_PostBody,
+			    _DefeatCond,_RuleList),
+	FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,BoolProp,VarTerm).
+
+%% synonymous_tag/3 used only in genincludes/flrdefeasible.fli
+%% usually synonymous_tag_with_head/4 is used
+%% Tabling either of these does not help, even slows things down a tiny bit.
+synonymous_tag(Tag1,Mod,Tag2) :-
+	nonvar(Tag1),
+	!,
+	get_tag_descriptor_info(Id,FileName,Mod,Tag1,Vars),
+	get_tag_descriptor_info(Id,FileName,Mod,Tag2,Vars).
+synonymous_tag(Tag1,Mod,Tag2) :-
+	get_tag_descriptor_info(Id,FileName,Mod,Tag2,Vars),
+	get_tag_descriptor_info(Id,FileName,Mod,Tag1,Vars).
+
+synonymous_tag_with_head(Tag,_Mod,Tag,Head) :-
+	var(Tag),
+	var(Head),
+	!.
+synonymous_tag_with_head(Tag1,Mod,Tag2,Head) :-
+	get_tag_descriptor_info_with_rulehead(Id,FileName,Mod,Tag1,Head,Vars),
+	get_tag_descriptor_info_with_rulehead(Id,FileName,Mod,Tag2,Head,Vars).
+
+%% The predicate of forced defeasibility FL_FORCED_DEFEASIBILITY_UNION
+%% overrides whatever the descriptor says about defeasibility
+
+%% is_defeasible_rule(+Id,+FileName,+Mod)
+is_defeasible_rule(Id,FileName,Mod) :-
+	FL_FORCED_DEFEASIBILITY_UNION(Id,FileName,Mod,FL_DEFEASIBLE),
+	!.
+is_defeasible_rule(Id,FileName,Mod) :-
+	\+ FL_FORCED_DEFEASIBILITY_UNION(Id,FileName,Mod,FL_STRICT),
+	get_bool_descriptor_info(Id,FileName,Mod,FL_DEFEASIBLE,_).
+%% is_strict_rule(+Id,+FileName,+Mod)
+is_strict_rule(Id,FileName,Mod) :-
+	FL_FORCED_DEFEASIBILITY_UNION(Id,FileName,Mod,FL_STRICT),
+	!.
+is_strict_rule(Id,FileName,Mod) :-
+	\+ FL_FORCED_DEFEASIBILITY_UNION(Id,FileName,Mod,FL_DEFEASIBLE),
+	get_bool_descriptor_info(Id,FileName,Mod,FL_STRICT,_).
+
+is_defeasible_tag(Tag,FileName,Mod) :-
+	nonvar(Tag),
+	!,
+	get_tag_descriptor_info(Id,FileName,Mod,Tag,_VarTerm),
+	is_defeasible_rule(Id,FileName,Mod).
+is_defeasible_tag(Tag,FileName,Mod) :-
+	is_defeasible_rule(Id,FileName,Mod),
+	get_tag_descriptor_info(Id,FileName,Mod,Tag,_VarTerm).
+
+
+:- import flora_abolish_table_predicate/1 from flrtables.
+
+%% make_rule_defeasible(+Id,+FileName,+Mod)
+make_rule_defeasible(Id,FileName,Mod) :-
+	flora_modularize_atom(FL_FORCED_DEFEASIBILITY,Mod,
+			      ModularDefeasibilityPredName),
+	DefeasibilityPred =.. [ModularDefeasibilityPredName,Id,FileName,_],
+	(flora_adaptive_retract(DefeasibilityPred), fail ; true),
+	!,
+	term_arg(DefeasibilityPred,3,Flag), Flag=FL_DEFEASIBLE,
+	flora_adaptive_assert(DefeasibilityPred),
+	flora_abolish_table_predicate(is_defeasible_rule(Id,FileName,Mod)),
+	flora_abolish_table_predicate(is_strict_rule(Id,FileName,Mod)).
+%% make_rule_strict(+Id,+FileName,+Mod)
+make_rule_strict(Id,FileName,Mod) :-
+	flora_modularize_atom(FL_FORCED_DEFEASIBILITY,Mod,
+			      ModularDefeasibilityPredName),
+	DefeasibilityPred =.. [ModularDefeasibilityPredName,Id,FileName,_],
+	(flora_adaptive_retract(DefeasibilityPred), fail ; true),
+	!,
+	term_arg(DefeasibilityPred,3,Flag), Flag=FL_STRICT,
+	flora_adaptive_assert(DefeasibilityPred),
+	flora_abolish_table_predicate(is_defeasible_rule(Id,FileName,Mod)),
+	flora_abolish_table_predicate(is_strict_rule(Id,FileName,Mod)).
+
+/*************************************************************************
+       enable_rule_by_id(+Id,+FileName,+Mod)
+       disable_rule_by_id(+Id,+FileName,+Mod)
+
+   These assert/retract enabler metafacts for rules (static or dynamic)
+   and thus have the effect similar to assert/retract, but much cheaper
+
+   enable_rule_by_id/3 is idempotent
+   disable_rule_by_id/3 fails if the rule is already disabled
+*************************************************************************/
+enable_rule_by_id(Id,FileName,Mod) :-
+	enable_rule_by_id(Id,FileName,Mod,_).
+%% GotEnabled = true, if the rule got enabled
+%% GotEnabled = false, if it was enabled before, so enable{...} was a noop.
+enable_rule_by_id(Id,FileName,Mod,GotEnabled) :-
+	findall(Head,
+		show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+				    Head,
+				    _Body,_H2BSig,_PreBody,_PostBody,
+				    _DefeatCond,_RuleList),
+		HeadList),
+	%% refreshing all heads in a multiheaded rule
+	refresh_head_list(HeadList),
+	EnablerPred = FL_RULE_ENABLER(Id,FileName,Mod),
+	(EnablerPred -> GotEnabled = false  % idempotent
+	; ground((FileName,Mod)), nonvar(Id) ->
+	    flora_adaptive_assert(EnablerPred),
+	    GotEnabled = true
+	; flora_abort(['enable{...}: all arguments must be ground'],
+		      FLORA_ABORT_NOTRACE)
+	).
+
+disable_rule_by_id(Id,FileName,Mod) :-
+	disable_rule_by_id(Id,FileName,Mod,_).
+%% GotDisabled = true, if the rule got disabled
+%% GotDisabled = false, if it was disabled before, so disable{...} was a noop.
+disable_rule_by_id(Id,FileName,Mod,GotDisabled) :-
+	findall(Head,
+	        show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+				    Head,
+				    _Body,_H2BSig,_PreBody,_PostBody,
+				    _DefeatCond,_RuleList),
+		HeadList),
+	%% refreshing all heads in a multiheaded rule
+	refresh_head_list(HeadList),
+	EnablerPred = FL_RULE_ENABLER(Id,FileName,Mod),
+	(\+EnablerPred -> GotDisabled = false
+	; flora_adaptive_retract(EnablerPred),
+	    GotDisabled = true
+	).
+
+%% Delete the rule enabler fact only if there are no rules with this id
+%% left in the system. This is used for rule/latent query deletion.
+clear_rule_enabler_carefully(Id,FileName,Mod) :-
+	(show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+			     _Head,
+			     _Body,_H2BSig,_PreBody,_PostBody,
+			     _DefeatCond,_RuleList)
+	-> true
+	; disable_rule_by_id(Id,FileName,Mod)
+	).
+
+%% transactional version
+enable_rule_by_id_trans(Id,FileName,Mod) :-
+	enable_rule_by_id(Id,FileName,Mod,GotEnabled),
+	(GotEnabled %% if the rule got enabled
+	-> (true
+	   ; disable_rule_by_id(Id,FileName,Mod),
+	       fail
+	   )
+	%% if rule was enabled prior to enabling then noop
+	; true
+	).
+%% transactional version
+disable_rule_by_id_trans(Id,FileName,Mod) :-
+	disable_rule_by_id(Id,FileName,Mod,GotDisabled),
+	(GotDisabled %% if the rule got disabled
+	-> (true
+	   ; enable_rule_by_id(Id,FileName,Mod),
+	       fail
+	   )
+	%% if rule was disabled prior to enabling then noop
+	; true
+	).
+
+refresh_head_list([]) :- !.
+refresh_head_list([H|Rest]) :-
+	convert_to_head_literal(H,HeadAsHead),
+	flora_refresh_tables(HeadAsHead),
+	refresh_head_list(Rest).
+
+
+is_enabled_rule(Id,FileName,Mod) :-
+	var(Mod),
+	!,
+	show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+			    _Head,
+			    _Body,_H2BSig,_PreBody,_PostBody,
+			    _DefeatCond,_RuleList),
+	(FL_RULE_ENABLER(Id,FileName,Mod) -> true
+	; fail
+	).
+is_enabled_rule(Id,FileName,Mod) :-
+	EnablerPred = FL_RULE_ENABLER(Id,FileName,Mod),
+	show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+			    _Head,
+			    _Body,_H2BSig,_PreBody,_PostBody,
+			    _DefeatCond,_RuleList),
+	(EnablerPred -> true
+	; fail
+	).
+
+is_disabled_rule(Id,FileName,Mod) :-
+	var(Mod),
+	!,
+	show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+			    _Head,
+			    _Body,_H2BSig,_PreBody,_PostBody,
+			    _DefeatCond,_RuleList),
+	(FL_RULE_ENABLER(Id,FileName,Mod) -> fail
+	; true
+	).
+is_disabled_rule(Id,FileName,Mod) :-
+	EnablerPred = FL_RULE_ENABLER(Id,FileName,Mod),
+	show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+			    _Head,
+			    _Body,_H2BSig,_PreBody,_PostBody,
+			    _DefeatCond,_RuleList),
+	(EnablerPred -> fail
+	; true
+	).
+
+/*************************************************************************
+   flora_reset_descriptor_meta_predicates(+ModuleName)
+
+   retracts all content from meta predicates for module
+*************************************************************************/
+flora_reset_descriptor_meta_predicates(Mod) :-
+	retractall(FL_TAG_DESCRIPTOR_META_PREDICATE(_,_,Mod,_,_)),
+	retractall(FL_BOOL_DESCRIPTOR_META_PREDICATE(_,_,Mod,_,_)),
+	retractall(FL_PROP_DESCRIPTOR_META_PREDICATE(_,_,Mod,_,_,_)),
+	retractall(FL_RULE_ENABLER(_,_,Mod)).
+
+/**************************************************************************
+	clear_bool_metafacts_by_ruleid(+RuleId,+FileName,+Mod)
+	clear_tag_metafacts_by_ruleid(+RuleId,+FileName,+Mod)
+	clear_prop_metafacts_by_ruleid(+RuleId,+FileName,+Mod)
+	flora_clear_all_metafacts_by_ruleid(+RuleId,+FileName,+Mod)
+
+  Clear all bool/tag metafacts for a given Id and module
+  If no rules with this id is left ONLY THEN do we delete the metafacts.
+  Otherwise, we might delete part of a multiheaded rule and this would
+  eliminate the meta-facts for the rest of that rule. Eg, if the rule were
+  ?X:foo[moo->?Y] :- body.
+  and we are deleting ?X:foo :- body, we do not want to delete the metafacts
+  yet, since the remainder, ?X[moo->?Y] :- body still needs them.
+**************************************************************************/
+clear_bool_metafacts_by_ruleid(RuleId,FileName,Mod) :-
+	(\+show_rule_signature(RuleId,FileName,_,_,Mod,_,_,_,_,_,_,_,_)
+	-> retractall(FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Mod,_,_))
+	; true
+	).
+
+clear_tag_metafacts_by_ruleid(RuleId,FileName,Mod) :-
+	(\+show_rule_signature(RuleId,FileName,_,_,Mod,_,_,_,_,_,_,_,_)
+	-> retractall(FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Mod,_,_))
+	; true
+	).
+
+clear_prop_metafacts_by_ruleid(RuleId,FileName,Mod) :-
+	(\+show_rule_signature(RuleId,FileName,_,_,Mod,_,_,_,_,_,_,_,_)
+	-> retractall(FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Mod,_,_,_))
+	; true
+	).
+
+flora_clear_all_metafacts_by_ruleid(RuleId,FileName,Mod) :-
+	clear_bool_metafacts_by_ruleid(RuleId,FileName,Mod),
+	clear_tag_metafacts_by_ruleid(RuleId,FileName,Mod),
+	clear_prop_metafacts_by_ruleid(RuleId,FileName,Mod),
+	clear_rule_enabler_carefully(RuleId,FileName,Mod).
+
+/*****************************************************************************
+    Module out of metafacts
+    FileName out of metafacts
+*****************************************************************************/
+%% case of conjunction of metafacts
+get_module_from_metafacts((Meta,_RestMeta),Mod) :-
+	!,
+        strip_module_from_call(Meta,RealMeta),
+	term_arg(RealMeta,3,ModVar),
+	%% can't put Mod directly in term_arg/3:
+	%% arg3 must be unbound while Mod may be bound
+	ModVar = Mod.
+%% single metafact
+get_module_from_metafacts(Meta,Mod) :-
+        strip_module_from_call(Meta,RealMeta),
+	term_arg(RealMeta,3,ModVar),
+	%% can't put Mod directly in term_arg/3:
+	%% arg3 must be unbound while Mod may be bound
+	ModVar = Mod.
+
+%% case of conjunction of metafacts
+get_file_from_metafacts((Meta,_RestMeta),File) :-
+	!,
+        strip_module_from_call(Meta,RealMeta),
+	term_arg(RealMeta,2,FileVar),
+	%% can't put Mod directly in term_arg/3:
+	%% arg3 must be unbound while Mod may be bound
+	FileVar = File.
+%% single metafact
+get_file_from_metafacts(Meta,File) :-
+        strip_module_from_call(Meta,RealMeta),
+	term_arg(RealMeta,2,FileVar),
+	%% can't put Mod directly in term_arg/3:
+	%% arg3 must be unbound while Mod may be bound
+	FileVar = File.
+
+%% predicate implementing query{?LQID,?File,?Mod}
+test_latent_query(Id,File,Mod) :-
+	matching_query_signature(Id,File,Mod,Sig),
+	query_signature_member(prequery,Sig,PreBody),
+	query_signature_member(query,Sig,LQBody),
+	call((PreBody,LQBody)).
+
+call_metafacts(MetaFacts) :-
+	call_metafacts(MetaFacts,FL_TAG_DESCRIPTOR_META_PREDICATE(_,_,_,_,_)).
+
+call_metafacts((MetaFact,Rest),TagPred) :-
+	!,
+	filter_tag_metafact(MetaFact,TagPred),
+	call_metafacts(Rest,TagPred).
+
+call_metafacts(MetaFact,TagPred) :-
+	filter_tag_metafact(MetaFact,TagPred).
+
+%% Here we are matching all tag-metafacts on the key: Id, File, Module
+%% (and VarTerm - arg5, for good measure). This ensures that all tag
+%% queries refer to the same rule.
+filter_tag_metafact(MetaFact,TagPred) :-
+	(functor(MetaFact,FL_TAG_DESCRIPTOR_META_PREDICATE,5)
+	-> TagPred = FL_TAG_DESCRIPTOR_META_PREDICATE(Id,File,Mod,_,Vars),
+	    MetaFact = FL_TAG_DESCRIPTOR_META_PREDICATE(Id,File,Mod,_,Vars),
+	    call(MetaFact)
+	; call(MetaFact)
+	).
+
+%% FileSpec is either a file name
+%% or '(interactive)' (==FL_SHELL_FICTITIOUS_FILENAME)
+%% or FL_DYNRULE_FICTITIOUS_FILENAME(FileName)
+%% LocalFileSpec:
+%%    If FileSpec is a file name then LocalFileSpec is the local name
+%%       (looses directory name)
+%%    If FileSpec is FL_SHELL_FICTITIOUS_FILENAME then no change
+%%    If FileSpec is FL_DYNRULE_FICTITIOUS_FILENAME(FileName) then LocalFileSpec
+%%       is FL_DYNRULE_FICTITIOUS_FILENAME(LocalFileName)
+extract_stmt_fileinfo_from_filespec(FileSpec,PrintableFile,LocalFileName,LocalFileSpec) :-
+	(FileSpec == FL_SHELL_FICTITIOUS_FILENAME ->
+            PrintableFile_pre = FL_RUNTIME_OBJECT
+	; FileSpec = FL_DYNRULE_FICTITIOUS_FILENAME(PrintableFile_pre) ->
+	    (nonvar(PrintableFile_pre) -> 
+		flora_file_op(localname,PrintableFile_pre,LocalFileName),
+		LocalFileSpec = FL_DYNRULE_FICTITIOUS_FILENAME(LocalFileName)
+	    ; PrintableFile_pre = FL_UNKNOWN_OBJECT,
+		LocalFileSpec = PrintableFile_pre,
+		LocalFileName = LocalFileSpec
+	    )
+	; %% FileSpec is just a regular file name
+	    PrintableFile_pre = FileSpec,
+	    flora_file_op(localname,PrintableFile_pre,LocalFileSpec),
+	    LocalFileName = LocalFileSpec
+	),
+        (flora_load_registry(PrintableFile,_,LocalFileName,_,_,_,_),
+            flora_match_substring(PrintableFile_pre,PrintableFile,reverse,_,-1)
+        ->  true
+        ; PrintableFile = PrintableFile_pre
+        ).
+
+strip_module_from_call(Call,Stripped) :-
+        (Call = _Mod:Stripped -> true
+        ; Stripped = Call
+        ).
+
+extract_data_from_meta_call(Meta,NULL) :-
+        var(Meta),
+        !.
+extract_data_from_meta_call(Meta,Data) :-
+        strip_module_from_call(Meta,StrippedMeta),
+        (StrippedMeta = FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,Tag,VarTerm) ->
+            Data = (prop,RuleId,tag,Tag)
+        ; StrippedMeta = FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,PropName,PropValue,VarTerm) ->
+            Data = (prop,RuleId,PropName,PropValue)
+        ; StrippedMeta = FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,BoolProp,VarTerm) ->
+            Data = (bool,RuleId,BoolProp)
+        %% the rule_enabled metafact is ignored; descr_vars also
+        ; Data = NULL
+        ).

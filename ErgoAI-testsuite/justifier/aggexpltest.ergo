@@ -1,0 +1,145 @@
+textit{fllibcountdistinct(?AggrVar,[],[],?Cond,?Result)@\plg,
+        '%s is the number of unique %s''s such that (%s)',
+        [?Result,?AggrVar,?CondT],
+        (
+          flora_rename_vars_meaningfully(?Cond)@\plg(flrdecode),
+          %textify(?Cond,?CondT)@\why
+        )
+      }.
+textit{fllibcount(?AggrVar,[],?UniqLst,?Cond,?Result)@\plg,
+        '%s is the number of %s''s, parameterized by %s, such that (%s)',
+        [?Result,?AggrVar,?UniqLst,?CondT],
+        (
+          ?UniqLst \= [],
+          flora_rename_vars_meaningfully(?Cond)@\plg(flrdecode),
+          %textify(?Cond,?CondT)@\why
+        )
+      }.
+textit{fllibcount(?AggrVar,[],[],?Cond,?Result)@\plg,
+        '%s is the number of %s''s such that (%s)',
+        [?Result,?AggrVar,?CondT],
+        (
+          flora_rename_vars_meaningfully(?Cond)@\plg(flrdecode),
+          %textify(?Cond,?CondT)@\why
+        )
+      }.
+textit{fllibsum(?AggrVar,[],?_UniqLst,?Cond,?Result)@\plg,
+        '%s is the sum of %s''s such that (%s)',
+        [?Result,?AggrVar,?CondT],
+        (
+          flora_rename_vars_meaningfully(?Cond)@\plg(flrdecode),
+          %textify(?Cond,?CondT)@\why
+        )
+      }.
+textit{\if ?C \then ?T \else ?E,
+        'either (%s) and (%s) or not (%s), but (%s)',
+        [?CT,?TT,?CT,?ET],
+        (
+          flora_rename_vars_meaningfully([?C,?T,?E])@\plg(flrdecode),
+          %textify(?C,?CT)@\why, %textify(?T,?TT)@\why, %textify(?E,?ET)@\why
+        )
+      }.
+
+textit{?G, 'it is false that exist %s such that %s', [?V,?XX], 
+        (
+          ?G ~ \naf ?X,
+          \+undefined{?G},
+          variables{?X,?V}, ?V !== [],
+          !,
+          flora_rename_vars_meaningfully([?V,?X])@\plg(flrdecode),
+          %textify(?X,?XX)@\why
+        )
+      }.
+
+/*
+textit{\naf ?X, 'it is false that %s', [?XX], 
+        (
+          undefined{\naf ?X},
+          flora_rename_vars_meaningfully(?X)@\plg(flrdecode),
+          %textify(?X,?XX)@\why
+        )
+      }.
+*/
+textit{?G, 'it is false that %s', [?XX], 
+        (
+          ?G ~ \naf ?X,
+          //undefined{?G},
+          flora_rename_vars_meaningfully(?X)@\plg(flrdecode),
+          %textify(?X,?XX)@\why
+        )
+      }.
+
+textit{
+	p(?x,?y),
+	'arg %s is a thingie of arg %s',
+	[?x,?y]
+}.
+textit{
+	?x = ?y,
+	'%s eqs %s',
+	[?x,?y]
+}.
+
+p(a,1).
+p(a,4).
+p(b,3).
+p(b,2).
+p(b,5).
+@!{q_rule[textit->'test rule q()']}
+q(?x) :- ?u \in [a,b], ?x=countdistinct{?p| p(?_v,?p), ?k=?k, p(?u,?p)}.
+qq(?x) :- ?u \in [a,b], ?x=count{?p(?v)| p(?v,?p), ?k=?k, p(?u,?p)}.
+rr(?x) :- ?u \in [a,b], ?x=sum{?p(?v)| p(?v,?p), ?k=?k, p(?u,?p)}.
+qqq(?x) :- ?u \in [a,b], ?x=count{?p| p(?_v,?p), ?k=?k, p(?u,?p)}.
+bd(?X,?Y) :- p(?X,?W), ?W=?Z, p(?Y,?Z).
+
+r :- \if p(?x,?y) \then ?x=?y \else p(?y,?x).
+
+ppp :- \naf exist(?x,?y)^p(?x,?y).
+pp2 :- \naf p(?x,?y).
+
+
+
+mp(1,a).
+mp(2,a).
+mp(1,b).
+mp(2,b).
+mp(1,c).
+
+mq(?x,?y) :- mp(?x,?z), ?z = ?zz, mp(?y,?zz), ?x != ?y.
+
+
+%tst1 :- ${\naf exist(?x,?y)^bd(?x,?y)} =?Q, ?Q[why(full,textonly)->?expl]@\why,
+        writeln(test1=?expl)@\io.
+%tst2 :- ${q(?)} =?Q, ?Q, ?Q[why(full,textonly)->?expl]@\why,
+        writeln(test2=?expl)@\io.
+%tst3 :- ${q(?)} =?Q, ?Q, ?Q[why(full,textonly)->?expl]@\why,
+        writeln(test3=?expl)@\io.
+%tst4 :- ${r} =?Q, ?Q[why(full,textonly)->?expl]@\why,
+        writeln(test4=?expl)@\io.
+%tst5 :- ${qq(?)} =?Q, ?Q, ?Q[why(full,textonly)->?expl]@\why,
+        writeln(test5=?expl)@\io.
+%tst6 :- ${qqq(?)} =?Q, ?Q, ?Q[why(full,textonly)->?expl]@\why,
+        writeln(test6=?expl)@\io.
+%tst7 :- ${rr(?)} =?Q, ?Q, ?Q[why(full,textonly)->?expl]@\why,
+        writeln(test7=?expl)@\io.
+
+%tst8 :- ${ppp} =?Q, ?Q[why(full,textonly)->?expl]@\why,
+        writeln(test8=?expl)@\io.
+%tst9 :- ${pp2} =?Q, ?Q[why(full,textonly)->?expl]@\why,
+        writeln(test9=?expl)@\io.
+
+%tst10 :- ${mq(?_x,?_y)} =?Q,  ?Q[why(full,textonly)->?expl]@\why,
+        writeln(test10=?expl)@\io.
+%tst11 :- ${\naf mq(5,5)} =?Q,  ?Q[why(full,textonly)->?expl]@\why,
+        writeln(test11=?expl)@\io.
+%tst12 :- ${\naf mq(1,2)} =?Q,  ?Q[why(full,textonly)->?expl]@\why,
+        writeln(test12=?expl)@\io.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5,  %tst6,  %tst7,  %tst8,  %tst9,
+        %tst10, %tst11, %tst12.
+
+%test :- tell(temp)@\plg,
+	%pretest,
+	told@\plg.
+

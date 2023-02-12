@@ -1,0 +1,30 @@
+:- use_argumentation_theory.
+
+:- compiler_options{production=on}.
+
+?- disable_experiment(delay_naf)@\plg(flrdelaysupport).
+
+\opposes(?_pred(?_x,?y),?_pred(?_x,?z)) :- ?y != ?z.
+
+
+
+@{hi}
+p(?x,2) :- q(?x).
+q(a).
+q(b).
+
+@{low}
+p(?x,3) :- r(?x).
+r(b).
+r(c).
+
+%tst :- insert{\overrides(hi,low)},
+         p(?x,?y), writeln(test1 = ?x+?y)@\plg,
+         \false.
+%tst :- delete{\overrides(?,?)}, p(?,?).
+
+%pretest :- %tst, %tst.
+
+%test :- tell(temp)@\plg(),
+	%pretest,
+	told@\plg().

@@ -1,0 +1,32 @@
+/* Demo that mixes F-logic with Datalog. */
+
+
+:- compiler_options{expert=on}.
+
+:- ignore_depchk{%edge(?_,?_)}.
+
+%edge(a,b).
+%edge(b,c).
+%edge(c,b).
+
+string[reachableTo=>string].
+
+?X:activeNode[reachableTo->?Y] :- %edge(?X,?Y).
+?X:activeNode[reachableTo->?Y] :- %edge(?X,?Z), ?Z[reachableTo->?Y].
+
+
+%show(?X) :-
+	?X:activeNode,
+	write(?X)@\plg,
+	write('[reachableTo->{')@\plg,
+	?L = collectset{?Y|?X[reachableTo->?Y]},
+	//findall(Y,X[reachableTo->Y],L)@\plg(setof),
+	%writelist(?L),
+	writeln('}]')@\plg.
+
+%writelist([?X]) :- write(?X)@\plg.
+%writelist([?X1,?X2|?Xs]) :-
+	write(?X1)@\plg, write(',')@\plg, %writelist([?X2|?Xs]).
+
+
+?- %show(?X).

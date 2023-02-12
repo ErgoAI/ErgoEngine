@@ -1,0 +1,283 @@
+
+\section{Integrity Constraints}
+\label{sec-kb-constraints}
+
+\index{constraint!automatically maintained}
+\index{constraint!integrity}
+\index{integrity constraint}
+Database systems have a very useful notion, called \emph{integrity constraint}. 
+An integrity constraint is a logical statement that specifies a condition
+that must be maintained at all times regardless of the changes made to the
+knowledge base. We have seen two examples of integrity constraints in
+\FLSYSTEM: type constraints and cardinality constraints. These particular
+constraints are dealt with in greater detail in
+Sections~\ref{sec-typechecking} and \ref{sec-cardinality}, but those
+sections deal with
+\emph{type-checking}, i.e., with verifying that the knowledge base
+satisfies  typing and cardinality constraints and with finding out what violates
+them. The primitives described in those sections must be invoked by
+the user \emph{explicitly} each time a type-check is desired and then the
+knowledge base must be repaired manually.
+In this section, however, we are concerned with \emph{automatic} maintenance of
+constraints: timely warning the user when a violation occurs in the cause of an
+update transaction and, if possible, rolling back the violating
+transaction. The primitives introduced in this section can be used in
+tandem with Sections~\ref{sec-typechecking} and \ref{sec-cardinality}
+to enable automatic maintenance of typing and cardinality constraints.
+
+Importantly, integrity constraints are \emph{not} to be confused with
+\emph{constraint solving} described in Section~\ref{sec-clp}.
+
+Conceptually, an integrity constraint is a query that is supposed
+to be \emph{false} at all times and this fact is ascertained automatically
+after every transaction in \ERGO. If the query is true for some bindings of its
+arguments, each of those bindings should be viewed as  a witness of an
+integrity violation.
+(Yes, normally people think of constraints as something that \emph{must}
+always be true, not as something that must always be false, but
+constraints-as-false-statements---i.e., requiring that something must \emph{not}
+happen---are more useful, since this produces the culprits
+responsible for constraint violation.)
+
+To define an integrity constraint, one must first define a suitable 
+predicate or a frame to be used as a constraint.
+For instance, suppose that it is not allowed to both receive a salary from a
+company and also be a consultant for it:
+%% 
+\begin{verbatim}
+   // A Conflict Of Interest (COI) constraint:
+   //    it should NOT be the case that, for some binding p for ?Person,
+   //    some binding c for ?Company, and some binding s for ? (the salary
+   //    argument) both salary(p,c,s) and consults(p,c) are true.
+   COI(?Pers,?Company) :- salary(?Pers,?Company,?), consults(?Pers,?Company).
+\end{verbatim}
+%% 
+If it so happens that someone called John both works and consults for
+Acme, Inc., i.e., that something like \texttt{salary(John,Acme,100000)}  
+and \texttt{consults(John,Acme)} both become true, we would like to know
+this immediately and, if possible, the transaction that introduced this
+violation should be rolled back.
+
+\index{constraint\{...\} primitive}
+\index{primitive!constraint\{...\}}
+\index{constraint\{...\}!adding}
+If automatic maintenance of this constraint is what we want, the second step
+is to tell \ERGO about this want by executing this command:
+%% 
+\begin{verbatim}
+   ?-  +constraint{COI(?,?)}.  // activate constraint
+\end{verbatim}
+%% 
+The plus sign says that we want to \emph{activate} the aforesaid query as an
+integrity constraint; the minus sign is used when we want to
+\emph{deactivate}  a constraint:
+\index{constraint\{...\}!deleting}
+%% 
+\begin{verbatim}
+   ?-  -constraint{COI(?,?)}.  // deactivate constraint
+\end{verbatim}
+%% 
+The first argument of \texttt{constraint\{...\}} must be a HiLog predicate
+or a frame. It can also be \texttt{\bs{}neg} of a predicate or a frame, but
+it cannot be a \texttt{\bs{}naf}, conjunction, disjunction, or any kind of
+more complex subgoals.
+
+Once a constraint is activated, it is first checked against the current
+knowledge base. If it is not violated (i.e., the constraint
+query is false), everything is good. Otherwise, a
+warning is issued. For instance, suppose John and Mary \emph{do}
+work and also consult for
+Acme. Then the following warning will be triggered after the above
+\texttt{+constraint\{...\}} statement is executed: 
+%% 
+\begin{verbatim}
+   *** A violation of the constraint activated on line 5 in file mykb.ergo 
+       existed prior to adding this constraint
+       The offending instances of the constraint are:
+           COI(John,Acme)
+           COI(Mary,Acme)
+\end{verbatim}
+%% 
+In this case, the violation existed prior to the moment the constraint was
+activated, so there is little one can do automatically. Although a number of
+theoretical
+approaches to resolving such situations exist, their practical value is
+questionable.  The practical approach offered by \ERGO is to use Studio and
+ask for an explanation for each of the instances of the query that
+indicates a violation. Then one can decide what to do (perhaps the
+fact that John consults for Acme was supposed to be, but was not,
+deleted once he was hired by Acme as an employee).
+If, on the other hand, it is \emph{known} how to resolve
+a particular constraint automatically then constraints with callbacks
+(described later) might be the way to go.
+Another way to resolve constraints automatically is to \emph{always} use
+transactional updates (Section~\ref{sec-trans-updates}), as shown next. 
+
+Suppose the knowledge base has only the fact
+\texttt{consults(Bob,GroupLTD)}
+but not any fact of the form \texttt{salary(Bob,GroupLTD,...)}, i.e.,
+\texttt{mykb.ergo} is like this:
+%% 
+\begin{verbatim}
+   COI(?Pers,?Company) :- salary(?Pers,?Company,?), consults(?Pers,?Company).
+   consults(Bob,GroupLTD).
+   ?-  +constraint{COI(?,?)}.
+\end{verbatim}
+%% 
+Suppose that next we execute the transaction
+%% 
+\begin{verbatim}
+   ?- tinsert{salary(Bob,GroupLTD,200000)}.
+\end{verbatim}
+%% 
+If this insertion is to be performed, the knowledge base would get a
+constraint violation
+and so the following warning is going to be issued:
+%% 
+\begin{verbatim}
+*** A violation of the constraint activated on line 3 in file mykb.ergo
+    is detected after the transaction t_insert{salary(Bob,GroupLTD,100000)}
+    The offending instances of the constraint are:
+        COI(Bob,GroupLTD)
+\end{verbatim}
+%% 
+\index{tinsert}
+\index{t\_insert}
+%%
+If we now check the query \texttt{salary(Bob,GroupLTD,?Salary)} then we will
+see that it has \emph{no} answers,
+i.e., the offending insertion was rolled back!
+This magic happened because we used \emph{transactional} insertion,
+\texttt{tinsert} (or, synonymously, \texttt{t\_insert}) --- see
+Section~\ref{sec-trans-updates} for the details.
+If we used  a \emph{non}-transactional insertion, such as 
+\texttt{insert\{salary(Bob,GroupLTD,100000)\}}, then the above warning would
+also appear, but the insertion would stick and the user would
+have to resolve the issue manually afterwards.
+
+If a constraint is no longer needed, it can be deactivated:
+%% 
+\begin{verbatim}
+   ?- -constraint{COI(?,?)}.
+\end{verbatim}
+%% 
+After this, John, Bob, and Mary can both work and consult for Acme and
+other companies at the same time---with no conflict of interest questions
+asked.
+
+\paragraph{Unresolved constraint violations.}
+Note that if constraint violations are not resolved, \ERGO will keep
+reminding about them when new update transactions are executed whether
+these transactions add new violations or not.
+In contrast, queries that produce no change to the underlying state of the
+knowledge
+base will \emph{not} trigger such warnings, even if violations exist
+prior to the query execution---to reduce
+the annoyance factor.
+
+For instance, suppose that Mary and John violate the conflict of interests
+constraint and a new transaction added a COI for Bob with respect to
+GroupLTD. Then the warning will be
+%% 
+\begin{verbatim}
+       ... ... ...
+       The offending instances of the constraint are:
+           COI(John,Acme)
+           COI(Mary,Acme)
+           COI(Bob,GroupLTD)
+\end{verbatim}
+%% 
+If the user does not want to be reminded about the old violations then,
+perhaps, an integrity constraint is not the right tool for the situation at
+hand. After all, what is the purpose of an integrity \emph{constraint} if
+the violations of the constraint are not being resolved?
+To address this type situations, \ERGO provides a different mechanism,
+called \emph{truth}-type \emph{alerts}, described in Section~\ref{sec-alerts}.
+This is a more computationally expensive mechanism than constraints and so
+it should be used only if resolving constraint violations is not always
+desirable or when the conditions being checked are not conceptualized as
+integrity constraints that must not be violated.
+
+
+\index{callback!in integrity constraint}
+\index{integrity constraint!with callback}
+\paragraph{Constraints with callbacks.}
+Sometimes, the knowledge engineer might need to take a programmatic action
+in response to a constraint violation. In most of the
+previous examples, constraint
+violations were reported in print and manual intervention was needed
+to take a corrective action. To let the user specify programmatic
+corrective actions, \ERGO provides a 2-argument version of
+the \texttt{+constraint\{...\}} primitive:
+%% 
+\begin{alltt}
+     +constraint\{\textnormal{\emph{ConstraintQuery},\emph{CallbackPredicate}}\}.
+\end{alltt}
+%% 
+The callback predicate must be a HiLog predicate with at least one
+argument; it can be also a \texttt{\bs{}neg} of such a predicate. 
+
+
+If a callback is provided, then constraint-violating alerts won't be
+printed and \textit{CallbackPredicate} is called instead. 
+If a violation is detected,
+that first argument will be bound to the list of
+violating instances of the constraint, so the callback could take a
+corrective action. For instance, for our conflict-of-interests constraint, we could
+define the following corrective action:
+%% 
+\begin{verbatim}
+   resolve_COI(?Violators,?File,?Line) :-
+       deleteall{?Y| COI(?Empl,?Comp) \in ?Violators, ?Y=consults(?Empl,?Comp)},
+       (
+           write('Violation of constraint in file '), write(File),
+           write(' on line '), write(Line), write(' was detected: '),
+           writeln(?Violators).
+           write('Corrective action was deletion of '),
+           write(consults(?Person,?Company)),
+           writeln(' for all violated instances of the constraint')
+       )@\io.
+\end{verbatim}
+%% 
+which deletes the facts that cause the violation and then
+prints a message about what was done to correct the violation. (In
+databases, this is called a ``compensating'' transaction.)
+To tell \ERGO that this corrective action is to be taken, the constraint
+must be activated using the 2-argument version of
+\texttt{+constraint\{...\}}  
+instead of the 1-argument version used before:
+%% 
+\begin{verbatim}
+   ?- +constraint{COI(?,?), resolve_COI(?,\@F,\@L}.
+\end{verbatim}
+%% 
+We see that the first argument (the variable ?) is left unbound because it will be bound
+by the system to the list of violating instances of the constraint; arguments 2
+and 3 are instantiated with the quazi-constants \texttt{\bs{}@F} and
+\texttt{\bs{}@L}. To remind (from Section~\ref{sec-quasi-constants}),
+the first quazi-constant is replaced by the
+compiler with the name of the file in which the above
+\texttt{+constraint\{...\}} statement appears and \texttt{\bs{}@L} is
+replaced with the appropriate line number. This is how the callback
+in our example gets its file and line arguments.
+
+Finally, in the \texttt{-constraint\{...\}} statement, the second argument
+is checked for syntax, but is ignored. Therefore,
+it makes little sense to provide a second argument here---regardless of whether the constraint being deleted does or does not use a
+callback.
+
+\paragraph{Performance considerations.}
+One should keep in mind that an active constraint injects a query (to find
+all violating instances) after each top-level query, which cannot but
+affect the performance. Therefore, one should strive to keep the number of
+active constraints to a minimum and to design the constraints to be
+lightweight. It would be an understatement to say that,
+if a constraint check goes into an
+infinite loop, the resulting problem would be very hard to figure out.
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

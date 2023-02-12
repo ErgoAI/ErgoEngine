@@ -1,0 +1,1106 @@
+/* File:      flrdelaysupport.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2011-2021;
+**      and Vulcan, Inc., 2011-2013.
+**      Coherent Knowledge Systems, 2016-2021.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "flora_exceptions.flh"
+
+:- import get_trigger_goal/2 from flrwhen.
+:- import has_test_mode/1 from flrtesting.
+
+:- import
+	%%flrtrim_last/2,
+	flrground_cyc/1,
+	flrnonground_cyc/1,
+	flrterm_vars/3,
+	%% this one separates regular from attributed vars
+	flrterm_vars_split/4
+   from flora_ground.
+:- import
+	flora_abort/1,
+	flora_abort/2
+   from flrporting.
+
+:- import is_strict_rule/3 from flrdescriptor_support.
+
+%%:- import member/2 from basics.
+:- import
+	flora_decode_goal_as_atom_substitute_vars/2,
+	flora_decode_oid_list_as_atom_list_substitute_vars/2,
+	flora_decode_goal_list_as_mainless_atom_list_substitute_vars/2,
+	set_context/1,
+	clear_context/1
+   from flrdecode.
+:- import
+        flora_warning_line/2,
+        flora_stdwarn_nl/0,
+        flora_error_line/2
+   from flrprint.
+:- import
+	call0/1,
+	term_arg/3,
+	is_cyclic/1,
+	get_attr/3,
+	del_attr/2
+   from machine.
+
+:- import flora_when/2 from flrwhen.
+
+:- import
+	'\\isiri'/1,
+	'\\isstring'/1,
+	'\\issymbol'/1
+   from flrdatatype.
+
+%%:- import flora_decode_predicate/6 from flrwrapper.
+
+:- dynamic delay_spec_to_predicate/6.
+:- index(delay_spec_to_predicate/6,[1,5]).
+:- dynamic delayed_sensor/3.
+:- index(delayed_sensor/3,trie).
+:- dynamic delayed_undefeated_lits/1.
+:- index(delayed_undefeated_lits/1,trie).
+
+:- dynamic experimental/1.
+:- dynamic nondelayable_pattern/2.
+
+:- export
+	flora_execute_delayed_calls/2,
+	flora_delayed_literal_wrapper/4,
+	flora_defeat_delay_wrapper/6,
+	flora_NAF_delay_wrapper/1,
+	FLLIBRECORDSENSORS/2.
+:- export
+	flora_register_sensor/2,
+	flora_delayed_literal/3,
+	flora_delayed_builtin_literal/2,
+	flora_delayed_sensor_literal/3.
+
+:- export
+	enable_experiment/1,
+	disable_experiment/1.
+
+:- export
+        get_self_or_delayed_call/2,
+        is_delay_variable/1,
+        is_delayed_literal/1,
+        strip_delay_checker/2.
+
+
+/*******    Wrappers for builtins    ********/
+flora_delayed_literal_wrapper(Builtin,FileN,Line,Args) :-
+	delay_spec_to_predicate(Builtin,FileN,Line,Args,Call,Condition_pre),
+	%% sometimes statically created delay conditions need postprocessing
+	make_delay_condition(Builtin,Args,Condition_pre,Condition),
+	!,
+	%% If Condition is ground, no point in using when/2.
+	%% This speeds up cases where args are mostly ground.
+	%% E.g., argumentation theories become faster by some 10%
+	(ground(Condition) -> Call
+	; nondelayable_pattern(Builtin,Args) -> Call
+	; flora_when(Condition,Call)
+	).
+
+%% Delay wrapper for the FL_UNDEFEATED condition
+%% _File,_Line,_HeadVarnameList - not used currently:
+%% we are not issuing nongroundedness errors
+flora_defeat_delay_wrapper(_File,_Line,DefeatCond,DynHead,HeadVarList,_HeadVarnameList) :-
+	term_arg(DefeatCond,1,RuleId),
+	term_arg(DefeatCond,2,FileName),
+	term_arg(DefeatCond,5,Module),
+	(is_strict_rule(RuleId,FileName,Module) -> true
+	; is_cyclic(DefeatCond) -> fail
+	%% Not checking for groundedness
+	;
+	    flrterm_vars((HeadVarList,DynHead),ConditionalVars,0),
+	    (ground(ConditionalVars) -> DefeatCond
+	    ; \+ experimental(delay_defeat) -> DefeatCond
+	    ;
+		functor(DefeatCond,Func,Arity),
+		functor(DefeatCondTemplate,Func,Arity),
+		%% delayed_undefeated_lits/1 is trie-indexed, so repeated
+		%% asserts don't hurt
+		assert(delayed_undefeated_lits(DefeatCondTemplate)),
+		flora_when(ground(ConditionalVars),DefeatCond)
+	    )
+	).
+
+flora_NAF_delay_wrapper(Goal) :-
+	(experimental(delay_naf) ->
+	    term_arg(Goal,2,OrigVars),
+	    flrterm_vars(OrigVars,Vars,0),
+	    flora_when(ground(Vars),Goal)
+	;
+	    Goal
+	).
+
+/******************** Actual definitions of builtins ***********************/
+
+/********************* Action to be executed for WRAP_DIFFOBJEQL ***********/
+flora_diffojbeql_action(X,Y,_Call) :- 
+	var(X),
+	var(Y),
+	!,
+	fail.
+flora_diffojbeql_action(_X,_Y,Call) :- 
+	Call.
+
+
+/*
+%% Not used. May use later if we decide to issue nongroundedness errors again.
+%% Currently, nongroundedness will result in truth value = u
+issue_nongroundedness_error(_,_,[],[]) :- !.
+issue_nongroundedness_error(File,Line,[Var|VarList],[VarName|VarnameList]) :-
+	(ground(Var) -> issue_nongroundedness_error(File,Line,VarList,VarnameList)
+	; flora_abort(['in file ', File, ' on line ', Line, ': ',
+		       'argument ?', VarName,
+		       ' is not ground during invocation of defeasible rule'],
+		      FLORA_ABORT_NOTRACE
+		     )
+	).
+
+check_dynamic_rule_head_for_groundedness(File,Line,DynHead) :-
+	(flrground(DynHead) -> true
+	; flora_abort(['in file ', File, ' on line ', Line, ': rule head ',
+		       'is not ground during invocation of defeasible rule, ',
+		       DynHead],
+		      FLORA_ABORT_NOTRACE
+		     )
+	).
+*/
+
+
+%% !=
+flora_unequal_builtin(File,Line,X,Y) :-
+	(var(X) ->
+            undefined(),
+            (flrutils:flora_warnings_control(runtime=on) ->
+                builtin_instantiation_warning(File,Line,1,FL_C_UNEQUAL,unbound,X,Y)
+            ; true
+            )
+	; var(Y) ->
+            undefined(),
+            (flrutils:flora_warnings_control(runtime=on) ->
+                builtin_instantiation_warning(File,Line,2,FL_C_UNEQUAL,unbound,X,Y)
+            ; true
+            )
+	; X \= Y
+	).
+
+/*
+%% Not delaying that one: too dangerous to delay non-logical builtin,
+%% as it violates natural causality in if-statements
+%% ==, i.e., FL_EQ. Causes no errors
+flora_identical_builtin(_File,_Line,X,Y) :- X == Y.
+*/
+
+%% !==: FL_C_NOTSAME. Causes no errors
+flora_notidentical_builtin(_File,_Line,X,Y) :- X \== Y.
+
+%% >
+flora_greaterthan_builtin(File,Line,X,Y) :-
+	(\+ground(X) -> builtin_instantiation_error(File,Line,1,FL_GT,'non-ground',X,Y)
+	; \+ground(Y) -> builtin_instantiation_error(File,Line,2,FL_GT,'non-ground',X,Y)
+	; catch(X > Y,_,builtin_instantiation_error(File,Line,FL_GT,'non-numeric value',X,Y))
+	).
+
+%% >=
+flora_greaterequal_builtin(File,Line,X,Y) :-
+	(\+ground(X) -> builtin_instantiation_error(File,Line,1,FL_EQGT,'non-ground',X,Y)
+	; \+ground(Y) -> builtin_instantiation_error(File,Line,2,FL_EQGT,'non-ground',X,Y)
+	; catch(X >= Y,_,builtin_instantiation_error(File,Line,FL_EQGT,'non-numeric value',X,Y))
+	).
+
+%% <
+flora_lessthan_builtin(File,Line,X,Y) :-
+	(\+ground(X) -> builtin_instantiation_error(File,Line,1,FL_LT,'non-ground',X,Y)
+	; \+ground(Y) -> builtin_instantiation_error(File,Line,2,FL_LT,'non-ground',X,Y)
+	; catch(X < Y,_,builtin_instantiation_error(File,Line,FL_LT,'non-numeric value',X,Y))
+	).
+
+%% =<
+flora_lessequal_builtin(File,Line,X,Y) :-
+	(\+ground(X) -> builtin_instantiation_error(File,Line,1,FL_EQLT,'non-ground',X,Y)
+	; \+ground(Y) -> builtin_instantiation_error(File,Line,2,FL_EQLT,'non-ground',X,Y)
+	; catch(X =< Y,_,builtin_instantiation_error(File,Line,FL_EQLT,'non-numeric value',X,Y))
+	).
+
+%% =:=
+flora_mathequal_builtin(File,Line,X,Y) :-
+	(\+ground(X) -> builtin_instantiation_error(File,Line,1,FL_MATHEQ,'non-ground',X,Y)
+	; \+ground(Y) -> builtin_instantiation_error(File,Line,2,FL_MATHEQ,'non-ground',X,Y)
+	; catch(X =:= Y,_,builtin_instantiation_error(File,Line,FL_MATHEQ,'non-numeric value',X,Y))
+	).
+
+%% =\=
+flora_mathnotequal_builtin(File,Line,X,Y) :-
+	(\+ground(X) -> builtin_instantiation_error(File,Line,1,FL_MATHNOTEQ,'non-ground',X,Y)
+	; \+ground(Y) -> builtin_instantiation_error(File,Line,2,FL_MATHNOTEQ,'non-ground',X,Y)
+	; catch(X =\= Y,_,builtin_instantiation_error(File,Line,FL_MATHNOTEQ,'non-numeric value',X,Y))
+	).
+
+%% extensions to the IS builtin
+:- import
+	flora_decode_oid_list_as_atom_list_substitute_vars/2,
+	flora_display_mode/1,
+	flora_set_display_mode/1
+   from flrdecode.
+:- import
+        flora_running_as/1,
+	flora_concat_atoms/2
+   from flrporting.
+:- import
+        flora_module_registry/2
+   from flrregistry.
+:- import
+        flora_module_predicate/4
+   from flrwrapper.
+:- import
+	memberchk/2,
+	nth/3,
+	delete/3,
+	reverse/2,
+	sum_list/2,
+	last/2,
+	length/2,
+	list_difference_eq/3,
+	intersect_eq/3,
+	append/3
+   from lists.
+:- import flora_type_numeric_value/2 from flrdatatype.
+
+:- export flora_arith_IS_builtin/4.
+
+%% \is/2
+flora_arith_IS_builtin(File,Line,X,Y) :-
+	(is_list_expression(Y) -> process_list_expression(Y,X)
+        ; is_set_expression(Y) ->
+            (atom(X) -> true
+            ;  flora_abort(['in file ', File, ', line ', Line, ': ',
+		     'result of a set expression must be a set-object.',
+		     '\n\tGoal: ', X, ' \is ', Y],
+		    FLORA_ABORT_NOTRACE)
+            ),
+            process_set_expression(Y,X)
+        ; nonvar(Y), bin_right_assoc_op_to_list(FL_STRCONCAT,Y,YList) ->
+	    flora_display_mode(OldMode),
+	    flora_set_display_mode(noescapes),
+	    %% string concatenation
+	    flora_decode_oid_list_as_atom_list_substitute_vars(YList,YListOut),
+	    flora_set_display_mode(OldMode),
+	    %% flora_concat_atoms wants a Var or an atom in Arg 2, so we
+	    %% put Res (a var)
+	    flora_concat_atoms(YListOut,Res),
+	    Res = X
+	%%; compound(Y), functor(Y,Op,N),
+	; compound(Y), functor(Y,Op,N),
+	    (N==2, memberchk(Op,[nth,delete])
+	    ; N==1, memberchk(Op,[min,max,count,sum,avg,last,reverse,length])
+	    )
+	->
+	    catch(flora_IS_OP_list_expr(Y,X),
+		  _Ball,
+		  builtin_instantiation_error(File,Line,2,FL_IS,'invalid type in',X,Y))
+	; atom(Y) -> X = Y
+	; \+ground(Y) ->
+	    %% error check
+	    builtin_instantiation_error(File,Line,2,FL_IS,'non-ground expression in',X,Y)
+	; %% arithmetics
+	  catch(X is Y,_,builtin_instantiation_error(File,Line,FL_IS,'non-numeric value',X,Y))
+	).
+
+
+%% convert terms built using a binary right-associative
+%% operator (',',';',|) to list
+%%
+%% Add other operators at the top level as needed
+bin_right_assoc_op_to_list(FL_STRCONCAT,FL_STRCONCAT(Left,Right),Out) :-
+	bin_right_assoc_op_to_list_aux(FL_STRCONCAT,Left,Right,Out).
+
+%% For right-associate operators
+%% trying to avoid the use of =..
+bin_right_assoc_op_to_list_aux(_Op,Left,Right,[LeftS,Right]) :-
+	var(Right),
+	!,
+	convert_to_string(Left,LeftS).
+bin_right_assoc_op_to_list_aux(Op,Left,Right,[LeftS|RightList]) :-
+	functor(Right,Op,2),
+	!,
+	convert_to_string(Left,LeftS),
+	bin_right_assoc_op_to_list(Op,Right,RightList).
+bin_right_assoc_op_to_list_aux(_Op,Left,Right,[LeftS,RightS]) :-
+	convert_to_string(Left,LeftS),
+	convert_to_string(Right,RightS).
+
+convert_to_string(X,Y) :-
+	(atom(X) ; is_charlist(X)),
+	!,
+	flrdatatype:flora_datatype_raw_value(X,Y).
+convert_to_string(X,Y) :-
+	flrdatatype:flora_printable_type_representation(X,[_,Y]),
+	!.
+convert_to_string(X,X).
+
+process_list_expression(X,X) :- var(X), !.
+process_list_expression(FL_SETUNION(Left,Right), List) :-
+	is_list(Left),
+	!,
+	process_list_expression(Right,RightList),
+	append(Left,RightList,List).
+process_list_expression(FL_SETUNION(Left,Right), List) :-
+	is_list_expression(Left),
+	!,
+	process_list_expression(Left,LeftList),
+	process_list_expression(Right,RightList),
+	append(LeftList,RightList,List).
+process_list_expression(FL_SETDIFF(Left,Right), List) :-
+	is_list(Left),
+	!,
+	process_list_expression(Right,RightList),
+	list_difference_eq(Left,RightList,List).
+process_list_expression(FL_SETDIFF(Left,Right), List) :-
+	is_list_expression(Left),
+	!,
+	process_list_expression(Left,LeftList),
+	process_list_expression(Right,RightList),
+	list_difference_eq(LeftList,RightList,List).
+process_list_expression(FL_SETINTERSECT(Left,Right), List) :-
+	is_list(Left),
+	!,
+	process_list_expression(Right,RightList),
+	intersect_eq(Left,RightList,List).
+process_list_expression(FL_SETINTERSECT(Left,Right), List) :-
+	is_list_expression(Left),
+	!,
+	process_list_expression(Left,LeftList),
+	process_list_expression(Right,RightList),
+	intersect_eq(LeftList,RightList,List).
+%% var in the middle
+process_list_expression(FL_SETUNION(Left,_), _) :-
+	var(Left),
+	!,
+	fail.
+process_list_expression(X,X).
+
+is_list_expression(FL_SETUNION(First,_Back)) :-
+	(is_list(First) -> true
+	; nonvar(First), is_list_expression(First)
+	).
+is_list_expression(FL_SETDIFF(First,_Back)) :-
+	(is_list(First) -> true
+	; nonvar(First), is_list_expression(First)
+	).
+is_list_expression(FL_SETINTERSECT(First,_Back)) :-
+	(is_list(First) -> true
+	; nonvar(First), is_list_expression(First)
+	).
+
+
+process_set_expression(X,X) :- is_set_obj(X), !.
+process_set_expression(FL_SETUNION(Left,Right), List) :-
+	is_set_expression(Left),
+	!,
+	process_set_expression(Left,LeftList),
+	process_set_expression(Right,RightList),
+        flora_module_predicate(genericunion,[LeftList,RightList,List,_Cnxt],ERGOSET,Pred),
+        Pred.
+process_set_expression(FL_SETDIFF(Left,Right), List) :-
+	is_set_expression(Left),
+	!,
+	process_set_expression(Left,LeftList),
+	process_set_expression(Right,RightList),
+        flora_module_predicate(genericminus,[LeftList,RightList,List,_Cnxt],ERGOSET,Pred),
+        Pred.
+process_set_expression(FL_SETINTERSECT(Left,Right), List) :-
+	is_set_expression(Left),
+	!,
+	process_set_expression(Left,LeftList),
+	process_set_expression(Right,RightList),
+        flora_module_predicate(genericintersect,[LeftList,RightList,List,_Cnxt],ERGOSET,Pred),
+        Pred.
+
+is_set_expression(First) :- is_set_obj(First), !.
+is_set_expression(FL_SETUNION(First,_Back)) :-
+	(is_set_obj(First) -> true
+	; nonvar(First), is_set_expression(First)
+	).
+is_set_expression(FL_SETDIFF(First,_Back)) :-
+	(is_set_obj(First) -> true
+	; nonvar(First), is_set_expression(First)
+	).
+is_set_expression(FL_SETINTERSECT(First,_Back)) :-
+	(is_set_obj(First) -> true
+	; nonvar(First), is_set_expression(First)
+	).
+
+is_set_obj(Atm) :-
+        atom(Atm),
+        flora_running_as(ergo),
+        flora_module_registry(ERGOSET,_).
+
+flora_IS_OP_list_expr(nth(N,L),Res) :-
+	!,
+	nth(N,L,Res).
+flora_IS_OP_list_expr(delete(Elt,Lis),Res) :-
+	!,
+	delete(Lis,Elt,Res).
+flora_IS_OP_list_expr(last(L),Res) :-
+	!,
+	last(L,Res).
+flora_IS_OP_list_expr(reverse(L),Res) :-
+	!,
+	reverse(L,Res).
+flora_IS_OP_list_expr(max(L),Res) :-
+	!,
+	max_list(L,Res).
+flora_IS_OP_list_expr(min(L),Res) :-
+	!,
+	min_list(L,Res).
+flora_IS_OP_list_expr(sum(L),Res) :-
+	!,
+	sum_list(L,Res).
+flora_IS_OP_list_expr(avg(L),Res) :-
+	!,
+	sum_list(L,Sum),
+	length(L,Len),
+	Res is Sum/Len.
+flora_IS_OP_list_expr(count(L),Res) :-
+	!,
+	length(L,Res).
+flora_IS_OP_list_expr(length(L),Res) :-
+        is_list(L),
+	!,
+	length(L,Res).
+flora_IS_OP_list_expr(length(L),Res) :-
+        atom(L),
+	!,
+    	flrporting:flora_atom_length(L,Res1),
+        (flrdatatype:'\\isstring'(L) -> Res is Res1-2
+        ; flrdatatype:'\\isiri'(L) -> Res is Res1-2
+        ; Res = Res1
+        ).
+
+nondelayable_pattern(FL_IS,[_,Expr]) :- var(Expr), !.
+nondelayable_pattern(FL_IS,[_,Op]) :-
+	functor(Op,Fun,2),
+	memberchk(Fun,[FL_STRCONCAT,FL_SETUNION,FL_SETDIFF,FL_SETINTERSECT,nth,delete]),
+	!.
+nondelayable_pattern(FL_IS,[_,Aggr]) :-
+	functor(Aggr,Fun,1),
+	memberchk(Fun,[min,max,count,sum,avg,last,reverse]),
+	!.
+nondelayable_pattern(FL_IS,[_,Aggr]) :-
+	functor(Aggr,Fun,4),
+	memberchk(Fun,[FLLIBSUM,FLLIBAVG,FLLIBCOLLECTBAG,FLLIBCOLLECTSET,
+		       FLLIBCOUNT,FLLIBMAX,FLLIBMIN]),
+	!.
+nondelayable_pattern(FL_IS,[_,Aggr]) :-
+	functor(Aggr,Fun,5),
+	memberchk(Fun,[FLLIBSORTBY]),
+	!.
+
+%% min_list/max_list are adapted from lib/lists.P in XSB
+max_list([H|T], Max) :-
+	'$max_list1'(T, H, Max).
+
+'$max_list1'([], Max, Max).
+'$max_list1'([H|T], X, Max) :-
+        flora_type_numeric_value(H,HVval),
+        flora_type_numeric_value(X,XVval),
+	HVval @=< XVval,
+        !,
+	'$max_list1'(T, X, Max).
+'$max_list1'([H|T], _, Max) :-
+	'$max_list1'(T, H, Max).
+
+min_list([H|T], Min) :-
+	'$min_list1'(T, H, Min).
+
+'$min_list1'([], Min, Min).
+'$min_list1'([H|T], X, Min) :-
+        flora_type_numeric_value(H,HVval),
+        flora_type_numeric_value(X,XVval),
+	HVval @>= XVval,
+        !,
+	'$min_list1'(T, X, Min).
+'$min_list1'([H|T], _, Min) :-
+	'$min_list1'(T, H, Min).
+%% end extensions to the IS builtin
+
+
+%%%%%%%%%%%%%%%%%% Type Builtins %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+flora_number_builtin(File,Line,X,Flag) :-
+	(var(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'isnumber','unbound',XX)
+	; var(X) -> fail
+	; number(X)
+	).
+flora_integer_builtin(File,Line,X,Flag) :-
+	(var(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'isinteger','unbound',XX)
+	; var(X) -> fail
+	; integer(X)
+	).
+flora_float_builtin(File,Line,X,Flag) :-
+	(var(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'isfloat','unbound',XX)
+	; var(X) -> fail
+	; float(X)
+	).
+%% currently like number/1
+flora_decimal_builtin(File,Line,X,Flag) :-
+	(var(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'isdecimal','unbound',XX)
+	; var(X) -> fail
+	; number(X)
+	).
+flora_atom_builtin(File,Line,X,Flag) :-
+	(var(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'isatom','unbound',XX)
+	; var(X) -> fail
+	; atom(X)
+	).
+flora_symbol_builtin(File,Line,X,Flag) :-
+	(var(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'issymbol','unbound',XX)
+	; var(X) -> fail
+	; '\\issymbol'(X)
+	).
+flora_string_builtin(File,Line,X,Flag) :-
+	(var(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'isstring','unbound',XX)
+	; var(X) -> fail
+	; '\\isstring'(X)
+	).
+flora_iri_builtin(File,Line,X,Flag) :-
+	(var(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'isiri','unbound',XX)
+	; var(X) -> fail
+	; '\\isiri'(X)
+	).
+flora_compound_builtin(File,Line,X,Flag) :-
+	(var(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'iscompound','unbound',XX)
+	; var(X) -> fail
+	; X = FL_DATATYPE(_,_) -> fail
+	; compound(X)
+	).
+flora_atomic_builtin(File,Line,X,Flag) :-
+	(var(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'isatomic','unbound',XX)
+	; var(X) -> fail
+	; atomic(X)
+	).
+
+flora_islist_builtin(File,Line,X,Flag) :-
+	(var(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'islist','unbound',XX)
+	; var(X) -> fail
+	; is_list(X)
+	).
+flora_ischarlist_builtin(File,Line,X,Flag) :-
+	(var(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'ischarlist','unbound',XX)
+	; var(X) -> fail
+	; is_charlist(X)
+	).
+
+flora_isvar_builtin(File,Line,X,Flag) :-
+	(nonvar(X), Flag==FL_MUST ->
+	    (is_cyclic(X) -> builtin_instantiation_error(File,Line,'isvar','cyclic','...')
+	    ; flora_decode_goal_as_atom_substitute_vars(X,XX),
+		builtin_instantiation_error(File,Line,'isvar','bound',XX)
+	    )
+	; var(X)
+	).
+flora_isnonvar_builtin(File,Line,X,Flag) :-
+	(var(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'isnonvar','unbound',XX)
+	; nonvar(X)
+	).
+
+flora_isground_builtin(File,Line,X,Flag) :-
+	(flrnonground_cyc(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'isground','non-ground',XX)
+	; flrground_cyc(X)
+	).
+flora_isnonground_builtin(File,Line,X,Flag) :-
+	(flrground_cyc(X), Flag==FL_MUST ->
+	    flora_decode_goal_as_atom_substitute_vars(X,XX),
+	    builtin_instantiation_error(File,Line,'isnonground','ground',XX)
+	; flrnonground_cyc(X)
+	).
+
+
+%% Delay quantifiers
+flora_delay_quantifier(_File,_Line,[FL_WISH,_Condition,Goal]) :-
+	!,
+	Goal.
+
+flora_delay_quantifier(_File,_Line,[FL_MUST,Condition,Goal]) :-
+	Condition,
+	!,
+	Goal.
+
+%% The next two are error cases
+flora_delay_quantifier(File,Line,[FL_MUST,Condition,Goal]) :-
+        %% This case is really a warning - used for testing delay quantifiers
+	has_test_mode(delayquant),
+	!,
+	%%flora_decode_goal_as_atom_substitute_vars(Goal,GoalAtm),
+	set_context(displaying_delay_quantifier),
+	flora_decode_goal_list_as_mainless_atom_list_substitute_vars([Goal,Condition],[GoalAtm,CondAtm]),
+	clear_context(displaying_delay_quantifier),
+	flora_error_line('in file ~w, line ~w: unsatisfied must-condition.~n\tGoal: ~w~n\tCondition: ~w',
+			 [File,Line,GoalAtm,CondAtm]).
+
+%% error due to minizinc's solve_flex nonground InParams, OutTemplate
+%% This is a hack and shoul be replaced with a general method, if more
+%% delayed predicates will require special error handling.
+flora_delay_quantifier(_File,_Line,[FL_MUST,Condition,Goal]) :-
+        Goal =.. [F,solve|RestArgs], functor(Goal,_,10),
+        !,
+        %% replace solve with solve_flex
+        ShowGoal =.. [F,solve_flex|RestArgs],
+	%%flora_decode_goal_as_atom_substitute_vars(ShowGoal,GoalAtm),
+        Condition = (ground(Cond1),ground(Cond2)),
+	set_context(displaying_delay_quantifier),
+	%%flora_decode_goal_as_atom_substitute_vars(Cond1,CondAtm1),
+	flora_decode_goal_list_as_mainless_atom_list_substitute_vars([ShowGoal,Cond1,Cond2],[GoalAtm,CondAtm1,CondAtm2]),
+	clear_context(displaying_delay_quantifier),
+        flora_abort(['non-ground in-parameters (Arg 3) or output template (Arg 6) in call to MiniZinc:',
+                     '\n\tGoal: ', GoalAtm,
+                     '\n\tArg 3: ', CondAtm1, 
+                     '\n\tArg 6: ', CondAtm2],
+                    FLORA_ABORT_NOTRACE).
+
+flora_delay_quantifier(File,Line,[FL_MUST,Condition,Goal]) :-
+        %% This one is an error case
+	%%flora_decode_goal_as_atom_substitute_vars(Goal,GoalAtm),
+	set_context(displaying_delay_quantifier),
+	flora_decode_goal_list_as_mainless_atom_list_substitute_vars([Goal,Condition],[GoalAtm,CondAtm]),
+	clear_context(displaying_delay_quantifier),
+	flora_abort(['in file ', File, ', line ', Line, ': ',
+		     'unsatisfied must-condition.',
+		     '\n\tGoal: ', GoalAtm,
+		     '\n\tCondition: ', CondAtm],
+		    FLORA_ABORT_NOTRACE).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+flora_execute_delayed_calls(InstantiatedBodyVars,HeadVars) :-
+        extract_triggers_and_execute_all(InstantiatedBodyVars,HeadVars),
+        %% flora_table_once - does no good
+        %%flrtables:flora_table_once(extract_triggers_and_execute_all(InstantiatedBodyVars,HeadVars)),
+        %% this cut is needed to release stack.
+        %% Also, to get rid of unnecessary backtracking, which causes
+        %% uninstantiated answers to be returned.
+        %% E.g., general_tests/explicit_negation.flr,
+        %% in	%test1,%test2,%test3,%naftest.
+	%% Also, mon_inherit.flr gets duplicate answers
+	%%machine:close_open_tables.
+        %%!,
+	true.
+
+%% scan all vars repeatedly, eliminating attributed vars,
+%% until no more attributed vars left. Execute attached triggers on the way.
+%% We make this safe for cyclic terms to avoid user surprises
+extract_triggers_and_execute_all(AllVars,_HeadVars) :-
+	flrground_cyc(AllVars),
+	!.
+extract_triggers_and_execute_all(AllVars,_HeadVars) :-
+	is_cyclic(AllVars),
+	!,
+	fail.
+extract_triggers_and_execute_all(AllVars,HeadVars) :-
+	extract_triggers_and_execute_all_aux(AllVars,HeadVars).
+extract_triggers_and_execute_all_aux(AllVars,HeadVars) :-
+	%% in flrterm_vars_split, arg4=1: ignore vars in negative lits
+	flrterm_vars_split(AllVars, RegVars, AttrVars,0),
+	(AttrVars == [] -> true
+	; extract_triggers_and_execute(AttrVars,HeadVars),
+	    %% Note: we do need to check non-attributed RegVars because after
+	    %% extract_triggers_and_execute/2 on AttrVars some RegVars may
+	    %% become attributed! E.g., test 11 in delaytests/test_delays.flr
+	    extract_triggers_and_execute_all_aux(RegVars,HeadVars)
+	).
+
+extract_triggers_and_execute([],_HeadVars) :- !.
+extract_triggers_and_execute([Var|RestBodyVars],HeadVars) :-
+	get_var_triggers(Var,HeadVars,Triggers),
+	!,
+	call_trigger_list(Triggers),
+	extract_triggers_and_execute(RestBodyVars,HeadVars).
+
+get_var_triggers(Var,HeadVars,Triggers) :-
+	(aliased_to_head(HeadVars,Var) -> Triggers = []
+	; get_attr(Var,FLWHENATTRIBUTE,Triggers) ->
+	    %% remove attrs to avoid delayed lit calling itself repeatedly
+	    %% during its own work (eg, if it instantiates a when-variable)
+	    del_attr(Var,FLWHENATTRIBUTE)
+	; Triggers = []
+	),
+	!.
+
+aliased_to_head([H|_HV],V):- V == H, !.
+aliased_to_head([_|H],V):- aliased_to_head(H,V).
+
+call_trigger_list([]) :- !.
+/*
+%% Now the arg is a proper list, not a list of lists
+call_trigger_list([Trigger|Rest]) :-
+	%% trigger list can actually be a list of lists
+	is_list(Trigger),
+	!,
+	call_trigger_list(Trigger),
+	call_trigger_list(Rest).
+*/
+call_trigger_list([Trigger|Rest]) :-
+	%% a trigger has the form trigger_NAME(VarList,Goal)
+	(get_trigger_goal(Trigger,Goal) ->
+	    %% check that call is an intended one, i.e., 
+	    %% satisfies the template delayed_pred_template/1
+	    delayed_pred_template(Goal),
+	    call0(Goal)
+	; %% if no acceptable goal associated with trigger, just continue
+	    true
+	),
+	call_trigger_list(Rest).
+
+
+%% For binary builtins
+builtin_instantiation_error(File,Line,ArgNo,Builtin,Message,Arg1,Arg2) :-
+        printable_thing(Line,PLine),
+        printable_thing(File,PFile),
+	flora_decode_oid_list_as_atom_list_substitute_vars([Arg1,Arg2],[Arg1s,Arg2s]),
+	fmt_write_string(S, '%S %S %S', args(Arg1s,Builtin,Arg2s)),
+	flora_abort(['in file ',PFile,' on line ',PLine,': ',
+		     'instantiation error in builtin: ', S,
+		     '; ', Message, ' argument ', ArgNo],
+		    FLORA_ABORT_NOTRACE
+		   ).
+builtin_instantiation_error(File,Line,Builtin,Message,Arg1,Arg2) :-
+        printable_thing(Line,PLine),
+        printable_thing(File,PFile),
+	flora_decode_oid_list_as_atom_list_substitute_vars([Arg1,Arg2],[Arg1s,Arg2s]),
+	fmt_write_string(Str, '%S %S %S', args(Arg1s,Builtin,Arg2s)),
+	flora_abort(['in file ',PFile,' on line ',PLine,': ',
+		     'instantiation error in builtin: ', Str,
+		     '; ', Message, ' in one of the arguments'],
+		    FLORA_ABORT_NOTRACE
+		   ).
+
+%% For unary builtins: type builtins like isatom, isinteger
+builtin_instantiation_error(File,Line,Builtin,Message,Arg) :-
+        printable_thing(Line,PLine),
+        printable_thing(File,PFile),
+	fmt_write_string(Str, '%S{%S}', args(Builtin,Arg)),
+	flora_abort(['in file ',PFile,' on line ',PLine,': ',
+		     'instantiation error in builtin: ', Str,
+		     '; ', Message, ' argument'],
+		    FLORA_ABORT_NOTRACE
+		   ).
+
+%% For binary builtins
+builtin_instantiation_warning(File,Line,ArgNo,Builtin,Message,Arg1,Arg2) :-
+        printable_thing(Line,PLine),
+        printable_thing(File,PFile),
+	flora_decode_oid_list_as_atom_list_substitute_vars([Arg1,Arg2],[Arg1s,Arg2s]),
+        flora_stdwarn_nl,
+        flora_warning_line('in file ~w on line ~w:\n\t\t instantiation error in builtin: ~w ~w ~w; ~w argument ~w',
+                           [PFile,PLine,Arg1s,Builtin,Arg2s,Message,ArgNo]).
+
+/*
+builtin_instantiation_warning(File,Line,Builtin,Message,Arg1,Arg2) :-
+        printable_thing(Line,PLine),
+        printable_thing(File,PFile),
+	flora_decode_oid_list_as_atom_list_substitute_vars([Arg1,Arg2],[Arg1s,Arg2s]),
+        flora_stdwarn_nl,
+        flora_warning_line('in file ~w on line ~w:\n\t\t instantiation error in builtin: ~w ~w ~w; ~w in one of the arguments',
+                           [PFile,PLine,Arg1s,Builtin,Arg2s,Message]).
+
+%% For unary builtins: type builtins like isatom, isinteger
+builtin_instantiation_warning(File,Line,Builtin,Message,Arg) :-
+        printable_thing(Line,PLine),
+        printable_thing(File,PFile),
+        flora_stdwarn_nl,
+        flora_warning_line('in file ~w on line ~w:\n\t\t instantiation error in builtin: ~w{~w}; ~w argument',
+                           [PFile,PLine,Builtin,Arg,Message]).
+*/
+
+
+delayed_pred_template(FLORA_NAF_PREDICATE(_,_,_,_)) :- !.
+delayed_pred_template(Template) :- delayed_undefeated_lits(Template), !.
+delayed_pred_template(Template) :- delay_spec_to_predicate(_,_,_,_,Template,_).
+
+%% The first two args in sensor declaration are file name and line number
+flora_register_sensor(SensorCall,DelayCondition) :-
+	decompose_sensor_call(SensorCall,SensorSymbol,Module,FileName,Line,AllArgs),
+	flora_register_delay(sensor,Module:SensorSymbol,FileName,Line,AllArgs,SensorCall,DelayCondition).
+
+%% register builtin
+flora_register_delay(builtin,BuiltinSymbol,FileName,Line,ArgList,Call,DelayCondition) :-
+	!,
+	(\+delay_spec_to_predicate(BuiltinSymbol,FileName,Line,ArgList,Call,DelayCondition)
+	-> assert(delay_spec_to_predicate(BuiltinSymbol,FileName,Line,ArgList,Call,DelayCondition))
+	; true  %% silently ignore, if duplicate
+	).
+
+%% register sensor
+flora_register_delay(sensor,SensorSymbol,FileName,Line,ArgList,Call,DelayCondition) :-
+	!,
+	strip_usermod(SensorSymbol,Stripped),
+	(\+delay_spec_to_predicate(Stripped,FileName,Line,ArgList,Call,DelayCondition)
+	-> assert(delay_spec_to_predicate(Stripped,FileName,Line,ArgList,Call,DelayCondition))
+	; true %% silently ignore, if duplicate
+	).
+
+flora_register_delay(SensorType,_,_,_,_,_,_) :-
+	    flora_abort(['flora_register_delay: unknown sensor type, ',SensorType]).
+
+
+?-
+    flora_register_delay(builtin,WRAP_DIFFOBJEQL,F,L,
+			 [X,Y,DiffObjEqlCall],
+			 flora_diffojbeql_action(X,Y,DiffObjEqlCall),
+			 (nonvar(X) ; nonvar(Y))),
+
+   %% builtins
+   flora_register_delay(builtin,FL_C_UNEQUAL,F,L,[X,Y],
+			flora_unequal_builtin(F,L,X,Y),
+			(nonvar(X),nonvar(Y))), 
+   flora_register_delay(builtin,FL_GT,F,L,[X,Y],
+			flora_greaterthan_builtin(F,L,X,Y),
+			(ground([X,Y]))),
+   /*
+   %% too dangerous to delay non-logical builtins like "="
+   flora_register_delay(builtin,FL_EQ,F,L,[X,Y],
+			flora_identical_builtin(F,L,X,Y),
+			(ground(X),ground(Y))),
+   */
+   flora_register_delay(builtin,FL_C_NOTSAME,F,L,[X,Y],
+			flora_notidentical_builtin(F,L,X,Y),
+			(ground([X,Y]))),
+   flora_register_delay(builtin,FL_EQGT,F,L,[X,Y],
+			flora_greaterequal_builtin(F,L,X,Y),
+			(ground([X,Y]))),
+   flora_register_delay(builtin,FL_LT,F,L,[X,Y],
+			flora_lessthan_builtin(F,L,X,Y),
+			(ground([X,Y]))),
+   flora_register_delay(builtin,FL_EQLT,F,L,[X,Y],
+			flora_lessequal_builtin(F,L,X,Y),
+			(ground([X,Y]))), 
+   flora_register_delay(builtin,FL_MATHEQ,F,L,[X,Y],
+			flora_mathequal_builtin(F,L,X,Y),
+			(ground([X,Y]))), 
+   flora_register_delay(builtin,FL_MATHNOTEQ,F,L,[X,Y],
+			flora_mathnotequal_builtin(F,L,X,Y),
+			(ground(X),ground(Y))),
+   flora_register_delay(builtin,FL_IS,F,L,[X,Y],
+			flora_arith_IS_builtin(F,L,X,Y),
+			(ground(Y))),
+
+   flora_register_delay(builtin,'\\isnumber',F,L,[X,Flag],
+			flora_number_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\isinteger',F,L,[X,Flag],
+			flora_integer_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\isdecimal',F,L,[X,Flag],
+			flora_decimal_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\isfloat',F,L,[X,Flag],
+			flora_float_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\isatom',F,L,[X,Flag],
+			flora_atom_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\issymbol',F,L,[X,Flag],
+			flora_symbol_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\isstring',F,L,[X,Flag],
+			flora_string_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\isiri',F,L,[X,Flag],
+			flora_iri_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\iscompound',F,L,[X,Flag],
+			flora_compound_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\isatomic',F,L,[X,Flag],
+			flora_atomic_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\islist',F,L,[X,Flag],
+			flora_islist_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\ischarlist',F,L,[X,Flag],
+			flora_ischarlist_builtin(F,L,X,Flag),
+			(nonvar(X))),
+
+   flora_register_delay(builtin,'\\isvar',F,L,[X,Flag],
+			flora_isvar_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\isnonvar',F,L,[X,Flag],
+			flora_isnonvar_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\isground',F,L,[X,Flag],
+			flora_isground_builtin(F,L,X,Flag),
+			(nonvar(X))),
+   flora_register_delay(builtin,'\\isnonground',F,L,[X,Flag],
+			flora_isnonground_builtin(F,L,X,Flag),
+			(nonvar(X))),
+
+   flora_register_delay(builtin,FL_DELAYQUANT,F,L,[Quant,Condition,Goal],
+			flora_delay_quantifier(F,L,[Quant,Condition,Goal]),
+			Condition),
+
+   %% Add more builtins here
+   true.
+
+
+%% make_delay_condition is not used now, but keep it just in case
+%% catchall
+make_delay_condition(_,_,Cond,Cond).
+
+
+
+%% We do not add delayed builtin for NAF and NOT:
+%% they are treated specially in the compiler
+delayed_builtin(FL_C_UNEQUAL,2)    :- !.
+%%delayed_builtin(FL_EQ,2)         :- !.
+delayed_builtin(FL_C_NOTSAME,2)    :- !.
+delayed_builtin(FL_GT,2)           :- !.
+delayed_builtin(FL_EQGT,2)         :- !.
+delayed_builtin(FL_LT,2)           :- !.
+delayed_builtin(FL_EQLT,2)         :- !.
+delayed_builtin(FL_MATHEQ,2)       :- !.
+delayed_builtin(FL_MATHNOTEQ,2)    :- !.
+delayed_builtin(FL_IS,2)  :- !.
+
+delayed_builtin('\\isnumber',2)  :- !.
+delayed_builtin('\\isinteger',2)  :- !.
+delayed_builtin('\\isfloat',2)  :- !.
+delayed_builtin('\\isdecimal',2)  :- !.
+delayed_builtin('\\isatom',2)  :- !.
+delayed_builtin('\\issymbol',2)  :- !.
+delayed_builtin('\\isstring',2)  :- !.
+delayed_builtin('\\issymbol',2)  :- !.
+delayed_builtin('\\isiri',2)  :- !.
+delayed_builtin('\\iscompound',2)  :- !.
+delayed_builtin('\\isatomic',2)  :- !.
+delayed_builtin('\\islist',2)  :- !.
+delayed_builtin('\\ischarlist',2)  :- !.
+delayed_builtin('\\isvar',2)  :- !.
+delayed_builtin('\\isnonvar',2)  :- !.
+delayed_builtin('\\isground',2)  :- !.
+delayed_builtin('\\isnonground',2)  :- !.
+
+
+flora_delayed_literal(X,Y,_) :- delayed_builtin(X,Y), !.
+flora_delayed_literal(X,Y,FlMod) :- delayed_sensor(X,Y,FlMod).
+flora_delayed_builtin_literal(X,Y) :- delayed_builtin(X,Y).
+flora_delayed_sensor_literal(X,Y,FlMod) :-
+	atom(X),
+	!,
+	delayed_sensor(X,Y,FlMod).
+flora_delayed_sensor_literal((X,PlMod),Y,FlMod) :-
+	delayed_sensor(PlMod:X,Y,FlMod).
+
+%% For sensors we use all arguments in delay_spec_to_predicate/6
+decompose_sensor_call(SensorCall,SensorSymbol,Module,FileName,Line,[FileName,Line|RestArgs]) :-
+	(SensorCall = ':'(Module,ModulelessCall) ->
+	    ModulelessCall =.. [SensorSymbol,FileName,Line|RestArgs]
+	; SensorCall =.. [SensorSymbol,FileName,Line|RestArgs],
+	    Module = usermod
+	).
+
+record_delayed_sensor(SensorSymbol,Arity,FloraMod) :-
+	strip_usermod(SensorSymbol,Stripped),
+	assert(delayed_sensor(Stripped,Arity,FloraMod)).
+
+FLLIBRECORDSENSORS(_,[]) :- !.
+FLLIBRECORDSENSORS(FloraMod,[Sensor|SensorList]) :-
+	(Sensor = (Name,Mod)/Arity
+	-> record_delayed_sensor(Mod:Name,Arity,FloraMod)
+	; Sensor = Name/Arity -> record_delayed_sensor(Name,Arity,FloraMod)
+	),
+	FLLIBRECORDSENSORS(FloraMod,SensorList).
+
+get_self_or_delayed_call(Call,RealCall) :-
+        (get_attr(Call,FLWHENATTRIBUTE,RealCall1) -> copy_term(RealCall1,RealCall)
+        ; is_list(Call) -> fail
+        ; flrcanon:is_nonvar_call(Call) -> RealCall=Call
+        ).
+
+is_delay_variable(Var) :-
+	get_attr(Var,FLWHENATTRIBUTE,_Triggers).
+
+strip_delay_checker((OutGoal, FLORA_DELAY_CHECKER(_,_)),Result) :-
+	(nonvar(OutGoal) -> strip_delay_checker(OutGoal,Result)
+	; Result = OutGoal
+	).
+strip_delay_checker(InGoal,InGoal).
+
+
+strip_usermod(SensorSymbol,Stripped) :-
+	SensorSymbol = usermod:Stripped -> true
+	; Stripped = SensorSymbol.
+
+is_delayed_literal(G) :-
+        nonvar(G),
+        G = FLLIBDELAYEDLITERAL(_,_,_,_).
+
+printable_thing(L,PL) :-
+        (nonvar(L) -> PL=L
+        ; PL=unknown
+        ).
+
+
+enable_experiment(X) :- assert(experimental(X)).
+disable_experiment(X) :-
+	(ground(X) -> retract(experimental(X))
+	; retractall(experimental(X))
+	).
+
+experimental(delay_naf).
+experimental(delay_defeat).

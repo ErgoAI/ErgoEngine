@@ -1,0 +1,27 @@
+// symmetric property
+?X[prop->?Y] :- ?Y:object[prop->?X:object].
+?- insert{obj1:object}.
+?- insert{obj2:object}.
+
+
+%tst1 :- write('tst1: ')@\plg(),
+	 \if ?_X[prop->?_Y] \then writeln(failed)@\plg()
+	 \else writeln(ok)@\plg().
+
+%tst2 :- write('tst2: ')@\plg(),
+	 insert{obj1[prop->obj2]},
+	 insert{obj3:othertype[prop->obj2]},
+	 ?_X[prop->?_Y],
+	 writeln('ok')@\plg(),
+	 deleteall{?_[prop->?_], ?_:othertype}.
+
+%pretest :- %tst1, %tst2.
+
+%test :- tell(temp)@\plg(),
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        %pretest,
+        told@\plg().
+
+

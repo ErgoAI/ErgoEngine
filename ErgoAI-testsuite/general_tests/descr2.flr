@@ -1,0 +1,57 @@
+
+#include "flora_terms.flh"
+
+?- newmodule{foo}, newmodule{moo}.
+?- insert{(@!{i1} a1:-b1)@foo}.
+?- insert{(@!{i2} a2:-b2)@foo}.
+?- insert{(@!{i3} aa1:-bb1)@moo}.
+?- insert{(@!{i4} aa2:-bb2)@moo}.
+@!{i5} dd:-ee.
+@!{i6} ff:-gg.
+
+%tst1 :-
+	clause{@!{?_ID[module->?_M]} ?_H,?_B},
+	\+isnumber{?_ID},
+#ifdef PARSING_FLORA
+        ?_H[show->?_HH]@\show,
+	?_B[show->?_BB]@\show,
+	\symbol[concat([test1,'=',?_ID,' ',?_M,' ',?_HH,' ',?_BB]) ->?result]@\basetype,
+	writeln(?result)@\io,
+#else
+	writeln(= test1 || = || ?_ID|| ' ' || ?_M|| ' ' || ?_H|| ' ' || ?_B)@\io,
+#endif
+	\false.
+%tst1 :- \true.
+
+
+\udf addf(?x,?y) := ?z \if ?z \is ?x + ?y.
+
+@!{aaaa[foo->bar]}
+a [ 
+  p1 -> addf(2,3),
+  p2 -> addf(1,2) 
+].
+
+b [ 
+  p1 -> addf(2,3),
+  p2 -> addf(1,2) 
+].
+
+%tst2 :- a[p1->?aX1, p2->?aX2], b[p1->?bX1, p2->?bX2],
+         writeln(test2=?aX1+?aX2+?bX1+?bX2)@\io.
+%tst3 :- @!{?X[foo->?P]}, writeln(test3=?X+?P)@\io.
+
+
+%pretest :- %tst1, %tst2, %tst3.
+
+%test :-
+	(File[exists(descr2_old)]@\io -->> File[unlink(descr2_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(descr2_flora_old,descr2_old)]@\io
+	;  File[link(descr2_ergo_old,descr2_old)]@\io
+        ),
+        tell(temp)@\plg,
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        told@\plg.

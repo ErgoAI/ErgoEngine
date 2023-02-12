@@ -1,0 +1,485 @@
+/* File:      atck2.flr
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**     The Research Foundation of the State University of New York, 2008 - 2018;
+**     and Vulcan, Inc., 2009 - 2013.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+/*** This argumentation theory is also known as ATCK2 or ATCK3 - depending on
+     whether ATCK3 is #define'd
+     It allows k-ary exclusion constraints:
+     Courteous Logic with General Exclusion Constraints.
+     This argumentation theory also supports cancellation.
+*/
+
+// #define ATCK3
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "flora_tabling_methods.flh"
+
+?- Method[mustDefine(off,?[\opposers->?]@?)]@\sys.
+
+:- compiler_options{production=on}.
+:- suppress_rule_signatures.
+
+:- symbol_context{
+        defeated(?,?)@?,
+        competes(?,?)@?,
+        candidate(?,?)@?,
+        strict_candidate(?,?)@?,
+        beats(?),
+        competes(?,?),
+        prlg FL_COMPETES(?,?,?),
+        prlg FL_REFUTES(?,?,?,?,?),
+        prlg FL_REBUTS(?,?,?,?),
+        prlg beaten_by_strict_rule(?,?,?,?,?),
+    	prlg existsOpposerWithNoCandidates(?,?,?)}.
+
+:- table{FL_CANDIDATE/3, FL_STRICT_CANDIDATE/3}.
+:- prolog{FL_REFUTES/4, FL_REFUTES/5}.
+:- prolog{FL_REBUTS/3, FL_REBUTS/4}.
+:- prolog{FL_DISQUALIFIED/3}.
+:- prolog{FL_DEFEATED/3, FL_DEFEATED_ID/5}.
+:- prolog{FL_COMPETES/4, FL_COMPETES/3}.
+//:- table{FL_UNDEFEATED/5}.  // DO NOT TABLE - useless
+:- prolog{FL_UNDEFEATED/5}.
+:- prolog{beaten_by_strict_rule/3, beaten_by_strict_rule/5}.
+:- prolog{existsOpposerWithNoCandidates/2, existsOpposerWithNoCandidates/3}.
+:- prolog{tightExclusion/3, tightBinaryExclusion/3}.
+
+// All the FL_* names are defined in flora_terms.flh to make it easier to change
+:- export{ ?[howDefeated -> ?],
+	  ?[info->?]}.
+// These are exported for debugging
+:- export{
+	  ?[opposers(?)->?],
+	  ?[FL_BEATER(?)->?],
+          FL_BEATER(?,?,?),
+	  FL_STOMPED(?,?),
+	  FL_DOMINATES(?,?,?),
+          opposes(?,?,?,?),
+	  overrides(?,?,?,?),
+	  competes(?,?),
+	  competes(?)(?,?),
+	  candidate(?,?),
+	  strict_candidate(?,?),
+	  defeated(?,?)}.
+
+:- ignore_depchk{abort(?)@\system}.
+
+?- Method[mustDefine(off, ?:\Exclusion@?)]@\system,
+   Method[mustDefine(off, ?::\Exclusion@?)]@\system.
+
+//?- Method[mustDefine(on)]@\system.
+
+/*
+  Note 1: FL_UNDEFEATED/5 must be called with the 5th argument bound to
+          the user module name in which defeasible theory is invoked.
+          This is done by the compiler.
+  Note 2: ?R and ?Mod must be ground. Otherwise FL_UNDEFEATED is delayed.
+          If ?Mod is not ground, it is an error (should catch).
+          If ?R is non-ground, the result is incorrect: false{defeated} ==
+          naf Exists defeated, while we need Exists not defeated.
+*/
+FL_UNDEFEATED(?Id,?FileName,?Vars,?H,?Mod) :-
+	\naf FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod).
+FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod) :-
+	get_tag_descriptor_info(?Id,?FileName,?Mod,?T,?Vars)@\prolog(flrdescriptor_support),
+	FL_DEFEATED(?T,?H,?Mod).
+
+candidate(?T,?H) :-
+	caller{?Mod},
+	FL_CANDIDATE(?T,?H,?Mod).
+strict_candidate(?T,?H) :-
+	caller{?Mod},
+	FL_STRICT_CANDIDATE(?T,?H,?Mod).
+
+#include "change_module.flh"
+
+
+// These are mostly for debugging
+// Note: when ?H,?H1,?H2 are bound by the user, they should be reified
+// For instance: defeated(?T,${\neg a})@\gcl.
+defeated(?T,?H) :-
+	caller{?Mod},
+	change_module_nocheck(?H,?Mod,?RealMod,?MH),
+	FL_DEFEATED(?T,?MH,?RealMod).
+
+// Can also use ?Exclusion[opposers(?Mod)->?Opposer], to inspect k-ary mutexes
+opposes(?T1,?H1,?T2,?H2) :-
+	caller{?Mod},
+	change_module_nocheck(?H1,?Mod,?RealMod,?MH1),
+	change_module_nocheck(?H2,?Mod,?RealMod,?MH2),
+	FL_OPPOSES_AUX(?RealMod,?T1,?MH1,?T2,?MH2).
+
+competes(?E)(?H,?HH) :- FL_COMPETES(?H,?HH,?E,?).
+competes(?H,?HH) :- FL_COMPETES(?H,?HH,?).
+
+overrides(?T1,?H1,?T2,?H2) :-
+	caller{?Mod},
+	change_module_nocheck(?H1,?Mod,?RealMod,?MH1),
+	change_module_nocheck(?H2,?Mod,?RealMod,?MH2),
+	synonymous_tag_with_head(?T1,?RealMod,?T11,?H1)@\plg(flrdescriptor_support),
+	synonymous_tag_with_head(?T2,?RealMod,?T22,?H2)@\plg(flrdescriptor_support),
+	FL_OVERRIDES_AUX(?RealMod,?T11,?MH1,?T22,?MH2).
+
+// Axioms for Courteous LP with general exclusions
+
+FL_DEFEATED(?_T,?H,?Mod) :-
+	?Exclusion[opposers(?Mod)->{?H1,?H}],
+	?H1@?Mod != ?H@?Mod,
+	\naf ?Exclusion[FL_BEATER(?Mod)->?H].
+FL_DEFEATED(?T,?H,?Mod) :-
+	// this incorporates the classical mutex and user-defined \opposes/2
+	FL_OPPOSES_AUX(?Mod,?T,?H,?_OtherT,?OtherH),
+	?OtherH@?Mod != ?H@?Mod,
+	\naf FL_BEATER(?H,?OtherH,?Mod).
+FL_DEFEATED(?T,?H,?Mod) :- FL_DISQUALIFIED(?T,?H,?Mod).
+
+/***************************** FL_BEATER ************************************/
+?Exclusion[FL_BEATER(?Mod)->?H] :-
+	beater_aux(?H,?,?Exclusion,?Mod).
+// auxiliary FL_BEATER predicate
+beater_aux(?H,?BeatenH,?Exclusion,?Mod) :-
+	FL_COMPETES(?H,?BeatenH,?Exclusion,?Mod),
+	(FL_DOMINATES(?H,?BeatenH,?Mod)
+         \or
+#ifdef ATCK3
+         \neg ?BeatenH
+#else   // ATCK2
+         FL_STOMPED(?BeatenH,?Mod)
+#endif
+        ).
+/*
+  The FL_BEATER predicate for binary exclusions (\opposes)
+  This is like exclusion(?H,?_BeatenH)[FL_BEATER(?Mod)->?H]
+  In other words, ?BeatenH is part of the exclusion Id and can't be eliminated
+*/
+FL_BEATER(?H,?BeatenH,?Mod) :-
+	FL_COMPETES(?H,?BeatenH,?Mod),
+	(FL_DOMINATES(?H,?BeatenH,?Mod)
+         \or
+#ifdef ATCK3
+         \neg ?BeatenH
+#else   // ATCK2
+         FL_STOMPED(?BeatenH,?Mod)
+#endif
+        ).
+
+/******************** FL_DISQUALIFIED **************************************/
+FL_DISQUALIFIED(?T,?H,?Mod) :- beaten_by_strict_rule(?T,?H,?Mod).
+FL_DISQUALIFIED(?T,?H,?Mod) :- FL_CANCEL_AUX(?Mod,?T,?H).
+
+/* FL_OVERRIDEN_CANCELLATION is defined in genincludes/flrdefeasible.fli
+   roughly by axioms of the form:
+   FL_DISQUALIFIED((?Id1,\cancel(?Id2,?Head2))) :-
+                       \overrides(?Id2,?Head2,?Id1,\cancel(?Id2,?Head2)).
+   FL_DISQUALIFIED((?Id1,\cancel(?Id2))) :-
+                       \overrides(?Id2,?,?Id1,\cancel(?Id2)).
+   That is: Cancellation rule is disqualified if the rule being canceled
+            has higher priority than the cancellation rule itself
+*/
+
+FL_DISQUALIFIED(?T,?H,?Mod) :- FL_OVERRIDEN_CANCELLATION(?T,?H,?Mod).
+
+
+/********* FL_REBUTS, FL_REFUTES *****************************************/
+FL_REFUTES(?H1,?T2,?H2,?Exclusion,?Mod) :-
+	FL_COMPETES(?H1,?H2,?Exclusion,?Mod),
+	synonymous_tag_with_head(?T2,?Mod,?T22,?H2)@\plg(flrdescriptor_support),
+	FL_OVERRIDES_AUX(?Mod,?T1,?H1,?T22,?H2),
+	FL_CANDIDATE(?T1,?H1,?Mod).
+FL_REFUTES(?H1,?T2,?H2,?Mod) :-
+	FL_COMPETES(?H1,?H2,?Mod),
+	synonymous_tag_with_head(?T2,?Mod,?T22,?H2)@\plg(flrdescriptor_support),
+	FL_OVERRIDES_AUX(?Mod,?T1,?H1,?T22,?H2),
+	FL_CANDIDATE(?T1,?H1,?Mod).
+
+// FL_REBUTS/4
+FL_REBUTS(?H1,?H2,?Exclusion,?Mod)  :-
+	FL_COMPETES(?H1,?H2,?Exclusion,?Mod),
+	FL_CANDIDATE(?T1,?H1,?Mod),
+	\naf FL_REFUTES(?H2,?T1,?H1,?Exclusion,?Mod).
+// FL_REBUTS/3
+FL_REBUTS(?H1,?H2,?Mod)  :-
+	FL_COMPETES(?H1,?H2,?Mod),
+	FL_CANDIDATE(?T1,?H1,?Mod),
+	\naf FL_REFUTES(?H2,?T1,?H1,?Mod).
+
+
+/************************ Competition **************************************/
+FL_COMPETES(?H1,?H2,?Exclusion,?Mod) :-
+	?Exclusion[opposers(?Mod)->{?H1,?H2}],
+	?H1 != ?H2.
+FL_COMPETES(?H1,?H2,?Mod) :-
+	FL_OPPOSES_AUX(?Mod,?_T1,?H1,?_T2,?H2),
+	?H1 != ?H2.
+
+competitors(?H1,?H2,?Mod) :-
+	FL_COMPETES(?H1,?H2,?_Exclusion,?Mod)
+        \or
+        FL_COMPETES(?H1,?H2,?Mod).
+
+
+/*********************** FL_DOMINATES ****************************************
+** FL_DOMINATES(?Lit,?DomineeH) =def=
+**    Forall ?DomineeTag ( candidate(?DomineeTag,?DomineeH) ~~>
+**                 Exists ?Tag ( candidate(?Tag,?Lit) and
+**                               \overrides((?Tag,?Lit),(?DomineeTag,?DomineeH))
+**                             )
+**                       )
+  Question: should it be \overrides((?Tag,?Lit),(?DomineeTag,?DomineeH)) or
+                         \overrides(?Tag,?DomineeTag)
+****************************************************************************/
+FL_DOMINATES(?Lit,?DomineeH,?Mod) :-
+	get_ruleid_by_tag_or_head(?,?Lit,?Mod,?Id,?FileName)@\prolog(flrdescriptor_support),
+	isdefeasible{?Id,?FileName,?Mod},
+	competitors(?Lit,?DomineeH,?Mod),
+	\naf existsRuleWithNoOverrider(?Lit,?DomineeH,?Mod).
+existsRuleWithNoOverrider(?Lit,?DomineeH,?Mod) :-
+	FL_CANDIDATE(?DomineeTag,?DomineeH,?Mod),
+	\naf exist(?Tag,?DomineeTag1)^((
+	     FL_CANDIDATE(?Tag,?Lit,?Mod),
+	     synonymous_tag_with_head(?DomineeTag,?Mod,?DomineeTag1,?DomineeH)@\plg(flrdescriptor_support),
+	     FL_OVERRIDES_AUX(?Mod,?Tag,?Lit,?DomineeTag1,?DomineeH)
+	   )).
+
+
+/************************ Stomping *****************************************
+** FL_STOMPED(?Lit) =def=
+**         tightExclusion(?Excl,?Lit) and
+**         Forall ?Competitor ( FL_COMPETES(?Competitor,?Lit,?Excl) ~~>
+**                                           FL_DOMINATES(?Competitor,?Lit)
+**                            )
+****************************************************************************/
+FL_STOMPED(?Lit,?Mod) :-
+	//tightExclusion(?Excl,?Lit,?Mod),   // -- BG old 5/15/2012
+	FL_CANDIDATE(?_Tag,?Lit,?Mod),       // -- BG new 5/15/2012
+	?Excl[opposers(?Mod)->?Lit],         // -- BG new 5/15/2012
+	\naf existsCompetitorWhoDoesNotDominate(?Lit,?Excl,?Mod).
+existsCompetitorWhoDoesNotDominate(?Lit,?Excl,?Mod) :-
+	FL_COMPETES(?Lit,?Competitor,?Excl,?Mod),
+	\naf FL_DOMINATES(?Competitor,?Lit,?Mod).
+// binary version of stomping
+FL_STOMPED(?Lit,?Mod) :-
+	get_ruleid_by_tag_or_head(?,?Lit,?Mod,?Id,?FileName)@\prolog(flrdescriptor_support),
+	isdefeasible{?Id,?FileName,?Mod},
+	tightBinaryExclusion(?Competitor,?Lit,?Mod),
+	\if FL_COMPETES(?Competitor,?Lit,?Mod)
+	\then FL_DOMINATES(?Competitor,?Lit,?Mod).
+
+
+/*********************** Tight Exclusion ***********************************
+**  tightExclusion(?Excl,?Lit) =def=
+**       candidate(?Tag,?Lit) and
+**           Forall ?Competitor (
+**                     FL_COMPETES(?Competitor,?Lit,?Excl) ~~>
+**                       Exists ?CompetitorTag (
+**                                  candidate(?CompetitorTag,?Competitor) and
+**                                  \naf FL_STOMPED(?Competitor)  --- for ATCK2
+**                                             )
+**                               )
+****************************************************************************/
+tightExclusion(?Excl,?Lit,?Mod) :-
+	?Excl:\Exclusion@?Mod,
+	FL_CANDIDATE(?,?Lit,?Mod),
+	\naf existsCompetitorNonCadidateOrStomped(?Excl,?Lit,?Mod).
+existsCompetitorNonCadidateOrStomped(?Excl,?Lit,?Mod) :-
+	FL_COMPETES(?Lit,?Competitor,?Excl,?Mod),
+	\naf((FL_CANDIDATE(?,?Competitor,?Mod),
+	     // \naf FL_STOMPED in some exclusion
+	     \naf FL_STOMPED(?Competitor,?Mod))).
+
+// for binary exclusions (\opposes)
+tightBinaryExclusion(?Competitor,?Lit,?Mod) :-
+	FL_CANDIDATE(?,?Lit,?Mod),
+	\if FL_COMPETES(?Competitor,?Lit,?Mod)
+        \then (
+	    FL_CANDIDATE(?,?Competitor,?Mod),
+	    \naf FL_STOMPED(?Competitor,?Mod)
+	).
+
+
+/********************* Conflictful Exclusion *******************************
+**  ConflictfulExclusion(?Excl,?Mod) =def=
+**       Forall ?Opposer ( opposerOf(?Excl,?Opposer) ~~>
+**                              Exists ?Tag candidate(?Tag,?Opposer)
+**                       )
+****************************************************************************/
+// **** NOT USED *****
+ConflictfulExclusion(?Excl,?Mod) :-
+	?Excl:\Exclusion@?Mod,
+	\naf existsOpposerWithNoCandidates(?Excl,?Mod).
+existsOpposerWithNoCandidates(?Excl,?Opposer,?Mod) :-
+	?Excl[opposers(?Mod)->?Opposer]@?Mod,
+	\naf exist(?Tag)^((
+	       FL_CANDIDATE(?Tag,?Opposer,?Mod)
+	   )).
+
+
+/************************ Debugging ***************************************/
+
+/*
+   FL_STATUS(T,Head)[howDefeated->Reason] can be used to find out what is
+   defeated and why. No need to reify the ?H argument or attach a module to it.
+   This method finds out the caller module and replaces the module of Head
+   with the caller module.
+*/
+FL_STATUS(?T,?H)[howDefeated -> notBeaterFor(?Exclusion)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+        ?Exclusion[opposers(?RealMod)->{?HM,?OtherH}],
+	?HM@?RealMod != ?OtherH@?RealMod,
+	FL_CANDIDATE(?T,?HM,?RealMod), // MK added 2/22/2012
+	\naf ?Exclusion[FL_BEATER(?RealMod)->?HM].
+FL_STATUS(?T,?H)[howDefeated -> notBeaterFor(binaryExclusion(?HM,?BeatenH))] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_OPPOSES_AUX(?RealMod,?T,?HM,?,?BeatenH),
+	FL_CANDIDATE(?T,?HM,?RealMod),     // MK added 2/22/2012
+	\naf FL_BEATER(?HM,?BeatenH,?RealMod).
+FL_STATUS(?T,?H)[howDefeated -> canceled] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_CANCEL_AUX(?RealMod,?T,?HM).
+FL_STATUS(?T,?H)[howDefeated->beatenByStrictRule(?SH)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	beaten_by_strict_rule(?T,?HM,?,?SH,?RealMod).
+
+FL_STATUS(?_T,?H)[info -> stomped] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_STOMPED(?HM,?RealMod).
+
+FL_STATUS(?_T,?H)[info -> dominates(?DomineeH)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_DOMINATES(?HM,?DomineeH,?RealMod).
+
+FL_STATUS(?_T,?H)[info -> refutes(?RefutedT,?RefutedH)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_REFUTES(?HM,?RefutedT,?RefutedH,?RealMod).
+FL_STATUS(?_T,?H)[info -> refutes(?RefutedT,?RefutedH)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_REFUTES(?HM,?RefutedT,?RefutedH,?_Exclusion,?RealMod).
+
+FL_STATUS(?_T,?H)[info -> rebuts(?Rebutted)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_REBUTS(?HM,?Rebutted,?RealMod).
+FL_STATUS(?_T,?H)[info -> rebuts(?Rebutted)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_REBUTS(?HM,?Rebutted,?_Exclusion,?RealMod).
+
+FL_STATUS(?_T,?H)[info->beats(?Exclusion,?BeatenH)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	beater_aux(?HM,?BeatenH,?Exclusion,?RealMod).
+FL_STATUS(?_T,?H)[info->beats(?BeatenH)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_BEATER(?HM,?BeatenH,?RealMod).
+
+FL_STATUS(?_T,?H)[info->competes(?Exclusion,?Competitor)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_COMPETES(?HM,?Competitor,?Exclusion,?RealMod),
+	FL_CANDIDATE(?,?Competitor,?RealMod).
+FL_STATUS(?_T,?H)[info->competes(?Competitor)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_COMPETES(?HM,?Competitor,?RealMod),
+	FL_CANDIDATE(?,?Competitor,?RealMod).
+
+FL_STATUS(?T,?H)[info->candidate] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_CANDIDATE(?T,?HM,?RealMod).
+
+
+/***************************** Auxiliary Predicates ***********************/
+// Given a rule Tag and possibly Head, find body and test if it is satisfied.
+// This predicate's tables are abolished after each query by an
+// after-query hook because sometimes it is called with Tag/Head as a var.
+// It may succeed for one query and will be tabled.
+// If it is, then when called for another query, wrong result may be returned.
+FL_CANDIDATE(?T,?Head,?Mod) :-
+	/* Must reset term-size limit, since get_ruleid_by_tag_or_head/5 can
+	   retrieve rules with very large bodies. As terms they will be very
+	   deep (>100). */
+	current_prolog_flag(max_table_subgoal_size,?TermDepth)@\prolog,
+	set_prolog_flag(max_table_subgoal_size, 0)@\prolog,
+	?ModHead = ?Head@?Mod,
+	get_ruleid_by_tag_or_head(?T,?ModHead,?Mod,?Id,?FileName)@\prolog(flrdescriptor_support),
+	isdefeasible{?Id,?FileName,?Mod},
+	show_rule_by_id(?Id,?FileName,?Mod,?ModHead,?Body)@\plg(flrcanon),
+	?Body,
+	set_prolog_flag(max_table_subgoal_size, ?TermDepth)@\prolog.
+
+// opposer without the rule tag
+?Exclusion[opposers(?Mod)->?HH] :-
+	(?Exclusion:\Exclusion[\opposers->?H])@?Mod,
+	?HH = ?H@?Mod.
+
+// FL_OPPOSES_AUX/5, FL_OVERRIDES_AUX/5, FL_CANCEL_AUX/3 are defined in
+// genincludes/flrdefeasible.fli
+
+
+
+beaten_by_strict_rule(?T,?H,?Mod) :- beaten_by_strict_rule(?T,?H,?,?,?Mod).
+beaten_by_strict_rule(?T,?H,?StrictT,?StrictH,?Mod) :-
+	FL_CANDIDATE(?T,?H,?Mod),  // MK added 2/22/2012
+	FL_OPPOSES_AUX(?Mod,?T,?H,?StrictT,?StrictH),
+	(isbasefact{?StrictH}, !
+	; FL_STRICT_CANDIDATE(?StrictT,?StrictH,?Mod)
+        ).
+
+FL_STRICT_CANDIDATE(?T,?Head,?Mod) :-
+	/* Must reset term-size limit, since show_rule_by_id/5 can
+	   retrieve rules with very large bodies. As terms they will be very
+	   deep (>100). */
+	current_prolog_flag(max_table_subgoal_size,?TermDepth)@\prolog,
+	set_prolog_flag(max_table_subgoal_size, 0)@\prolog,
+	?ModHead = ?Head@?Mod,
+	get_ruleid_by_tag_or_head(?T,?ModHead,?Mod,?Id,?FileName)@\prolog(flrdescriptor_support),
+	isstrict{?Id,?FileName,?Mod},
+	show_rule_by_id(?Id,?FileName,?Mod,?ModHead,?Body)@\plg(flrcanon),
+	?Body,
+	set_prolog_flag(max_table_subgoal_size, ?TermDepth)@\prolog.
+
+// must have this in order for FL_STATUS to have right argument translation
+?- flora_set_argdef(FL_STATUS,2,[FL_OID,FL_BODYFORMULA],\@)@\prolog(flrarguments).
+
+
+#if defined(FLORA_NONINCREMENTAL_TABLING) && !defined(FLORA_INCREMENTAL_TABLING)
+// Hook for abolishing FL_CANDIDATE/3, FL_STRICT_CANDIDATE/3 after each query
+FL_DEFEASIBLE_CLEANUP(?,?) :-
+	flora_abolish_table_call(${FL_CANDIDATE(?,?,?)})@\prolog(flrtables),
+	flora_abolish_table_call(${FL_STRICT_CANDIDATE(?,?,?)})@\prolog(flrtables).
+
+?- flora_add_hook(\@,QUERYHOOK,after,0,FL_DEFEASIBLE_CLEANUP(?,?))@\prolog(flrhooks).
+#endif

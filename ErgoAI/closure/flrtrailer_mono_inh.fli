@@ -1,0 +1,117 @@
+/***************************************************************************
+  file: closure/flrtrailer_mono_inh.fli - monotonic inheritance of data
+
+  Author(s): Michael Kifer
+
+  Contact:   flora-users@lists.sourceforge.net
+
+  Copyright (C) by
+       Coherent Knowledge Systems, LLC., 2015-2018.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+***************************************************************************/
+
+
+#include "flora_wspredicates.flh"
+#include "flora_porting.flh"
+
+:- import predicate_property/2 from curr_sym.
+
+/*****************************************************************************
+  monotonic inheritance of signatures
+*****************************************************************************/
+WRAP_MVD(O,M,R,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_MVD(_,_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMVD(C,M,R,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_IMVD(C,M,R,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_IMVD(_,_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMVD(S,M,R,FL_CONTEXT(Caller,Id1,Id2)).
+
+
+WRAP_MVDDEF(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_MVDDEF(_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMVDDEF(C,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_IMVDDEF(C,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_IMVDDEF(_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMVDDEF(S,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_METH(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_METH(_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMETH(C,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_IMETH(C,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_IMETH(_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMETH(S,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+
+/*
+%% There is no WRAP_ITRAN!
+%% C[|%M|], O:C |= O[%M]
+WRAP_TRAN(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_TRAN(_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_ITRAN(C,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+%% S[|=>%M|], C:S |= C[=>%M]
+WRAP_ITRAN(C,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_ITRAN(_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	WRAP_ITRAN(S,M,FL_CONTEXT(Caller,Id1,Id2)).
+*/
+
+
+/******************** negative inheritance *******************************/
+
+FLNEGPREFIX(WRAP_IMVD)(C,M,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMVD)(_,_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	FLNEGPREFIX(WRAP_MVD)(O,M,R,FL_CONTEXT(Caller,_,_)).
+
+FLNEGPREFIX(WRAP_IMVDDEF)(C,M,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMVDDEF)(_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	FLNEGPREFIX(WRAP_MVDDEF)(O,M,FL_CONTEXT(Caller,_,_)).
+
+FLNEGPREFIX(WRAP_IMVD)(S,M,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMVD)(_,_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	FLNEGPREFIX(WRAP_IMVD)(C,M,R,FL_CONTEXT(Caller,_,_)).
+
+FLNEGPREFIX(WRAP_IMVDDEF)(S,M,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMVDDEF)(_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	FLNEGPREFIX(WRAP_IMVDDEF)(C,M,FL_CONTEXT(Caller,_,_)).
+
+FLNEGPREFIX(WRAP_IMETH)(C,M,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMETH)(_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	FLNEGPREFIX(WRAP_METH)(O,M,FL_CONTEXT(Caller,_,_)).
+
+FLNEGPREFIX(WRAP_IMETH)(S,M,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMETH)(_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	FLNEGPREFIX(WRAP_IMETH)(C,M,FL_CONTEXT(Caller,_,_)).
+
+
+
+%% background axioms for justification
+#include "extensions/flrbgaxioms_mono_inh.inc"

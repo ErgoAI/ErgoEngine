@@ -1,0 +1,71 @@
+/* File:      flrcounter.P  -- Simple counter support
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2016-2018;
+**      Coherent Knowledge Systems, 2016-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+#define FLORA_COUNTER_PREFIX    '_$_$FLORA^''^counter'
+
+:- export
+        get_counter/2.
+
+:- import
+        flora_abort/2,
+        flora_set_counter/2,
+        flora_increment_counter/2,
+        flora_get_counter/2
+   from flrporting.
+
+:- import
+        flora_decode_oid_as_atom_substitute_vars/2
+   from flrdecode.
+
+/*
+    counter{name=...}  - query
+    counter{name:=...} - set
+    counter{name+...}  - increment
+    counter{name-...}  - decrement
+*/
+get_counter(IsExpr,Mod) :-
+        (IsExpr = (Name = Var), atom(Name) ->
+            fmt_write_string(Name1,'%s^%s^%s',args(FLORA_COUNTER_PREFIX,Mod,Name)),
+            flora_get_counter(Name1,Var)
+        ; IsExpr = WRAP_HILOG(FL_SETVALUE,Name,Val), atom(Name), number(Val) ->
+            fmt_write_string(Name1,'%s^%s^%s',args(FLORA_COUNTER_PREFIX,Mod,Name)),
+            flora_set_counter(Name1,Val)
+        ; IsExpr = (Name+Val), atom(Name), number(Val) ->
+            fmt_write_string(Name1,'%s^%s^%s',args(FLORA_COUNTER_PREFIX,Mod,Name)),
+            flora_increment_counter(Name1,Val)
+        ; IsExpr = (Name-Val), atom(Name), number(Val) ->
+            fmt_write_string(Name1,'%s^%s^%s',args(FLORA_COUNTER_PREFIX,Mod,Name)),
+            Val1 is -Val,
+            flora_increment_counter(Name1,Val1)
+        ;  flora_decode_oid_as_atom_substitute_vars(IsExpr,IsExprAtm),
+            flora_abort(['invalid expression in counter{...}, ', IsExprAtm],
+                        FLORA_ABORT_NOTRACE)
+        ).

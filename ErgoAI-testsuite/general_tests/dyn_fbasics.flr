@@ -1,0 +1,96 @@
+/* File:      dyn_fbasics.flr
+** the dynamic version for flogic_basics.flr
+*/
+
+// ===========================================================================
+// SOME SIMPLE EXAMPLES SHOWING SEVERAL F-LOGIC FEATURES 
+// ===========================================================================
+
+// ?- newmodule{mod1,none}.
+?- newmodule{mod1}.
+
+?- insert{time_flies_like_an_arrow@mod1}.	// a 0-ary PREDICATE (proposition)
+?- insert{fruit_flies_like_an_apple[]@mod1}.	// an OBJECT with empty specification []
+
+%e(a,b). %e(b,a). %e(b,c).			// a binary PREDICATE (graph)
+%e(b,d).
+
+?- insertrule_z{(tc(?X,?Y) :- %e(?X,?Y)@\@)@mod1}.		// a RULE and ...
+?- insertrule_z{(tc(?X,?Y) :- tc(?X,?Z), tc(?Z,?Y))@mod1}.	// ... a (doubly) RECURSIVE RULE
+ 
+?- insert {
+person :: object@mod1,
+dangerous_hobby :: object@mod1,
+john:employee@mod1,				// INSTANCE : CLASS 
+employee::person@mod1,			// SUBCLASS :: SUPERCLASS
+bob:person@mod1,
+tim:person@mod1,
+betty:employee@mod1}.
+
+?- insert{person[age{1..1}=>\integer, kids=>person]@mod1}.    // some (optional) SIGNATURE information
+
+?- insert{mary:employee[				// a more complex MOLECULE involving
+	age->29,			// ... a SINGLE-VALUED (svd) method
+	kids -> {tim,leo,betty},	// ... a MULTI-VALUED (mvd) method
+	salary(1998) -> a_lot		// ... a PARAMETERIZED (and svd) method
+]@mod1}.
+
+?- insert{tim[hobbies -> {stamps, snowboard}]@mod1}.	// somebodies hobbies
+?- insert{betty[hobbies->{fishing,diving}]@mod1}.
+
+?- insert{snowboard:dangerous_hobby@mod1}.		// isn't it??
+?- insert{diving:dangerous_hobby@mod1}.
+
+?- insert{?_X[self->?_X]@mod1}.				// define self
+
+
+// INHERITABLE mvd method
+?- insert{person[|believes_in -> {something, something_else}|]@mod1}.	
+
+// NON-INHERITABLE mvd method of person
+?- insertrule_a{(person[instances -> {?X}] :- ?X:person)@mod1}.
+
+// This  rule is just to test the syntax
+?- insertrule_z{(ppp(?X,?Y) :- qqq(?X,?Y)@\@)@ \@}.
+
+
+// ===========================================================================
+// now ask some QUERIES here (or INTERACTIVELY from the FLORA SHELL)
+// ===========================================================================
+
+%tst1 :- time_flies_like_an_arrow@mod1.	// ={1..1}=> `yes'
+
+%tst2 :- fruit_flies_like_a_banana[]@mod1.	// ={1..1}=> `yes'
+
+%tst3 :- tc(?X,?Y)@mod1,
+	write(?X)@\io, write('  ')@\plg(), writeln(?Y)@\io,\false.
+%tst3 :- \true.
+
+%tst4 :- ?X:person@mod1, writeln(?X)@\io, \false.
+%tst4 :- \true.
+
+%tst5 :- person[instances -> {?X}]@mod1, writeln(?X)@\io, \false.
+%tst5 :- \true.
+
+%tst6 :- ?X[believes_in -> {?Y}]@mod1, write(?X)@\io, write('  ')@\plg(), writeln(?Y)@\io,\false.
+%tst6 :- \true.
+
+%tst7 :- ?X.kids[	
+           self -> ?K,
+	   hobbies ->
+           {?H:dangerous_hobby}]@mod1, 
+        write(?X)@\io, write('  ')@\plg(), write(?K)@\io,
+        write('  ')@\plg(), writeln(?H)@\io, \false.
+%tst7 :- \true.
+ 
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7.
+
+%test :- tell(temp)@\plg(),
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        %pretest,
+        told@\plg().
+
+
+

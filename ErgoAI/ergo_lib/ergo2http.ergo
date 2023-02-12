@@ -1,0 +1,96 @@
+/* File:      ergo_lib/ergo2http.ergo -- Ergo-HTTP interface via curl
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2018-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+
+#include "flora_terms.flh"
+
+:- compiler_options{expert=on,production=on}.
+:- nontabled_module.
+:- suppress_rule_signatures.
+
+:- symbol_context{
+                   http/?,
+                   properties/?
+                 }.
+
+
+:- export{
+           ?[encoding->?],
+           ?[properties->?],
+           ?[properties(?)->?],
+           ?[base64encode->?],
+           ?[base64decode->?],
+           ?[http->?],
+           ?[http(?)->?],
+           ensure_loaded
+         }.
+
+
+?-  // initialize
+	feedback{tempoff},
+	%initialize.
+
+%initialize :- 
+	flora_install_dir(?ErgoDir)@\prolog(flrporting),
+	flora_slash(?S)@\prolog(flrporting),
+	flora_concat_atoms([?ErgoDir,?S,ergo_lib,?S,ergo2http],
+	                   ?EHttpDir)@\prolog(flrporting),
+	Libpath[add(?EHttpDir)]@\sys,
+	[ergo_http].
+%initialize :- !.
+
+// calling ensure_loaded@\http ensures that the module \http is loaded
+ensure_loaded.
+
+?EndpointURL[http -> (?Result,?Warnings)] :-
+        ?EndpointURL[http([]) -> (?Result,?Warnings)].
+
+?EndpointURL[http(?Params) -> (?Result,?Warnings)] :-
+        ?EndpointURL[rawValue->?URL]@\basetype,
+        web_access(?URL,?Params,?Result,?Warnings)@\prolog(ergo_http).
+
+?URL[properties -> ?Props] :- ?URL[properties([]) -> ?Props].
+?URL[properties(?Params) -> [?PageSize,?PageModTime,?Redirection]] :-
+        ?URL[rawValue->?URL2]@\basetype,
+        fixup_options(?Params,?FixedParams)@\prolog(ergo_http),
+        url_properties(?URL2,?FixedParams,?Properties)@\prolog(curl),
+        ?Properties = [?_Dir,?_File,?_Extension,  // the first three are ignored
+                        ?PageSize,?PageModTime,?Redirection].
+
+?URL[encoding -> [?EncodedDir,?EncodedFile,?FileExtension]] :-
+        ?URL[rawValue->?URL2]@\basetype,
+        encode_url(url(?URL2)@\prolog,?Encoding)@\prolog(curl),
+        ?Encoding = [?EncodedDir,?EncodedFile,?FileExtension].
+
+?Source[base64encode -> ?Result] :-
+        (?Source = file(?File) -->> ?SourcePlg = file(?File)@\prolog
+        ; ?SourcePlg = ?Source
+        ),
+        b64_enc(?SourcePlg,?Result)@\prolog(base64).
+?Source[base64decode -> ?Result] :-
+        (isvar{?Result} -->> ?ResultPlg = ?Result
+        ; ?Result = file(?File) -->> ?ResultPlg = file(?File)@\prolog
+        ; ?Result = list(?List) -->> ?ResultPlg = list(?List)@\prolog
+        ; p2h{?ResultPlg,?Result}
+        ),
+        b64_dec(?Source,?ResultPlg)@\prolog(base64).
+

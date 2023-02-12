@@ -1,0 +1,75 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-MPhaseFollowsInterphaseInCellCycle (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(BiologyMt, phasesAlternateInCycleType(TheEukaryoticCellCycle, InterphaseOfEukaryoticCellCycle, MitoticPhaseOfCellCycle)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Implicit Background Rules
+forwardSentence(stepFollowsStepInCycleType(?CT, ?P2, ?P1)) :- removalSentence(assertedSentence(phasesAlternateInCycleType(?CT, ?P1, ?P2))).
+
+// Explicit Background Facts
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-MPhaseFollowsInterphaseInCellCycle 0').
+%pretest :- stepFollowsStepInCycleType(TheEukaryoticCellCycle, MitoticPhaseOfCellCycle, InterphaseOfEukaryoticCellCycle), %write_results('SUCCESS  : $CPTTest-MPhaseFollowsInterphaseInCellCycle 0').
+
+// Debugging
+proof(10534, 0) :- stepFollowsStepInCycleType(TheEukaryoticCellCycle, MitoticPhaseOfCellCycle, InterphaseOfEukaryoticCellCycle).
+
+proof(10534, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(10534, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(10534, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(10534, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(10534, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(10534, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(10534, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(10534, 1007) :- stepFollowsStepInCycleType(TheEukaryoticCellCycle, MitoticPhaseOfCellCycle, InterphaseOfEukaryoticCellCycle).
+
+proof(10534, 2000) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(10534, 2001) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(10534, 2002) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiologyMt). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

@@ -1,0 +1,13 @@
+:- prolog{fib/2}.
+:- table{fib/2}.
+
+fib(0,1) :- !.
+fib(1,1) :- !.
+fib(?N,?R) :-
+       is(?N1,?N-1)@\plg, is(?N2,?N1-1)@\plg,
+       fib(?N1,?R1), fib(?N2,?R2), is(?R,?R1+?R2)@\plg.
+
+test(?X,?Y) :- cputime(?T)@\plg, fib(?X,?Y), cputime(?TT)@\plg,
+       is(?TTT,?TT-?T)@\plg, writeln(cputime=?TTT)@\plg.
+
+?- nl@\plg, test(10000,?Y).

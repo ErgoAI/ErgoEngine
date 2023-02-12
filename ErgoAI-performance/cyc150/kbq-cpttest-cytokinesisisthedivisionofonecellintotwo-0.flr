@@ -1,0 +1,90 @@
+:\ use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-CytokinesisIsTheDivisionOfOneCellIntoTwo (query 0)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example_Biology_Chapter_13_online_quiz.2C_Question_30
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CoreCycLImplementationMt, CoreCycLMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(UniversalVocabularyImplementationMt, CoreCycLImplementationMt)).
+istAsserted(UniversalVocabularyMt, genlMt(UniversalVocabularyMt, UniversalVocabularyImplementationMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genls('Separation-Complete-ObjectDestroyed', 'Separation-Complete')).
+istAsserted(UniversalVocabularyMt, resultGenl(SeparationOfStuffTypeIntoNEqualPortionsFn, 'Separation-Complete-ObjectDestroyed')).
+istAsserted(BaseKB, termOfUnit(SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2), SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2))).
+istAsserted(UniversalVocabularyMt, genls(Cytokinesis, SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2))).
+
+// Implicit Background Rules
+forwardSentence(genls(?NAT, ?COL)) :- removalSentence(resultGenl(?FUNCTION, ?COL)), removalSentence(natFunction(?NAT, ?FUNCTION)).
+
+// Explicit Background Facts
+istAsserted(MicrobiologyMt, relationAllExistsCount(outputsCreated, Cytokinesis, Cell, 2)).
+istAsserted(MicrobiologyMt, relationAllExistsCount(inputsDestroyed, Cytokinesis, Cell, 1)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-CytokinesisIsTheDivisionOfOneCellIntoTwo 0').
+%pretest :- genls(Cytokinesis, 'Separation-Complete'), relationAllExistsCount(inputsDestroyed, Cytokinesis, Cell, 1), relationAllExistsCount(outputsCreated, Cytokinesis, Cell, 2), %write_results('SUCCESS  : $CPTTest-CytokinesisIsTheDivisionOfOneCellIntoTwo 0').
+
+// Debugging
+proof(11027, 0) :- genls(Cytokinesis, 'Separation-Complete').
+proof(11027, 1) :- relationAllExistsCount(inputsDestroyed, Cytokinesis, Cell, 1).
+proof(11027, 2) :- relationAllExistsCount(outputsCreated, Cytokinesis, Cell, 2).
+proof(11027, 3) :- genls(Cytokinesis, 'Separation-Complete'), relationAllExistsCount(inputsDestroyed, Cytokinesis, Cell, 1), relationAllExistsCount(outputsCreated, Cytokinesis, Cell, 2).
+
+proof(11027, 1000) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(11027, 1001) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(11027, 1002) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(11027, 1003) :- genls(SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2), 'Separation-Complete-ObjectDestroyed').
+
+proof(11027, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(11027, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(11027, 2002) :- admittedArgument(SecondFn(53, MinuteFn(44, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(11027, 2003) :- admittedArgument(SecondFn(53, MinuteFn(44, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(11027, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), CoreCycLMt).
+proof(11027, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(11027, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(11027, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MicrobiologyMt).
+proof(11027, 2008) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(11027, 2009) :- genls(Cytokinesis, 'Separation-Complete'). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

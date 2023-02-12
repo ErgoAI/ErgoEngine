@@ -1,0 +1,554 @@
+/*
+** Title: SERVICE DISCOVERY WITH MEDIATORS
+**
+** Features:  - WG-mediators
+**            - complex goals
+**            - rules in effects and goals
+**            - service effects can depend on input
+*/
+
+//?- Method[mustDefine(on)]@\sys.  // use debug mode
+
+
+/*
+** A taxonomy of cities.
+**       europe means European Cities
+**       france - French cities, etc.
+**       tyrol - Tyrolean cities, etc.
+*/
+
+:- setsemantics{tabling=reactive}.
+?- setsemantics{class_expressions=on}.
+
+:- symbol_context{contract/4,search/2,doesNotServeCity/1,reportResult/2,info/4}.
+
+usa::america.
+{germany, austria, france}::europe.
+tyrol::austria.
+nystate::usa.
+stonybrook:nystate.
+{innsbruck, lienz}:tyrol.
+vienna:austria.
+{bonn, frankfurt}:germany.
+{paris, nancy}:france.
+// regions - things like europe, germany, tyrol
+{europe, america}:region.
+// any subregion of a region is also a region
+?Reg:region :- ?Reg1:region \and ?Reg::?Reg1.
+// A location is any city or town that belongs to any region
+?Loc:location :- ?Reg:region \and ?Loc : ?Reg.
+
+
+/*
+  Services/clients write their descriptions/queries to conform to specific
+  ontologies. Most of the intelligence lies in the mediators, which are
+  assumed to be written by skilled professionals.
+  Client goals are assumed to be written by naive users and thus are the
+  simplest.
+  Service descriptions are written by knowledge engineers. They can be
+  more complex, but shouldn''t require a Ph.D. in knowledge representation.
+
+  Goal ontology:
+      Clients' goals use the Goal Ontology, which provides primitives for 
+      discovering and contracting services.
+      The primitives support a range of discovery tasks, from least specific 
+      to more specific.
+      
+      Discovery goals:
+
+          searchTrip(from,to)  - from/to can be cities or regions; if a
+                                 region then it means the requested service
+                                 must serve every city in that region that
+                                 is known to the KB. Assume either both are
+                                 cities or both are regions.
+          searchCitipass(loc)  - citipass search; loc can be a city or a region
+
+      Contracting goals:
+          tripContract(serviceId,fromCity,toCity,date,creditCard)
+          citipassContract(serviceId,city,date,creditCard)
+
+	  Goals have the form:
+
+	      goalId[requestId->someId, query->queryType]
+
+	  where
+	    someId      - the request Id,
+	    goalId      - goal Id
+	    queryType   - a discovery/contracting primitive described above
+
+      Results of a search are stored in the attribute result, e.g., 
+
+          goal1[result -> {serv1,serv2}]
+
+      The result of a contract execution is stored in the attribute
+      confirmation, e.g.,
+
+          goal2[confirmation -> info(service,confNumber,from,to,date)]
+         or
+          goal2[confirmation -> info(service,confNumber,city,date)]
+
+  Service ontologies:
+      Services represent their inputs and outputs using ontologies that can
+      possibly be different from the ontology used by the users.
+      In our examples, services use two different ontologies. The ontology
+      mismatch is resolved using the Web service-to-goal mediators
+      (wg-mediators). The wg-mediators for the Request ontology and the
+      two service ontologies are defined separately below.
+
+      Service Ontology %1
+         Inputs have the following form:
+              search(requestId,fromLocation,toLocation)
+              search(requestId,city)
+              contract(requestId,fromLocation,toLocation,date,ccard)
+              contract(requestId,city,date,ccard)
+
+           Input is constructed from the client's goal by the mediator and
+           passed to the service.
+
+         The output produced by the service has the form
+
+           for searches:
+              itinerary(reqNumber)[from->fromCity, to->toCity]
+              passinfo(reqNumber)[city->City]
+
+                  Note: for searches, services assume that the input provides 
+                        a specific pair of cities. Services know nothing about
+                        searches by regions, so the descriptions of their 
+                        capabilities are relatively simple. Region-based
+                        queries are constructed by mediators. This is what we
+                        mean when we say that most of the intelligence is
+                        in the mediators.
+
+           for contracting:
+              ticket(reqNumber)[confirmation->confNumber,
+                                from->fromCity, to->toCity, date->someDate]
+              pass(reqNumber)[confirmation->confNumber,
+                              city->City, date->someDate]
+
+      Service Ontology %2
+          Provides basically the same information, but uses different
+          representation (to illustrate the idea of different mediators).
+          Services that use this ontology only sell citipasses.
+
+	  Inputs have the following form:
+              discover(requestId,city)
+              pay(requestId,city,date,ccard)
+
+          The output looks like this:
+              reqNumber[location->city)]  for searches
+              reqNumber[confirmation->(number,city,date)] for purchases
+******************************************************************************/
+
+/************************ Available services *********************************
+  Assume precondition/effects to be mandatory and have uniform representation
+  for all services. In general, we could use mediators that the discovery and
+  contracting query could invoke to reconcile the different representations.
+*****************************************************************************/
+
+// This service uses Ontology %1 and mediator1 to map client ontology
+// to Ontology %1
+serv1[
+   // Input must be a request for ticket from somewhere in Germany to somewhere
+   // in Austria  OR  a request for a city pass for a city in Tyrol
+   capability->
+        \#[
+	   precondition(?_Input) ->
+                  ${
+		     (?_Input = contract(?_, ?_From:germany, ?_To:austria, ?_Date, ?_Card)
+		      \or ?_Input = contract(?_, ?_City:tyrol, ?_Date, ?_))
+		     \and validDate(?_Date) \and validCard(?_Card)
+		   },
+	   effects(?_Input) ->
+		  ${
+		      // Note: repeating some preconditions, like From:germany,
+		      //       because precondition(_Input) is not checked
+		      //       during discovery, but From:germany, To:austria
+		      //       can be relevant to discovery. However, not all
+		      //       of the precondition is copied here -- only what
+		      // is relevant for discovery.
+		      (itinerary(?_Req)[from->?_From,to->?_To] :-
+				?_Input = search(?_Req, ?_From:germany, ?_To:austria))
+		      \and
+		      (passinfo(?_Req)[city->?_City] :-
+				?_Input = search(?_Req,?_City:tyrol))
+		      \and
+		      // Note: precondition is checked at invocation, so
+		      // no need to repeat those tests here.
+		      (ticket(?_Req)[confirmation->?_Num,
+		                    from->?_From, to->?_To, date->?_Date] :-
+	                        ?_Input = contract(?_Req,?_From,?_To,?_Date,?_CCard),
+				%generateConfNumber(?_Num))
+		      \and
+		      (pass(?_Req)[confirmation->?_Num, city->?_City, date->?_Date] :-
+	                        ?_Input = contract(?_Req,?_City,?_Date,?_CCard),
+				%generateConfNumber(?_Num))
+		   }
+	 ],
+
+    usedMediators -> med1
+].
+
+// Another Ontology %1 service
+serv2[
+   capability->
+        \#[
+	   precondition(?_Input) -> ${
+		      // Input must be a request for a ticket from a
+                      // city in France or Germany to a city in Austria
+		      ?_Input = contract(?_, ?_From:(france \or germany),
+		                          ?_To:austria, ?_Date, ?_Card)
+		      \and validDate(?_Date) \and validCard(?_Card)
+			   },
+	   effects(?_Input)-> ${
+		      (itinerary(?_Req)[from->?_From, to->?_To] :-
+			  ?_Input = search(?_Req,
+				         ?_From:(france \or germany), ?_To:austria))
+		      \and
+		      (ticket(?_Req)[confirmation->?_Num,
+		                    from->?_From, to->?_To, date->?_Date] :-
+			    ?_Input = contract(?_Req,?_From,?_To,?_Date,?_CCard) \and
+			    %generateConfNumber(?_Num))
+		     }
+	 ],
+
+    usedMediators -> med1
+			     
+].
+
+// An Ontology %2 service
+serv3[
+   capability->
+        \#[
+	   precondition(?_Input) ->
+		       ${
+			      // request for a pass for a French city
+                              ?_Input = pay(?_,?_City:france,?_Date,?_Card)
+			      \and validDate(?_Date) \and validCard(?_Card)
+			},
+	   effects(?_Input)->
+		       ${
+			   (?_Req[location->?_City] :-
+	                            ?_Input = discover(?_Req,?_City:france))
+		           \and
+		           (?_Req[confirmation->(?_Num,?_City,?_Date)] :-
+				    ?_Input = pay(?_Req,?_City,?_Date,?_Card) \and 
+				    %generateConfNumber(?_Num))
+		        }
+	 ],
+
+    usedMediators -> med2
+].
+
+// Another Ontology %2 service
+serv4[
+   capability->
+        \#[
+	   precondition(?_Input) ->
+                    ${
+			      // can do passes in any city except Paris
+                              ?_Input = pay(?_,?_City:france,?_Date,?_Card)
+			      \and ?_City \= paris
+			      \and validDate(?_Date) \and validCard(?_Card)
+		     },
+	   effects(?_Input)->
+                    ${
+		       (?_Req[location->?_City] :-
+				?_Input = discover(?_Req,?_City:france)
+			        \and ?_City \= paris)
+		       \and
+		       (?_Req[confirmation->(?_Num,?_City,?_Date)] :-
+				?_Input = pay(?_Req,?_City,?_Date,?_Card) \and 
+				%generateConfNumber(?_Num))
+		     }
+	 ],
+
+    usedMediators -> med2
+].
+
+
+/******************************** GOALS ***************************************
+        Goals are objects that have queries written to the Goal ontology spec
+******************************************************************************/
+
+goal1[
+   requestId -> \#:Request,
+   query -> searchTrip(bonn,innsbruck),
+   result->{}
+].
+
+goal2[
+   requestId -> \#:Request,
+   query -> tripContract(serv1,bonn,innsbruck,'1/1/2007',1234567890),
+   result->{}
+].
+
+goal2b[
+        requestId -> \#:Request,
+        query -> tripContract(serv2,stonybrook,innsbruck,'1/1/2007',1234567890),
+        result->{}
+     ].
+
+// need services that serve all cities in France and Austria
+// WG-mediators will generate the appropriate queries to the services
+goal3[
+   requestId -> \#:Request,
+   query -> searchTrip(france,austria),
+   result->{}
+].
+
+goal4[
+   requestId -> \#:Request,
+   query-> searchCitipass(frankfurt),
+   result->{}
+].
+
+goal5[
+   requestId -> \#:Request,
+   query-> searchCitipass(innsbruck),
+   result->{}
+].
+
+
+goal6[
+   requestId -> \#:Request,
+   query -> searchCitipass(france),
+   result->{}
+].
+
+
+goal7[
+   requestId -> \#:Request,
+   query -> citipassContract(serv4,nancy,'22/2/2005',0987654321),
+   result->{}
+].
+
+
+/************************** Mediators ***************************************
+  A mediator needs to:
+    1. Convert input - <mediatorId>[constructInput(Goal)->Input]
+    2. Construct the query to be used for testing the after-state of service
+       This is done by <mediatorId>[reportResult(Goal,Result)]
+
+       This method tests that, after the appropriate translation,
+       the goal is satisfied in the after-state of the service.
+       Result gets bound to a formula that is appropriate for the 
+       representation of results in the goal ontology. That is,
+       it looks like goal[result->...] or goal[confirmation->...].
+       See the header of this file for the explanations of how the goal
+       ontology looks like.
+****************************************************************************/
+
+//  ********************* MEDIATOR 1 **********************
+med1[constructInput(?Goal)->?Input] :- 
+	?Goal[requestId->?ReqId, query->?Query] \and
+        \if ?Query = searchTrip(?From,?To)
+        \then (
+	       generalizeArg(?From, ?From1), generalizeArg(?To, ?To1),
+	       ?Input = search(?ReqId,?From1,?To1)
+        ) \else \if ?Query = searchCitipass(?City)
+        \then (
+	       generalizeArg(?City, ?City1),
+	       ?Input = search(?ReqId,?City1)
+        ) \else \if ?Query = tripContract(?ServiceId,?From,?To,?Date,?CCard)
+        \then (
+	       generalizeArg(?From, ?From1), generalizeArg(?To, ?To1),
+	       ?Input = contract(?ReqId,?From1,?To1,?Date,?CCard)
+        ) \else \if ?Query = citipassContract(?ServiceId,?City,?Date,?CCard)
+        \then (
+	       generalizeArg(?City, ?City1),
+	       ?Input = contract(?ReqId,?City1,?Date,?CCard)
+        ) \else \false.
+
+med1[reportResult(?Goal,?Serv,?Result)] :-
+	?Goal[query->searchTrip(?From:location,?To:location)] \and
+        itinerary(?_)[from->?From, to->?To],
+	?Result = ${?Goal[result->?Serv]}.
+med1[reportResult(?Goal,?Serv,?Result)] :-
+	?Goal[query->searchTrip(?From:region,?To:region)] \and
+        \naf med1[doesNotServeCity(?From,?To)],
+	?Result = ${?Goal[result->?Serv]}.
+
+med1[reportResult(?Goal,?Serv,?Result)] :-
+	?Goal[query->searchCitipass(?City:location)] \and
+        passinfo(?_)[city->?City],
+	?Result = ${?Goal[result->?Serv]}.
+med1[reportResult(?Goal,?Serv,?Result)] :-
+	?Goal[query->searchCitipass(?Region:region)] \and
+	\naf med1[doesNotServeCity(?Region)],
+	?Result = ${?Goal[result->?Serv]}.
+
+// contracting requests
+med1[reportResult(?Goal,?Result)] :-
+	?Goal[query->tripContract(?Serv,?From,?To,?Date,?_CCard)] \and
+	ticket(?_)[confirmation->?Num, from->?From, to->?To, date->?Date],
+	?Result = ${?Goal[confirmation->info(?Serv,?Num,?From,?To,?Date)]}.
+med1[reportResult(?Goal,?Result)] :-
+	?Goal[query->citipassContract(?Serv,?City,?Date,?_CCard)] \and
+	pass(?_)[confirmation->?Num, city->?City, date->?Date],
+	?Result = ${?Goal[confirmation->info(?Serv,?Num,?City,?Date)]}.
+
+// for region-level queries check if there is a city that is not served
+med1[doesNotServeCity(?FromReg,?ToReg)] :-
+	?City1:?FromReg \and ?City2:?ToReg \and
+        \naf itinerary(?_)[from->?City1, to->?City2].
+med1[doesNotServeCity(?Region)] :-
+	?City:?Region \and
+        \naf passinfo(?_)[city->?City].
+
+//  ********************* MEDIATOR 2 **********************
+med2[constructInput(?Goal)->?Input] :- 
+	?Goal[requestId->?ReqId, query->?Query] \and
+        \if ?Query = searchCitipass(?City)
+        \then (
+	       generalizeArg(?City, ?City1),
+	       ?Input = discover(?ReqId,?City1)
+        ) \else \if ?Query = citipassContract(?_ServiceId,?City,?Date,?CCard)
+        \then (
+	       generalizeArg(?City, ?City1),
+	       ?Input = pay(?ReqId,?City1,?Date,?CCard)
+        ) \else \false.
+
+med2[reportResult(?Goal,?Serv,?Result)] :-
+	?Goal[query->searchCitipass(?City:location)] \and
+        ?_[location->?City],
+	?Result = ${?Goal[result->?Serv]}.
+med2[reportResult(?Goal,?Serv,?Result)] :-
+	?Goal[query->searchCitipass(?Region:region)] \and
+	\naf med2[doesNotServeCity(?Region)],
+	?Result = ${?Goal[result->?Serv]}.
+
+// for region-level queries check if there is a city that is not served
+med2[doesNotServeCity(?Region)] :-
+	?City:?Region \and
+        \naf ?[location->?City].
+
+// contracting request
+med2[reportResult(?Goal,?Result)] :-
+	?Goal[query->citipassContract(?Serv,?City,?Date,?_CCard)] \and
+	?_R:Request, ?_R[confirmation->(?Num,?City,?Date)],
+	?Result = ${?Goal[confirmation->info(?Serv,?Num,?City,?Date)]}.
+
+
+/****************** A generic service discovery query ***********************
+  Given a goal, find all services that match and print out their Ids.
+  Represented as a transaction because it uses hypothetical updates.
+  Hypothetical updates are simulated by insert/delete because Flora-2
+  doesn''t support the hypotheticals.
+*****************************************************************************/
+%find_service(?Goal) :-
+	?Serv[usedMediators -> ?Mediator[constructInput(?Goal) -> ?Input]],
+	?Serv.capability[effects(?Input) -> ?Effects],
+        insertrule{?Effects},      // hypothetically assume the effects
+
+	// Check if the goal is satisfied by the service and report result
+	\if ?Mediator[reportResult(?Goal,?Serv,?Result)]
+        \then (
+	   insert{?Result}
+        ),
+	// Remove the hypothetically added rules
+	deleterule{?Effects},
+	\false.
+%find_service(?_Goal) :- \true.
+
+/************************ Service contracting ****************************
+  Similar to discovery, but also checks precondition
+*************************************************************************/
+%contract_service(?Goal) :-
+	// get the service to invoke: contracting queries have 4 or 5 args
+	(?Goal.query = ?_(?Serv,?_,?_,?_,?_) \or ?Goal.query = ?_(?Serv,?_,?_,?_)),
+	?Serv[usedMediators -> ?Mediator[constructInput(?Goal) -> ?Input]],
+	?Serv.capability.precondition(?Input)=?Precond,
+	?Precond,
+	?Serv.capability[effects(?Input) -> ?Effects],
+        insertrule{?Effects},      // hypothetically assume effects
+	// Check if the goal is satisfied by the service and report result
+	\if ?Mediator[reportResult(?Goal,?Result)] \then insert{?Result},
+
+	// Remove the hypothetically added facts and rules
+	deleterule{?Effects},
+	\false.
+%contract_service(?_Goal) :- \true.
+
+
+// %%%%%%%%%%%%%%% MISC DEFINITIONS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%generateConfNumber(?Num) :-
+	flora_get_counter(mynum,?N)@\plg(flrporting),
+	?N1 \is ?N+1,
+	flora_set_counter(mynum,?N1)@\plg(flrporting),
+	\symbol[concat([conf,?N1])->?Num]@\btp.
+
+validDate(?_). // pretending that we check dates
+
+validCard(?_). // pretending that we check credit cards
+
+// if an arg is a region - replace with new variable
+generalizeArg(?In,?_Out) :- isnonvar{?In}, ?In:region, !.
+generalizeArg(?_In,?_In) :- \true.
+
+
+
+// %%%%%%%%%%%%%%% Sample service discovery requests %%%%%%%%%%%%%%%%%%%%%%%%%%
+// serv1, serv2
+%tst1 :- %find_service(goal1), goal1[result->?Serv],
+	writeln(tst1=?Serv)@\plg(),
+	\false.
+%tst1 :- \true.
+
+// should succeed for service 1
+%tst2 :- %contract_service(goal2), goal2[confirmation->?Info],
+	writeln(tst2=?Info)@\plg(),
+	\false.
+%tst2 :- \true.
+
+// contracting should fail (no confirmation should be returned)
+%tst3 :- %contract_service(goal2b),
+	\if goal2b[confirmation->?_Info]
+        \then writeln('tst3: Something wrong')@\plg()
+        \else writeln('tst3: ok')@\plg().
+
+// serv2
+%tst4 :- %find_service(goal3), goal3[result->?Serv],
+	writeln(tst4=?Serv)@\plg(),
+	\false.
+%tst4 :- \true.
+
+// none
+%tst5 :- %find_service(goal4), 
+	\if goal4[result->?_Serv]
+        \then writeln('tst5: Something wrong')@\plg()
+        \else writeln('tst5: ok')@\plg.
+
+
+// serv1
+%tst6 :- %find_service(goal5), goal5[result->?Serv],
+	writeln(tst6=?Serv)@\plg,
+	\false.
+%tst6 :- \true.
+
+// serv3 only. serv4 does not match because it does not serve Paris
+%tst7 :- %find_service(goal6), goal6[result->?Serv],
+	writeln(tst7=?Serv)@\plg,
+	\false.
+%tst7 :- \true.
+
+// should succeed for serv4
+%tst8 :- %contract_service(goal7), goal7[confirmation->?Info],
+	writeln(tst8=?Info)@\plg,
+	\false.
+%tst8 :- \true.
+
+
+%pretest :-
+	flora_set_counter(mynum,300)@\plg(flrporting),
+	%tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+
+
+

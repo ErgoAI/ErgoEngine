@@ -1,0 +1,92 @@
+For instance,
+%% 
+\begin{verbatim}
+   ?-  ?X \is count([a,b,c]).  // ?X = 3
+   ?-  ?X \is avg([1,2,3]).    // ?X = 2
+   ?-  ?X \is sum([1,2,3]).    // ?X = 6
+   ?-  ?X \is nth(2,[a,b,c]).  // ?X = b
+\end{verbatim}
+%% 
+
+  \index{inline arithmetic expression}
+  \index{arithmetic expression!inline}
+\paragraph{Inline evaluation of arithmetic expressions.}
+In addition to the various extensions of
+\texttt{\bs{}is/2}, \ERGO provides a more natural and powerful way to
+evaluate expressions by placing them directly as arguments of the
+predicates and frames, and prefixing them with a ``\texttt{=}'' or with
+``\texttt{\bs{}is}''.
+This can be done both in rule heads and rule bodies. For example,
+%% 
+\begin{alltt}
+    q(2).\\
+    p(=?X+3) :- q(?X).  // alternatively: p(\bs{}is ?X+3) :- q(?X). \\
+    ?- p(?X).\\
+
+    ?X = 5
+\end{alltt}
+%% 
+Note that if we used the rule \texttt{p(?X+3) :- q(?X)} instead (i.e.,
+without the prefix ``\texttt{=}'' or ``\texttt{\bs{}is}'') then the answer
+to the above query would have been
+\texttt{?X = 2+3} because arithmetic expressions are not evaluated by
+default.
+
+The following example illustrates the inline evaluation feature in a query
+(it works identically in rule bodies):
+%% 
+\begin{alltt}
+   q(2), p(5).\\
+   ?- q(?X), p(=?X+3).  //  alternatively: ?- q(?X), p(\bs{}is ?X+3).  \\
+
+   Yes
+\end{alltt}
+%% 
+Perhaps the most interesting way to use this feature is in combination with
+the string concatenation operator introduced earlier. This combination
+provides Java-like printing facility as follows:
+%% 
+\begin{alltt}
+   p(a,b).\\
+   ?- p(?X,?Y), writeln(= result ||': '|| ?X|| + || ?Y)@\bs{}io.\\
+   \textit{result: a+b}   
+\end{alltt}
+%% 
+Observe that \emph{all}  
+arithmetic functions, as well as list/string
+concatenation, list operations, etc., are allowed in inline
+expressions. For instance,
+%% 
+\begin{alltt}
+   p(=sin(5)+atan(3)).\\
+   ?- p(?X).\\
+   {\it Resut\/}: ?X = 0.2901\\
+
+   q(a,b), r([1,2,3],[1,3],[3,8]).\\
+   p(=?X||?Y, \bs{}is ?Z++?V-\,-?W) :- q(?X,?Y), r(?Z,?V,?W).\\
+   ?- p(ab,[1,2,3,1]).\\
+   Yes
+\end{alltt}
+%% 
+
+\noindent
+\textbf{Note}:  Aggregate operators described in
+Section~\ref{sec-aggregates} and user-defined functions (UDFs) described in
+Section~\ref{sec:udf} are \emph{always} evaluated when they are found in an
+argument position, so they never need to be prefixed with an ``='' or an
+\texttt{\bs{}is}. For instance,
+%% 
+\begin{verbatim}
+   \udf f(?X) := =?X+5 \if p(?X).
+   p({1,2,3}).
+   ?- insert{q(6)}.
+   ?- insert{r(=f(?X))}.   // UDF f/1 used inline without a =
+   ?- q(sum{?V|p(?V)}).   // Yes. Aggr sum{?V|p(?V)} used inline without a =
+   ?- r(?Z).              // ?X = 6,7,8
+\end{verbatim}
+%% 
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

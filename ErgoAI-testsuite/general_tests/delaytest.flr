@@ -1,0 +1,53 @@
+:- setsemantics{tabling=reactive}.
+
+?- insert{p1(?X,?Y) :- ?X!=?Z,?Z!=?Y}.
+
+p(?X) :-
+	?X!=?Z,?Z!=?Y, r(?Y), qq(?Z).
+
+%pp(?X) :-
+	?X!=?Z,?Z!=?Y, qqq(?Y),
+	?L = setof{?P[?G]| ?P != ?G, (?Y=?P;?X=?P), r(?G)},
+	q(?Z),
+	write(lll=?L)@\plg.
+q(?Z) :- ?Z=3.
+q(5) :- ?_X =:= 2.
+
+r(4).
+qq(1).
+qq(2).
+qq(3) :- ?_X > 1.
+
+qqq(1), qqq(2).
+
+
+%tst1 :- write('test1: ')@\plg,
+	 (%pp(5), \false; \true),
+	 nl@\plg.
+%tst2 :- write('test2: ')@\plg,
+	 catch{%pp(4),?,writeln('unbound ?_X=:=1')@\plg}.
+%tst3 :- write('test3: ')@\plg,
+	 p(3),
+	 writeln(success)@\plg.
+%tst4 :- write('test4: ')@\plg,
+	 catch{p(2),?,writeln('unbound ?_X > 2')@\plg}.
+
+pqr(a).
+// testing dynamic creation of rules with delayed builtins
+?- ?H ~abc(?X), ?B ~ (?Y > 2, ?Y=3, pqr(?X)), insertrule{?H:-?B}.
+?- ?R = ${o[abc->?X] :- ?Y > 2, ?Y=3, pqr(?X)}, insertrule{?R}.
+
+%tst5 :- write('test5: ')@\plg,
+	abc(?X),
+	o[abc->?Y],
+	writeln(?X+?Y)@\plg.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5.
+
+%test :- tell(temp)@\plg(),
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        %pretest,
+        told@\plg().

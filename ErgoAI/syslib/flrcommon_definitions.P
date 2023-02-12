@@ -1,0 +1,87 @@
+/* File:      flrcommon_definitions.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2020.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+%% This file is loaded once per session by bootstrap_flora/0.
+%% It is supposed to contain Prolog definitions that are common to all,
+%% but do not fit in other existing libraries
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "flora_tabling_methods.flh"
+
+:- import
+        flora_file_op/2
+   from flrporting.
+:- import
+	flora_warning_line/2
+   from flrprint.
+
+%% FL_FALSE is now defined in XSB
+%%FL_FALSE :- fail.
+
+
+/***************************************************************************
+    Meta-predicates
+***************************************************************************/
+?- dynamic
+	FL_TAG_DESCRIPTOR_META_PREDICATE/5,
+	FL_BOOL_DESCRIPTOR_META_PREDICATE/5,
+	FL_PROP_DESCRIPTOR_META_PREDICATE/6,
+	FL_RULE_ENABLER/3
+   as FLORA_DYNAMICS_TYPE.
+
+%% Index on Id first, then tag, head, module
+:- index(FL_TAG_DESCRIPTOR_META_PREDICATE/5,[1+4,1+3,1,4,3]).
+:- index(FL_BOOL_DESCRIPTOR_META_PREDICATE/5,[1+4,1+3,1,4,3]).
+:- index(FL_PROP_DESCRIPTOR_META_PREDICATE/6,[1+4,1+3,1,4,3]).
+:- index(FL_RULE_ENABLER/3,[1,2,3]).
+%%%%%%%%%%%%%%% end meta predicates %%%%%%%%%%%%%%%%%%%%%%%%
+
+
+/*************************** \cd/1 ***********************************/
+'\\cd'(F) :-
+	atom(F),
+	!,
+        (flora_file_op(isdir,F) -> true
+        ; flora_warning_line('\\cd(\'~w\'): ~w is not a directory name', [F,F])
+        ),
+	flora_file_op(chdir,F),
+        flora_file_op(cwd,NewF),
+        flrutils:replace_flora_configuration(cwd,NewF,_).
+
+'\\cwd' :- cwd(X), writeln(X).
+'\\lsls' :- 
+        (   xsb_configuration(host_os,windows) ->  shell('dir', Res)
+	;   shell('ls -ls',Res)
+	),
+	Res =:= 0.
+'\\run'(Cmd,Result) :- shell:shell_to_list(Cmd,Result,ErrCode), ErrCode =:= 0.
+
+
+/*********************************************************************/

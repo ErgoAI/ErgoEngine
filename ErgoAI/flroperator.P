@@ -1,0 +1,294 @@
+/* File:      flroperator.P -- Flora operator definitions
+**
+** Author(s): Guizhen Yang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2021.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_contexts.flh"
+
+
+flora_op(1700,xfx,FL_IMPLYOP).
+flora_op(1700,fx,FL_IMPLYOP).
+flora_op(1700,fx,FL_QUERYOP).
+flora_op(1700,fx,FL_LATENT_QUERYOP).
+flora_op(1700,xfy,FL_RIGHTIMPLYOP).
+
+flora_op(1600,xfx,FL_BAR) :-
+	(flora_composer_context(CONTEXT_COMPOSER_LIST)
+	; flora_composer_context(CONTEXT_COMPOSER_AGGREGATE)
+	),
+	!.
+
+%% these should be higher than FL_AND_CONNECTIVE and FL_OR_CONNECTIVE,
+%% so that \and and \or will bind tighter
+flora_op(1550,xfy,FL_LEFTNAFIMPLY).  % alternative if-then: uses NAF, <~~
+flora_op(1550,xfy,FL_RIGHTNAFIMPLY). % alternative if-then: uses NAF, ~~>
+flora_op(1550,xfy,FL_LEFTNEGIMPLY).  % alternative if-then: uses NEG, <==
+flora_op(1550,xfy,FL_RIGHTNEGIMPLY). % alternative if-then: uses NEG, ==>
+flora_op(1550,xfy,FL_NAFIFF).        % alternative iff: uses NAF, <~~>
+flora_op(1550,xfy,FL_NEGIFF).        % alternative iff: uses NEG, <==>
+
+flora_op(1500,xfy,FL_OR_CONNECTIVE).
+
+%% 'function' in defs of user defined funcs; priority should be > comma's
+flora_op(1730,fx,FL_UDFF).
+%% 'if' in equality for user defined functions; priority should be > comma's
+flora_op(1460,xfy,FL_UDFIF).
+%% ':=' for user defined functions; priority should be > comma's
+flora_op(1450,xfy,FL_UDFEQ).
+
+%% Prolog -> analog
+%% Keep this above FL_RULELOGNAF, FL_AND_CONNECTIVE so that
+%% (naf foo --> result) would be interpreted as naf(foo) -->> result
+%% (a,b -->> result : likewise
+%% But should be below FL_OR_CONNECTIVE!
+flora_op(1440,xfy,FL_PROLOG_IFTHEN) :-     %% -->>
+	\+flora_composer_context(CONTEXT_COMPOSER_FRAME_FORMULA).
+
+flora_op(1400,xfy,FL_AND_CONNECTIVE).
+
+%% udf, sensor, prlg symbol_context directives; priority should be < comma's
+flora_op(1390,fx,FL_SYMBOL_CONTEXT_UDF) :-
+        flora_composer_context(CONTEXT_COMPOSER_SYMBOL_CTXT_DIRECT).
+flora_op(1390,fx,FL_SYMBOL_CONTEXT_SENSOR) :-
+        flora_composer_context(CONTEXT_COMPOSER_SYMBOL_CTXT_DIRECT).
+flora_op(1390,fx,FL_SYMBOL_CONTEXT_PROLOG) :-
+        flora_composer_context(CONTEXT_COMPOSER_SYMBOL_CTXT_DIRECT).
+%% Do not rewrite function into predicate inside this operator
+%%flora_op(1000,fx,FL_UDFCANCEL).
+
+flora_op(1300,fy,FL_IF).
+flora_op(1300,xfy,FL_THEN).
+flora_op(1300,xfy,FL_ELSE).
+
+%%flora_op(1300,xfx,FL_AS).            % specifies tabling type - removed
+
+flora_op(1300,fx,FL_UPDATABLE).
+
+flora_op(1300,fy,FL_WHILE).
+flora_op(1300,fy,FL_DO).       % do... until...
+flora_op(1300,xfy,FL_DO).      % while... do...  or unless ... do...
+flora_op(1300,fy,FL_LOOP).     % loop... until...
+flora_op(1300,xfy,FL_LOOP).    % while... loop...
+flora_op(1300,xfy,FL_UNTIL).
+flora_op(1300,fy,FL_UNLESS).
+
+%% These are higher than FL_RULELOGNAF, FL_NEG, etc., so that  neg a ~ neg b
+%% would be interpreted as neg(a) ~ neg(b).
+flora_op(1250,xfx,FL_UNIVEQFORM).      %  ~
+flora_op(1250,xfx,FL_NOTUNIVEQFORM).   %  \~, !~
+
+%% These are used for quantification. ^ separates variables from literals
+%% such choice of priorities composes
+%%      aaaa, exists a^b^c^(p,o),q,r 
+%% as
+%%      aaaa, exists(^a,^(b,^(c,(p, o)))), q, r
+%% and
+%%      aaaa, not exists a^b^c^(p,o),q,r
+%% as
+%%      aaaa, not(exists(^(a,^(b,^(c,(p, o))))), q, r
+flora_op(1200,xfy,FL_QUANTVARCONNECTOR).
+
+flora_op(1200,fy,FL_RULELOGNAF).
+flora_op(1200,fy,FL_PLGNAF).
+flora_op(1200,fy,FL_NEG).
+
+flora_op(1200,fy,FL_POSSIBLE).
+flora_op(1200,fy,FL_IMPOSSIBLE).
+
+%% CONTEXT_COMPOSER_FRAME_FORMULA is set by flrcomposer.P
+flora_op(1100,xfx,FL_MVDARROW) :-       % ->
+	flora_composer_context(CONTEXT_COMPOSER_FRAME_FORMULA).
+flora_op(1100,xfx,FL_ALLINARROW) :-     % +>>
+	flora_composer_context(CONTEXT_COMPOSER_FRAME_FORMULA).
+flora_op(1100,xfx,FL_TOLISTARROW) :-    % ->->
+	flora_composer_context(CONTEXT_COMPOSER_FRAME_FORMULA).
+flora_op(1100,xfx,FL_MVDSIGARROW) :-    % =>, binary
+	flora_composer_context(CONTEXT_COMPOSER_FRAME_FORMULA).
+flora_op(1100,fx,FL_BOOLSIGARR) :-      % =>, unary
+	flora_composer_context(CONTEXT_COMPOSER_FRAME_FORMULA).
+%%flora_op(1100,fx,FL_TRAN).            % '%'
+
+%% above FL_UNIVEQ (=,>,<,...)
+flora_op(1020,xfx,FL_IN).           % \in (list member)
+flora_op(1020,xfx,FL_INN).          % \subset (lists,sets)
+flora_op(1020,xfx,FL_SUBLIST).      % \sublist (lists)
+
+%% Keep these below FL_RULELOGNAF, FL_NEG, FL_PLGNAF, etc.
+%% Otherwise, \+ ?X=?Y would be treated as \+(?X) = ?Y.
+flora_op(1000,xfx,FL_UNIVEQ).       % =
+flora_op(1000,xfx,FL_UNIVNOTEQ).    % \=
+flora_op(1000,xfx,FL_C_UNEQUAL).    % !=
+flora_op(1000,xfx,FL_TRYEQ).        % ?=
+flora_op(1000,xfx,FL_EQ).           % ==
+flora_op(1000,xfx,FL_NOTEQ).        % \==
+flora_op(1000,xfx,FL_C_NOTSAME).    % !==
+flora_op(1000,xfx,FL_METAUNIV).     %  =..
+
+flora_op(1000,xfx,FL_ORDERLT).
+flora_op(1000,xfx,FL_ORDEREQLT).
+flora_op(1000,xfx,FL_ORDERGT).
+flora_op(1000,xfx,FL_ORDEREQGT).
+flora_op(1000,xfx,FL_OBJEQL).
+flora_op(1000,xfx,FL_IS).
+flora_op(1000,xfx,FL_MATHEQ).
+flora_op(1000,xfx,FL_MATHNOTEQ).   %% =\=
+flora_op(1000,xfx,FL_LT).
+flora_op(1000,xfx,FL_EQLT).
+flora_op(1000,xfx,FL_GT).
+flora_op(1000,xfx,FL_EQGT).
+
+%% should be stronger than = (FL_UNIVEQ)
+flora_op(950,fy,FL_EVALEXPR).
+flora_op(950,fy,FL_EVALEXPR2).
+flora_op(950,xfy,FL_STRCONCAT).
+
+flora_op(900,xfx,FL_RIGHTTO).
+flora_op(900,xfx,FL_LEFTTO).
+
+%% the next two are used for the new inline file loading:
+%% ?- [>>foo]. and ?- [+>>foo].
+flora_op(900,fx,FL_RIGHTTO).
+flora_op(900,fx,FL_ALLINARROW).
+
+flora_op(800,yfx,FL_PLUS).
+flora_op(800,yfx,FL_MINUS).
+flora_op(800,yfx,FL_SYMOR).
+
+flora_op(700,yfx,FL_STAR).
+flora_op(700,yfx,FL_DBLSTAR).
+flora_op(700,yfx,FL_SLASH).
+flora_op(700,yfx,'//').
+flora_op(700,yfx,FL_MOD).
+flora_op(700,yfx,FL_DIV).
+flora_op(700,yfx,FL_SYMAND).
+
+flora_op(600,fy,FL_PLUS).
+flora_op(600,fy,FL_MINUS).
+
+flora_op(600,fx,'\\cd').
+flora_op(600,fx,'\\run').
+
+flora_op(500,xfx,FL_AT).
+
+flora_op(400,yfx,FL_ISA).
+flora_op(400,yfx,FL_SUB).
+
+flora_op(400,yfx,FL_RANGE).
+
+flora_op(300,yfx,FL_MVD).
+flora_op(300,yfx,FL_INHERIMVD).
+
+flora_op(290,xfy,FL_SETUNION).
+flora_op(290,xfy,FL_SETDIFF).
+flora_op(290,xfy,FL_SETINTERSECT).
+
+%%flora_op(200,fy,FL_AT).          %% '@' for @{@defeasible/strict} - abandoned
+%%flora_op(200,fy,FL_RULEID_SYM).  %% '!' for @{!foo,moo} - abandoned
+
+%% Don't declare FL_RULEID_OP as an operator!
+%% Or else @!{abc} (cde). will not be composed right!
+%%flora_op(200,fy,FL_RULEID_OP).   %% '@!' in @!ruleid
+
+#if 0
+%% probability; define FL_PROB in flora_terms.flh
+#define FL_PROB '~~'
+flora_op(285,yfx,FL_PROB).
+#endif
+
+%% FL_DATATYPE_CONNECTOR should have higher priority than FL_CURIOP, but
+%% less than the priority of FL_MVD, FL_INHERIMVD, FL_SETUNION, FL_SETDIFF
+%% Otherwise, things like
+%% ?x="22:22:33"^^\t._second@\basetype, ?x="22:22:33"^^xsd#time
+%% ?x="22:22:33"^^xsd#time._minute@\basetype
+%% won't be parsed correctly.
+flora_op(280,yfx,FL_DATATYPE_CONNECTOR). %% ^^-op
+
+flora_op(250,xfy,FL_CURIOP).	         %% #-operator for prefixes
+
+
+%%flora_op(250,fx,FL_TRAN).
+
+
+/***************************************************************************
+   Infix operators that must be immediately enclosed in parentheses
+***************************************************************************/
+flora_parenthesized_op(FL_CURIOP).
+
+/***************************************************************************
+/****************************************************************************
+  flora_opdef(+Precedence,+Associativity,+Op)
+****************************************************************************/
+flora_opdef(X,Y,Z) :-
+	flora_op(X,Y,Z).
+
+flora_opdef(X,Y,Z) :-
+	( flora_composer_context(CONTEXT_SHELL_MODE) -> flora_shop(X,Y,Z)
+	;
+	  flora_dynop(X,Y,Z)
+	).
+
+
+/****************************************************************************
+  flora_conflict_operator(+Precedence,+Associativity,+Op)
+****************************************************************************/
+flora_conflict_operator(P,A,Op) :-
+	flora_op(_P,_A,Op),
+	(P \= _P; A \= _A).
+
+
+/****************************************************************************
+  flora_reset_operator/0
+****************************************************************************/
+flora_reset_operator :- retractall(flora_dynop(_,_,_)).
+
+
+/****************************************************************************
+  flora_define_operator(+Precedence,+Associativity,+Op)
+****************************************************************************/
+flora_define_operator(P,A,Op) :-
+	( flora_op(P,A,Op) ->
+	    true
+	;
+	  assert(flora_dynop(P,A,Op))
+	).
+
+
+/****************************************************************************
+  flora_shreset_operator/0
+****************************************************************************/
+flora_shreset_operator :- retractall(flora_shop(_,_,_)).
+
+
+/****************************************************************************
+  flora_shdefine_operator(+Precedence,+Associativity,+Op)
+****************************************************************************/
+flora_shdefine_operator(P,A,Op) :-
+	( flora_op(P,A,Op) -> true
+	;
+	    assert(flora_shop(P,A,Op))
+	).

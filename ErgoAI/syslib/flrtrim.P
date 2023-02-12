@@ -1,0 +1,360 @@
+/* File:      flrtrim.P - trim the caller argument from Flora literals
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018;
+**      and Vulcan, Inc., 2011-2013.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+%% Trims the FWContext argument from Flora literals.
+%% Used prior to inserting them into the database
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "celltags_xsb.h"
+#include "flora_exceptions.flh"
+#include "flora_terms.flh"
+
+
+:- import
+	reverse/2,
+	append/3,
+	length/2
+   from basics.
+/*
+%% these are used for flora_ground/1 but it was replaced by a C builtin
+:- import
+	term_psc/2,
+	term_type/2,
+	psc_arity/2,
+	psc_name/2,
+	term_arg/3
+   from machine.
+*/
+
+:- import
+        %%flora_decode_module_prefix/1,
+        is_flora_callable_literal/1
+   from flrwrapper.
+
+:- import flora_abort/2 from flrporting.
+
+:- export
+	flora_add_last/3,
+	flora_bind_last/2,
+	flora_generalize_last/2,
+	flora_generalize_last/3,
+	flora_trim_last/2,
+	%%flora_ground/1,
+        flora_generalize_context/2,
+        flora_generalize_callable_context/2,
+	flora_replace_last/3.
+
+%%:- dynamic flora_trim_cache/2.
+:- dynamic flora_generalization_cache/3.
+:- dynamic flora_binding_cache/2.
+:- dynamic flora_add_arg_cache/3.
+
+
+%% replaced by a C builtin
+flora_trim_last(X,Y) :- flora_ground:flrtrim_last(X,Y).
+/*
+%% Trims the last argument both from lists and predicates
+%% Do not table this: performance suffers. Caching works fine.
+flora_trim_last(X,X) :-
+	var(X),
+	!.
+flora_trim_last(X,Y) :-
+	flora_trim_cache(X,Y),
+	!.
+flora_trim_last(X,Y) :-
+	is_list(X),
+	!,
+	length(X,InLen),
+	get_arg_templates(trim,InLen,InArgsTempl,OutArgsTempl),
+	asserta(flora_trim_cache(InArgsTempl,OutArgsTempl)),
+	X=InArgsTempl,
+	Y=OutArgsTempl.
+flora_trim_last(X,Y) :-
+	functor(X,Fun,InLen),
+	get_arg_templates(trim,InLen,InArgsTempl,OutArgsTempl),
+	InPredTempl =.. [Fun|InArgsTempl],
+	OutPredTempl =.. [Fun|OutArgsTempl],
+	asserta(flora_trim_cache(InPredTempl,OutPredTempl)),
+	X=InPredTempl,
+	Y=OutPredTempl.
+*/
+
+%% get_arg_templates(+Optype,+Len,-ListTempl1,-ListTempl2)
+%% Takes length, outputs a list template of the same length, ListTempl1
+%% If Optype=generalize
+%%    then ListTempl2 is ListTempl1 with last element changed to new variable
+%% If Optype=trim
+%%    then ListTempl2 is ListTempl1 with the last list element removed.
+get_arg_templates(generalize,Len,ListTempl1,ListTempl3,LastArg) :-
+	length(ListTempl1,Len),
+	reverse(ListTempl1,ListTempl1reversed),
+	ListTempl1reversed = [_|ListTempl2reversed],
+	ListTempl3reversed = [LastArg|ListTempl2reversed],
+	reverse(ListTempl3reversed,ListTempl3).
+get_arg_templates(trim,Len,ListTempl1,ListTempl2) :-
+	length(ListTempl1,Len),
+	reverse(ListTempl1,ListTempl1reversed),
+	ListTempl1reversed = [_|ListTempl2reversed],
+	reverse(ListTempl2reversed,ListTempl2).
+
+%%  ListTempl4 is ListTempl1 with one addl last list member, a  new var.
+%%  get_arg_templates(add,+Len,-ListTempl1,-ListTempl4,-LastVar)
+get_arg_templates(add,Len,ListTempl1,ListTempl4,LastVar) :-
+	length(ListTempl1,Len),
+	append(ListTempl1,[LastVar],ListTempl4).
+
+%% Make a list of variables of length Len and bind the last variable to Binding
+%% get_arg_templates(bind,+Len,-ListTempl1,+Binding)
+get_arg_templates(bind,Len,ListTempl1,Binding) :-
+	length(ListTempl1,Len),
+	reverse(ListTempl1,ListTempl1reversed),
+	ListTempl1reversed = [Last|_Rest],
+	Last=Binding.
+
+flora_generalize_last(X,Y) :-
+	flora_generalize_last(X,Y,_).
+
+flora_generalize_last(_X,_Y,LastArg) :-
+        nonvar(LastArg),
+        !,
+        flora_abort('BUG: bound last argument in flrtrim:flora_generalize_last/3',
+                    FLORA_ABORT_NOTRACE).
+flora_generalize_last(X,Y,LastArg) :-
+	(var(X) -> X=Y
+	; flora_generalization_cache(X,Y,LastArg)
+	),
+	!.
+flora_generalize_last(X,Y,LastArg) :-
+	is_list(X),
+	!,
+	length(X,InLen),
+	get_arg_templates(generalize,InLen,InArgsTempl,OutArgsTempl,LastArg),
+	asserta(flora_generalization_cache(InArgsTempl,OutArgsTempl,LastArg)),
+	X=InArgsTempl,
+	Y=OutArgsTempl.
+flora_generalize_last(X,Y,LastArg) :-
+	functor(X,Fun,InLen),
+	get_arg_templates(generalize,InLen,InArgsTempl,OutArgsTempl,LastArg),
+	InPredTempl =.. [Fun|InArgsTempl],
+	OutPredTempl =.. [Fun|OutArgsTempl],
+	asserta(flora_generalization_cache(InPredTempl,OutPredTempl,LastArg)),
+	X=InPredTempl,
+	Y=OutPredTempl.
+
+flora_add_last(X,X,X) :-
+	var(X),
+	!.
+flora_add_last(X,Y,LastVar) :-
+	%% if var(LastVar), it can pick up wrong stuff from cache
+	nonvar(LastVar),
+	flora_add_arg_cache(X,Y,LastVar),
+	!.
+flora_add_last(X,Y,LastVar) :-
+	is_list(X),
+	!,
+	length(X,InLen),
+	get_arg_templates(add,InLen,InArgsTempl,OutArgsTempl,LastVar),
+	asserta(flora_add_arg_cache(InArgsTempl,OutArgsTempl,LastVar)),
+	X=InArgsTempl,
+	Y=OutArgsTempl.
+flora_add_last(X,Y,LastVar) :-
+	functor(X,Fun,InLen),
+	get_arg_templates(add,InLen,InArgsTempl,OutArgsTempl,LastVar),
+	InPredTempl =.. [Fun|InArgsTempl],
+	OutPredTempl =.. [Fun|OutArgsTempl],
+	asserta(flora_add_arg_cache(InPredTempl,OutPredTempl,LastVar)),
+	X=InPredTempl,
+	Y=OutPredTempl.
+
+flora_bind_last(X,_) :-
+	var(X),
+	!.
+flora_bind_last(X,Binding) :-
+	flora_binding_cache(X,Binding),
+	!.
+flora_bind_last(X,Binding) :-
+	is_list(X),
+	!,
+	length(X,InLen),
+	get_arg_templates(bind,InLen,InArgsTempl,BindTempl),
+	( flora_binding_cache(InArgsTempl,BindTempl) -> true
+	; asserta(flora_binding_cache(InArgsTempl,BindTempl))
+	),
+	(X=InArgsTempl -> BindTempl=Binding
+	; true
+	).
+flora_bind_last(X,Binding) :-
+	functor(X,Fun,InLen),
+	get_arg_templates(bind,InLen,InArgsTempl,BindTempl),
+	InPredTempl =.. [Fun|InArgsTempl],
+	( flora_binding_cache(InPredTempl,BindTempl) -> true
+	; asserta(flora_binding_cache(InPredTempl,BindTempl))
+	),
+	( X=InPredTempl -> BindTempl=Binding
+	; true
+	).
+
+%% flora_replace_last(+In,+ReplLastArg,-Out)
+%% replaces the last arg of In with ReplLastArg
+flora_replace_last(In,ReplLastArg,Out) :-
+	flora_generalize_last(In,Out,LastArg),
+        %% indirection to avoid contaminating generalization cache
+        LastArg = ReplLastArg.
+
+/****** General Generalize Context *********************************/
+flora_generalize_context(Term,Term) :-
+	(atomic(Term) ; var(Term)),
+	!.
+flora_generalize_context((Term1,Term2),(NewTerm1,NewTerm2)) :-
+        !,
+        flora_generalize_context(Term1,NewTerm1),
+        flora_generalize_context(Term2,NewTerm2).
+
+flora_generalize_context((Term1;Term2),(NewTerm1;NewTerm2)) :-
+        !,
+        flora_generalize_context(Term1,NewTerm1),
+        flora_generalize_context(Term2,NewTerm2).
+
+/*
+   we don't want to generalize if not usermod, as user Flora-2 preds are
+   all usermod.
+   Hack for the future: term_psc(Term,PSC), term_new(PSC,NTerm) - skeletonizes
+                        term in the same model
+*/
+flora_generalize_context(Term,NewTerm) :-
+        machine:term_psc(Term,PSC),
+        functor(Term,Func,Arity),
+        machine:psc_find(Func,Arity,usermod,PSCusermod),
+        PSC \== PSCusermod,
+        !,
+        NewTerm = Term.
+flora_generalize_context(Term,NewTerm) :-
+	(is_flora_callable_literal(Term),
+            flora_bind_last(Term,FL_CONTEXT(Mod,_,_)) ->
+            flora_generalize_last(Term,GTerm),
+            flora_bind_last(GTerm,FL_CONTEXT(Mod,_,_))  %% preserve module
+	; GTerm = Term
+	),
+        %% Why is the below done for callables?
+        %% flora_generalize_last/2 has already been applied above.
+	GTerm =.. [Func|Args],
+        generalize_last_in_list(Args,NewArgs),
+        NewTerm =.. [Func|NewArgs].
+
+generalize_last_in_list([],[]) :- !.
+generalize_last_in_list([H|L],[NH|NL]) :-
+        flora_generalize_context(H,NH),
+        generalize_last_in_list(L,NL).
+
+%% this generalizes only the rule numbers in the context while preserving
+%% the module. Module is important to preserve or else "unexported" errors
+%% will pop up (eg, from lib/flrtypeconstraints.flr)
+flora_generalize_callable_context(Term,Term) :-
+	(atomic(Term) ; var(Term)),
+	!.
+flora_generalize_callable_context([],[]) :- !.
+flora_generalize_callable_context([H|T],[HG|TG]) :-
+        !,
+        flora_generalize_callable_context(H,HG),
+        flora_generalize_callable_context(T,TG).
+
+flora_generalize_callable_context((Term1,Term2),(NewTerm1,NewTerm2)) :-
+        !,
+        flora_generalize_callable_context(Term1,NewTerm1),
+        flora_generalize_callable_context(Term2,NewTerm2).
+
+flora_generalize_callable_context((Term1;Term2),(NewTerm1;NewTerm2)) :-
+        !,
+        flora_generalize_callable_context(Term1,NewTerm1),
+        flora_generalize_callable_context(Term2,NewTerm2).
+
+%% Like flora_generalize_context/2 but does nothing if the term is not callable
+%% Unclear if flora_generalize_context/2 is really needed
+:- import
+        FLORA_DELAY_CHECKER/2,
+        FLLIBMODLIT/4,
+        FLLIBMODOBJ/6
+   from usermod.
+flora_generalize_callable_context(Term,NewTerm) :-
+	( Term = FLLIBMODOBJ(Flag,Fun,Arg,Module,FL_CONTEXT(Mod,_,_),Out) ->
+            flora_generalize_callable_context(Arg,ArgGen),
+            NewTerm = FLLIBMODOBJ(Flag,Fun,ArgGen,Module,FL_CONTEXT(Mod,_,_),Out)
+        ; Term = FLLIBMODLIT(Fun,Arg,Module,FL_CONTEXT(Mod,_,_)) ->
+            flora_generalize_callable_context(Arg,ArgGen),
+            NewTerm = FLLIBMODLIT(Fun,ArgGen,Module,FL_CONTEXT(Mod,_,_))
+
+        ; Term = FLORA_DELAY_CHECKER(BodyVars,HeadVars) ->
+            flora_generalize_callable_context(BodyVars,BodyVarsGen),
+            NewTerm = FLORA_DELAY_CHECKER(BodyVarsGen,HeadVars)
+        ; is_flora_callable_literal(Term),
+            flora_bind_last(Term,FL_CONTEXT(Mod,_,_)) ->
+            flora_generalize_last(Term,NewTerm),
+            flora_bind_last(NewTerm,FL_CONTEXT(Mod,_,_))
+	; NewTerm = Term
+	).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% flora_ground/1 - like ground/1, but if the functor is a flora predicate %%
+%%                  wrapper then do not check the last argument,           %%
+%%                  for HiLog and F-logic predicates.                      %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% replaced by a C builtin
+/*
+flora_ground(Y) :-
+	term_type(Y,T),
+	((T =:= XSB_FREE ; T =:= XSB_ATTV)
+	->	fail
+	; T =:= XSB_LIST
+	->	Y=[A1|A2],
+	 	flora_ground(A1), flora_ground(A2)
+	 ; T =:= XSB_STRUCT
+	 ->	term_psc(Y,PSC), psc_arity(PSC,A),
+	        psc_name(PSC,Functor),
+	        (flora_decode_module_prefix(Functor)
+		-> %% flogic or HiLog predicate
+		    AA is A - 1
+		;   AA is A
+		),
+	 	flora_ground(Y,1,AA)
+	 ;	true
+	).
+flora_ground(Y,N,A) :-
+	(N > A
+	-> true
+	;
+	    term_arg(Y,N,Arg),
+	    flora_ground(Arg),
+	    N1 is N+1,
+	    flora_ground(Y,N1,A)
+	).
+*/

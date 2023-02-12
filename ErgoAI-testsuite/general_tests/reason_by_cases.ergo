@@ -1,0 +1,113 @@
+
+?- Method[mustDefine(off,(p(?)@\@,q(?)@\@,r(?)@\@))]@\sys.
+
+d(3) :- p(1).
+d(3) :- p(2).
+
+e(4) :- q(1).
+e(4) :- q(2).
+
+f(5) :- r(1).
+f(5) :- r(2).
+
+disj(${p(1)},${p(2)}).
+disj(${r(1)},${r(2)}).
+
+// Note: d(3), f(4) - true; e(?) - false
+
+/*
+**        %disjquery(+?Disjunctions,+?Query)
+**
+** Run ?Query in a compartmentalized way with respect to ?Disjunctions.
+** Check if the query is true in the presence of the disjunctive info
+** listed in the list ?Disjunctions. ?Disjunctions determines all
+** possible worlds in which ?Query must be tested.
+** NOT all the disjunctions in that list actually need to be true.
+** The false disjunctions (like disj(q(1),q(2)) in our example) are ignored,
+** but can be listed in ?Disjunctions to make the user's life easier.
+**
+** High-level description: ?Choices is a list of possible worlds.
+** We first generate all possible worlds and then test that ?Query is
+** true in ALL possible worlds and that the query answers (bindings)
+** are the same in each such world.
+*/
+// Rough first try and inefficient
+%disjquery(?Disjunctions,?Query) :-
+        get_choices(?Disjunctions,?Choices),
+        %hypoquery(?Choices,?Query).
+
+
+/*
+**       %hypoquery(+?Choices,+?Query)
+**
+** Hypothetically insert each choice in ?Choices, creating a possible world
+** compatible with each choice. Then test ?Query.
+** In other words, a choice is a conjunction of literals where each literal
+** is a disjunct in one of the conjunctions (each choice has exactly one
+** literal from each disjunction).
+** The query must be true with the same bindings in each possible world.
+**
+** Right now works only for binary disjunctions.
+** Quick&dirty - for illustration, inefficient.
+*/
+%hypoquery([],?_Query) :- !.
+%hypoquery([?Choice|?Rest],?Query) :-
+        //flora_generalize_context(?Query,?Query1)@\plg(flrtrim),
+        ?Query1 = ?Query,
+        <>(tinsert{?Choice},?Query),
+        %hypoquery(?Rest,?Query1).
+
+// Generate all possible alternative choices for constructing
+// hypothetical worlds that are implicit in ?Disjunctions
+get_choices(?Disjunctions,?Choices) :-
+        ?Choices = setof{?Choice|get_choice(?Disjunctions,?Choice)}.
+
+get_choice([],${null}) :- !.
+get_choice([?Disj|?Rest],?Choice) :-
+        \if ?Disj \then (
+           ?Disj ~ disj(?Fst,?Scnd),
+           (?Out = ?Fst ; ?Out = ?Scnd),
+           ?Choice = (?Out,?RestChoices),
+           get_choice(?Rest,?RestChoices)
+        ) \else
+           get_choice(?Rest,?Choice).
+
+
+// Tests
+// If this will turn out to be useful, a high-level feature could be added to
+// the compiler, which will eliminate the need for so many reifications
+%tst1 :- 
+        %disjquery([${disj(${p(1)},${p(2)})},
+                    ${disj(${q(1)},${q(2)})},    // this disj is false
+                    ${disj(${r(1)},${r(2)})}],
+                   ${true{d(?X)}}
+                 ),
+        writeln(test1=?X)@\plg.
+
+%tst2 :- 
+        %disjquery([${disj(${p(1)},${p(2)})},
+                    ${disj(${q(1)},${q(2)})},    // this disj is false
+                    ${disj(${r(1)},${r(2)})}],
+                   ${d(?X),f(?Y)}
+                 ),
+        writeln(test2=?X+?Y)@\plg.
+
+%tst3 :- 
+        %disjquery([${disj(${p(1)},${p(2)})},
+                    ${disj(${q(1)},${q(2)})},    // this disj is false
+                    ${disj(${r(1)},${r(2)})}],
+                   ${true{d(?X),f(?Y),\naf e(?)}}
+                 ),
+        writeln(test3=?X+?Y)@\plg.
+
+
+%pretest :- %tst1, %tst2, %tst3.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	!,
+	%pretest,
+	told@\plg().
+

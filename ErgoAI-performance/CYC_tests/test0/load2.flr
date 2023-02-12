@@ -1,0 +1,31 @@
+//:- setsemantics{tabling(subsumptive)}.
+//?- flora_disable_attributed_variables@_plg(flrutils).
+//:- use_argumentation_theory{ogcle} .
+//?- [ogclpe>>ogcle] .
+:- setsemantics{tabling=incremental}.
+//:- setsemantics{inheritance(none)}.
+
+//_overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+//_overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+//?- _optimize(class_expressions, main) .
+//?- flora_set_unification_mode(correct)@_plg(flrerrhandler).
+//?- flora_set_unification_mode(fast)@_plg(flrerrhandler).
+
+#include "../silk-predicates.flr"
+#include "core-pragmatics.flr"
+#include "core-rules.flr"
+#include "latest-tiny-kb.flr"
+#include "rmt-removal-lookup-pos-1.flr"
+
+?- ['../silk-predicates_at_builtin.flr' >> builtin].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+
+?- %silkb#writeLn(("CYC TEST (:REMOVAL-LOOKUP-POS 1)"^^_string))@builtin .
+
+
+?- writeln(Started)@_plg,
+	'HYP-BinaryPredicate-260765'('HYP-Thing-260763', 'HYP-Thing-260764'),
+	%silkb#writeLn(("SUCCESS (:REMOVAL-LOOKUP-POS 1)"^^_string))@builtin .
+
+

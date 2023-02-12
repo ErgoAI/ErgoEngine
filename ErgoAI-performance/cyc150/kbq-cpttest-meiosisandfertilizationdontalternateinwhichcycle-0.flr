@@ -1,0 +1,93 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-MeiosisAndFertilizationDONTAlternateInWhichCycle (query 0)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28derived_from.29_Biology_Chapter_13_Review
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, negationPreds('partwiseDisjoint-TypeType', 'shareParts-TypeType')).
+
+// Explicit Background Facts
+istAsserted(BiologyMt, iteratedSubsituationTypeOfSerialCycleType(TheCellCycle, CellCycle)).
+istAsserted(BiologyMt, 'partwiseDisjoint-TypeType'(CellCycle, Meiosis)).
+
+// Explicit Background Rules
+backwardSentence(properSubEventTypes(?TYPE, ?PHASE1)) :- mtVisible(BaseKB), naf backchainForbidden(properSubEventTypes), iteratedSubsituationTypeOfSerialCycleType(?CYCLE_TYPE, ?TYPE), phasesAlternateInCycleType(?CYCLE_TYPE, ?XPHASE2, ?PHASE1).
+backwardSentence(not(iteratedSubsituationTypeOfSerialCycleType(?CYCLE_TYPE, ?TYPE))) :- mtVisible(BaseKB), naf backchainForbidden(iteratedSubsituationTypeOfSerialCycleType), phasesAlternateInCycleType(?CYCLE_TYPE, ?XPHASE2, ?PHASE1), not(properSubEventTypes(?TYPE, ?PHASE1)).
+backwardSentence(not(phasesAlternateInCycleType(?CYCLE_TYPE, ?XPHASE2, ?PHASE1))) :- mtVisible(BaseKB), naf backchainForbidden(phasesAlternateInCycleType), iteratedSubsituationTypeOfSerialCycleType(?CYCLE_TYPE, ?TYPE), not(properSubEventTypes(?TYPE, ?PHASE1)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-MeiosisAndFertilizationDONTAlternateInWhichCycle 0').
+%pretest :- neg phasesAlternateInCycleType(TheCellCycle, ReproductiveFertilizationEvent, Meiosis), %write_results('SUCCESS  : $CPTTest-MeiosisAndFertilizationDONTAlternateInWhichCycle 0').
+
+// Debugging
+proof(6457, 0) :- iteratedSubsituationTypeOfSerialCycleType(TheCellCycle, CellCycle).
+proof(6457, 1) :- iteratedSubsituationTypeOfSerialCycleType(TheCellCycle, CellCycle).
+proof(6457, 2) :- not(properSubEventTypes(CellCycle, Meiosis)).
+proof(6457, 3) :- not(properSubEventTypes(CellCycle, Meiosis)).
+proof(6457, 4) :- iteratedSubsituationTypeOfSerialCycleType(TheCellCycle, CellCycle), not(properSubEventTypes(CellCycle, Meiosis)).
+proof(6457, 5) :- not(phasesAlternateInCycleType(TheCellCycle, ReproductiveFertilizationEvent, Meiosis)).
+
+proof(6457, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(6457, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(6457, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(6457, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(6457, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(6457, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(6457, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(6457, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(6457, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(6457, 2002) :- admittedArgument(SecondFn(50, MinuteFn(56, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(6457, 2003) :- admittedArgument(SecondFn(50, MinuteFn(56, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(6457, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(6457, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(6457, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiologyMt).
+proof(6457, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(6457, 2008) :- negationPreds('partwiseDisjoint-TypeType', properSubEventTypes). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

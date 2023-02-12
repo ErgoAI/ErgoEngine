@@ -1,0 +1,25 @@
+#include "standard.h"
+
+%pretest :-
+	[+sensortest_usedecl].
+
+%test :-
+	(File[exists(sensortest_load_err_old)]@\io -->> File[unlink(sensortest_load_err_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(sensortest_load_err_flora_old,sensortest_load_err_old)]@\io
+	;  File[link(sensortest_load_err_ergo_old,sensortest_load_err_old)]@\io
+        ),
+	flora_set_maxerrors(30)@\plg(flrutils),
+	flora_set_maxwarnings(50)@\plg(flrutils),
+	file_reopen(temp,w,STDERR,?)@\plg(file_io),
+	file_reopen(temp1,w,STDWARN,?)@\plg(file_io),
+	%pretest,
+	file_close(STDWARN)@\plg(file_io),
+	file_close(STDERR)@\plg(file_io),
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp)@\plg,append,?Port2)@\plg,
+	copyIOport(?Port1,?Port2)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	flora_file_op(unlink,temp1)@\plg(flrporting).
+

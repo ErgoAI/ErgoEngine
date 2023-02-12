@@ -1,0 +1,1142 @@
+
+
+\chapter[JAVA-to-\FLSYSTEM Interfaces]
+{JAVA-to-\FLSYSTEM Interfaces\\
+  {\Large by Aditi Pandit and Michael Kifer}}
+
+
+This chapter documents the API for accessing \FLSYSTEM from Java
+programs.  The API has two versions: a \emph{low-level API} (used most
+commonly), which
+enables Java programs to send arbitrary queries to \FLSYSTEM and
+get results, and an \emph{experimental}
+\emph{high-level API}, which is more limited and requires some setup,
+but can simplify a number of tasks in interfacing the two systems. The high-level API establishes a
+correspondence between Java classes and \FLSYSTEM classes, which
+enables manipulation of \FLSYSTEM classes by executing appropriate
+methods on the corresponding Java classes. Both interfaces rely on
+the Java-XSB interface, called \emph{Interprolog} \cite{Calejo2004}, developed by
+\url{http://interprolog.com/}.
+
+The API assumes that a Java program is started first and then it invokes
+XSB/\FLSYSTEM as a subprocess. The XSB/\FLSYSTEM side is passive: it only
+responds to the queries sent by the Java side.
+Queries can be anything that is accepted at the \FLSYSTEM
+shell prompt: queries, insert/delete commands, control switches, etc., are
+all fine.
+One thing to remember is that the backslash is used in Java
+as an escape symbol and in \FLSYSTEM as a prefix of the builtin operators
+and commands. Therefore, each backslash must be escaped with another
+backslash. That is, instead of a query like "\texttt{p(?X) \bs{}and q(?X).}"
+the API requires "\texttt{p(?X) \bs{}\bs{}and q(?X)}.".
+
+\paragraph{The \texttt{FloraObject} object.}
+While reading this document one will notice that the class
+\texttt{FloraObject} is used in many cases. This class consists of
+Java objects that
+encapsulate  \FLSYSTEM objects. These Java objects
+are mostly used internally.
+From the end user's point of view, the only method of interest in this
+class is
+\texttt{toString()}. 
+
+
+\section{The Low-level Interface} \label{sec-java-lowlevel}
+ The low-level API enables Java programs to send arbitrary queries
+to \FLSYSTEM and get results. 
+It is assumed that the following two Java properties
+are set either as part of the java command (e.g.,  \texttt{java
+  ... -DPROLOGDIR=some-dir ...}) or inside the Java application itself, e.g.,
+%% 
+\begin{verbatim}
+System.setProperty("PROLOGDIR","C:\\JSmith\\XSB\\config\\x64-pc-windows\\bin");
+\end{verbatim}
+%%
+Please remember that Windows uses backslash as a file separator, and inside a
+Java program these backslashes must be doubled, as shown above.
+
+The two aforementioned properties are:
+\begin{description}
+\item[\texttt{PROLOGDIR}:] 
+This variable points to the folder
+containing the XSB executable (binary, not the command script).
+\\
+To get the right value for your installation, start
+\FLSYSTEM and execute this at the prompt:
+%% 
+\begin{verbatim}
+system{bindir = ?D}.
+\end{verbatim}
+%% 
+The result will be returned in the variable \texttt{?D}. 
+
+\item[{\tt FLORADIR}:]
+\label{page-floradir}
+  This variable must point to the folder
+containing the \FLSYSTEM installation.
+\\
+To get the right value for your installation, start
+\FLSYSTEM and execute this at the prompt:
+%% 
+\begin{verbatim}
+system{installdir = ?D}.
+\end{verbatim}
+%% 
+Again, the result will be returned in the variable \texttt{?D}. 
+\end{description}
+  %%
+
+\bigskip
+
+In order to be able to access \FLSYSTEM, the Java program must first establish
+a session for a running instance of \FLSYSTEM. Multiple sessions can be active
+at the same time. The knowledge bases in the different running instances
+are completely independent. Sessions are instances of
+the class {\tt net.sf.flora2.API.FloraSession}. This class provides methods
+for opening/closing sessions and loading \FLSYSTEM knowledge bases
+(which are also used in the high-level
+interface). In addition, a session provides 
+methods for executing arbitrary \FLSYSTEM queries. The following is the complete
+list of the methods that are available in that class.
+All these are \emph{public}
+\emph{instance} methods  and the word ``public'' is therefore omitted.
+%%
+\begin{itemize}
+\item
+\begin{verbatim}
+FloraSession()
+\end{verbatim}
+  This constructor creates a connection to an instance of \FLSYSTEM.
+  Use it like this:
+  %% 
+\begin{verbatim}
+    FloraSession session = new FloraSession();
+\end{verbatim}
+  %% 
+  All the methods below are executed on \texttt{FloraSession}-objects
+  produced in this way. 
+\item {\tt close()} \\
+  This method must be called to terminate a \FLSYSTEM session. Note that this does
+  not terminate the Java program that initiated the session:
+  to exit the Java program that talks to \FLSYSTEM, one needs to execute
+  the statement
+  %%
+\begin{verbatim}
+ System.exit();  
+\end{verbatim}
+  %%
+  Note that just returning from the {\tt main} method is not enough. 
+
+\item
+\begin{verbatim}
+Iterator<FloraObject> executeQuery(String query)
+\end{verbatim}
+    This method executes the \FLSYSTEM query given by the
+parameter {\tt query}.
+The query must be terminated with a period, exactly as it would be typed
+in the \FLSYSTEM shell.
+It is used to execute \FLSYSTEM queries that
+do not require variable bindings to be returned back to Java \emph{or} queries that
+have only
+a single variable to be returned. Each binding is represented as
+an instance of the class {\tt net.sf.flora2.API.FloraSession}.
+The examples below illustrate how to process the results returned by this
+method.
+
+\item
+\begin{verbatim}
+Iterator<HashMap<String,FloraObject>> executeQuery(String query,Vector vars)
+\end{verbatim}
+  This method executes the \FLSYSTEM query given by the first argument.
+The query must be terminated with a period, as if it were typed
+in the \FLSYSTEM shell.
+ The Vector {\tt vars} (of strings) specifies the names of all the variables
+  in the query for which bindings need to be returned. These variables are
+  added to the vector using the method {\tt add} before calling
+  {\tt executeQuery}. For instance, {\tt vars.add("?X")}.  
+  
+  This version of {\tt executeQuery} returns an iterator over all bindings
+  returned by the \FLSYSTEM query.  Each binding is represented by a {\tt
+    HashMap<String,FloraObject>} 
+  object which can be used to obtain the value of each variable in the
+  query (using the {\tt get()} method). The value of each variable returned
+  is an instance of {\tt net.sf.flora2.API.FloraObject}.
+
+  The examples below show how to handle the results returned by this method.
+
+\item \texttt{boolean executeCommand(String command)} \\
+  This is a simplified way of executing \FLSYSTEM queries that \emph{do not need}
+  to return any results, i.e., when the user wants to know if the query is
+  true or false for \emph{some} bindings of command's arguments (if there
+  are any), but not the actual bindings.
+  There are also differences (compared to \texttt{executeQuery()})
+  in the way this command handles exceptions, as
+  explained in the next section.
+  As before, the command must be terminated with a period.
+
+\item
+\begin{verbatim}
+boolean loadFile(String fileName,String moduleName)
+\end{verbatim}
+  This method loads the \FLSYSTEM program, specified by the parameter {\tt
+    fileName} into the \FLSYSTEM module specified in {\tt moduleName}.
+  If errors occur during loading, \texttt{loadFile()} returns \texttt{false}.  
+\item
+\begin{verbatim}
+boolean compileFile(String fileName,String moduleName)
+\end{verbatim}
+  This method compiles (but does not load)
+  the \FLSYSTEM program, specified by the parameter {\tt
+    fileName} for the \FLSYSTEM module specified in {\tt moduleName}.
+  If errors occur during compilation, \texttt{compileFile()} returns \texttt{false}.  
+\item
+\begin{verbatim}
+boolean addFile(String fileName,String moduleName)
+\end{verbatim}
+  This method adds the \FLSYSTEM program, specified by the parameter {\tt
+    fileName} to an existing \FLSYSTEM module specified in {\tt moduleName}.
+  If errors occur during addition, \texttt{addFile()} returns \texttt{false}.  
+\item
+\begin{verbatim}
+boolean compileaddFile(String fileName,String moduleName)
+\end{verbatim}
+  This method compiles the \FLSYSTEM program, specified by the parameter {\tt
+    fileName} for addition to the \FLSYSTEM module specified in {\tt moduleName}.
+  If errors occur during compilation, \texttt{compileaddFile()} returns \texttt{false}.  
+\end{itemize}
+
+The code snippet below illustrates the low-level API.
+
+\paragraph{Step 1: Writing \FLSYSTEM programs to be called by Java.}
+  Let us assume that we have a file, called  {\tt flogic\_basics.flr},
+  which contains the following information:
+\begin{quote}
+\begin{verbatim}
+person :: object.
+dangerous_hobby :: object.
+john:employee.
+employee::person.
+
+bob:person.
+tim:person.
+betty:employee.
+
+person[|age=>integer,
+       kids=>person,
+       salary(year)=>value,
+       hobbies=>hobby,
+       believes_in=>something,
+       instances => person
+|].
+
+mary:employee[
+    age->29,
+    kids -> {tim,leo,betty},
+    salary(1998) -> a_lot
+].
+
+tim[hobbies -> {stamps, snowboard}].
+betty[hobbies->{fishing,diving}].
+
+snowboard:dangerous_hobby.
+diving:dangerous_hobby.
+
+?_X[self-> ?_X].
+
+person[|believes_in -> {something, something_else}|].
+\end{verbatim}
+\end{quote}
+
+\paragraph{Step 2:  Writing a JAVA application to interface with \FLSYSTEM.}
+ The following code loads a \FLSYSTEM program from a file and then passes
+ queries to the knowledge base.
+
+\begin{verbatim}
+import java.util.*;
+import net.sf.flora2.API.*;
+import net.sf.flora2.API.util.*;
+
+public class flogicbasicsExample {
+
+    public static void main(String[] args) {
+        // create a new session for a running instance of the engine
+        FloraSession session = new FloraSession();
+        System.out.println("Engine session started");
+
+        // Assume that Java was called with -DINPUT_FILE=the-file-name
+        String fileName = System.getProperty("INPUT_FILE");
+        if(fileName == null || fileName.trim().length() == 0) {
+            System.out.println("Invalid path to example file!");
+            System.exit(0);
+
+        }
+        // load the program into module basic_mod
+        if (session.loadFile(fileName,"basic_mod"))
+            System.out.println("Example loaded successfully!");
+        else
+            System.out.println("Error loading the example!");
+
+        /* Running queries from flogic_basics.flr */
+
+        /* Query for persons */
+        String command = "?X:person@basic_mod.";
+        System.out.println("Query:"+command);
+        Iterator<FloraObject> personObjs = session.executeQuery(command);
+
+        /* Printing out the person names and information about their kids */
+        while (personObjs.hasNext()) {
+            FloraObject personObj = personObjs.next();
+            System.out.println("Person name:"+personObj);
+        }
+
+        command = "person[instances -> ?X]@basic_mod.";
+        System.out.println("Query:"+command);
+        personObjs = session.executeQuery(command);
+
+        /* Printing out the person names  */
+        while (personObjs.hasNext()) {
+            Object personObj = personObjs.next();
+            System.out.println("Person Id: "+personObj);
+        }
+
+        /* Example of executeQuery with two arguments */
+        Vector<String> vars = new Vector<String>();
+        vars.add("?X");
+        vars.add("?Y");
+
+        Iterator<HashMap<String,FloraObject>> allmatches =
+            session.executeQuery("?X[believes_in -> ?Y]@basic_mod.",vars);
+        System.out.println("Query:?X[believes_in -> ?Y]@basic_mod.");
+        while(allmatches.hasNext()) {
+            HashMap<String,FloraObject> firstmatch = allmatches.next();
+            Object Xobj = firstmatch.get("?X");
+            Object Yobj = firstmatch.get("?Y");
+            System.out.println(Xobj+" believes in: "+?Yobj);
+        }
+        // quit the system
+        session.close();
+        System.exit(0);
+    }
+}
+\end{verbatim}
+
+ For the information on how to invoke the above Java class in the context
+ of the Java-\FLSYSTEM API,
+ please see Section~\ref{sec-executing-apps}.
+
+\section{Debugging \FLSYSTEM Statements Used in a Java Program}
+
+\subsection{Logging}
+
+It often happens that an \FLSYSTEM query or a file used from within a Java
+Program has an error and \texttt{executeQuery()} returns an error message
+saying that there is a ``problem'' with a \FLSYSTEM statement.
+The Java part does not know what the problem is but it can be told to show
+the output of the \FLSYSTEM statements on the console. This can be done by
+executing the statement
+%% 
+\begin{verbatim}
+    FloraSession.showOutput();
+\end{verbatim}
+%% 
+This will stream all warnings, errors, and just normal output from
+\FLSYSTEM to the console.
+When no longer needed, this mode can be turned off like this:
+%% 
+\begin{verbatim}
+    FloraSession.hideOutput();
+\end{verbatim}
+%% 
+The \texttt{FloraSession.showOutput();} statement can be executed at any
+point in the program, but preferably after calling \texttt{FloraSession()},
+to avoid irrelevant output.
+
+Here is an example of what you might see:
+%% 
+\begin{verbatim}
+My command 2 has succeeded
+
+yes
+
+Loading file test.ergo:
+
+yes
+
+++Error[Ergo]> [test.ergo] <Composer> near line(2)/char(3) `b' unexpected operand:
+ ',', '.', or some other operator may be missing just before the indicated location
+
+++1 error
+
+++compilation aborted
+\end{verbatim}
+%% 
+Here the output from \FLSYSTEM starts with normal output from, say,
+\texttt{writeln(...)@\bs{}io} commands and ends with a compilation error
+encountered while compiling the file \texttt{test.ergo}.  
+(The above is output from \ERGO; in \FLORA it will be similar.)
+
+Two other useful calls are
+%% 
+\begin{verbatim}
+    FloraSession.enableLogging();
+    FloraSession.disableLogging();
+\end{verbatim}
+%%
+Executing \texttt{FloraSession.enableLogging();} will cause the Java API to
+record all major events such as starting a session, ending it, loading or
+adding a \FLSYSTEM file, and execution of every query. It does not report
+query answers, however. Logging can be enabled or disabled anywhere in the
+program, but, of course, the log messages will start to appear only after
+the enabling command is executed and will cease to appear after
+\texttt{disableLogging()} is executed. 
+
+\subsection{Catching Exceptions, Checking Errors and Warnings}
+
+Logging allows one to find errors and warnings in an \FLSYSTEM
+subprocess of a Java program by checking the output produced by the session.
+However, often one needs to be able to do this \emph{programmatically}  and
+this can be done as follows.
+
+\paragraph{Exceptions.} First, if a running \FLSYSTEM query invoked via
+\texttt{executeQuery()}
+issues a
+run-time error, a Java \texttt{FlrException} is thrown, and this can be
+caught by the parent Java program.
+An exception is also thrown if the query passed to \texttt{executeQuery()}
+has a syntax error.\footnote{
+  If the query statement itself has no syntax error but it loads a file
+  that has a syntax error then \emph{no} exception is thrown. Read on to
+  see how to identify this situation programmatically.
+}
+%% 
+Note that \FLSYSTEM statements invoked via 
+the other methods (\texttt{executeCommand()},
+\texttt{loadFile()}, etc.) do \emph{not} throw  exceptions and errors that
+occur during the execution of those statements can be detected only through
+the mechanism of \texttt{hasErrors()} described below. 
+However, \texttt{executeCommand()}, \texttt{loadFile()},
+\texttt{addFile()}, etc., may throw exceptions for other reasons, such as  
+a wrong module in \texttt{loadFule()}, etc. 
+
+\paragraph{Detecting syntax errors and warnings.}
+Errors and warnings produced
+by the \FLSYSTEM compiler do \emph{not} result in exceptions, so they
+cannot be caught via Java's try-catch mechanism. To detect if a previous
+\texttt{executeQuery()},  \texttt{executeCommand()}, \texttt{loadFile()},
+or similar API command produced a warning or an error, use the following
+\emph{public} \emph{instance}  methods in class \texttt{FloraSession}:
+%% 
+\begin{itemize}
+\item  \texttt{boolean hasErrors()} --- executing
+  \texttt{session.hasErrors()}, where session is a variable holding
+  a \texttt{FloraSession}
+  object created earlier,
+  will tell if a previous \texttt{executeQuery()} or other such
+  command (executed on the same \texttt{FloraSession} object)
+  has produced an error. This also includes runtime errors, like
+  \texttt{FlrException}'s. 
+\item  \texttt{boolean hasWarnings()} --- executing
+  \texttt{session.hasWarnings()}, where session is a  variable holding
+  a \texttt{FloraSession}
+  object, will tell if a previous \texttt{executeQuery()} or other such
+  command (executed on the same \texttt{FloraSession} object)
+  has produced a warning.
+\end{itemize}
+%% 
+
+
+
+
+\section{The High-Level Interface (experimental)}
+
+The high-level API operates by creating proxy Java classes for 
+\FLSYSTEM classes selected by the user.
+This enables the Java program to operate on \FLSYSTEM classes by
+executing appropriate methods on the corresponding proxy Java classes.
+However, compared to the low-level interface, the high-level one is
+somewhat limited.  Both interfaces can be used at the same time, if desired.
+
+\textbf{Note A:}  
+Most users appear to opt for the low-level interface and such readers
+can skip this section.
+
+\textbf{Note B}: This interface will not work for \FLSYSTEM programs that
+use \emph{non-alphanumeric} names for methods and predicates. For instance,
+if a program involves statements like \texttt{foo['bar\$\#123'->456]} then
+the interface might generate syntactically incorrect Java proxy classes and
+errors will be issued during the compilation. 
+
+\bigskip
+
+The use of the high-level API involves a number of steps, as described below.
+
+\paragraph{Stage 1: Writing \FLSYSTEM programs to use with the high-level
+  interface.}
+We assume the same {\tt flogic\_basics.flr} file as in the previous
+example.
+
+\paragraph{Stage 2: Generating Java classes that serve as proxies for \FLSYSTEM classes.}
+The \FLSYSTEM side of the Java-to-\FLSYSTEM high level API provides a predicate
+to generate Java proxy classes for each \fl class which have a signature
+declaration in the \FLSYSTEM knowledge base. A proxy class gets defined so
+that it would have methods to manipulate the attributes and methods of the
+corresponding \fl class for which signature declarations are available.  If
+an \fl class has a declared value-returning attribute {\tt foobar} then the
+proxy class will have the following methods. Each method name has the form
+\emph{action}$S_1S_2S_3$\_{\tt foobar}, where \emph{action} is either {\tt
+  get}, {\tt set}, or {\tt delete}. The specifier $S_1$ indicates the type
+of the method --- {\tt V} for value-returning, {\tt B} for Boolean, and
+{\tt P} for procedural. The specifier $S_2$ tells whether the operation
+applies to the signature of the method ({\tt S}), e.g., {\tt
+  person[foobar=>string]}, or to the actual data ({\tt D}), for example,
+{\tt john[foobar->3]}.  Finally, the specifier $S_3$ tells if the operation
+applies to the inheritable variant of the method ({\tt I})
+or its non-inheritable variant ({\tt N}).
+%% 
+\begin{enumerate}
+\item {\tt public Iterator<FloraObject> getVDI\_foobar()}\\
+  {\tt public Iterator<FloraObject> getVDN\_foobar()}
+  \\
+  {\tt public Iterator<FloraObject> getVSI\_foobar()}\\
+  {\tt public Iterator<FloraObject> getVSN\_foobar()}
+  \\
+  The above methods query the knowledge base and get all answers for the
+  attribute {\tt foobar}. They return iterators through which these answers
+  can be processed one-by-one. Each object returned by the iterator is of
+  type {\tt FloraObject}.  The {\tt getVDN} form queries non-inheritable
+  data methods and {\tt getVDI} the inheritable ones. The {\tt getVSI} and
+  {\tt getVSN} forms query the signatures of the attribute {\tt foobar}.
+\item {\tt public boolean setVDI\_foobar(Vector value)}\\
+  {\tt public boolean setVDN\_foobar(Vector value)}
+  \\
+  {\tt public boolean setVSI\_foobar(Vector value)}\\
+  {\tt public boolean setVSN\_foobar(Vector value)}
+  \\
+  These methods
+  add values to the set of values returned by the attribute {\tt foobar}. The
+  values must be placed in the vector parameter passed these methods.
+  Again, {\tt setVDN} adds data for non-inheritable methods and {\tt setVDI}
+  is used for inheritable methods.
+  {\tt setVSI} and {\tt setVSN} add types to signatures.  
+\item {\tt public boolean setVDI\_foobar(Object value)}\\
+  {\tt public boolean setVDN\_foobar(Object value)}
+  \\
+  {\tt public boolean setVSI\_foobar(Object value)}\\
+  {\tt public boolean setVSN\_foobar(Object value)}\\
+  These methods provide a simplified interface when only one value needs to
+  be added.  It works like the earlier set\_* methods, except that only one
+  value given as an argument is added.
+\item {\tt public boolean deleteVDI\_foobar(Vector value)}\\
+  {\tt public boolean deleteVDN\_foobar(Vector value)}
+  \\
+  {\tt public boolean deleteVSI\_foobar(Vector value)}\\
+  {\tt public boolean deleteVSN\_foobar(Vector value)}
+  \\
+  Delete a set of values of the attribute {\tt foobar}. The set is
+  specified in the vector argument.
+\item {\tt public boolean deleteVDI\_foobar(Object value)}\\
+  {\tt public boolean deleteVDN\_foobar(Object value)}
+  \\
+  {\tt public boolean deleteVSI\_foobar(Object value)}\\
+  {\tt public boolean deleteVSN\_foobar(Object value)}
+  \\
+  A simplified interface for the case when only one value needs to be deleted.
+\item {\tt public boolean deleteVDI\_foobar()}\\
+  {\tt public boolean deleteVDN\_foobar()}
+  \\
+  {\tt public boolean deleteVSI\_foobar()}\\
+  {\tt public boolean deleteVSN\_foobar()}
+  \\
+  Delete all values for the attribute {\tt foobar}. 
+\end{enumerate}
+%% 
+For \fl methods with arguments, the high-level API provides Java methods as
+above, but they take more arguments to accommodate the parameters that \fl
+methods take. Let us
+assume that the \fl method is called {\tt foobar2} and it takes parameters
+{\tt arg1} and {\tt arg2}.  As before the {\tt getVDI\_*}, {\tt setVDI\_*},
+etc., forms of the Java methods are for dealing with inheritable \FLSYSTEM
+methods and the {\tt getVDN\_*}, {\tt setVDN\_*},
+etc., forms are for dealing with non-inheritable \FLSYSTEM methods.
+
+%%
+\begin{enumerate}
+\item {\tt public Iterator<FloraObject> getVDI\_foobar2(Object arg1, Object arg2)}\\
+  {\tt public Iterator<FloraObject> getVDN\_foobar2(Object arg1, Object arg2)}
+  \\
+  Obtain all values for the \fl method invocation {\tt foobar2(arg1,arg2)}.
+\item {\tt public boolean setVDI\_foobar2(Object arg1, Object arg2, Vector value)}\\
+  {\tt public boolean setVDN\_foobar2(Object arg1, Object arg2, Vector value)}
+  \\
+  Add a set of methods specified in the parameter {\tt value} for the method
+  invocation {\tt foobar2(arg1,arg2)}. 
+\item {\tt public boolean setVDI\_foobar2(Object arg1, Object arg2, Object value)}\\
+  {\tt public boolean setVDN\_foobar2(Object arg1, Object arg2, Object value)}
+  \\
+  A simplified interface when only one value is to be added.
+\item {\tt public boolean deleteVDI\_foobar2(Object arg1, Object arg2, Vector value)}\\
+  {\tt public boolean deleteVDN\_foobar2(Object arg1, Object arg2, Vector value)}
+  \\
+  Delete a set of values from {\tt foobar2(arg1,arg2)}. The set is given by
+  the vector parameter {\tt value}. 
+\item {\tt public boolean deleteVDI\_foobar2(Object arg1, Object arg2, Object value)}\\
+  {\tt public boolean deleteVDN\_foobar2(Object arg1, Object arg2, Object value)}
+  \\
+  A simplified interface for deleting a single value.
+\item {\tt public boolean deleteVDI\_foobar2(Object arg1, Object arg2)}\\
+  {\tt public boolean deleteVDN\_foobar2(Object arg1, Object arg2)}
+  \\
+  Delete all values for the method invocation {\tt foobar2(arg1,arg2)}. 
+\end{enumerate}
+%% 
+For Boolean and procedural methods, the generated methods are similar
+except that there is only one version for the set and delete methods. In
+addition, Boolean inheritable methods use the {\tt getBDI\_*}, {\tt
+  setBDI\_*}, etc., form, while non-inheritable methods use the {\tt
+  getBDN\_*}, etc., form.  Procedural methods use the {\tt getPDI\_*}, {\tt
+  getPDN\_*}, etc., forms.  For instance,
+%% 
+\begin{enumerate}
+\item  {\tt public boolean getBDI\_foobar3()}   \\
+  {\tt public boolean getBDN\_foobar3()} \\
+  {\tt public boolean getPDI\_foobar3()}   \\
+  {\tt public boolean getPDN\_foobar3()}
+\item {\tt public boolean setBDI\_foobar3()}   \\
+  {\tt public boolean setBDN\_foobar3()} \\
+  {\tt public boolean setPDI\_foobar3()}   \\
+  {\tt public boolean setPDN\_foobar3()}
+\item {\tt public boolean deleteBDI\_foobar3()}  \\
+  {\tt public boolean deleteBDN\_foobar3()}  \\
+  {\tt public boolean deletePDI\_foobar3()}  \\
+  {\tt public boolean deletePDN\_foobar3()}  
+\end{enumerate}
+%% 
+
+In addition, the methods to query the ISA hierarchy are available:
+%% 
+\begin{itemize}
+\item  {\tt public Iterator<FloraObject> getDirectInstances()}
+\item  {\tt public Iterator<FloraObject> getInstances()}
+\item  {\tt public Iterator<FloraObject> getDirectSubClasses()}
+\item  {\tt public Iterator<FloraObject> getSubClasses()}
+\item   {\tt public Iterator<FloraObject> getSuperClasses()}   
+\item   {\tt public Iterator<FloraObject> getDirectSuperClasses()}   
+\end{itemize}
+%% 
+These methods apply to the java proxy object that corresponds to the \fl
+class person.
+
+All these methods are generated automatically by executing the following
+\FLSYSTEM query (defined in the \texttt{javaAPI} package in \FLSYSTEM).
+All arguments in the query must be bound:
+%% 
+\begin{verbatim}
+ // write(?Class,?Module,?ProxyClassFileName).
+ ?- write(foo,example,'myproject/foo.java').
+\end{verbatim}
+%% 
+The first argument specifies the class for which to generate the methods,
+the file name tells where to put the Java file for the proxy object,
+and the model argument tells which \FLSYSTEM model to load this program to. The
+result of this execution will be the file {\tt foo.java} which should be
+included with your java program (the program that is going to interface with
+\FLSYSTEM). Note that because of the Java conventions, the file name must have
+the same name as the class name.
+It is important to remember, however, that proxy methods will
+be generated only for those \fl methods that have been declared using
+signatures.
+
+Let us now come back to our program {\tt flogic\_basics.flr} for which we
+want to use the high-level API.  Suppose we want to query the person class.
+To generate the proxy declarations for that class, we create
+the file {\tt person.java} for the 
+module {\tt basic\_mod} as follows.
+%%
+\begin{quote}
+\begin{verbatim}
+?- load{'examples/flogic_basics'>>basic_mod}.
+?- load{javaAPI}.
+?- write(person,basic_mod,'examples/person.java')@\prolog
+\end{verbatim}
+\end{quote}
+
+
+The {\tt write} method will create the file {\tt person.java} shown
+below.  The methods defined in {\tt person.java} are the class constructors
+for {\tt person}, the methods to query the ISA hierarchy, and the ``get'',
+``set'' and ``delete'' methods for each method and attribute declared in
+the \FLSYSTEM class {\tt person}.  The parameters for the ``get'', ``set'' and
+``delete'' Java methods are the same as for the corresponding \FLSYSTEM
+methods. The first constructor for class {\tt person} takes a low-level
+object of class {\tt net.sf.flora2.API.FloraObject} as a
+parameter. The second parameter is the \FLSYSTEM module for which the proxy
+object is to be created.
+The second {\tt person}-constructor takes \fl object Id instead of a
+low-level {\tt FloraObject}. It also takes the module name, as before, but,
+in addition, it takes a session for a running \FLSYSTEM instance.
+The session parameter was not needed for the first {\tt person}-constructor
+because {\tt FloraObject} is already attached to a concrete session.  
+
+It can be seen from the form of the proxy object constructors that
+proxy objects are attached to specific \FLSYSTEM modules, which may seem to
+go against the general philosophy that \fl objects do not belong to any
+module --- only their methods do. On closer examination, however, attaching
+high-level proxy Java objects to modules makes perfect sense. Indeed, a
+proxy object encapsulates operations for manipulating \fl attributes 
+and methods, which belong to concrete \FLSYSTEM modules, so the proxy object
+needs to know which module it operates upon.
+
+
+\underline{{\bf person.java file}}
+
+\begin{verbatim}
+import java.util.*;
+import net.sf.flora2.API.*;
+import net.sf.flora2.API.util.*;
+
+public class person {
+
+  public FloraObject sourceFloraObject;
+
+  // proxy objects' constructors
+  public person(FloraObject sourceFloraObject, String moduleName){ ... }
+  public person(String floraOID,String moduleName, FloraSession session){...}
+
+  // ISA hierarchy queries
+  public Iterator<FloraObject> getDirectInstances() { ... }
+  public Iterator<FloraObject> getInstances() { ... }
+  public Iterator<FloraObject> getDirectSubClasses() { ... }
+  public Iterator<FloraObject> getSubClasses() { ... }
+  public Iterator<FloraObject> getDirectSuperClasses() { ... }
+  public Iterator<FloraObject> getSuperClasses() { ... }
+
+  // Java methods for manipulating methods
+  public boolean setVDI_age(Object value) { ... }
+  public boolean setVDN_age(Object value) { ... }
+  public Iterator<FloraObject> getVDI_age(){ ... }
+  public Iterator<FloraObject> getVDN_age(){ ... }
+  public boolean deleteVDI_age(Object value) { ... }
+  public boolean deleteVDN_age(Object value) { ... }
+  public boolean deleteVDI_age() { ... }
+  public boolean deleteVDN_age() { ... }
+  public boolean setVDI_salary(Object year,Object value) { ... }
+  public boolean setVDN_salary(Object year,Object value) { ... }
+  public Iterator<FloraObject> getVDI_salary(Object year) { ... }
+  public Iterator<FloraObject> getVDN_salary(Object year) { ... }
+  public boolean deleteVDI_salary(Object year,Object value) { ... }
+  public boolean deleteVDN_salary(Object year,Object value) { ... }
+  public boolean deleteVDI_salary(Object year) { ... }
+  public boolean deleteVDN_salary(Object year) { ... }
+  public boolean setVDI_hobbies(Vector value) { ... }
+  public boolean setVDN_hobbies(Vector value) { ... }
+  public Iterator<FloraObject> getVDI_hobbies(){ ... }
+  public Iterator<FloraObject> getVDN_hobbies(){ ... }
+  public boolean deleteVDI_hobbies(Vector value) { ... }
+  public boolean deleteVDN_hobbies(Vector value) { ... }
+  public boolean deleteVDI_hobbies(){ ... }
+  public boolean deleteVDN_hobbies(){ ... }
+  public boolean setVDI_instances(Vector value) { ... }
+  public boolean setVDN_instances(Vector value) { ... }
+  public Iterator<FloraObject> getVDI_instances(){ ... }
+  public Iterator<FloraObject> getVDN_instances(){ ... }
+  public boolean deleteVDI_instances(Vector value) { ... }
+  public boolean deleteVDN_instances(Vector value) { ... }
+  public boolean deleteVDI_instances(){ ... }
+  public boolean deleteVDN_instances(){ ... }
+  public boolean setVDI_kids(Vector value) { ... }
+  public boolean setVDN_kids(Vector value) { ... }
+  public Iterator<FloraObject> getVDI_kids(){ ... }
+  public Iterator<FloraObject> getVDN_kids(){ ... }
+  public boolean deleteVDI_kids(Vector value) { ... }
+  public boolean deleteVDN_kids(Vector value) { ... }
+  public boolean deleteVDI_kids(){ ... }
+  public boolean deleteVDN_kids(){ ... }
+  public boolean setVDI_believes_in(Vector value) { ... }
+  public boolean setVDN_believes_in(Vector value) { ... }
+  public Iterator<FloraObject> getVDI_believes_in(){ ... }
+  public Iterator<FloraObject> getVDN_believes_in(){ ... }
+  public boolean deleteVDI_believes_in(Vector value) { ... }
+  public boolean deleteVDN_believes_in(Vector value) { ... }
+  public boolean deleteVDI_believes_in(){ ... }
+  public boolean deleteVDN_believes_in(){ ... }
+}
+\end{verbatim}
+
+\paragraph{Stage 3: Writing Java applications that use the high-level API.}
+
+The following program ({\tt flogicbasicsExample.java}) shows several
+queries that use the high-level interface. The
+class {\tt person.java} is generated at the previous stage.
+The methods of the high-level interface operate on Java objects that are
+proxies for \FLSYSTEM objects. These Java objects are members of the class
+{\tt net.sf.flora2.API.FloraObject}.
+Therefore, before one can use the high-level methods one need to first
+retrieve the appropriate proxy objects on which to operate. This is done
+by sending an appropriate query through the method {\tt executeQuery}---the
+same method that was used in the low-level interface.
+Alternatively, {\tt person}-objects could be constructed using the
+3-argument proxy constructor, which takes \fl oids.
+
+
+\begin{verbatim}
+import java.util.*;
+import net.sf.flora2.API.*;
+import net.sf.flora2.API.util.*;
+
+public class flogicbasicsExample {
+
+   public static void main(String[] args) {
+     /* Initializing the session */
+     FloraSession session = new FloraSession();
+     System.out.println("Flora session started");
+
+     String fileName = "examples/flogic_basics"; // must be a valid path
+     /* Loading the flora file */
+     if (session.loadFile(fileName,"basic_mod"))
+         System.out.println("Example loaded successfully!");
+     else
+         System.out.println("Error loading the example!");
+
+     // Retrieving instances of the class person through low-level API
+     String command = "?X:person@basic_mod.";
+     System.out.println("Query:"+command);
+     Iterator<FloraObject> personObjs = session.executeQuery(command);
+
+     /* Print out person names and information about their kids */
+     person currPerson = null;
+     while (personObjs.hasNext()) {
+         FloraObject personObj = personObjs.next();
+         // Elevate personObj to the higher-level person-object
+         currPerson =new person(personObj,"basic_mod");
+
+         /* Set that person's age to 50 */
+         currPerson.setVDN_age("50");
+
+         /* Get this person's kids */
+         Iterator<FloraObject> kidsItr = currPerson.getVDN_kids();
+         while (kidsItr.hasNext()) {
+             FloraObject kidObj = kidsItr.next();
+             System.out.println("Person: " + personObj + " has kid: " +kidObj);
+
+             person kidPerson = null;
+             // Elevate kidObj to kidPerson
+             kidPerson = new person(kidObj,"basic_mod");
+
+             /* Get kidPerson's hobbies */
+             Iterator<FloraObject> hobbiesItr = kidPerson.getVDN_hobbies();
+             while(hobbiesItr.hasNext()) {
+                 FloraObject hobbyObj = hobbiesItr.next();
+                 System.out.println("Kid:"+kidObj + " has hobby:" +hobbyObj);
+             }
+         }
+     }
+
+     FloraObject age;
+     // create a person-object directly by supplying its F-logic OID
+     // father(mary)
+     currPerson = new person("father(mary)", "example", session);
+     Iterator<FloraObject> maryfatherItr = currPerson.getVDN_age();
+     age = maryfatherItr.next();
+     System.out.println("Mary's father is " + age + " years old");
+
+     // create a proxy object for the F-logic class person itself
+     person personClass = new person("person", "example", session);
+     // query its instances through the high-level interface
+     Iterator<FloraObject> instanceIter = personClass.getInstances();
+     System.out.println("Person instances using high-level API:");
+     while (instanceIter.hasNext())
+         System.out.println("    " + instanceIter.next());
+        
+     session.close();
+     System.exit();
+   }
+}
+\end{verbatim}
+
+\section{Executing Java Application Programs that Call \FLSYSTEM}
+\label{sec-executing-apps}
+
+To compile and run Java programs that interface with \FLSYSTEM, follow the
+following guidelines.
+
+\begin{itemize}
+\item \emph{Compilation}:
+  Place the files {\tt flogicsbasicsExample.java} (the program you have
+  written) and {\tt person.java} (the automatically generated file)
+in the same directory and compile them using the {\tt javac}  command. Add
+the jar-files containing the API code and
+{\tt interprolog.jar}  to the classpath using the \texttt{-classpath}
+parameter (the first line is for Windows and the second for Mac and Linux):
+%% 
+\begin{verbatim}
+-classpath "%FLORADIR%\java\flora2java.jar";"%FLORADIR%\java\interprolog.jar"
+-classpath "$FLORADIR/java/flora2java.jar":"$FLORADIR/java/interprolog.jar"
+\end{verbatim}
+%% 
+\texttt{FLORADIR} here is a shell (cmd, in Windows) variable that can be
+set by the 
+scripts \texttt{flora\_settings.sh} (Linux/Mac) or \texttt{flora\_settings.bat}
+(Windows).
+In sum, the Java compilation command should look as below
+(again, the first command below is for
+Windows and the second for Linux/Mac):
+%% 
+\begin{alltt}
+\emph{path-to}\bs{}javac -classpath
+     "%FLORADIR%\bs{}java\bs{}flora2java.jar";"%FLORADIR%\bs{}java\bs{}interprolog.jar"
+\emph{path-to}/javac -classpath
+     "$FLORADIR/java/flora2java.jar":"$FLORADIR/java/interprolog.jar"
+\end{alltt}
+%% 
+\textbf{Note}: each of the above commands should be on one line.
+
+
+\item \emph{Running}:  Generally, Java programs that call \FLSYSTEM
+  should be invoked using the following command. For 
+  Linux and Mac, change \texttt{\%}\textit{VAR}\texttt{\%} to
+      \texttt{\$}\textit{VAR}:
+\begin{alltt}
+\emph{path-to}\bs{}java -DPROLOGDIR=%PROLOGDIR%
+                -DFLORADIR=%FLORADIR%
+                -Djava.library.path=%PROLOGDIR%            <--- \emph{optional}
+                -classpath %MYCLASSPATH% flogicbasicsExample
+\end{alltt}
+%%
+The above commands use several shell/cmd variables that are explained below.
+Instead of using the variables, one can substitute their values
+directly---read on.
+
+\begin{itemize}
+  \item
+    If the \texttt{javac} and \texttt{java} commands can be found through
+    the \texttt{PATH} environment variable then one can simply type
+    \texttt{javac} and \texttt{java} instead of the above.
+    On Linux and Mac this is almost always the case, but on Windows one
+    might have to set the \texttt{PATH} variable explicitly. 
+
+\item
+  {\tt PROLOGDIR}: This variable should point to the directory containing
+  the XSB executable, which can be accomplished by executing the scripts
+  \texttt{\ENGINENAMEALT\bs{}java\bs{}flora\_settings.bat} (Windows) or
+  \texttt{\ENGINENAMEALT/java/flora\_settings.sh} (Linux/Mac).
+  \\
+  Alternatively, one can type
+  \texttt{-DPROLOGDIR=}\emph{path-to-prolog-bindir}
+  in the above \texttt{java} command, where the value to substitute for
+  \emph{path-to-prolog-bindir} can be obtained 
+  by executing this query at the prompt:
+%% 
+\begin{verbatim}
+    system{bindir = ?D}.
+\end{verbatim}
+%% 
+The result will be returned as a binding for the variable \texttt{?D}. 
+
+\item
+{\tt FLORADIR}: This variable should be set to the directory
+containing the \FLSYSTEM system, which can be done by
+executing the aforesaid scripts
+\texttt{flora\_settings.bat} and \texttt{flora\_settings.sh}.
+\\
+Alternatively, one can type
+\texttt{-DFLORADIR=}\emph{path-to-flora-dir}
+  in the above \texttt{java} command, where the value to substitute for
+  \emph{path-to-flora-dir} can be obtained 
+  by executing this query at the prompt:
+%% 
+\begin{verbatim}
+    system{installdir = ?D}.
+\end{verbatim}
+%% 
+Again, the result will be returned as a binding of the variable \texttt{?D}. 
+
+\item
+{\tt MYCLASSPATH}: This variable should include the correct paths to the
+jar files
+containing the API code, i.e., \texttt{flora2java.jar} 
+and file {\tt interprolog.jar}, plus the directory where the
+main application class (like
+\texttt{flogicbasicsExample} in our example) is found. 
+Normally, one sets \texttt{MYCLASSPATH} to
+\texttt{\small\%CLASSPATH\%;\%FLORADIR\%\bs{}java\bs{}flora2java.jar;\%FLORADIR\%\bs{}java\bs{}interprolog.jar;\\DirOfTheExample},
+where \texttt{DirOfTheExample} is the directory where the main application
+class resides.
+In our example, this directory is
+simply . (the current directory).
+For Linux and Mac, use ':' instead of ';' as a separator, forward slashes
+instead of backward ones, and \emph{\$VAR} 
+instead of \emph{\%VAR\%}.
+
+One can, of course, substitute the contents of the \texttt{MYCLASSPATH}
+variable directly into the \texttt{-classpath \%MYCLASSPATH\%} part of the
+above Java/Javac invocation commands.   
+
+\item
+The variable \texttt{java.library.path} in the above command  is
+optional. It needs to be
+set \emph{only if XSB is configured to use the native Java interface} (which
+usually is not the case).
+\end{itemize}
+
+\item
+Some Java applications may employ additional Java properties. For instance,
+the program that uses the low-level API in
+Section~\ref{sec-java-lowlevel} (in Step 2) has the line 
+%% 
+\begin{alltt}
+      String fileName = System.getProperty("INPUT\_FILE"); 
+\end{alltt}
+%% 
+which means that it expects the property \texttt{INPUT\_FILE} to be set
+with the \texttt{-D} option at the Java invocation time.
+In general, such additional properties can be also set via the method
+\texttt{System.setProperty()} inside the Java application.  
+In our particular case, the program expects that \texttt{INPUT\_FILE} is set
+to point to
+the \texttt{flogic\_basics.flr} \FLSYSTEM file, which it then
+loads. In other words, the \texttt{java}  command shown above also needs this
+parameter:
+%% 
+\begin{alltt}
+      -DINPUT_FILE="%INPUT\_FILE%"   (Windows)
+      -DINPUT_FILE="$INPUT\_FILE"    (Linux/Mac)
+\end{alltt}
+%% $
+In general, one such additional parameter is needed for each property
+that the Java application queries using the \texttt{getProperty()} method. 
+\end{itemize}
+
+\section{How Do Applications Find  the Knowledge Base?}
+
+When a Java application starts \FLSYSTEM, the latter determines the default
+runtime directory in which it will work. Usually, this is the directory in
+which your Java application runs. You can find out which directory
+it is by sending the following query to \FLSYSTEM:
+%% 
+\begin{verbatim}
+    File[cwd->?Dir]@\io.
+\end{verbatim}
+%% 
+\texttt{?Dir} will be bound to the runtime directory and Java can get that
+value as explained earlier. Your Java application can change that
+directory via this query:
+%% 
+\begin{verbatim}
+    File[chdir('....new current dir...')]@\io.
+\end{verbatim}
+%% 
+The simplest basic rule is that all \FLSYSTEM's files that your Java
+application loads, adds, etc., must be specified relative to the current
+directory.
+
+One can also put additional directories to the \FLSYSTEM's search path by
+executing the query
+%% 
+\begin{verbatim}
+    Libpath[add('....new dir to search...')]@\sys.
+\end{verbatim}
+%% 
+Then your application can use file names not only relative to the runtime
+directory but also relative to any of the directories added in this way.
+Note that this may put many directories on the search path, and
+several of them may have similarly named files. Therefore,
+one must make sure that the search is unambiguous.
+
+
+\section{Summary of the Variables and Properties Used by the Interface}
+
+The Java-\FLSYSTEM interface needs the following variables and properties
+to be set:
+%% 
+\begin{itemize}
+\item  \texttt{JAVA\_HOME} -- this is an OS environment variable.
+  It is normally set when you install Java. Normally, Java will not work
+  correctly if this environment variable is not set correctly.
+%%\item \texttt{MYCLASSPATH}: This variable should point to the jar files
+%%containing the API code, i.e., \texttt{.../java/flora2java.jar} 
+%%and file {\tt .../java/interprolog.jar}.
+\item  The following Java properties must be set for the Java API to work.
+  They can be set either through the
+  \texttt{-D} option of the \texttt{java} command or inside the Java
+  application via \texttt{System.setProperty("propertyname",value)}.  
+  %% 
+  \begin{itemize}
+  \item  \texttt{FLORADIR} --- the path to the \FLSYSTEM installation directory.
+  \item  \texttt{PROLOGDIR} --- the path to the folder containing XSB executable.
+  \end{itemize}
+  %% 
+  The proper values for these properties can be obtained from \FLSYSTEM by
+  running these queries, respectively:
+  %% 
+\begin{verbatim}
+    system{installdir=?D}.  
+    system{bindir=?D}.  
+\end{verbatim}
+  %% 
+\item The following shell/cmd variable is useful, if you do not know where
+  the \texttt{java} and \texttt{javac} executables are on your machine.
+  This may be needed on Windows, if your JDK installer failed to set the
+  Windows \texttt{PATH} environment variable so that the system would find
+  these commands easily. (On Linux and Mac the above commands
+  are usually fund through the \texttt{PATH} variable.)
+  %% 
+  \begin{itemize}
+  \item   \texttt{JAVA\_BIN} --- the directory where Java executables
+    \texttt{java}  and \texttt{javac}  live. It is usually set to \texttt{\$JAVA\_HOME/bin} or
+    \texttt{\%JAVA\_HOME\%\bs{}bin}, depending on the OS. 
+  \end{itemize}
+  %% 
+  This variable can be set by
+  \texttt{unixVariables.sh} or \texttt{windowsVariables.bat}, whichever
+  applies to your OS.
+\end{itemize}
+%% 
+
+\section{Building the Prepackaged Examples}
+
+Sample applications of the Java-\FLSYSTEM interface
+are found in the {\tt java/API/examples}  folder of the \FLSYSTEM
+distribution.
+%%To build the code for the interface, use the scripts {\tt build.bat} or
+%%{\tt build.sh} (or \texttt{build.bat} on Windows)
+%%in the {\tt java/API}  folder.
+To build the examples, use the scripts
+{\tt buildExample.sh} or  {\tt buildExample.bat} in the {\tt java/API/examples}
+folder, whichever applies. For instance, to
+build the {\tt flogicbasicsExample} example, use these commands on Linux,
+Mac, and other Unix-like systems:
+%%
+\begin{verbatim}
+    cd examples
+    buildExample.sh flogicbasicsExample
+\end{verbatim}
+%%
+On Windows, use this:
+%%
+\begin{verbatim}
+    cd examples
+    buildExample.bat flogicbasicsExample
+\end{verbatim}
+%%
+
+To run the demos, use the scripts
+{\tt runExample.sh} or  {\tt runExample.bat}  in {\tt java/API/examples}.
+For instance, to
+run the {\tt flogicbasicsExample},  use this command on Linux and Mac:
+%%
+\begin{verbatim}
+    runExample.sh flogicbasicsExample
+\end{verbatim}
+%%
+On Windows, use this:
+%%
+\begin{verbatim}
+    runExample.bat flogicbasicsExample
+\end{verbatim}
+%%
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "flora-packages"
+%%% End: 

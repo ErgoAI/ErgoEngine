@@ -1,0 +1,124 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-DuringAnaphaseIIWhatHappens (query 0)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example_Biology_Chapter_13_online_quiz.2C_Question_28
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlPreds, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, isa(subEventTypes, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, transitiveViaArg(subEventTypes, genls, 2)).
+istAsserted(UniversalVocabularyMt, genlPreds(relationAllExistsUnique, relationAllExists)).
+istAsserted(UniversalVocabularyMt, isa(predicateIntersection, PartiallyCommutativePredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(properSubEventTypes, subEventTypes)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(lastProperSubEventTypes, properSubEventTypes)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, 'functionCorrespondingPredicate-Canonical'(TotalityOfSubEventsOfTypeFn, iterativeSubEventTypesTotality, 3)).
+istAsserted(UniversalVocabularyMt, predicateIntersection(uniqueProperSubEventTypes, uniqueProperSubSituationTypes, properSubEventTypes)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genls('SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis', SisterChromatidsCutByEnzymeAndChromosomesMoveToPole)).
+istAsserted(BaseKB, termOfUnit(TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis'), TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis'))).
+istAsserted(BiologyMt, uniqueProperSubEventTypes(AnaphaseII, TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis'))).
+
+// Implicit Background Rules
+forwardSentence(relationAllExistsCount(?PRED, ?COL1, ?COL2, 1)) :- removalSentence(relationAllExistsUnique(?PRED, ?COL1, ?COL2)).
+forwardSentence(relationAllExistsUnique(?PRED, ?COL1, ?COL2)) :- removalSentence(relationAllExistsCount(?PRED, ?COL1, ?COL2, 1)).
+forwardSentence(genlPreds(?PRED, ?GENLPRED1)) :- removalSentence(predicateIntersection(?PRED, ?XGENLPRED2, ?GENLPRED1)).
+forwardSentence(genlPreds(?PRED, ?GENLPRED1)) :- removalSentence(predicateIntersection(?PRED, ?GENLPRED1, ?XGENLPRED2)).
+forwardSentence(relationAllExists(properSubEvents, ?WHOLE_TYPE, ?PART_TYPE)) :- removalSentence(properSubEventTypes(?WHOLE_TYPE, ?PART_TYPE)).
+forwardSentence(relationAllExists(properSubEvents, ?COL1, ?COL2)) :- removalSentence(assertedSentence(properSubEventTypes(?COL1, ?COL2))), removalSentence(properSubEventTypes(?COL1, ?COL2)).
+forwardSentence(properSubEventTypes(?COL1, ?COL2)) :- removalSentence(assertedSentence(relationAllExists(properSubEvents, ?COL1, ?COL2))), removalSentence(relationAllExists(properSubEvents, ?COL1, ?COL2)).
+forwardSentence(relationAllExists(?PRED, ?COL1, ?COL2)) :- removalSentence(relationAllExistsUnique(?PRED, ?COL1, ?COL2)).
+forwardSentence(relationAllExists(lastSubEvents, ?X, ?Y)) :- removalSentence(assertedSentence(lastProperSubEventTypes(?X, ?Y))), removalSentence(lastProperSubEventTypes(?X, ?Y)).
+forwardSentence(lastProperSubEventTypes(?X, ?Y)) :- removalSentence(assertedSentence(relationAllExists(lastSubEvents, ?X, ?Y))), removalSentence(relationAllExists(lastSubEvents, ?X, ?Y)).
+forwardSentence(properSubEventTypes(?SIT, ?SUB_SIT)) :- removalSentence(iterativeSubEventTypesTotality(?SIT, ?XSUB_SUB_SIT, ?SUB_SIT)).
+forwardSentence(lastProperSubEventTypes(?SUB_SIT, ?SUB_SUB_SIT)) :- removalSentence(iterativeSubEventTypesTotality(?XSIT, ?SUB_SUB_SIT, ?SUB_SIT)).
+forwardSentence(relationAllExistsCount(properSubEvents, ?SUPER, ?SUB, 1)) :- removalSentence(iterativeSubEventTypesTotality(?SUPER, ?XSUB_SUB, ?SUB)).
+forwardSentence(relationAllExistsCount(properSubEvents, ?EVENT_TYPE, ?SUB_TYPE, 1)) :- removalSentence(uniqueProperSubEventTypes(?EVENT_TYPE, ?SUB_TYPE)).
+forwardSentence(?PRED(?ARG1, ?ARG2, ?NART)) :- naf impPred(?PRED), removalSentence('functionCorrespondingPredicate-Canonical'(?FUNC, ?PRED, 3)), removalSentence(termOfUnit(?NART, ?FUNC(?ARG1, ?ARG2))).
+forwardSentence(uniqueProperSubEventTypes(?SUPER, ?SUB)) :- removalSentence(iterativeSubEventTypesTotality(?SUPER, ?XSUB_SUB, ?SUB)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeWithGranularityDimFn(Now, TimePoint))).
+//REMOVED TITLE('KBQ  : $CPTTest-DuringAnaphaseIIWhatHappens 0').
+%pretest :- subEventTypes(AnaphaseII, SisterChromatidsCutByEnzymeAndChromosomesMoveToPole), %write_results('SUCCESS  : $CPTTest-DuringAnaphaseIIWhatHappens 0').
+
+// Debugging
+proof(9250, 0) :- subEventTypes(AnaphaseII, SisterChromatidsCutByEnzymeAndChromosomesMoveToPole).
+
+proof(9250, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(9250, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(9250, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(9250, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(9250, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(9250, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(9250, 1006) :- genlPreds(uniqueProperSubEventTypes, properSubEventTypes).
+proof(9250, 1007) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(9250, 1008) :- iterativeSubEventTypesTotality(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis', TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis')).
+proof(9250, 1009) :- properSubEventTypes(AnaphaseII, TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis')).
+proof(9250, 1010) :- lastProperSubEventTypes(TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis'), 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis').
+proof(9250, 1011) :- relationAllExistsCount(properSubEvents, AnaphaseII, TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis'), 1).
+proof(9250, 1012) :- uniqueProperSubEventTypes(AnaphaseII, TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis')).
+proof(9250, 1013) :- relationAllExists(properSubEvents, AnaphaseII, TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis')).
+proof(9250, 1014) :- relationAllExists(lastSubEvents, TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis'), 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis').
+proof(9250, 1015) :- relationAllExists(properSubEvents, AnaphaseII, TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis')).
+proof(9250, 1016) :- relationAllExistsCount(properSubEvents, AnaphaseII, TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis'), 1).
+proof(9250, 1017) :- properSubEventTypes(AnaphaseII, TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis')).
+proof(9250, 1018) :- relationAllExistsUnique(properSubEvents, AnaphaseII, TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis')).
+proof(9250, 1019) :- relationAllExistsUnique(properSubEvents, AnaphaseII, TotalityOfSubEventsOfTypeFn(AnaphaseII, 'SisterChromatidsCutByEnzymeAndChromosomesMoveToPole-Meiosis')).
+
+proof(9250, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(9250, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(9250, 2002) :- admittedArgument(SecondFn(27, MinuteFn(21, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(9250, 2003) :- admittedArgument(SecondFn(27, MinuteFn(21, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(9250, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeWithGranularityDimFn(Now, TimePoint)), UniversalVocabularyMt).
+proof(9250, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeWithGranularityDimFn(Now, TimePoint)), BaseKB).
+proof(9250, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeWithGranularityDimFn(Now, TimePoint)), BiologyMt).
+proof(9250, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeWithGranularityDimFn(Now, TimePoint)), MtSpace(CytologicalProcessesQueryMt, MtTimeWithGranularityDimFn(Now, TimePoint))).
+proof(9250, 2008) :- genlPreds(relationAllExistsUnique, relationAllExists).
+proof(9250, 2009) :- genlPreds(uniqueProperSubEventTypes, properSubEventTypes).
+proof(9250, 2010) :- isa(predicateIntersection, PartiallyCommutativePredicate).
+proof(9250, 2011) :- subEventTypes(AnaphaseII, SisterChromatidsCutByEnzymeAndChromosomesMoveToPole). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

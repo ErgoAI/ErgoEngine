@@ -1,0 +1,37 @@
+
+
+change_module_if_needed(?T,?T,?_NewMod) :-
+	isvar{?T},
+	!.
+change_module_if_needed([],[],?_NewMod) :- !.
+change_module_if_needed([?L|?R],[?LM|?RM],?NewMod) :-
+	!,
+	change_module_if_needed(?L,?LM,?NewMod),
+	change_module_if_needed(?R,?RM,?NewMod).
+change_module_if_needed((?L,?R),(?LM,?RM),?NewMod) :-
+	!,
+	change_module_if_needed(?L,?LM,?NewMod),
+	change_module_if_needed(?R,?RM,?NewMod).
+change_module_if_needed((?L;?R),(?LM;?RM),?NewMod) :-
+	!,
+	change_module_if_needed(?L,?LM,?NewMod),
+	change_module_if_needed(?R,?RM,?NewMod).
+change_module_if_needed(?T,?TM,?NewMod) :-
+	is_flora_callable_literal(?T)@\prolog(flrwrapper),
+	flora_change_module(?T,?TM,(\@,?NewMod),?NewMod,
+	                    ['In ',\@,?T,
+			     ': unexpected argument'])@\prolog(flrwrapper),
+	!.
+change_module_if_needed(?R,?RM,?NewMod) :-
+	?R ~ (?_H:-?_B),
+        (?R =.. [FLSYSRULEUPDATE,?Id,?File,?Vars,?StmtNo,?Meta,?Head,?Body,
+                                 ?HeadVars,?BdyVars,?DTVars,?H2BFront,?H2BBack,
+                                 ?PreBody,?PostBody,?Defeat])@\plg,
+	change_module_if_needed(?Head,?HM,?NewMod),
+	change_module_if_needed(?Body,?BM,?NewMod),
+        (?RM =.. [FLSYSRULEUPDATE,?Id,?File,?Vars,?StmtNo,?Meta,?HM,?BM,
+                                  ?HeadVars,?BdyVars,?DTVars,?H2BFront,?H2BBack,
+                                  ?PreBody,?PostBody,?Defeat])@\plg,
+	!.
+change_module_if_needed(?_T,?_T,?_NewMod) :- \true.
+

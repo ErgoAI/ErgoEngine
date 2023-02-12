@@ -1,0 +1,36 @@
+:- prolog{
+    	  change_module/4,
+	  change_module_nocheck/4,
+	  check_module_to_AT_association/1}.
+
+// if ?InA has module \@, change it to ?Mod
+// ?RealNewMod is the module of the final OutA
+// (the module is not changed if it is not \@).
+change_module(?InA,?Mod,?RealNewMod,?OutA) :-
+	flora_change_module(?InA,?OutA,(\@,?Mod),?RealNewMod,['In ',FL_STATUS,'(Tag,Head)[...]@',\@,': Head must be bound'])@\prolog(flrwrapper),
+	check_module_to_AT_association(?RealNewMod).
+
+
+// The only difference with change_module is the error message.
+change_module_nocheck(?InA,?,?,?OutA) :-
+	isvar{?InA},
+	!,
+	?OutA = ?InA.
+// if ?InA has module \@, change it to ?Mod
+change_module_nocheck(?InA,?Mod,?RealNewMod,?OutA) :-
+	flora_change_module(?InA,?OutA,(\@,?Mod),?RealNewMod,'In defeated/overrides/opposes: something wrong')@\prolog(flrwrapper),
+	check_module_to_AT_association(?RealNewMod).
+
+
+check_module_to_AT_association(?Mod) :-
+	flora_is_system_module_name(?Mod)@\prolog(flrwrapper),
+	!,
+	\false.
+check_module_to_AT_association(?Mod) :-
+	\+flora_defeasible_module_registry(?Mod,\@)@\prolog(flrregistry),
+	?Mod \== \@,
+	!,
+	abort(['User module ', ?Mod,
+	        ' is not associated with the argumentation theory residing in module ',
+		 \@])@\system.
+check_module_to_AT_association(?) :- \true.

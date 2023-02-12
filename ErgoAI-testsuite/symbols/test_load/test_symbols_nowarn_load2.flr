@@ -1,0 +1,39 @@
+:- symbol_context{q@?, r@?}.
+
+tp(?x,?y,?z):-s3(?x,?y,?z).
+
+%tpp(?x,?y):-s2(?x,?y).
+
+f(a).
+
+p(?x):-t(?x).
+t(?x):-q(?x).
+
+m(?x):-g(?x).
+
+m1(?x):-g1(?x).
+
+g2(?x):-m2(?x).
+
+t3(g3(?x)):-y3(?x).
+
+t4(g4(?x)):-y4(?x).
+
+t5(?x):-y5(g5(?x)).
+
+\udf foo(?x):=?y \if fooDef(?x,?y).
+\udf foo1(?x):=?y \if fooDef(?x,?y).
+\udf foo2(?x):=?y \if fooDef(?x,?y).
+\udf foo3(?x):=?y \if fooDef(?x,?y).
+
+?- insertrule{q:-p1(a,b,c)}.
+?- insertrule{p2(a,b,c,d):-r}.
+
+?- Method[mustDefine(off, (?[=>?],
+                             ?[|=>?|],
+                             ?[=>%?],
+                             ?[|=>%?|],
+                             ?[?=>?],
+                             ?[|?=>?|])@?A)]@\sys.
+
+v(?x):-?x(a,b).

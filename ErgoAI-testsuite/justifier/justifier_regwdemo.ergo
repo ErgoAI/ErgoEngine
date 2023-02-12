@@ -1,0 +1,19 @@
+
+?- [regwdemo>>foo].
+:- ergotext{regwdemo,foo}.
+
+%tst1 :- ${0 = sum{ ?A|(?T[by->'Pacific Bank',with->'Maui Sunset',amount->?A],
+                         ?T:covered_previous_transaction)@foo}}[why(full,withtext)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test1=?EA)@\plg.
+
+%tst2 :- ${ \(RegW prohibits the proposed transaction between ?_Bank and ?_Company for amount $?_Amount million\)@foo}[why(full)->?E[size->?S]]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test2=?EA)@\plg,
+        writeln(test2=?S)@\plg.
+
+%pretest :- %tst1, %tst2.
+
+%test :- tell(temp)@\plg,
+	%pretest,
+	told@\plg.

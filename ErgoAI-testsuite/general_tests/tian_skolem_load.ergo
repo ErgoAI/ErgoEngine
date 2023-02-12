@@ -1,0 +1,14 @@
+:- compiler_options{omni=on}.
+
+?- set_test_mode(skolemize_then_directionalize)@\plg(flrtesting),
+        compile{tian_skolem}, // recompile after skolemize_then_directionalize
+        [tian_skolem >> foo].
+
+tst1 :- query1(?X)@foo, truthvalue{?T}, writeln(test1=?X+?T)@\io.
+tst2 :- query2(?X)@foo, truthvalue{?T}, writeln(test2=?X+?T)@\io.
+
+%pretest :- tst1, tst2.
+
+%test :- tell(temp)@\plg, 
+        %pretest,
+	told@\plg.

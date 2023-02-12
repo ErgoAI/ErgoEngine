@@ -1,0 +1,39 @@
+
+:- use_argumentation_theory.
+
+\opposes(?pred(?_x,?y),?pred(?_x,?z)) :- 
+	?pred:maxcard1,
+	?y != ?z.
+
+p:maxcard1.  
+
+
+@{hi}
+p(?x,?y) :- p_hi(?x,?y).
+p_hi(?x,?y) :- q(?x) \and ?y \is ?x*20.
+q(100).
+q(200).
+
+@{low}
+p(?x,?y) :- p_low(?x,?y).
+p_low(?x,?y) :- r(?x) \and ?y \is ?x*30. 
+r(200).
+r(300).
+
+%tst1 :- insert{\overrides(hi,low)},
+         p(?x,?y), writeln(test1 = ?x+?y)@\plg, \false.
+%tst1 :- !.
+
+%tst2 :- delete{\overrides(?,?)},
+          p(?x,?y), writeln(test2 = ?x+?y)@\plg, \false.
+%tst2 :- !.
+
+%pretest :- %tst1, %tst2.
+
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().

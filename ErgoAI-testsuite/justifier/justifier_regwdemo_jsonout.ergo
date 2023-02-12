@@ -1,0 +1,17 @@
+
+?- [regwdemo>>foo].
+:- ergotext{regwdemo,foo}.
+
+%tst1 :- ${ \(RegW prohibits the proposed transaction between ?_Bank and ?_Company for amount $?_Amount million\)@foo}[why(full,textonly)->?E]@\why,
+        ?E[toJson->?J]@\why,
+        writeln(test1=?J)@\plg.
+
+%tst2 :- ${ \(RegW prohibits the proposed transaction between ?_Bank and ?_Company for amount $?_Amount million\)@foo}[why(full,textonly)->?E]@\why,
+        ?E[term2json->?J]@\json,
+        writeln(test2=?J)@\plg.
+
+%pretest :- %tst1, nl@\plg, %tst2.
+
+%test :- tell(temp)@\plg,
+	%pretest,
+	told@\plg.

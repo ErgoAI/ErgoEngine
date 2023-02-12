@@ -1,0 +1,146 @@
+/* File:      flrsynonym.P  -- Synonyms for some FLORA-2 operators and builtins
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_tabling_methods.flh"
+
+:- export flora_op_synonym/2,
+	flora_builtin_synonym/2,
+	flora_special_builtin_synonym/2.
+
+base_op(FL_AND_CONNECTIVE). %% ,
+base_op(FL_OR_CONNECTIVE).  %% ;
+base_op(FL_MVDARROW).       %% ->
+base_op(FL_MVDSIGARROW).    %% =>
+base_op(FL_ISA).            %% :
+base_op(FL_SUB).            %% ::
+
+base_op(FL_ALLINARROW).     %% +>>
+
+base_op(FL_UNIVNOTEQ).      %% \=
+base_op(FL_NOTEQ).          %% \==
+base_op(FL_NOTUNIVEQFORM).  %% \~
+base_op(FL_PREFIXDEF).      %% iriprefix
+base_op(FL_RULELOGNAF).     %% \naf
+base_op(FL_NEG).            %% \neg
+
+base_op('//').             %% integer division in Prolog
+
+%% Operator synonyms - handled by the composer
+%% DON'T synonymize quoted atoms: quoting synonyms is our escape mechanism!
+op_synonym(FL_AND,FL_AND_CONNECTIVE).
+op_synonym(FL_OR,FL_OR_CONNECTIVE).
+op_synonym(FL_HASVALUE,FL_MVDARROW).
+op_synonym(FL_HASTYPE,FL_MVDSIGARROW).
+op_synonym(FL_ISAWORD,FL_ISA).
+op_synonym(FL_MEMBEROF,FL_ISA).
+op_synonym(FL_SUBCLASSOF,FL_SUB).
+op_synonym(FL_SUBOF,FL_SUB).
+
+op_synonym(FL_CONTAINS,FL_ALLINARROW).
+
+
+%% This is now handled by Flora with delay
+%%op_synonym(FL_C_UNEQUAL,FL_UNIVNOTEQ).
+
+op_synonym(FL_C_NOTUNIVEQFORM,FL_NOTUNIVEQFORM).
+
+%% this translates %% - integer division in Flora-2
+%% into // - integer division in Prolog
+op_synonym(FL_INT_DIV,'//').
+
+:- table op_synonym_trans/2 as AUXILIARY_TABLING_TYPE.
+op_synonym_trans(X,Y) :- op_synonym(X,Y).
+op_synonym_trans(X,Y) :- op_synonym(Y,X).
+op_synonym_trans(X,Y) :- op_synonym_trans(X,Z), op_synonym(Z,Y).
+
+flora_op_synonym(NewOP,OP) :-
+	op_synonym_trans(NewOP,OP), \+ base_op(NewOP), base_op(OP).
+
+
+%% Builtin synonyms - handled by the lexer
+builtin_synonym('\\plg', FL_PLIB) :- !.
+builtin_synonym('\\prlg', FL_PLIB) :- !.
+builtin_synonym('\\plgall', FL_PLIBALL) :- !.
+builtin_synonym('\\prlgall', FL_PLIBALL) :- !.
+builtin_synonym('\\sys', FLSYSMODSYSTEM) :- !.
+builtin_synonym('\\db', FLSYSMODDATABASE) :- !.
+builtin_synonym('\\tpck', FLSYSMODTYPECHECK) :- !.
+builtin_synonym('\\btp', FLSYSMODBASETYPE) :- !.
+
+/*
+builtin_synonym(FL_REAL, FL_DOUBLE) :- !.
+builtin_synonym(FL_SHORT, FL_LONG) :- !.
+
+builtin_synonym('\\dt', FL_DATETIME) :- !.
+builtin_synonym('\\t',  FL_TIME) :- !.
+builtin_synonym('\\d',  FL_DATE) :- !.
+builtin_synonym('\\du',  FL_DURATION) :- !.
+builtin_synonym('\\int',  FL_LONG) :- !.
+*/
+
+flora_builtin_synonym(M,Canonic) :-
+	%% atom
+	builtin_synonym(M,Canonic),
+	!.
+flora_builtin_synonym(M,Canonic) :-
+	%% char list
+	is_charlist(M), % important: otherwise \prolog etc. will bomb on atom_codes
+	atom_codes(Matm,M),
+	builtin_synonym(Matm,CanonicAtm),
+	atom_codes(CanonicAtm,Canonic),
+	!.
+flora_builtin_synonym(M,M).
+
+
+%% Builtins of the form builtin{...}
+special_builtin_synonym(btinsert, FL_BTINSERT) :- !.
+special_builtin_synonym(btinsertall, FL_BTINSERTALL) :- !.
+special_builtin_synonym(btdelete, FL_BTDELETE) :- !.
+special_builtin_synonym(btdeleteall, FL_BTDELETEALL) :- !.
+special_builtin_synonym(bterase, FL_BTERASE) :- !.
+special_builtin_synonym(bteraseall, FL_BTERASEALL) :- !.
+special_builtin_synonym(tinsert, FL_BTINSERT) :- !.
+special_builtin_synonym(tinsertall, FL_BTINSERTALL) :- !.
+special_builtin_synonym(tdelete, FL_BTDELETE) :- !.
+special_builtin_synonym(tdeleteall, FL_BTDELETEALL) :- !.
+special_builtin_synonym(terase, FL_BTERASE) :- !.
+special_builtin_synonym(teraseall, FL_BTERASEALL) :- !.
+
+special_builtin_synonym(minimum, FL_MIN) :- !.
+special_builtin_synonym(maximum, FL_MAX) :- !.
+special_builtin_synonym(average, FL_AVG) :- !.
+special_builtin_synonym(prolog2hilog, FL_P2H) :- !.
+
+flora_special_builtin_synonym(M,Canonic) :-
+	%% atom
+	special_builtin_synonym(M,Canonic),
+	!.
+flora_special_builtin_synonym(M,M).
+

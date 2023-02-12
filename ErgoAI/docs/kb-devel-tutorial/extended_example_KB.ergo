@@ -1,0 +1,670 @@
+/*
+   THIS FILE IS IN THE PUBLIC DOMAIN.
+
+   IT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+   IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+   OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+   OTHER DEALINGS IN THE SOFTWARE.
+*/
+/*
+    Parts of California Driver's Handbook represented in ErgoAI
+       Sections:
+           Right-of-way on mountain roads
+           Speed limits
+*/
+
+// the main KB
+
+// The KB uses union/intersection/difference of classes so needs this directive
+// The use of class expressions slows down Test 1 (any initial :-query)
+// by an order of magnitude.
+?- setsemantics{class_expressions=on}.
+
+
+/**************** Section 1: Right-of-way on mountain road *******************/
+
+/*
+  This section captures the following sentences from the driver's handbook:
+
+  1. When two vehicles meet on a steep road where neither can pass,
+     the vehicle facing downhill must yield the right-of-way by backing
+     up until the vehicle going uphill can pass.
+  2. The vehicle facing downhill has the greater amount of control when backing.
+
+  The first sentence is operationally relevant so it needs to be represented
+  and is fairly self-explanatory from the classes/relations.
+  The second sentence merely gives an explanation for the rule provided by
+  the first so it doesn't need to be represented.
+*/
+
+Entity::Thing.
+Action::Thing.
+Event::Thing.
+Direction::Thing.
+
+DrivingEntity::Entity.
+Vehicle::DrivingEntity.
+DrivingSurface::Entity.
+
+Drive::Action.
+Reverse::Drive.
+
+DrivingSituation::Event.
+Impasse::DrivingSituation.
+
+HazardousDrivingSurface::DrivingSurface.
+NarrowDrivingSurface::HazardousDrivingSurface.
+SteepDrivingSurface::HazardousDrivingSurface.
+
+Uphill:Direction.
+Downhill:Direction.
+
+Entity[|blockedBy => Entity|].
+Action[|agent => Entity|].
+Drive[|heading => Direction|].
+Drive[|surface => DrivingSurface|].
+Event[|participant => Entity|].
+Event[|response => Action|].
+DrivingSituation::Event[|rightOfWay => Entity|].
+
+?I:Impasse, ?I[rightOfWay->?V1] :-
+        ?I:DrivingSituation[participant -> {?V1,?V2}:Vehicle],
+        ?V1 != ?V2,
+        ?:Drive[heading->Uphill, surface->?S1, agent->?V1, blockedBy->?V2],
+        ?:Drive[heading->Downhill, surface->?S1, agent->?V2, blockedBy->?V1],
+        ?S1: {NarrowDrivingSurface, SteepDrivingSurface}.
+
+?I[response->?R1] :-
+        ?I:Impasse[participant->?, participant->?V2],
+        ?R1:Reverse[agent->?V2].
+
+
+// Test 1: impasse, response, rightOfWay -- see etended_example_KB.ergo
+
+
+
+/************************* Section 2: Speed Limits *************************/
+
+/*
+  The Ergo statements in this section represent the following sentences:
+
+  1. California has a "Basic Speed Law."
+     2. This law means you may never drive faster than is safe for current
+        conditions.
+     3. For example, if you are driving 45 mph in a 55 mph speed zone during
+        a dense fog, you could be cited for driving "too fast for conditions."
+     4. You may never legally drive faster than the posted speed limit, even
+        if you think it is safe to do so.
+
+  5. Regardless of the posted speed limit, your speed should depend on:
+     6. The number and speed of other vehicles on the road.
+     7. Whether the road surface is smooth, rough, graveled, wet, dry,
+        wide, or narrow.
+     8. Bicyclists or pedestrians walking on the road's edge or crossing
+        the street.
+     9. Whether it is raining, foggy, snowy, windy, or dusty.
+
+   Sentence [4] says that driving faster than the posted speed limit is
+   illegal and needs to be represented. All other sentences express the idea
+   that speed should be adjusted depending on conditions.
+   Sentences [2], [5], [6], [7], [8] and [9] are all operationally relevant
+   to this idea and need to be represented.
+   We will represent speeding using multiple rules: when a driver exceeds
+   the limit of a speed zone [4].
+   When a driver fails to reduce speed in response to rough, graveled, wet,
+   narrow or crowded roads or rainy, foggy, snowy, windy or dusty weather
+   conditions [2, 5, first part of 6, 7, 9]; and when a driver fails to reduce
+   speed when a pedestrian or bicyclist is ahead in the lane [8].
+   The second part of [6] about speed depending on the speed of other vehicles
+   will be represented in Section 4.
+*/
+
+SpatialEntity::Entity.
+SpeedZone::SpatialEntity.
+
+IllegalDrive::Drive.
+Speeding::IllegalDrive.
+
+HazardousConditions::DrivingSituation.
+Raining::HazardousConditions.
+Snowing::HazardousConditions.
+Foggy::HazardousConditions.
+Windy::HazardousConditions.
+Dusty::HazardousConditions.
+DenseTraffic::HazardousConditions.
+
+RoughDrivingSurface::{HazardousDrivingSurface, HazardousConditions}.
+GravelDrivingSurface::{HazardousDrivingSurface, HazardousConditions}.
+WetDrivingSurface::{HazardousDrivingSurface, HazardousConditions}.
+
+Person::Entity.
+Pedestrian::Person.
+Bicyclist::{DrivingEntity, Person}.
+
+Drive[|speed => \integer, inSpeedZone => SpeedZone, aheadInLane => Entity|].
+SpeedZone[|speedLimit => \integer|].
+
+/*
+  Note, in the rule body below and similar, it is almost always better
+  performance-wise to incorporate ?D1:DrivingEntity into a frame, as written,
+  than to write
+       ?D1:DrivingEntity,
+       ?S:Drive[agent -> ?D1, speed -> ?X, inSpeedZone -> ?Z],
+       ...
+  This is because ?D1 is unbound here and testing ?D1:DrivingEntity in advance
+  results in a large number of failed derivations. The problem becomes
+  even worse if a rule body has two or three membership tests.
+*/
+?S:Speeding :-
+        ?S:Drive[agent -> ?D1:DrivingEntity, speed -> ?X, inSpeedZone -> ?Z],
+        ?Z:SpeedZone[speedLimit -> ?Y],  
+        ?X > ?Y.
+
+?S:Speeding :-
+        ?S:Drive[agent -> ?D1:DrivingEntity],
+        (
+            ?:HazardousConditions[participant -> ?D1, response -> ?R],
+            \naf ?R:ReduceSpeed[agent -> ?D1]
+        ;
+            ?:HazardousConditions[participant -> ?D1]
+        ).
+
+?S:Speeding :-
+        ?S:Drive[agent -> ?D1:DrivingEntity, aheadInLane -> ?P1],
+        // for performance, test this after ?P1 is bound by the above
+        (?P1:Pedestrian ; ?P1:Bicyclist),
+        (
+            ?:DrivingSituation[participant -> {?D1,?P1}, response -> ?R],
+            \naf ?R:ReduceSpeed[agent -> ?D1]
+        ;
+            ?:DrivingSituation[participant -> {?D1,?P1}]
+        ).
+
+
+// Test 2: speeding cases -- see etended_example_KB.ergo
+
+
+/********************* Section 3: Maximum Speed Limits ***********************/
+
+/*
+    This section represents the following sentences:
+
+    1. The maximum speed limit on most California highways is 65 mph.
+    2. You may drive 70 mph where posted.
+    3. Unless otherwise posted, the maximum speed limit is 55 mph on two-lane
+       undivided highways and for vehicles towing trailers.
+    4. Other speed limit signs are posted for the type of roads and traffic
+       in each area.
+    5. All speed limits are based on ideal driving conditions.
+    6. Construction zones usually have reduced speed zones.
+    7. Driving faster than the posted speed limit or than is safe for current
+       conditions, on any road, is dangerous and illegal.
+    8. High speed increases your stopping distance.
+    9. The faster you go, the less time you have to avoid a hazard or collision.
+   10. The force of a 60 mph crash is not just twice as great as a 30 mph crash,
+       it's four times as great!
+
+   For Sentence [1], we can represent highways as a speed zone with
+   a default speed limit of 65mph.
+   [2] has mostly been represented above with speeding rules. We will, however,
+   set SpeedZone to have a default speed of 70mph since it appears to be the
+   absolute maximum possible limit.
+   Similarly, for [3], two-lane undivided highways will have a default speed
+   limit of 55mph. Vehicles towing trailers cannot legally travel faster
+   than 55mph so that value will be a default limit.
+   [4] has been represented above with the SpeedZone class.
+   [5] has also been represented already.
+   [6] can be represented by adding construction zones as hazardous areas.
+   [7] has already been represented.
+   [8], [9] and [10] are not operationally relevant.
+*/
+
+Road::DrivingSurface.
+Highway::{SpeedZone, Road}.
+
+Highway[|speedLimit -> 65|].
+
+SpeedZone[|speedLimit -> 70|].
+
+TwoLaneHighway::Highway.
+UndividedHighway::Highway.
+
+TwoLaneUndividedHighway::{TwoLaneHighway, UndividedHighway}.
+TwoLaneUndividedHighway[|speedLimit -> 55|].
+
+VehicleTowingTrailer::Vehicle.
+DrivingEntity::Entity[|speedLimit => \integer|].
+
+VehicleTowingTrailer[|speedLimit -> 55|].
+
+?S:Speeding :-
+        ?D:DrivingEntity[speedLimit->?Y],
+        ?S:Drive[agent->?D, speed->?X],
+        ?X > ?Y.
+
+ConstructionZone::{SpeedZone, HazardousConditions}.
+
+
+// Test 3: more speeding cases, speedLimit -- see etended_example_KB.ergo
+
+
+/********** Section 4: Reduced Speeds: Heavy Traffic or Bad Weather **********/
+
+/*
+   In this section we represent the following sentences:
+
+   1. You must drive slower when there is heavy traffic or bad weather.
+   2. However, if you block the normal and reasonable movement of traffic
+      by driving too slowly, you may be given a ticket.
+   3. If you choose to drive slower than other traffic, do not drive
+      in the Number 1 (fast) lane. (See page 33.)
+   4. When traveling below the speed limit always move to the right when
+      another driver is close behind you and wishes to drive faster,
+      unless you are already in the extreme right lane.
+
+   Sentence [1] has already been represented.
+   [2] is difficult to represent since it uses vague terms like "normal"
+   and "reasonable". We will make an estimate that driving 5mph less
+   than vehicles behind you in your lane constitutes "driving too slowly".
+   [3], [4] add that "driving too slowly" is only an issue when you are not
+   to the right. So to represent [2], [3] and [4] we will make it illegal to
+   drive 5mph slower than drivers behind you and not move to the right-most
+   lane (assuming both are below the speed limit).
+   We introduce a new subclass of Road: RoadHalf, to represent the two
+   "halves" of the road, as well as marked and unmarked lanes; both are mainly
+   for use in the next section.
+*/
+
+BlockTraffic::IllegalDrive.
+RoadParts::DrivingSurface.
+RoadHalf::RoadParts.
+RoadLane::RoadParts.
+MarkedLane::RoadLane.
+UnmarkedLane::RoadLane.
+RightMostLane::UnmarkedLane.
+
+Drive[|lane => RoadLane|].
+Drive[|inFront => Entity|].
+
+?B:BlockTraffic :-
+        ?B:Drive[agent->?D1:DrivingEntity,
+                 speed->?X1, inSpeedZone->?Z, lane->?L],
+        ?:Drive[agent->?D2:DrivingEntity,
+                speed->?X2, inSpeedZone->?Z, inFront->?D1],
+        //?L:(RoadLane - RightMostLane),
+        ?L:RoadLane, \naf ?L:RightMostLane,
+        ?Z:SpeedZone[speedLimit->?X],
+        (
+            ?:DrivingSituation[participant->{?D1,?D2}, response->?M],
+            \naf ?M:MoveRight[agent->?D1]
+        ;
+            ?:DrivingSituation[participant->{?D1,?D2}]
+        ),
+        ?X1 < ?X,
+        ?X2 < ?X,
+        (?X1 + 5) < ?X2,
+        ?D1 != ?D2.
+
+
+// Test 4: blocking traffic -- see etended_example_KB.ergo
+
+
+
+/***** Section 5: Reduced Speeds: Towing Vehicles, Buses, or Large Trucks *****/
+
+/*
+   This section captures the following sentences:
+
+   1. When you tow a vehicle or trailer, or drive a bus or three or more
+      axle truck, you must drive in the right hand lane or in a lane
+      specially marked for slower vehicles.
+   2. If no lanes are marked and there are four lanes or more in your direction,
+      you may only drive in either of the two lanes closest to the right
+      edge of the road.
+
+   Both sentences will be represented as a new subclass of IllegalDrive:
+   IllegalLaneUse.
+   Both [1] and [2] are then fairly self-explanatory.
+*/
+
+IllegalLaneUse::IllegalDrive.
+Bus::Vehicle.
+Truck::Vehicle.
+VehicleTowingVehicle::Vehicle.
+
+RoadHalfAllUnmarked::RoadHalf.
+SlowLane::MarkedLane.
+SecondRightMostLane::UnmarkedLane.
+
+RoadHalf::RoadParts[|laneCount => \integer|].
+Truck::Vehicle[|axleCount => \integer|].
+
+?I:IllegalLaneUse :-
+        ?I:Drive[agent->?D, lane->?L, surface->?S],
+        (?D:VehicleTowingVehicle ; ?D:VehicleTowingTrailer ; ?D:Bus),
+        //?L:(RoadLane - (RightMostLane ; SlowLane)),
+        // this is faster
+        ?L:RoadLane, \naf ?L:RightMostLane, \naf ?L:SlowLane,
+        (
+            ?S:RoadHalf[laneCount->?C], ?C < 4
+        ;
+            ?S:Road[laneCount->?C], ?C < 8
+        ).
+
+
+?I:IllegalLaneUse :-
+        ?D:Truck[axleCount -> ?A],
+        ?I:Drive[agent -> ?D, lane -> ?L, surface -> ?S],
+        //?L:(RoadLane - (RightMostLane ; SlowLane)),
+        ?L:RoadLane, \naf ?L:RightMostLane, \naf ?L:SlowLane,
+        (
+            ?S:RoadHalf[laneCount -> ?C], ?C < 4
+        ;
+            ?S:Road[laneCount -> ?C], ?C < 8
+        ),
+        ?A >= 3.
+
+?I:IllegalLaneUse :-
+        ?I:Drive[agent -> ?D, surface -> ?S, lane -> ?L],
+        (?D:VehicleTowingVehicle ; ?D:VehicleTowingTrailer ; ?D:Bus),
+        //?L:(RoadLane - (RightMostLane ; SecondRightMostLane)),
+        ?L:RoadLane, \naf ?L:RightMostLane, \naf ?L:SecondRightMostLane,
+        (
+            ?S:RoadHalfAllUnmarked[laneCount -> ?C], ?C >= 4
+        ;
+            ?S:Road[laneCount -> ?C], ?C >= 8
+        ).
+
+?I:IllegalLaneUse :-
+        ?D:Truck[axleCount -> ?A],
+        ?I:Drive[agent -> ?D, surface -> ?S, lane -> ?L],
+        //?L:(RoadLane - (RightMostLane ; SecondRightMostLane)),
+        ?L:RoadLane, \naf ?L:RightMostLane, \naf ?L:SecondRightMostLane,
+        (
+            ?S:RoadHalfAllUnmarked[laneCount -> ?C], ?C >= 4
+        ;
+            ?S:Road[laneCount -> ?C], ?C >= 8
+        ),
+        ?A >= 3.
+
+
+// Test 5: illegal lane use -- see etended_example_KB.ergo
+
+
+
+/********* Section 6: Reduced Speeds: Around Children (First Section) *********/
+
+/*
+   In this section we represent these sentences:
+
+   1. When driving within 500 to 1,000 feet of a school while children
+      are outside or crossing the street, the speed limit is 25 mph unless
+      otherwise posted.
+   2. Also, if the school grounds have no fence and children are outside,
+      never drive faster than 25 mph.
+   3. Some school zones may have speed limits as low as 15 mph.
+   4. Always drive more carefully near schools, playgrounds, parks, and
+      residential areas because children may suddenly dart into the street.
+   5. Also, many children have not yet developed the ability to judge speeds and
+      distances well enough to cross streets safely when cars are moving fast.
+
+   [1] and [2] are represented by a new subclass of SpeedZone: SchoolZone
+   with a default speed limit of 25mph, which functions as a normal speed zone
+   but also applies when within 500 to 1,000 feet of the associated school
+   and when children are outside. A boolean value for a relation outside
+   is sufficient to indicate the latter since if children are crossing
+   the street they are surely outside. A boolean value for a relation fence
+   indicates if there is a fence, in which case any speed over 25mph is
+   considered speeding.
+   [3] is not operationally relevant.
+   For [4] we add more subclasses of HazardousConditions to indicate that
+   drivers should reduce speed in these areas.
+   [5] is not operationally relevant.
+*/
+
+School::{SpatialEntity, HazardousConditions}.
+Playground::{SpatialEntity, HazardousConditions}.
+Park::{SpatialEntity, HazardousConditions}.
+ResidentialArea::{SpatialEntity, HazardousConditions}.
+
+SchoolZone::SpeedZone.
+SchoolZone[|speedLimit -> 25|].
+
+School[|childrenOut=>\boolean, hasFence=>\boolean, speedZone=>SchoolZone|].
+School[|childrenOut -> \false, hasFence -> \true|].
+
+Drive[|distanceTo(School) => \integer|].
+
+?S:Speeding :-
+        ?S:Drive[agent -> ?D:DrivingEntity, speed -> ?X, distanceTo(?SC) -> ?Y],
+        ?SC:School[childrenOut -> \true, hasFence -> ?F, speedZone -> ?Z],
+        ?Z:SchoolZone[speedLimit -> ?P],
+        ?Y < 1000,
+        ?Y > 500,
+        (?X > ?P ; (?F == \false, ?X > 25)).
+
+
+// Test 6: speeding, speedLimit, fence -- see etended_example_KB.ergo
+
+
+/******** Section 7: Reduced Speeds: Around Children (Second Section) *********/
+
+/*
+    This section represents the following sentences:
+
+    Near schools, look for:
+       1. Bicyclists and pedestrians.
+       2. School safety patrols or school crossing guards and obey their
+          directions.
+         3. For the crossing guards safety, allow him or her to safely get
+            to the side of the road before driving ahead. 
+       4. Stopped school buses and children crossing the street.
+         5. Some school buses flash yellow lights when preparing to stop to let
+            children off the bus.
+         6. The yellow flashing lights warn you to slow down and prepare
+            to stop.
+         7. When the bus flashes red lights (located at the top front and back
+            of the bus), you must stop from either direction until the children
+            are safely across the street and the lights stop flashing.
+         8. The law requires you remain stopped as long as the red lights are
+            flashing (CVC 22454).
+         9. If you fail to stop, you may be fined up to $1,000 and your driving
+            privilege could be suspended for one year.
+        10. If the school bus is on the other side of a divided or multilane
+            highway (two or more lanes in each direction), you do not need
+            to stop.
+
+     [1] is not operationally relevant.
+     [2] and [3] can be combined to say that drivers must stop when there
+     is a crossing guard on the road.
+     [4], [5] and [6] can be combined to say that drivers must slow down
+     and prepare to stop when a school bus ahead is flashing its yellow lights
+     (but not "when the school bus is on the other side of a divided or
+     multilane highway", i.e. it is illegal not to stop when the bus is on
+     the same side as the vehicle or when the road is undivided or multilane
+     with fewer than 4 lanes (2 in each direction)).
+     [7], [8], [9] and [10] can be combined to say that drivers must stop when
+     the school bus is flashing its red lights (but not "when the school bus
+     is on the other side of a divided or multilane highway") and that failing
+     to do so has a penalty of up to $1000 and a 1 year suspension of driving
+     privilege.
+*/
+
+IllegalNoStop::IllegalDrive.
+IllegalNoStopOnRed::IllegalNoStop.
+Stop::Drive.
+SlowDown::Drive.
+PrepareToStop::Drive.
+
+// driving offenses
+{IllegalNoStop,IllegalNoStopOnRed,IllegalDrive} : DrivingOffense.
+
+Penalty::Thing.
+Fine::Penalty.
+SuspendedLicense::Penalty.
+
+Fine[|cost => \integer, maxFine(DrivingOffense) => \integer|].
+// max fine for IllegalNoStopOnRed = $1000
+Fine[maxFine(IllegalNoStopOnRed) -> 1000].
+
+SuspendedLicense[|maxDuration(DrivingOffense) => \duration|].
+// max suspension for IllegalNoStopOnRed is 12 months - using the duration
+// data type
+SuspendedLicense[maxDuration(IllegalNoStopOnRed) -> "P12M"^^\duration].
+
+IllegalDrive[|maxPenalty => Penalty|].
+
+CrossingGuard::Person.
+CrossingGuardOnRoad::DrivingSituation.
+
+SchoolBus::Bus.
+SchoolBus[|yellowLightsFlashing => \boolean, redLightsFlashing => \boolean|].
+SchoolBus[|yellowLightsFlashing -> \false, redLightsFlashing -> \false|].
+SchoolBusAhead::DrivingSituation.
+
+DividedHighway::Highway.
+
+Road::DrivingSurface[|crossing => Person|].
+
+?IL:IllegalNoStop :-
+        ?R:Road[crossing -> ?C:CrossingGuard],
+        ?IL:Drive[agent -> ?D:DrivingEntity, surface -> ?R],
+        (
+            ?:CrossingGuardOnRoad[participant -> {?D,?C}, response -> ?S],
+            \naf ?S:Stop[agent -> ?D]
+        ;
+            ?:CrossingGuardOnRoad[participant -> {?D,?C}]
+        ).
+
+?IL:IllegalNoStop :-
+        ?IL:Drive[agent -> ?D:DrivingEntity, surface -> ?S],
+        ?:Drive[agent -> ?SB, surface -> ?S],
+        (
+            ?S:RoadHalf
+        ;
+            ?S:(Road - DividedHighway)[laneCount -> ?L], ?L < 4
+        ),
+        ?SB:SchoolBus[yellowLightsFlashing -> \true],
+        (
+            ?:SchoolBusAhead[participant -> {?D,?SB}, response -> ?R],
+            \naf ?R:(SlowDown,PrepareToStop)[agent -> ?D]
+        ;
+            ?:SchoolBusAhead[participant -> {?D,?SB}]
+        ).
+
+?IL:IllegalNoStopOnRed :-
+        ?IL:Drive[agent -> ?D:DrivingEntity, surface -> ?S],
+        ?:Drive[agent -> ?SB, surface -> ?S],
+        (
+            ?S:RoadHalf 
+        ;
+            ?S:(Road - DividedHighway)[laneCount -> ?L], ?L < 4
+        ),
+        ?SB:SchoolBus[redLightsFlashing -> \true],
+        (
+            ?:SchoolBusAhead[participant -> {?D,?SB}, response -> ?R],
+            \naf ?R:Stop[agent -> ?D]
+        ;
+            ?:SchoolBusAhead[participant -> {?D,?SB}]
+        ).
+
+?IL[maxPenalty -> ?P] :-
+        ?IL:IllegalNoStopOnRed,
+        (
+            Fine[maxFine(IllegalNoStopOnRed) -> ?P]
+        ;
+            SuspendedLicense[maxDuration(IllegalNoStopOnRed) -> ?P]
+        ).
+
+
+// Test 7: illegal stop, maxPenalty -- see etended_example_KB.ergo
+
+
+/************************** Section 8: Roundabouts **************************/
+
+/*
+    This section captures the following sentences:
+
+    1. For roundabouts with multiple lanes, choose your entry or exit
+       lane based on your destination as shown in the graphic. For example, to:
+      2. Turn right at the intersection, choose the right-hand lane and
+         exit in the right-hand lane (blue car.)
+      3. Go straight through the intersection, choose either lane, and exit
+         in the lane you entered (red car.)
+      4. Turn left, choose the left lane, and exit (yellow car.)
+
+    [1] is not operationally relevant.
+    Introduce new definitions for IllegalLaneUse which will be defined as
+    turning right from a lane other than the right lane [2], exiting the
+    roundabout in a different lane from the one you entered in [3] and turning
+    left from a lane other than the left lane [4].
+*/
+
+UseRoundabout::Drive.
+LeftRoundaboutTurn::UseRoundabout.
+RightRoundaboutTurn::UseRoundabout.
+
+Roundabout::SpatialEntity.
+
+LeftMostLane::UnmarkedLane.
+
+UseRoundabout[|roundabout=>Roundabout,entryLane=>RoadLane,exitLane=>RoadLane|].
+
+?IL:IllegalLaneUse :-
+        ?IL:RightRoundaboutTurn[agent -> ?D:DrivingEntity,
+                                roundabout -> ?R:Roundabout,
+                                entryLane -> ?E1, exitLane -> ?E2],
+        (\naf ?E1:RightMostLane ; \naf ?E2:RightMostLane).
+
+?IL:IllegalLaneUse :-
+        ?IL:LeftRoundaboutTurn[agent -> ?D:DrivingEntity,
+                               roundabout -> ?R:Roundabout,
+                               entryLane -> ?E1, exitLane -> ?E2],
+        (\naf ?E1:LeftMostLane ; \naf ?E2:LeftMostLane).
+
+?IL:IllegalLaneUse :-
+        ?IL:UseRoundabout[agent -> ?D:DrivingEntity,
+                          roundabout -> ?R:Roundabout,
+                          entryLane -> ?E1, exitLane -> ?E2],
+        ?E1 != ?E2.
+
+
+// Test 8: illegal use of lane -- see etended_example_KB.ergo
+
+
+/******************************* End of KB ************************************/
+
+
+/* Sample additional test questions -- see etended_example_KB.ergo for all */
+
+// Test 9: speeding
+
+// Test 10: rightOfWay
+
+// Test 11: BlockTraffic, Speeding
+
+// Test 12: BlockTraffic, Speeding
+
+// Test 13: Speeding
+
+// Test 14: IllegalLaneUse
+
+/* Additional Questions not prepared in advance -- in etended_example_KB.ergo */
+
+// Test N1: speedLimit
+
+// Test N2: BlockTraffic
+
+// Test N3: speedLimit
+
+// Test N4: IllegalLaneUse
+
+// Test N5: IllegalNoStopOnRed
+
+// Test N6: IllegalNoStopOnRed 
+
+// Test N7: Speeding
+

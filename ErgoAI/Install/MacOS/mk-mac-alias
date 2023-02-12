@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# assume $1 is absolute file name
+file="$1"
+dirfile=`dirname "$1"`
+
+# these two are unused at present
+basefile=`basename "$1"`
+name="$2"
+
+osascript > /dev/null <<END_SCRIPT
+tell application "Finder"
+   make new alias to file (posix file "$file") at desktop with properties {name: "$name"}
+end tell
+END_SCRIPT
+
+#mv "$HOME/Desktop/$basefile" "$HOME/Desktop/$name"

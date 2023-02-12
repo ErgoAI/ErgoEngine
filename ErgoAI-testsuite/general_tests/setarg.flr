@@ -1,0 +1,46 @@
+
+{p,q}(a,g(f({b,c}))).
+
+{Mary,Joe}:{Student,Worker}.
+
+{Student,Worker}::something({Person,Busy}).
+
+qqq({?X,?Y}) :- {p,q}(?,?(f({?X,?Y}))).
+
+{a,m}[{ppp,qqq} -> {1,{2,3},4}].
+
+abc(?X) :- ?X:something({Person,Busy}).
+
+cde({?X,?Y},?Z) :- ?X[{?Y,qqq} ->?Z].
+
+?- insert{something({Person,Busy})::foo({zzz,qqq})}.
+?- insertrule{www(?X,?Y,?Z) :- ?X:foo({?Y,?Z})}.
+
+%tst1 :- write('test1: ')@\plg,
+	?R=bagof{?X|qqq(?X)},
+	writeln(?R)@\plg.
+
+%tst2 :- write('test2: ')@\plg,
+	?R=bagof{?X|abc(?X)},
+	writeln(?R)@\plg.
+
+%tst3 :- write('test3: ')@\plg,
+	?R=setof{?X|cde(?Y,?Z), ?X=?Y+?Z},
+	writeln(?R)@\plg.
+
+%tst4 :- write('test4: ')@\plg,
+	?R=bagof{?V|www(?X,?Y,?Z), ?V=?X+?Y+?Z},
+	writeln(?R)@\plg.
+
+%tst5 :- write('test5: ')@\plg,
+	deleteall{something({?,Busy})::foo({zzz,?})},
+	refresh{www(?,?,?)},
+	refresh{?:foo({?,?})},
+	?R=bagof{?V|www(?X,?Y,?Z), ?V=?X+?Y+?Z},
+	writeln(?R)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5.
+
+%test :- tell(temp)@\plg(),
+	%pretest,
+	told@\plg().

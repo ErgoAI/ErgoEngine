@@ -1,0 +1,105 @@
+/* File:      flrsemantics.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**      Coherent Knowledge Systems, LLC, 2014-2018
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+
+:- import flloadtrailer/2, fltrailersemantics/2 from flrutils.
+:- import flora_abort/1 from flrporting.
+:- import
+        flora_set_runtime_switch_registry/2,
+        flora_clear_runtime_switch_registry/2,
+        flora_runtime_switch_registry/2
+   from flrregistry.
+:- import select/3 from basics.
+
+
+
+
+
+/*****************************************************************************
+  fllibsemantics(+CurrentModule,+Options, +TargetModule)
+  fllibsetsemantics(+CurrentModule,+Options, +TargetModule)
+
+  Loads trailer with given options into the target module.
+  The first argument, the current module, is provided for
+  the use by the encapsulation.
+*****************************************************************************/
+FLLIBSEMANTICS(CurrentModule,Options,TargetModule) :-
+        (TargetModule == NULL -> RealTargetModule = CurrentModule
+        ; RealTargetModule = TargetModule
+        ),
+	(select(FL_SUBCLASSING(Opt),Options,RestOptions) ->
+	    (flora_runtime_switch_registry(FL_SUBCLASSING(Opt),RealTargetModule) -> true
+	    ; Opt = STRICT_SUB
+	    )
+	; select(FL_CLASS_EXPRESSIONS(Opt),Options,RestOptions) ->
+	    (flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS(Opt),RealTargetModule) -> true
+	    ; Opt = NONE
+	    )
+	; RestOptions = Options
+	),
+	fltrailersemantics(RestOptions,RealTargetModule).
+
+FLLIBSETSEMANTICS(CurrentModule,Options,TargetModule) :-
+        (TargetModule == NULL -> RealTargetModule = CurrentModule
+        ; RealTargetModule = TargetModule
+        ),
+	(select(FL_SUBCLASSING(Opt),Options,RestOptions) ->
+	    (flora_runtime_switch_registry(FL_SUBCLASSING(Opt),RealTargetModule) -> true
+	    ;
+		flora_clear_runtime_switch_registry(FL_SUBCLASSING(_),RealTargetModule),
+		flora_set_runtime_switch_registry(FL_SUBCLASSING(Opt),RealTargetModule),
+		catch(abolish_alltables,_,true)
+	    )
+	; select(FL_CLASS_EXPRESSIONS(Opt),Options,RestOptions) ->
+	    (Opt==FL_ON,
+		flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,RealTargetModule) -> true
+	    ; Opt==FL_NONE,
+		\+flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,RealTargetModule) -> true
+	    ;
+		flora_clear_runtime_switch_registry(FL_CLASS_EXPRESSIONS,RealTargetModule),
+		(Opt==FL_ON ->
+		    flora_set_runtime_switch_registry(FL_CLASS_EXPRESSIONS,RealTargetModule)
+		; true
+		),
+		catch(abolish_all_tables,_,true)
+	    )
+	;  RestOptions = Options
+	),
+	flloadtrailer(RestOptions,RealTargetModule),
+	!.
+
+FLLIBSETSEMANTICS(CurrentModule,_Options,TargetModule) :-
+        (TargetModule == NULL -> RealTargetModule = CurrentModule
+        ; RealTargetModule = TargetModule
+        ),
+	flora_abort(['Error occurred while adding semantic axioms to module ', RealTargetModule]).

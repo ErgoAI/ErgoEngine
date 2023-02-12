@@ -1,0 +1,21 @@
+\udf foo(1):=2.
+\udf foo(2):=3 \if \true.
+
+// this should give an error because it is loaded into main,
+// but test_func_facts.flr is loaded into foomod1.
+?- [+test_func_facts_aux].
+
+%test1 :-
+	?y=foo(?x),
+	flora_write_goal_substitute_vars(?x+?y)@\plg(flrdecode),
+	nl@\io,
+	\false.
+%test1 :- \true.
+
+%test2 :- %auxtest.
+
+%pretest :- %test1, %test2.
+
+%test :- tell(temp)@\plg,
+	 %pretest,
+	 told@\plg.

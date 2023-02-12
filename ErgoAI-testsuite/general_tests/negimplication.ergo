@@ -1,0 +1,66 @@
+:- compiler_options{expert=on, omni=on}.
+
+(aaa(?_X),ccc(?_X),eee) ==> (bbb(?_X),ddd(?_X),fff).
+aaa(1),ccc(1).
+eee.
+
+bbb1,ddd1 <== eee;aaa(1).
+eee1,fff1<==ppp.
+
+bbb(?_X),ddd(?_X) <==> bbb1(?_X),ddd1(?_X).
+
+%tst1 :- write('test1: ')@\plg,
+	bbb(?X),ddd(?X),fff,
+	bbb1(?X),ddd1(?X),
+	bbb1,ddd1,
+	\naf eee1, \naf fff1,
+	writeln(?X)@\plg.
+
+p({1,2,3}).
+q.
+forall(?X)^p(?X) ==> (q ==> r).
+
+%tst2 :-
+        setruntime{unsafe_naf(ignoreonce)},
+        write('test2: ')@\plg,
+        undefined{r},
+        writeln(ok)@\plg.
+
+aaa3, \neg eee3.
+aaa3,\neg(ccc3,eee3) ==> bbb3, \neg(ddd3;fff3).
+%tst3 :-  write('test3: ')@\plg,
+	  bbb3, \neg ddd3, \neg fff3,
+	  writeln(ok)@\plg.
+
+exists(?X)^((a4(?X);c4(?X)) <== b4(?X)).
+b4(?).
+\neg c4(?).
+
+eee ==> (q <==>r6).
+
+%tst4 :-  write('test4: ')@\plg,
+	  a4(?), r6,
+	  writeln(ok)@\plg.
+
+forall(?St)^exist(?Sn1,?Sn2)^(senator(?St,{?Sn1,?Sn2}) <== state(?St)).
+exist(?Sn1,?Sn2)^senator2(?St,{?Sn1,?Sn2}) :- state(?St).
+\neg exist(?X)^senator(PuertoRico,?X).
+state(NY).
+state(AL).
+state(TX).
+%tst5 :- write('test5: ')@\plg,
+	 setof{?X|senator(NY,?X) ; senator(TX,?X)} = ?L,
+	 writeln(?L)@\plg.
+
+%tst6 :- write('test6: ')@\plg,
+	 \neg state(?X),
+	 writeln(?X)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().

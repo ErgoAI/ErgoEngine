@@ -1,0 +1,198 @@
+/* File:      include/flrbasetype_list.flh
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2014.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- export{
+           ?[startsWith(?)],
+           ?[endsWith(?)],
+           ?[contains(?)],
+           ?[member(?)],
+           ?[ith(?)->?],
+           ?[append(?)->?],
+           ?[delete(?)->?],
+           ?[select(?)->?],
+           ?[length->?],
+           ?[reverse->?],
+           ?[toTuple->?],
+           ?[flatten->?],
+           ?[sort->?],
+           ?[subset(?)]}.
+
+
+// startsWith
+?X[startsWith(?Y)] :-
+        islist{?X},
+        islist{?Y},
+        !,
+        flora_startsWith_list(?X,?Y)@\prolog(flrdatatype_utils).
+?X^^\list[startsWith(?Y^^\list)] :-
+        isnonvar{?X},
+        !,
+        flora_startsWith_list(?X,?Y)@\prolog(flrdatatype_utils).
+
+// endsWith
+?X[endsWith(?Y)] :-
+        islist{?X},
+        islist{?Y},
+        !,
+        reverse(?X,?RX)@\prolog(basics),
+        reverse(?Y,?RY)@\prolog(basics),
+        flora_startsWith_list(?RX,?RY)@\prolog(flrdatatype_utils).
+?X^^\list[endsWith(?Y^^\list)] :-
+        isnonvar{?X},
+        !,
+        reverse(?X,?RX)@\prolog(basics),
+        reverse(?Y,?RY)@\prolog(basics),
+        flora_startsWith_list(?RX,?RY)@\prolog(flrdatatype_utils).
+
+// contains
+?X[contains(?Y^^\list)] :-
+        islist{?X},
+        islist{?Y},
+        !,
+        subseq(?X,?Y,?)@\prolog(basics).
+?X^^\list[contains(?Y^^\list)] :-
+        isnonvar{?X},
+        isnonvar{?Y},
+        !,
+        subseq(?X,?Y,?)@\prolog(basics).
+
+// member
+?X[member(?Y)] :-
+        islist{?X},
+        !,
+        member(?Y,?X)@\prolog(basics).
+?X^^\list[member(?Y)] :-
+        isnonvar{?X},
+        !,
+        member(?Y,?X)@\prolog(basics).
+
+// select
+?X[select(?Y) -> ?R] :-
+        islist{?X},
+        !,
+        select(?Y,?X,?R)@\prolog(lists).
+?X^^\list[select(?Y) -> ?R] :-
+        isnonvar{?X},
+        !,
+        select(?Y,?X,?R)@\prolog(lists).
+
+// delete
+?X[delete(?Y) -> ?R] :-
+        islist{?X},
+        !,
+        delete(?X,?Y,?R)@\prolog(lists).
+?X^^\list[delete(?Y) -> ?R] :-
+        isnonvar{?X},
+        !,
+        delete(?X,?Y,?R)@\prolog(lists).
+
+// append
+?X[append(?Y) -> ?R] :-
+        islist{?X},
+        islist{?Y},
+        !,
+        append(?X,?Y,?R)@\prolog(basics).
+?X^^\list[append(?Y) -> ?R] :-
+        (isnonvar{?X} ; islist{?R}),
+        !,
+        append(?X,?Y,?R)@\prolog(basics).
+// If the class is \list then use lists:append_lists/2
+\list[append([]) -> []] :- !.
+\list[append([?L|?Ls]) -> ?R] :-
+        !,
+        ?L[append(?Rest) -> ?R],
+        \list[append(?Ls) -> ?Rest].
+
+// length
+?X[length->?R] :-
+        islist{?X},
+        !,
+        length(?X,?R)@\prolog(basics).
+?X^^\list[length -> ?R] :-
+        (isvar{?R}, isnonvar{?X} -->> \true ; isinteger{?R}),
+        !,
+        length(?X,?R)@\prolog(basics).
+
+// reverse
+?X[reverse -> ?R] :-
+        islist{?X},
+        !,
+        reverse(?X,?R)@\prolog(basics).
+?X^^\list[reverse -> ?R] :-
+        isnonvar{?X},
+        !,
+        reverse(?X,?R)@\prolog(basics).
+
+// toTuple (commalist)
+?X[toTuple -> ?R] :-
+        islist{?X},
+        !,
+        list2commalist(?X,?R)@\prolog(flrauxil).
+?X^^\list[toTuple -> ?R] :-
+        isnonvar{?X},
+        !,
+        list2commalist(?X,?R)@\prolog(flrauxil).
+
+// flatten
+?X[flatten -> ?R] :-
+        islist{?X},
+        !,
+        flatten(?X,?R)@\prolog(basics).
+?X^^\list[flatten -> ?R] :-
+        isnonvar{?X},
+        !,
+        flatten(?X,?R)@\prolog(basics).
+
+// sort
+?X[sort -> ?R] :-
+        islist{?X},
+        !,
+        sort(?X,?R)@\prolog.
+?X^^\list[sort -> ?R] :-
+        isnonvar{?X},
+        !,
+        sort(?X,?R)@\prolog.
+
+// subset
+?X[subset(?Y)] :-
+        islist{?X},
+        islist{?Y},
+        !,
+        subset(?Y,?X)@\prolog(basics).
+?X^^\list[subset(?Y^^\list)] :-
+        isnonvar{?X},
+        isnonvar{?Y},
+        !,
+        subset(?Y,?X)@\prolog(basics).
+
+// ith (list[ith(Idx)->Elt]
+?X[ith(?N) -> ?Y] :-
+        islist{?X},
+        !,
+        ith(?N,?X,?Y)@\prolog(basics).
+?X^^\list[ith(?N) -> ?Y] :-
+        isnonvar{?X},
+        !,
+        ith(?N,?X,?Y)@\prolog(basics).

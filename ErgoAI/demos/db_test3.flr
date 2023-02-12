@@ -1,0 +1,30 @@
+#include "db_test.flh"
+
+?- load{persistentmodules>>pm}.
+
+?- writeln('--Error Handling .--')@\plg.
+
+
+?- newmodule{mod1}.
+
+
+?- mod1[attach(DSN,'ext_db',USER_NAME,PWD)]@pm.
+
+?- write('test 120, Insert facts that are already present')@\plg,
+   insert{p(a,a)@mod1},insert{flora@mod1},
+   insert{a[d->b1]@mod1,a[s->b1]@mod1},
+   writeln('succeeded as expected')@\plg.
+
+
+?- write('test 120, Delete stuff that are not present.')@\plg,
+   delete{p1(a,a)@mod1},insert{flora1@mod1},
+   delete{a1[d->b1]@mod1,a[s2->b1]@mod1},
+   writeln('No messages got as expected')@\plg.
+
+?- writeln('--Sanity check--')@\plg.
+?- p(?M1,?N1)@mod1.
+?- a[?X->?Y]@mod1.
+?- xsb@mod1.
+
+?- \halt.
+

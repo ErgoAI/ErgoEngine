@@ -1,0 +1,143 @@
+/* File:      flrarguments.P -- Flora argument type definitions
+**
+** Author(s): Guizhen Yang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2021.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+
+%%flora_arguments_spec((findall),3,[FL_OID,FL_BODYFORMULA,FL_OID]) :- !.
+%%flora_arguments_spec(call,1,[FL_BODYFORMULA]) :- !.
+%%flora_arguments_spec(get_residual,2,[FL_BODYFORMULA,FL_OID]) :- !.
+
+%% Arg1 - func name; Arg2 - arity;
+%% Arg3 - argument specs: FL_BODYFORMULA/FL_OID/FL_ARITH;
+%% Arg4: module: Var (e.g., _All) means all modules)
+flora_arguments_spec(check,1,[FL_BODYFORMULA],FLSYSMODTYPECHECK) :- !.
+flora_arguments_spec(check,2,[FL_BODYFORMULA,FL_OID],FLSYSMODTYPECHECK) :- !.
+flora_arguments_spec(mustDefine,2,[FL_OID,FL_BODYFORMULA],FLSYSMODSYSTEM) :- !.
+
+flora_arguments_spec('\\tabledump',2,[FL_OID,FL_BODYFORMULA],_) :- !.
+flora_arguments_spec('\\tabledump',3,[FL_OID,FL_BODYFORMULA,FL_OID],_) :- !.
+
+
+%% This is not needed any more, since flrgclp/ogclp, etc.,
+%% convert status' arg 2 to formulas.
+%%flora_arguments_spec(status,2,[FL_OID,FL_BODYFORMULA],FLSYSMODGCLP) :- !.
+
+flora_arguments_spec(FL_ISBASEFACT,1,[FL_BODYFORMULA],_All) :- !.
+flora_arguments_spec(FL_OPPOSES,2,[FL_BODYFORMULA,FL_BODYFORMULA],_All) :- !.
+flora_arguments_spec(FL_OPPOSES,4,[FL_OID,FL_BODYFORMULA,FL_OID,FL_BODYFORMULA],_All) :- !.
+flora_arguments_spec(FL_OVERRIDES,4,[FL_OID,FL_BODYFORMULA,FL_OID,FL_BODYFORMULA],_All) :- !.
+flora_arguments_spec(FL_CANCEL,2,[FL_OID,FL_BODYFORMULA],_All) :- !.
+
+%% Prolog arguments
+flora_arguments_spec(FL_IS,2,[FL_OID,FL_ARITH],_All) :- !.
+flora_arguments_spec(FL_MATHEQ,2,[FL_ARITH,FL_ARITH],_All) :- !.
+flora_arguments_spec(FL_MATHNOTEQ,2,[FL_ARITH,FL_ARITH],_All) :- !.
+flora_arguments_spec(FL_LT,2,[FL_ARITH,FL_ARITH],_All) :- !.
+flora_arguments_spec(FL_EQLT,2,[FL_ARITH,FL_ARITH],_All) :- !.
+flora_arguments_spec(FL_GT,2,[FL_ARITH,FL_ARITH],_All) :- !.
+flora_arguments_spec(FL_EQGT,2,[FL_ARITH,FL_ARITH],_All) :- !.
+
+flora_arguments_spec(FL_REPEAT,1,[FL_BODYFORMULA],_All) :- !.
+
+flora_arguments_spec(object2json,3,[FL_BODYFORMULA,FL_BODYFORMULA,FL_BODYFORMULA],'\\json') :- !.
+
+
+%% The dynamic part
+flora_arguments_spec(Pred,Arity,ArgTypes,Module) :-
+	flora_arguments_spec_dyn(Pred,Arity,ArgTypes,Module).
+
+/****************************************************************************
+  flora_argdef(+Functor,+Arity,-ArgsTypes,+Module)
+  Module: has the form used by the parser
+  Asserts argument specifications
+****************************************************************************/
+flora_argdef(X,Y,Z,ModSpec) :-
+	(ModSpec == NULL -> ModName = ModSpec
+	;
+	    flora_get_module_from_spec(ModSpec,_,ModStruct),
+	    flora_get_flatomvar_name(ModStruct,ModName)
+	),
+	flora_arguments_spec(X,Y,Z,ModName),
+	(basics:length(Z,LZ), Y \= LZ
+	-> flrprint:flora_error_line('internal error: function symbol ~w/~w is defined with special argument modes, but the number of modes ~w does not match the arity ~w',
+				     [X,Y,LZ,Y]),
+	    flrporting:flora_abort([FLSYSTEM,' internal error (flrarguments.P)'], FLORA_ABORT_NOTRACE)
+	; true
+	),
+	!.
+
+
+/****************************************************************************
+  flora_set_argdef(+Functor,+Arity,+ArgsTypes,+Module)
+  Module: has the form used by the parser
+  Sets argument specifications
+****************************************************************************/
+flora_set_argdef(Pred,Arity,ArgTypes,Module) :-
+	(basics:length(ArgTypes,L), Arity \= L
+	-> flrprint:flora_error_line('internal error: function symbol ~w/~w is defined with special argument modes, but the number of modes ~w does not match the arity ~w',
+				     [Pred,Arity,L,Arity]),
+	    flrporting:flora_abort([FLSYSTEM,' internal error (flrarguments.P)'], FLORA_ABORT_NOTRACE)
+	; true
+	),
+	assert(flora_arguments_spec_dyn(Pred,Arity,ArgTypes,Module)).
+
+
+%% arg defs for flora primitives {....}
+%% note: for simple primitives used in flora_simple_primitive_extra_args/3,
+%% include the extra arguments into the arity here.
+flora_prim_argdef(FL_ISBASEFACTPRIM,1,[FL_BODYFORMULA]) :- !.
+flora_prim_argdef(FL_ISBASEFACTPRIM,2,[FL_BODYFORMULA,FL_BODYFORMULA]) :- !.
+flora_prim_argdef(FL_PROFILEPRIM,1,[FL_BODYFORMULA]) :- !.
+flora_prim_argdef(FL_WHY_PRIMITIVE,1,[FL_BODYFORMULA]) :- !.
+flora_prim_argdef(FL_HERE,1,[FL_BODYFORMULA]) :- !.
+flora_prim_argdef(once,1,[FL_BODYFORMULA]) :- !.
+flora_prim_argdef(copy2mod,3,[FL_BODYFORMULA,FL_OID,FL_OID]) :- !.
+
+%% Ergo only
+flora_prim_argdef(FL_PEEK,1,[FL_BODYFORMULA]) :- !.
+flora_prim_argdef(FL_STRUCTDB,5,[FL_BODYFORMULA,FL_OID,FL_OID,FL_OID,FL_OID]) :- !.
+flora_prim_argdef(FL_STRUCTDB,6,[FL_OID,FL_OID,FL_OID,FL_BODYFORMULA,FL_OID,FL_OID]) :- !.
+flora_prim_argdef(random,1,[FL_BODYFORMULA]) :- !.
+flora_prim_argdef(random,2,[FL_BODYFORMULA,FL_PROLOG]) :- !.
+%% Note: argument 1 (+/-) is inserted by the parser; the user only provides
+%% args 2,3 and sees them as if they were arguments 1,2.
+flora_prim_argdef(FL_CONSTRAINT,2,[FL_OID,FL_BODYFORMULA]) :- !.
+flora_prim_argdef(FL_CONSTRAINT,3,[FL_OID,FL_BODYFORMULA,FL_BODYFORMULA]) :- !.
+flora_prim_argdef(FL_ALERT,3,[FL_OID,FL_OID,FL_BODYFORMULA]) :- !.
+flora_prim_argdef(FL_ALERT,4,[FL_OID,FL_OID,FL_BODYFORMULA,FL_BODYFORMULA]):- !.
+
+flora_prim_argdef(FL_TEXTIT_PRIMITIVE,3,[FL_BODYFORMULA,FL_OID,FL_OID]) :- !.
+flora_prim_argdef(FL_TEXTIT_PRIMITIVE,4,[FL_BODYFORMULA,FL_OID,FL_OID,FL_BODYFORMULA]) :- !.
+
+flora_prim_argdef(isnegform,1,[FL_BODYFORMULA]) :- !.
+flora_prim_argdef(isnegform,2,[FL_BODYFORMULA,FL_BODYFORMULA]) :- !.
+flora_prim_argdef(isnafform,1,[FL_BODYFORMULA]) :- !.
+flora_prim_argdef(isnafform,2,[FL_BODYFORMULA,FL_BODYFORMULA]) :- !.

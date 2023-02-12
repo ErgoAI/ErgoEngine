@@ -1,0 +1,126 @@
+/*
+   THIS FILE IS IN THE PUBLIC DOMAIN.
+
+   IT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+   IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+   OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+   OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+/*
+  Rules, facts and queries from the Capturing Real World Knowledge in Ergo
+  tutorial. 
+  Captures part of the California Drivers Handbook:
+  https://www.dmv.ca.gov/portal/dmv/detail/pubs/hdbk/right_of_way
+*/
+
+// import test data into the KB
+:- importmodule{main}.
+
+
+{Event,Entity} :: Thing. 
+
+{DrivingSituation,Action} :: Event. 
+{DrivingEntity,SpatialEntity} :: Entity. 
+
+Event[|participant => Entity, follows => Event|].
+Action[|agent => Entity|]. 
+DrivingSituation[|rightOfWay => DrivingEntity|].
+
+Drive :: Action.
+IllegalDrive :: Drive.
+
+
+/*
+   It is important to respect the right-of-way of others,
+   especially pedestrians, motorcycle riders, and bicycle riders.
+
+   NOTE: incorporating type information, like ?E1:Entity directly into a frame
+         gives much better performance than testing this condition before the
+         frame. That is
+
+         ?D : IllegalDrive :-
+                 ?E1:Entity,
+                 ?E2:Entity,
+                 ?D : Drive[agent -> ?E1, follows -> ?S],
+                 ....
+   will be much slower if Entity has many member-objects.
+*/
+@!{illegal_drive}
+?D : IllegalDrive :-
+        ?D : Drive[agent -> ?E1:Entity, follows -> ?S:DrivingSituation],
+        ?S[participant -> {?E1, ?E2}, rightOfWay -> ?E2:Entity],
+        ?E1 != ?E2.
+
+// Test 1 tests the illegal_drive rule -- see right_of_way_tests.ergo
+
+
+SafeDrive :: Drive.
+
+// Never assume other drivers will give you the right-of-way.
+@!{right_of_way_safe_drive}
+?S [ rightOfWay -> ?E] :-
+        ?S : DrivingSituation[participant -> ?E],
+        ?E : DrivingEntity,
+        ? : SafeDrive[follows -> ?S, agent -> ?E].
+
+// Test 2 tests the rule right_of_way_safe_drive - see right_of_way_tests.ergo
+
+
+// Respecting the right-of-way of others ....
+// Motorists must respect ...
+// Statistics show ...
+{Person,Car} :: Entity. 
+Pedestrian :: Person.
+
+Bicyclist :: {DrivingEntity, Person}. 
+Motorist :: {DrivingEntity, Person}. 
+MotorCyclist :: {DrivingEntity, Person}.
+Car :: DrivingEntity.
+
+{CrossWalk, StreetCorner, TrafficSign} :: SpatialEntity.
+{StopSign, TrafficSignal} :: TrafficSign.
+
+FailToStopAtTrafficSign :: IllegalDrive. 
+Speeding :: IllegalDrive.
+MakingIlliegalTurn :: IllegalDrive. 
+UnsafeLaneChange :: IllegalDrive.
+
+Drive[|violatesRightOfWay => Entity|].
+
+// Sentence 5
+@!{violates_ROW}
+?I[violatesRightOfWay -> ?Q] :-
+        ?S : DrivingSituation[participant -> {?P,?Q}:Entity],
+        ?I : IllegalDrive[agent -> ?P, follows -> ?S], 
+        ?P != ?Q.
+
+// Test 3 tests the rule violates_ROW -- see right_of_way_tests.ergo
+
+
+/*
+   Respect the right of way of pedestrians. ...
+
+   NOTE: If the classes CrossWalk and StreetCorner have many members,
+   it might be much faster to test the condition
+        (?C : CrossWalk \or ?C : StreetCorner)
+   after the frame, not before.
+*/
+@!{right_of_way_pedestrian}
+?S [ rightOfWay -> ?P] :-
+        (?C : CrossWalk \or ?C : StreetCorner),
+        ?S : DrivingSituation [location -> ?C, participant -> ?P:Pedestrian].
+
+// Test 4 tests the rule right_of_way_pedestrian -- see right_of_way_tests.ergo
+
+
+// Additional tests -- see right_of_way_tests.ergo
+
+// Test 5: A car and pedestrian are stopped at a corner.
+//         If the car proceeds whose right of way will it violate
+
+// Test 6: If I do not stop at a traffic sign,
+//         do I violate somebody's right of way?

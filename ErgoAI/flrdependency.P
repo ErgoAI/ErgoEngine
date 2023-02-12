@@ -1,0 +1,936 @@
+/* File:      flrdependency.P  -- the dependency checker
+**
+** Author(s): Chang Zhao
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018;
+**      and Vulcan, Inc., 2009-2013.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+%%%% Check dependency of tabled predicates on updates or procedural methods.
+%%%% Such dependency is considered a likely error and a warning is issued.
+%%%%
+%%%% Usage: check_for_dependencies(+CodeList,-ErrWarnList)
+%%%%        generate_rules(+CodeList)
+%%%%        depend(+Sk1,+Sk2,+Option).
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_errors.flh"
+#include "flora_characters.flh"
+#include "flora_tabling_methods.flh"
+
+%% tabling rec_depend/7 speeds checking up drastically
+:- table rec_depend/7 as opaque.
+:- use_subsumptive_tabling rec_depend(_,_,_,_,_,_,_).
+
+:- dynamic rule/4.
+:- index(rule/4,[1,2]).
+:- index(tabled_head/1,0).
+
+#define MAXDEPTH          4
+#define MAX_RULE_CHAIN    3
+#define STARTPOINT	  1
+
+/*
+   DUMMY_WORKSPACE (actually \@ == FL_THISMODULE) is used as a module name
+   everywhere.
+   This simplifies tracking dependency checks. We do not need to know the
+   module during dependency checking -- only if tabled depends on non-tabled.
+   FL_THISMODULE is used because \@ will be eventually replaced with the actual
+   workspace in flora_decode_goal_as_atom/2.
+*/
+#define DUMMY_WORKSPACE    FL_THISMODULE
+
+#mode save
+#mode nostring "\!#'"
+#define PREFIXING(X)            PREFIXINGWS(#1,DUMMY_WORKSPACE)
+#define PREFIXINGWS(X,Y)        FLORA_MODULE_PREFIX#2'#1'
+#define PREFIXINGNEG(X)         PREFIXINGNEGWS(#1,DUMMY_WORKSPACE)
+#define PREFIXINGNEGWS(X,Y)     FLORA_MODULE_PREFIX#2'FLNEGPREFIX_UNQ(#1)'
+#mode restore
+
+#define PREFIXED_WRAP_ISA       PREFIXING(WRAP_ISA)
+#define PREFIXED_WRAP_SUB       PREFIXING(WRAP_SUB)
+#define PREFIXED_WRAP_METH      PREFIXING(WRAP_METH)
+#define PREFIXED_WRAP_IMETH     PREFIXING(WRAP_IMETH)
+#define PREFIXED_WRAP_MVDSIG    PREFIXING(WRAP_MVDSIG)
+#define PREFIXED_WRAP_IMVDSIG   PREFIXING(WRAP_IMVDSIG)
+#define PREFIXED_WRAP_MVDCONDEF   PREFIXING(WRAP_MVDCONDEF)
+#define PREFIXED_WRAP_IMVDCONDEF   PREFIXING(WRAP_IMVDCONDEF)
+#define PREFIXED_WRAP_MVDCON    PREFIXING(WRAP_MVDCON)
+#define PREFIXED_WRAP_IMVDCON   PREFIXING(WRAP_IMVDCON)
+#define PREFIXED_WRAP_MVD       PREFIXING(WRAP_MVD)
+#define PREFIXED_WRAP_IMVD      PREFIXING(WRAP_IMVD)
+#define PREFIXED_WRAP_EXISTS    PREFIXING(WRAP_EXISTS)
+#define PREFIXED_WRAP_MVDDEF    PREFIXING(WRAP_MVDDEF)
+#define PREFIXED_WRAP_IMVDDEF   PREFIXING(WRAP_IMVDDEF)
+#define PREFIXED_WRAP_BOOLSIG   PREFIXING(WRAP_BOOLSIG)
+#define PREFIXED_WRAP_IBOOLSIG  PREFIXING(WRAP_IBOOLSIG)
+#define PREFIXED_WRAP_TRANSIG   PREFIXING(WRAP_TRANSIG)
+#define PREFIXED_WRAP_ITRANSIG  PREFIXING(WRAP_ITRANSIG)
+#define PREFIXED_WRAP_OBJEQL    PREFIXING(WRAP_OBJEQL)
+#define PREFIXED_WRAP_TRAN      PREFIXING(WRAP_TRAN)
+
+#define PREFIXED_WRAP_NONTABLED_HILOG  PREFIXING(WRAP_NONTABLED_HILOG)
+#define PREFIXED_WRAP_TABLED_HILOG     PREFIXING(WRAP_TABLED_HILOG)
+
+#define PREFIXED_NEG_WRAP_ISA       PREFIXINGNEG(WRAP_ISA)
+#define PREFIXED_NEG_WRAP_SUB       PREFIXINGNEG(WRAP_SUB)
+#define PREFIXED_NEG_WRAP_METH      PREFIXINGNEG(WRAP_METH)
+#define PREFIXED_NEG_WRAP_IMETH     PREFIXINGNEG(WRAP_IMETH)
+#define PREFIXED_NEG_WRAP_MVDSIG    PREFIXINGNEG(WRAP_MVDSIG)
+#define PREFIXED_NEG_WRAP_IMVDSIG   PREFIXINGNEG(WRAP_IMVDSIG)
+#define PREFIXED_NEG_WRAP_MVD       PREFIXINGNEG(WRAP_MVD)
+#define PREFIXED_NEG_WRAP_IMVD      PREFIXINGNEG(WRAP_IMVD)
+#define PREFIXED_NEG_WRAP_EXISTS    PREFIXINGNEG(WRAP_EXISTS)
+#define PREFIXED_NEG_WRAP_MVDDEF    PREFIXINGNEG(WRAP_MVDDEF)
+#define PREFIXED_NEG_WRAP_IMVDDEF   PREFIXINGNEG(WRAP_IMVDDEF)
+#define PREFIXED_NEG_WRAP_BOOLSIG   PREFIXINGNEG(WRAP_BOOLSIG)
+#define PREFIXED_NEG_WRAP_IBOOLSIG  PREFIXINGNEG(WRAP_IBOOLSIG)
+#define PREFIXED_NEG_WRAP_OBJEQL    PREFIXINGNEG(WRAP_OBJEQL)
+
+#define PREFIXED_NEG_WRAP_TABLED_HILOG PREFIXINGNEG(WRAP_TABLED_HILOG)
+
+/****************************************************************************
+  utilities
+ ****************************************************************************/
+default_tabled(PREFIXED_WRAP_ISA,3).
+default_tabled(PREFIXED_WRAP_SUB,3).
+default_tabled(PREFIXED_WRAP_METH,3).
+default_tabled(PREFIXED_WRAP_IMETH,3).
+default_tabled(PREFIXED_WRAP_MVDSIG,4).
+default_tabled(PREFIXED_WRAP_IMVDSIG,4).
+default_tabled(PREFIXED_WRAP_MVDCONDEF,6).
+default_tabled(PREFIXED_WRAP_IMVDCONDEF,6).
+default_tabled(PREFIXED_WRAP_MVDCON,5).
+default_tabled(PREFIXED_WRAP_IMVDCON,5).
+default_tabled(PREFIXED_WRAP_MVD,4).
+default_tabled(PREFIXED_WRAP_IMVD,4).
+default_tabled(PREFIXED_WRAP_EXISTS,2).
+default_tabled(PREFIXED_WRAP_MVDDEF,3).
+default_tabled(PREFIXED_WRAP_IMVDDEF,3).
+default_tabled(PREFIXED_WRAP_BOOLSIG,3).
+default_tabled(PREFIXED_WRAP_IBOOLSIG,3).
+default_tabled(PREFIXED_WRAP_TRANSIG,3).
+default_tabled(PREFIXED_WRAP_ITRANSIG,3).
+default_tabled(PREFIXED_WRAP_OBJEQL,3).
+
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,2).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,3).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,4).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,5).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,6).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,7).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,8).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,9).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,10).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,11).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,12).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,13).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,14).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,15).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,16).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,17).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,18).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,19).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,20).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,21).
+default_tabled(PREFIXED_WRAP_TABLED_HILOG,22).
+
+default_tabled(PREFIXED_NEG_WRAP_ISA,3).
+default_tabled(PREFIXED_NEG_WRAP_SUB,3).
+default_tabled(PREFIXED_NEG_WRAP_METH,3).
+default_tabled(PREFIXED_NEG_WRAP_IMETH,3).
+default_tabled(PREFIXED_NEG_WRAP_MVDSIG,4).
+default_tabled(PREFIXED_NEG_WRAP_IMVDSIG,4).
+default_tabled(PREFIXED_NEG_WRAP_MVD,4).
+default_tabled(PREFIXED_NEG_WRAP_IMVD,4).
+default_tabled(PREFIXED_NEG_WRAP_EXISTS,2).
+default_tabled(PREFIXED_NEG_WRAP_MVDDEF,3).
+default_tabled(PREFIXED_NEG_WRAP_IMVDDEF,3).
+default_tabled(PREFIXED_NEG_WRAP_BOOLSIG,3).
+default_tabled(PREFIXED_NEG_WRAP_IBOOLSIG,3).
+default_tabled(PREFIXED_NEG_WRAP_OBJEQL,3).
+
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,2).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,3).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,4).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,5).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,6).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,7).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,8).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,9).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,10).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,11).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,12).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,13).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,14).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,15).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,16).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,17).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,18).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,19).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,20).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,21).
+default_tabled(PREFIXED_NEG_WRAP_TABLED_HILOG,22).
+
+procedural(WRAP_TRAN,3).
+procedural(WRAP_NONTABLED_HILOG,1).
+procedural(WRAP_NONTABLED_HILOG,2).
+procedural(WRAP_NONTABLED_HILOG,3).
+procedural(WRAP_NONTABLED_HILOG,4).
+procedural(WRAP_NONTABLED_HILOG,5).
+procedural(WRAP_NONTABLED_HILOG,6).
+procedural(WRAP_NONTABLED_HILOG,7).
+procedural(WRAP_NONTABLED_HILOG,8).
+procedural(WRAP_NONTABLED_HILOG,9).
+procedural(WRAP_NONTABLED_HILOG,10).
+procedural(WRAP_NONTABLED_HILOG,11).
+procedural(WRAP_NONTABLED_HILOG,12).
+procedural(WRAP_NONTABLED_HILOG,13).
+procedural(WRAP_NONTABLED_HILOG,14).
+procedural(WRAP_NONTABLED_HILOG,15).
+procedural(WRAP_NONTABLED_HILOG,16).
+procedural(WRAP_NONTABLED_HILOG,17).
+procedural(WRAP_NONTABLED_HILOG,18).
+procedural(WRAP_NONTABLED_HILOG,19).
+procedural(WRAP_NONTABLED_HILOG,20).
+procedural(WRAP_NONTABLED_HILOG,21).
+
+dboperation(FLLIBINSERT,1).
+dboperation(FLLIBINSERTALL,1).
+dboperation(FLLIBBTINSERT,1).
+dboperation(FLLIBBTINSERTALL,1).
+dboperation(FLLIBDELETE,1).
+dboperation(FLLIBDELETEALL,1).
+dboperation(FLLIBBTDELETE,1).
+dboperation(FLLIBBTDELETEALL,1).
+dboperation(FLLIBERASE,1).
+dboperation(FLLIBERASEALL,1).
+dboperation(FLLIBBTERASE,1).
+dboperation(FLLIBBTERASEALL,1).
+
+dboperation(FLLIBINSERT,2).
+dboperation(FLLIBINSERTALL,2).
+dboperation(FLLIBBTINSERT,2).
+dboperation(FLLIBBTINSERTALL,2).
+dboperation(FLLIBDELETE,2).
+dboperation(FLLIBDELETEALL,2).
+dboperation(FLLIBBTDELETE,2).
+dboperation(FLLIBBTDELETEALL,2).
+dboperation(FLLIBERASE,2).
+dboperation(FLLIBERASEALL,2).
+dboperation(FLLIBBTERASE,2).
+dboperation(FLLIBBTERASEALL,2).
+
+dboperation(FLLIBINSERT,3).
+dboperation(FLLIBINSERTALL,3).
+dboperation(FLLIBBTINSERT,3).
+dboperation(FLLIBBTINSERTALL,3).
+dboperation(FLLIBDELETE,3).
+dboperation(FLLIBDELETEALL,3).
+dboperation(FLLIBBTDELETE,3).
+dboperation(FLLIBBTDELETEALL,3).
+dboperation(FLLIBERASE,3).
+dboperation(FLLIBERASEALL,3).
+dboperation(FLLIBBTERASE,3).
+dboperation(FLLIBBTERASEALL,3).
+
+moduleloading(FLLIBLOAD,4).
+moduleloading(FL_LOAD,1).
+moduleloading(FL_ADD,1).
+
+%% to be expanded
+%% DON'T include fmt_write_string: it is NOT side-effectful
+side_effectful_op(WRAP_TABLED_HILOG,[Op|_],'\\io') :-
+        member(Op,[FL_PRINT,FL_PRINTLN,read,fmt_write]).
+side_effectful_op(WRAP_METH,[_,WRAP_HILOG(Op,_),_],'\\io') :-
+        member(Op,[FL_PRINT,FL_PRINTLN,read,fmt_write]).
+side_effectful_op(WRAP_METH,[_,WRAP_HILOG(Op,_,_,_),_],'\\io') :-
+        member(Op,[FL_PRINT,FL_PRINTLN,read,fmt_write]).
+%% These are Prolog ops
+side_effectful_op(Op,Args,FL_PLIB) :-
+        member(Op,[FL_PRINT,FL_PRINTLN,read,fmt_write]),
+        (Args = [_] ; Args = [_,_]).
+side_effectful_op(Op,Args,FL_PLIB) :-
+        member(Op,[fmt_write]),
+        (Args = [_,_,_] ; Args = [_,_,_,_]).
+
+
+is_upd(FLLIBINSERT(_ThisMod,List,Condition),FL_INSERT,List,Condition) :- !.
+is_upd(FLLIBBTINSERT(_ThisMod,List,Condition),FL_BTINSERT,List,Condition) :- !.
+is_upd(FLLIBDELETE(_ThisMod,List,Condition),FL_DELETE,List,Condition) :- !.
+is_upd(FLLIBBTDELETE(_ThisMod,List,Condition),FL_BTDELETE,List,Condition) :- !.
+is_upd(FLLIBERASE(_ThisMod,List,Condition),FL_ERASE,List,Condition) :- !.
+is_upd(FLLIBBTERASE(_ThisMod,List,Condition),FL_BTERASE,List,Condition) :- !.
+%%------------ Recognizes index structures associated with update ops
+is_updIdxStruct(FLLIBINSERT(List,Condition),List,Condition) :- !.
+is_updIdxStruct(FLLIBBTINSERT(List,Condition),List,Condition) :- !.
+is_updIdxStruct(FLLIBDELETE(List,Condition),List,Condition) :- !.
+is_updIdxStruct(FLLIBBTDELETE(List,Condition),List,Condition) :- !.
+is_updIdxStruct(FLLIBERASE(List,Condition),List,Condition) :- !.
+is_updIdxStruct(FLLIBBTERASE(List,Condition),List,Condition) :- !.
+
+is_updall(FLLIBINSERTALL(_ThisMod,List,Condition),FL_INSERTALL,List,Condition) :- !.
+is_updall(FLLIBBTINSERTALL(_ThisMod,List,Condition),FL_BTINSERTALL,List,Condition) :- !.
+is_updall(FLLIBDELETEALL(_ThisMod,List,Condition),FL_DELETEALL,List,Condition) :- !.
+is_updall(FLLIBBTDELETEALL(_ThisMod,List,Condition),FL_BTDELETEALL,List,Condition) :- !.
+is_updall(FLLIBERASEALL(_ThisMod,List,Condition),FL_ERASEALL,List,Condition) :- !.
+is_updall(FLLIBBTERASEALL(_ThisMod,List,Condition),FL_BTERASEALL,List,Condition) :- !.
+%%---- Recognizes index structures associated with update ops
+is_updallIdxStruct(FLLIBINSERTALL(List,Condition),List,Condition) :- !.
+is_updallIdxStruct(FLLIBBTINSERTALL(List,Condition),List,Condition) :- !.
+is_updallIdxStruct(FLLIBDELETEALL(List,Condition),List,Condition) :- !.
+is_updallIdxStruct(FLLIBBTDELETEALL(List,Condition),List,Condition) :- !.
+is_updallIdxStruct(FLLIBERASEALL(List,Condition),List,Condition) :- !.
+is_updallIdxStruct(FLLIBBTERASEALL(List,Condition),List,Condition) :- !.
+
+is_upd(FLLIBINSERT(_ThisMod,List),FL_INSERT,List,_) :- !.
+is_upd(FLLIBBTINSERT(_ThisMod,List),FL_BTINSERT,List,_) :- !.
+is_upd(FLLIBDELETE(_ThisMod,List),FL_DELETE,List,_) :- !.
+is_upd(FLLIBBTDELETE(_ThisMod,List),FL_BTDELETE,List,_) :- !.
+is_upd(FLLIBERASE(_ThisMod,List),FL_ERASE,List,_) :- !.
+is_upd(FLLIBBTERASE(_ThisMod,List),FL_BTERASE,List,_) :- !.
+%%---
+is_updIdxStruct(FLLIBINSERT(List),List,_) :- !.
+is_updIdxStruct(FLLIBBTINSERT(List),List,_) :- !.
+is_updIdxStruct(FLLIBDELETE(List),List,_) :- !.
+is_updIdxStruct(FLLIBBTDELETE(List),List,_) :- !.
+is_updIdxStruct(FLLIBERASE(List),List,_) :- !.
+is_updIdxStruct(FLLIBBTERASE(List),List,_) :- !.
+
+is_updall(FLLIBINSERTALL(_ThisMod,List),FL_INSERTALL,List,_) :- !.
+is_updall(FLLIBBTINSERTALL(_ThisMod,List),FL_BTINSERTALL,List,_) :- !.
+is_updall(FLLIBDELETEALL(_ThisMod,List),FL_DELETEALL,List,_) :- !.
+is_updall(FLLIBBTDELETEALL(_ThisMod,List),FL_BTDELETEALL,List,_) :- !.
+is_updall(FLLIBERASEALL(_ThisMod,List),FL_ERASEALL,List,_) :- !.
+is_updall(FLLIBBTERASEALL(_ThisMod,List),FL_BTERASEALL,List,_) :- !.
+%%----
+is_updallIdxStruct(FLLIBINSERTALL(List),List,_) :- !.
+is_updallIdxStruct(FLLIBBTINSERTALL(List),List,_) :- !.
+is_updallIdxStruct(FLLIBDELETEALL(List),List,_) :- !.
+is_updallIdxStruct(FLLIBBTDELETEALL(List),List,_) :- !.
+is_updallIdxStruct(FLLIBERASEALL(List),List,_) :- !.
+is_updallIdxStruct(FLLIBBTERASEALL(List),List,_) :- !.
+
+is_agg(FLLIBMIN(Var,Group,Cond,Result),FL_MIN,Var,Group,Cond,Result) :- !.
+is_agg(FLLIBMAX(Var,Group,Cond,Result),FL_MAX,Var,Group,Cond,Result) :- !.
+is_agg(FLLIBSUM(Var,Group,Cond,Result),FL_SUM,Var,Group,Cond,Result) :- !.
+is_agg(FLLIBAVG(Var,Group,Cond,Result),FL_AVG,Var,Group,Cond,Result) :- !.
+is_agg(FLLIBCOUNT(Var,Group,Cond,Result),FL_COUNT,Var,Group,Cond,Result) :- !.
+is_agg(FLLIBSUMDISTINCT(Var,Group,Cond,Result),FL_SUMDISTINCT,Var,Group,Cond,Result) :- !.
+is_agg(FLLIBAVGDISTINCT(Var,Group,Cond,Result),FL_AVGDISTINCT,Var,Group,Cond,Result) :- !.
+is_agg(FLLIBCOUNTDISTINCT(Var,Group,Cond,Result),FL_COUNTDISTINCT,Var,Group,Cond,Result) :- !.
+is_agg(FLLIBCOLLECTSET(Var,Group,Cond,Result),FL_COLLECTSET,Var,Group,Cond,Result)
+	:- !.
+is_agg(FLLIBCOLLECTBAG(Var,Group,Cond,Result),FL_COLLECTBAG,Var,Group,Cond,Result)
+	:- !.
+
+is_control(FLLIBIFTHEN(If,Then),FLLIBIFTHEN,[If,Then]) :- !.
+is_control(FLLIBIFTHENELSE(If,Then,Else),FLLIBIFTHENELSE,[If,Then,Else]) :- !.
+
+is_constraint(PRCONSTRAINT(Constr),Constr).
+
+/****************************************************************************
+  cut_off(+Term_before_cutoff,-Term_after_cutoff)
+  cut off Term if its depth > MAXDEPTH
+ ****************************************************************************/
+cut_off(T1,T2) :- cut_off(T1,T2,1).
+
+cut_off(T1,T2,N) :-
+	( N>MAXDEPTH ->
+	    %% Too deep
+	    fail
+	;
+	    ( (atomic(T1); var(T1)) ->
+	        T2=T1,
+		!
+            ;
+	        ( N=MAXDEPTH ->
+		    functor(T1,Func,Nargs),
+		    functor(T2,Func,Nargs)
+	        ;
+		    NewN is N+1,
+		    T1 =.. [Func|Args],
+		    cut_off_list(Args,NewArgs,NewN),
+		    T2 =.. [Func|NewArgs]
+	        )
+	    )
+	).
+		
+cut_off_list([],[],_) :- !.
+cut_off_list([H|T],[NewH|NewT],N) :-
+	cut_off(H,NewH,N),
+	cut_off_list(T,NewT,N).
+
+
+/****************************************************************************
+  too_deep(+Term)
+  if the depth of Term is greater than MAXDEPTH then true else false
+ ****************************************************************************/
+too_deep(Term) :- too_deep(Term,0).
+
+too_deep(_Term,N) :- 
+        N > MAXDEPTH, 
+        !.
+
+too_deep(Term,N) :-
+        atomic(Term),
+        N =< MAXDEPTH,
+        !,
+        fail.
+
+too_deep(Term,N) :-
+        var(Term),
+        N =< MAXDEPTH,
+        !,
+        fail.
+
+too_deep(Term,N) :-
+        Term =.. [_F|Y],
+        NewN is N+1,
+        params_too_deep(Y,NewN).
+
+params_too_deep([],_N) :- !, fail.
+params_too_deep([H|L],N) :-
+        too_deep(H,N); params_too_deep(L,N).
+
+/****************************************************************************
+  depend(+Sk1,+Sk2,-T1,-T2,+Option)
+  possible options: u -- depends on update
+                    a -- depends on aggregation
+                    n -- depends negatively
+                    p -- depends positively
+    		    arb -- arbitrary
+  check whether Sk1 depends on Sk2 with given option, T1 and T2 are
+  instantiations of Sk1 and Sk2, respectively
+ ****************************************************************************/
+depend(Sk1,Sk2,T1,T2,Opt) :-
+	retractall(dependency(_,_,_,_)),
+	depend(Sk1,Sk2),
+	dependency((T1,_IT1),(T2,_IT2),anu(A,N,U),_),
+	( (Opt=u, atom(U))
+	; (Opt=a, atom(A))
+	; (Opt=n, atom(N))
+	; (Opt=p, var(N))
+	; (Opt=arb)
+	).
+
+/****************************************************************************
+  depend(+Sk1,+Sk2,+Option)
+  decides whether Sk1 depends on Sk2 without caring about the 
+  instantiations
+ ****************************************************************************/
+depend(Sk1,Sk2,Opt) :- 
+	depend(Sk1,Sk2,_IT1,_IT2,Opt).
+
+/****************************************************************************
+  depend(+Sk1,+Sk2)
+  decide whether term skeleton Sk1 depends on Sk2
+  and whether the dependency is through aggregation, negation, update
+  dependency/4 will be asserted for each path pattern from Sk1 to Sk2
+ ****************************************************************************/
+depend(Sk1,Sk2) :-
+	retractall(target(_,_,_)),
+	( is_list(Sk2) ->
+	    list_to_targets(Sk2)
+	;
+            get_canonical_form(Sk2,FLCANON(Wrap,Args,Mod,_Callable,_TF)),
+	    asserta(target(Wrap,Args,Mod))
+	),
+	findall((RuleHead),match_rule(Sk1,RuleHead,_,_),HeadList),
+	remove_dup(HeadList,NewHeadList),
+	flora_get_maxwarnings(MaxWarnings),
+	depend_list(NewHeadList,MaxWarnings).
+
+list_to_targets([]) :- !.
+list_to_targets([H|T]) :-
+        get_canonical_form(H,FLCANON(Wrap,Args,Mod,_Callable,_TF)),
+	asserta(target(Wrap,Args,Mod)),
+	list_to_targets(T).
+	
+	
+remove_dup([],[]) :- !.
+remove_dup([H|T],NewList) :-
+	( member(H,T) ->
+	    remove_dup(T,NewList)
+	;
+	    remove_dup(T,InterList),
+	    NewList = [H|InterList]
+	).
+
+depend_list([],_) :- !.
+depend_list(_,0) :- !.
+depend_list([(H)|T],Max) :-
+    H = (HC,_HI),
+    retractall(dependency(_,_,_,_)),
+    get_canonical_form(HC,FLCANON(Wrap,Args,Mod,_Callable,_TF)),
+    ( ignored(W1,A1,M1), subsumes(ignored(W1,A1,M1),ignored(Wrap,Args,Mod)) ->
+        true
+    ;
+        ( depend_detail(H,dep(Body,anu(A,N,U),Template)),
+	    \+ dependency(H,_,_,_), %% do not overwhelm with all the warnings
+            asserta(dependency(H,Body,anu(A,N,U),Template)),
+            fail
+        ;
+            true
+        ),
+        aggregate_warnings
+    ),
+    Max1 is Max-1,
+    depend_list(T,Max1).
+
+depend_detail((_Sk1,IndSk1),dep(S,anu(A,N,U),Templ)) :-
+    same_rule(IndSk1,_RuleHead,(B,BI),anu(A,N,U)),
+    get_canonical_form(B,FLCANON(Wrap,Args,Mod,_Callable,TF)),
+    ( ignored(W1,A1,M1), subsumes(ignored(W1,A1,M1),ignored(Wrap,Args,Mod)) ->
+        fail
+    ;
+        ( special_canon_form(Wrap,Args,Mod,TF) -> S = (B,BI)
+	; copy_term(B,CP), rec_depend(CP,S,A,N,U,Templ,1)
+	)
+    ).
+
+
+/****************************************************************************
+  rec_depend(+Head,-(Body,IndexedBody),-A,-N,-U,-T,+SearchDepth)
+  Search for all possible dependencies rooted from Head. 
+  For each rule whose head can unify with Head, we consider the body. If
+  1) the rule body unifies with some target, then we have found a dependency
+  2) otherwise, the body and its cut-off form will be recursively checked
+ ****************************************************************************/
+rec_depend(H,S,A,N,U,T,SearchDepth) :-
+    match_rule(H,_RuleHead,(RB,RBI),anu(A,N,U)),
+    get_canonical_form(RB,FLCANON(Wrap,Args,Mod,_Callable,TF)),
+    ( ignored(W1,A1,M1), subsumes(ignored(W1,A1,M1),ignored(Wrap,Args,Mod))
+    -> fail
+    ; SearchDepth == MAX_RULE_CHAIN -> fail
+    ;
+        ( special_canon_form(Wrap,Args,Mod,TF) -> S = (RB,RBI)
+	; 
+	    SearchDepth1 is SearchDepth+1,
+	    ( too_deep(RB) ->
+		cut_off(RB,NRB),
+		T=t,
+		copy_term(NRB,CP), rec_depend(CP,S,A,N,U,T,SearchDepth1)
+	    ;
+		copy_term(RB,CP), rec_depend(CP,S,A,N,U,T,SearchDepth1)
+	    )
+	)
+    ).
+
+
+/****************************************************************************
+  match_rule(+Term,-Head,-Body,?anu(A,N,U))
+  find rules whose heads unify with Term
+ ****************************************************************************/
+%%match_rule(T,(H,IH),B,anu(A,N,U)) :-
+	%% Unclear why this was written with H = T after the fact-check.
+	%% This makes things very slow.
+	%%rule(H,IH,B,anu(A,N,U)),
+	%%T=H.
+match_rule(T,(T,IH),B,anu(A,N,U)) :-
+	rule(T,IH,B,anu(A,N,U)).
+
+/****************************************************************************
+  same_rule(+IndTerm,-Head,-Body,?anu(A,N,U))
+  find rules whose heads unify with Term
+ ****************************************************************************/
+%%same_rule(IT,(H,IH),B,anu(A,N,U)) :-
+	%%rule(H,IH,B,anu(A,N,U)),
+	%%IT=IH.
+same_rule(IT,(H,IT),B,anu(A,N,U)) :-
+	rule(H,IT,B,anu(A,N,U)).
+
+
+/****************************************************************************
+  generate_rules(+CodeList)
+  generate rules from intermediate code
+  assert tabled head -- tabled_head(_)
+  assert hilog predicates excluded from dependency checking -- ignored(_)
+ ****************************************************************************/
+generate_rules([]) :- !.
+generate_rules(CodeList) :-
+	retractall(rule(_,_,_,_)),
+	parse_codelist(CodeList).
+
+/****************************************************************************
+  parse_codelist(+CodeList)
+  generate rules from a list of intermediate code
+ ****************************************************************************/
+parse_codelist([T]) :-
+	!,
+	parse_code(T).
+
+parse_codelist([T|L]) :-
+	parse_code(T),
+	parse_codelist(L).
+
+
+parse_code(Term) :-
+	( is_prrule(Term,Head,Body) ->
+            parse_rule(Head,Body)
+	; is_prdirective(Term,Direct) ->
+	    ( is_prignoredep(Direct,PList) ->
+		assert_ignoredlist(PList)
+	    ; true
+	    )
+        ;
+            true
+	).
+
+assert_ignoredlist([]) :- !.
+assert_ignoredlist([H|L]) :-
+	%% See note on why DUMMY_WORKSPACE is used at top of file
+	flora_build_struct(H,DUMMY_WORKSPACE,CODER_GENERIC_CONTEXT,_VarList,HC,_HCI,Status),
+	( Status == [] ->
+	    ( var(HC) ->
+		true    
+	    ; 
+		( functor(HC,DB,3), dboperation(DB,3) ->
+		    HC =.. [DB,WS,DBList,Cond],
+		    canonical_list(DBList,CDBList),
+		    get_canonical_form(Cond,FLCANON(_W,_A,_M,CallCond,_TF)),
+		    NHC =.. [DB,WS,CDBList,CallCond]
+		;
+		    functor(HC,DB,2), dboperation(DB,2) ->
+		    HC =.. [DB,WS,DBList],
+		    canonical_list(DBList,CDBList),
+		    NHC =.. [DB,WS,CDBList]
+		;
+		    functor(HC,DB,4), moduleloading(DB,4) ->
+		    HC =.. [DB,LList|_Rest],
+		    NHC =.. [DB,LList,_,_,_]
+		;
+		    NHC = HC
+		),
+		get_canonical_form(NHC,FLCANON(Wrap,Args,Mod,_Callable,_TF))
+	    ),
+            (Wrap == ':', Args = [RealMod,Pred] ->
+                Pred =.. [RealWrap|RealArgs]
+            ; RealWrap = Wrap, RealMod = Mod, RealArgs = Args
+            ),
+	    asserta(ignored(RealWrap,RealArgs,_RealMod)),
+	    assert_ignoredlist(L)
+	;
+	    true
+	).
+
+parse_rule(Head,Body) :-
+	%% See note on why DUMMY_WORKSPACE is used here at the top of file
+	flora_build_struct(Head,DUMMY_WORKSPACE,CODER_GENERIC_CONTEXT,VarList,HeadCode,HCI,Status_Head),
+	( Status_Head == [] ->
+	    functor(HeadCode,F,N),
+	    ( default_tabled(F,N) -> asserta(tabled_head((HeadCode,HCI)))
+	    ;  true
+	    ),
+	    flora_build_struct(Body,DUMMY_WORKSPACE,CODER_GENERIC_CONTEXT,VarList,BodyCode,BCI,Status_Body),
+	    ( Status_Body == [] ->
+		assert_rule((HeadCode,HCI),BodyCode,BCI,anu(_,_,_))
+	    ;
+		true
+	    )
+	;
+	    true
+	).
+
+assert_rule(_H,BodyCode,_BI,_) :-
+	var(BodyCode),
+	!.
+
+assert_rule(_H,FLLIBMODLIT(FL_LIBMOD,_,_,_),_BI,_) :- !.
+assert_rule(_H,FLLIBMODLIT(FL_NEGLIBMOD,_,_,_),_BI,_) :- !.
+assert_rule(_H,FLLIBMODLIT(FL_TRANSLIBMOD,_,_,_),_BI,_) :- !.
+assert_rule(_H,FLORA_DELAY_CHECKER(_,_),_BI,_) :- !.
+assert_rule(_H,FL_RULE_ENABLER(_,_,_),_BI,_) :- !.
+assert_rule(_H,_:FL_RULE_ENABLER(_,_,_),_BI,_) :- !.
+
+assert_rule(HeadCode,BodyCode,(BCI,_I),anu(A,N,U)) :-
+	(BodyCode=FL_AND_CONNECTIVE(Body1,Body2); BodyCode=FL_OR_CONNECTIVE(Body1,Body2)),
+	(BCI=FL_AND_CONNECTIVE(BCI1,BCI2); BCI=FL_OR_CONNECTIVE(BCI1,BCI2)),
+	!,
+	assert_rule(HeadCode,Body1,BCI1,anu(A,N,U)),
+	assert_rule(HeadCode,Body2,BCI2,anu(A,N,U)).
+
+assert_rule(HeadCode,BodyCode,(BCI,_I),anu(A,_,U)) :-
+	(BodyCode=not(NewBody); BodyCode=tnot(NewBody)),
+	(BCI=not(NewBCI); BCI=tnot(NewBCI)),
+	!,
+	assert_rule(HeadCode,NewBody,NewBCI,anu(A,n,U)).
+
+assert_rule(_HeadCode,BodyCode,(_BCI,_I),anu(_A,_N,_U)) :-
+	is_constraint(BodyCode,_),
+	!.
+
+assert_rule(HeadCode,BodyCode,(BCI,Index),anu(A,N,U)) :-
+	is_upd(BodyCode,_,List,Cond),
+	!,
+	is_updIdxStruct(BCI,(ListI,_I),CondI),
+	HeadCode = (HL,HR),
+	asserta(rule(HL,HR,(BodyCode,(BCI,Index)),anu(A,N,u))),
+	assert_rule(HeadCode,Cond,CondI,anu(A,N,U)),
+	assert_rules(HeadCode,List,ListI,anu(A,N,u)).
+
+assert_rule(HeadCode,BodyCode,(BCI,Index),anu(A,N,U)) :-
+	is_updall(BodyCode,_,List,Cond),
+	!,
+	is_updallIdxStruct(BCI,(ListI,_I),CondI),
+	HeadCode = (HL,HR),
+	asserta(rule(HL,HR,(BodyCode,(BCI,Index)),anu(a,N,u))),
+	assert_rule(HeadCode,Cond,CondI,anu(A,N,U)),
+	assert_rules(HeadCode,List,ListI,anu(A,N,u)).
+
+assert_rule(HeadCode,BodyCode,(BCI,Index),anu(_,N,U)) :-
+	is_agg(BodyCode,_,_,_,Condition,_),
+	!,
+	is_agg(BCI,_,_,_,ConditionI,_),
+	HeadCode = (HL,HR),
+	asserta(rule(HL,HR,(BodyCode,(BCI,Index)),anu(a,N,U))),
+	assert_rule(HeadCode,Condition,ConditionI,anu(a,N,U)).
+
+assert_rule(HeadCode,BodyCode,(BCI,_I),anu(A,N,U)) :-
+	is_control(BodyCode,_,Args),
+	!,
+	is_control(BCI,_,ArgsI),
+	assert_rules(HeadCode,Args,ArgsI,anu(A,N,U)).
+
+assert_rule(HeadCode,BodyCode,(BCI,_I),anu(A,N,U)) :-
+	BodyCode = flsysdbupdate(NewBody,_,_),
+	!,
+	BCI = flsysdbupdate(NewBCI,_,_),
+	assert_rule(HeadCode,NewBody,NewBCI,anu(A,N,U)).
+
+assert_rule(HeadCode,BodyCode,BCwithIndex,anu(A,N,U)) :-
+	HeadCode = (HL,HR),
+	asserta(rule(HL,HR,(BodyCode,BCwithIndex),anu(A,N,U))).
+
+assert_rules(_,[],_,_) :- !.
+assert_rules(HeadCode,[H|T],[HI|TI],anu(A,N,U)) :-
+    assert_rule(HeadCode,H,HI,anu(A,N,U)),
+    assert_rules(HeadCode,T,TI,anu(A,N,U)).
+
+/****************************************************************************
+ check_for_dependencies(+CodeList,-WarnList)
+ check whether tabled predicates depend on procedural/database operations.
+ ****************************************************************************/
+check_for_dependencies(CodeList,WarnList) :-
+        retractall(tabled_head(_)),
+	retractall(warning_seen(_,_,_,_,_)),
+        retractall(target(_,_,_)),
+        retractall(ignored(_,_,_)),
+        disable_all_tripwires,
+	%% rec_depend is NOT incrementally tabled, so
+	%% flora_abolish_table_predicate is ok here
+        flora_abolish_table_predicate(rec_depend(_,_,_,_,_,_,_)),
+        assert_targets,
+	generate_rules(CodeList),
+        findall(Head,tabled_head(Head),TabledList),
+	flora_get_maxwarnings(MaxWarnings),
+        depend_list(TabledList,MaxWarnings),
+	generate_warnings(WarnList),
+        enable_all_tripwires,
+	!.
+
+check_for_dependencies(_CodeList,[error(UNKNOWN_ERROR)]).
+
+assert_targets :- 
+        procedural(F,A),
+        length(Args,A),
+        asserta(target(F,Args,_Mod)),
+        fail.
+
+assert_targets :- 
+        dboperation(F,A),
+        length(Args,A),
+        asserta(target(F,Args,_Mod)),
+        fail.
+
+assert_targets :- 
+        moduleloading(F,A),
+        length(Args,A),
+        asserta(target(F,Args,_Mod)),
+        fail.
+
+assert_targets :- 
+        side_effectful_op(F,Args,Mod),
+        asserta(target(F,Args,Mod)),
+        fail.
+
+
+assert_targets :- !.
+
+/****************************************************************************
+ aggregate_warnings
+ find all asserted dependency/4, generate warnings and aggregate them
+ ****************************************************************************/
+aggregate_warnings :-
+	findall(((T1,IT1),(T2,IT2),anu(A,N,U),Temp),
+		dependency((T1,IT1),(T2,IT2),anu(A,N,U),Temp),
+		DependencyList
+	       ),
+	aggregate_warnings(DependencyList).
+
+aggregate_warnings([]) :- !.
+aggregate_warnings([((T1,IT1),(T2,IT2),_,_)|T]) :-
+	flora_set_counter(min_ind,0),
+	flora_set_counter(next_min_ind,0),
+	to_string(T1,IT1,Str1,RuleID),
+
+	flora_get_counter(min_ind,HMinInd),
+	flora_get_counter(next_min_ind,HNMinInd),
+
+	flora_set_counter(min_ind,0),
+	flora_set_counter(next_min_ind,0),
+	to_string(T2,IT2,Str2,_RID),
+	flora_get_counter(min_ind,BMinInd),
+
+        functor(T2,Wrap,NArgs),
+        ( dboperation(Wrap,NArgs) ->
+	    Type = 'db operation'
+	; moduleloading(Wrap,NArgs) ->
+            Type = 'loading operation'
+        ;
+            get_canonical_form(T2,FLCANON(Wrapper,Args,Mod,_Callable,_TF)),
+            (side_effectful_op(Wrapper,Args,Mod) -> Type = 'side-effectful operation'
+            ; Wrapper == WRAP_NONTABLED_HILOG -> Type = 'transactional predicate'
+            ; Type = 'transactional method'
+            )
+	),
+
+        fmt_write_string(WarnHead,"non-transactional predicate or method in a rule that starts with %s", args(Str1)),
+        fmt_write_string(WarnBody," depends on %s %s", args(Type,Str2)),
+
+	( warning_seen(RuleID,HInd1,HInd2,BMinInd,_) ->
+	    ( (HInd1<HMinInd;HInd1=HMinInd),(HInd2<HNMinInd;HInd2=HNMinInd) ->
+	        true
+	    ;
+	        retract(warning_seen(RuleID,HInd1,HInd2,BMinInd,_)),
+		asserta(warning_seen(RuleID,HMinInd,HNMinInd,BMinInd,(WarnHead,WarnBody)))
+	    )
+	;
+	    asserta(warning_seen(RuleID,HMinInd,HNMinInd,BMinInd,(WarnHead,WarnBody)))
+	),
+	aggregate_warnings(T).
+
+/****************************************************************************
+ to_string(+Term,+IndexedTerm,-Str,-RuleID)
+ ****************************************************************************/
+to_string(Term,IndTerm,Str,RuleID) :-
+	flora_decode_goal_as_mainless_atom_substitute_vars(Term,Text),
+	set_indexes(IndTerm),
+	flora_get_counter(min_ind,Index),
+	( (Index==NO_INDEX) ->
+	    fmt_write_string(Str,"`%s'",args(Text)),
+	    (RuleID=NO_INDEX, ! ; true)
+	;
+ 	    flora_token_rulenum(Index,RuleID),
+ 	    flora_nth_token(Index,Token),
+	    flora_token_text(Token,_T,BL,BC,_EL,_EC),
+	    fmt_write_string(Str,"`%s' near line(%d)/char(%d)",
+			     args(Text,BL,BC))
+	).
+
+/****************************************************************************
+ set_indexes(+IndTerm)
+ set the counters min_ind and next_min_ind for indexed term IndTerm.
+ min_ind is the smallest index of the tokens occurring in IndTerm.
+ ****************************************************************************/
+set_indexes(T) :-
+	( (atomic(T) ; var(T)) -> true
+        ; is_list(T) -> set_indexes_list(T)
+        ).
+
+set_indexes((T,Index)) :-
+        !,
+	( Index == NO_INDEX -> true
+	;
+	    flora_get_counter(min_ind,MinInd),
+	    flora_get_counter(next_min_ind,NextMinInd),
+	    ( (Index<MinInd; MinInd=0) ->
+	        flora_set_counter(next_min_ind,MinInd),
+	        flora_set_counter(min_ind,Index)
+	    ;
+	        ( (Index<NextMinInd; NextMinInd=0) ->
+	            flora_set_counter(next_min_ind,Index)
+	        ;
+	            true
+	        )
+	    )
+	),
+	( (atomic(T);var(T)) -> true
+        ; is_list(T) -> set_indexes_list(T)
+        ; T = (_,N), integer(N) -> set_indexes(T)
+	;
+	    T =.. [_F|Args],
+	    set_indexes_list(Args)
+	).
+
+set_indexes(T) :-
+        T =.. [_F|Args],
+        set_indexes_list(Args).
+        
+
+set_indexes_list([]) :- !.
+set_indexes_list([H|L]) :-
+        (nonvar(H), H = (Term,_) -> true
+        ; H = Term
+        ),
+        (var(Term) -> set_indexes(H)
+        ; Term = FL_CONTEXT(_,_,_) -> true
+        ; Term = FL_DATATYPE(_,_) -> true
+        ; set_indexes(H)
+        ),
+	set_indexes_list(L).
+	 
+ 	
+/****************************************************************************
+ generate_warnings(-WarnList)
+ ****************************************************************************/
+generate_warnings(WarnList) :-
+	findall((HInd1,BInd,WarnMsg),warning_seen(_,HInd1,_,BInd,WarnMsg),WL),
+	sort(WL, SortedWL),
+	append_warnings(SortedWL,WarnList).
+
+append_warnings([],[]) :- !.
+append_warnings([(HInd,BInd,WarnMsg)|T],[warning(HInd,BInd,WarnMsg)|InterWarnList]) :-
+	append_warnings(T,InterWarnList).
+
+
+/****************************************************************************
+ canonical_list(+L1,-L2)
+ ****************************************************************************/
+canonical_list([], []) :- !.
+canonical_list([H|L],[Callable|NL]) :-
+        get_canonical_form(H,FLCANON(_,_,_,Callable,_TF)),
+        canonical_list(L,NL).
+
+
+special_canon_form(Wrap,Args,Mod,TermFlag) :-
+        (var(Wrap)
+        ; nonvar(Mod), nonvar(Wrap), target(Wrap,Args,Mod)
+        %% next one captures \prolog
+        ; var(Mod), nonvar(Wrap), TermFlag==FL_TERM, target(Wrap,Args,Mod)
+        ; var(Mod), nonvar(Wrap), dboperation(Wrap,_), target(Wrap,Args,Mod)
+        ; var(Mod), nonvar(Wrap), moduleloading(Wrap,_), target(Wrap,Args,Mod)
+        ),
+        !.

@@ -1,0 +1,222 @@
+// pps.flr -- a parts production system
+
+/*
+  Following are the steps to get the results:
+  1. start flora2 shell.
+  2. Ask ?- query.
+
+  There should be 82 answers as described at the end.
+*/
+
+/*
+a=b.
+c=b.
+f=h.
+g=h.
+a[h->d1].
+b[f->d2].
+c[g->d3].
+aa=bb.
+cc=bb.
+ff=hh.
+gg=hh.
+aa[hh->dd1].
+bb[ff->dd2].
+cc[gg->dd3].
+*/
+
+a:=:a.
+
+// Rules
+
+?O[?M(?T) -> ?Q] :-
+	?T:stage1, ?S \is ?T - 1, apply(?O,?M):edbscalar,
+	?O[?M(?S) -> ?Q], \naf ?O.change(?S,?M)[].
+
+?O[?M(?T) -> ?Q] :-
+	?T:stage1, ?S \is ?T - 1, apply(?O,?M):edbscalar,
+	?O[change(?S,?M) ->  ?Q].
+
+?O[?M(?T)->?Q] :-
+	?T:stage1, ?S \is ?T - 1, apply(?O,?M):edbmultivalued,
+	?O[?M(?S)->?Q], \naf pps_delete(?O,?M,?Q,?S).
+
+?O[?M(?T)->?Q] :-
+	?T:stage1, ?S \is ?T - 1, apply(?O,?M):edbmultivalued,
+	pps_insert(?O,?M,?Q,?S).
+
+apply(pps,produces):edbmultivalued.
+apply(?P,hasConfig):edbscalar :- pps[produces(?S)->?P], ?S:state.
+
+?O[change(?S,hasConfig)  ->  newConfig(?O,?T)] :-
+	change(?O,?S,hasConfig), ?S:stage4, ?T \is ?S + 1.
+
+pps_insert(pps,produces,?P,?S) :- start(?P,?S), ?S:stage4.
+
+pps_delete(pps,produces,?P,?S) :- stop(?P,?S), ?S:stage4.
+
+stop(?P,?S) :- ?P.hasConfig(?S)[needsPart->?Q], stop(?Q,?S), ?S:stage4.
+
+change(?O,?S,hasConfig) :- addTo(?O,?_P,?S), ?S:stage4.
+change(?O,?S,hasConfig) :- removeFrom(?O,?_P,?S), ?S:stage4.
+
+newConfig(?O,?T)[needsPart->?P] :-
+	change(?O,?S,hasConfig), ?T \is ?S + 1,
+	?O.hasConfig(?S)[needsPart->?P], \naf removeFrom(?O,?P,?S),
+	?S:stage4.
+
+newConfig(?O,?T)[needsPart->?P] :-
+	change(?O,?S,hasConfig), addTo(?O,?P,?S), ?S:stage4, ?T \is ?S + 1.
+
+stage1::state[|ready_edb -> true|].
+stage2::state[|ready_idb -> true|].
+stage3::state.
+stage4::state[|ready_changes -> true|].
+?S:stage2 :- ?S.ready_edb[].
+?S:stage3 :- ?S.ready_idb[].
+?S:stage4 :- ?S:stage3, ?S.ready_user[].
+?T:stage1 :- ?S.ready_changes[], ?T \is ?S + 1.
+
+// Facts
+
+0:stage1.
+
+pps[produces(0)-> {golfC,golfCL,passatC,
+	            passatCL,motor14,motor18,
+	            wheel145,part1,part2,part3}].
+
+golfC[hasConfig(0)->newConfig(golfC,0)].
+golfCL[hasConfig(0)->newConfig(golfCL,0)].
+passatC[hasConfig(0)->newConfig(passatC,0)].
+passatCL[hasConfig(0)->newConfig(passatCL,0)].
+motor14[hasConfig(0)->newConfig(motor14,0)].
+
+newConfig(golfC,0)[needsPart->{motor14,wheel145}].
+newConfig(golfCL,0)[needsPart->{motor18,wheel145}].
+newConfig(passatC,0)[needsPart->{motor14,wheel145}].
+newConfig(passatCL,0)[needsPart->{motor18,wheel145}].
+newConfig(motor14,0)[needsPart->{part1,part2,part3}].
+
+removeFrom(passatC,motor14,0).
+addTo(passatC,motor18,0).
+start(wheel155,0).
+//0.ready_user[].
+0[ready_user->true].
+stop(part1,1).
+removeFrom(golfCL,wheel145,1).
+addTo(golfCL,wheel155,1).
+//1.ready_user[].
+1[ready_user->true].
+
+// Queries
+
+p1(?S,ctrl_produces(?P)) :- pps[produces(?S)->?P].
+p1(?P,ctrl_stop_in(?S)) :- stop (?P,?S).
+p1(?O,ctrl_hascfg(?T,?Q)) :- ?O[hasConfig(?T)->?Q].
+p1(?O,ctrl_change(?S)) :- change(?O,?S,hasConfig).
+// ttt2
+p1(?P,ctrl_needspart(?S,?Q)) :- ?P.hasConfig(?S)[needsPart->?Q].
+
+%query :- %write_answers.
+
+%write_answers :- 
+	true{p1(?X,?Y)},
+	writeln(p1(?X,?Y))@\io,
+	flora_increment_counter(ans_count,1,?_,?_)@\plg(flrporting),
+	fail.
+%write_answers :- 
+	write('Total number of answers: ')@\io,
+	flora_get_counter(ans_count,?C)@\plg(flrporting),
+	writeln(?C)@\io,
+	flora_set_counter(ans_count,0)@\plg(flrporting).
+
+?- flora_set_counter(ans_count,0)@\plg(flrporting).
+?- %query.
+
+// answers
+/*
+p1(0,ctrl_produces(golfC)).
+p1(0,ctrl_produces(golfCL)).
+p1(0,ctrl_produces(motor14)).
+p1(0,ctrl_produces(motor18)).
+p1(0,ctrl_produces(part1)).
+p1(0,ctrl_produces(part2)).
+p1(0,ctrl_produces(part3)).
+p1(0,ctrl_produces(passatC)).
+p1(0,ctrl_produces(passatCL)).
+p1(0,ctrl_produces(wheel145)).
+p1(1,ctrl_produces(golfC)).
+p1(1,ctrl_produces(golfCL)).
+p1(1,ctrl_produces(motor14)).
+p1(1,ctrl_produces(motor18)).
+p1(1,ctrl_produces(part1)).
+p1(1,ctrl_produces(part2)).
+p1(1,ctrl_produces(part3)).
+p1(1,ctrl_produces(passatC)).
+p1(1,ctrl_produces(passatCL)).
+p1(1,ctrl_produces(wheel145)).
+p1(1,ctrl_produces(wheel155)).
+p1(2,ctrl_produces(golfCL)).
+p1(2,ctrl_produces(motor18)).
+p1(2,ctrl_produces(part2)).
+p1(2,ctrl_produces(part3)).
+p1(2,ctrl_produces(passatC)).
+p1(2,ctrl_produces(passatCL)).
+p1(2,ctrl_produces(wheel145)).
+p1(2,ctrl_produces(wheel155)).
+p1(golfC,ctrl_hascfg(0,newConfig(golfC,0))).
+p1(golfC,ctrl_hascfg(1,newConfig(golfC,0))).
+p1(golfC,ctrl_hascfg(2,newConfig(golfC,0))).
+p1(golfC,ctrl_needspart(0,motor14)).
+p1(golfC,ctrl_needspart(0,wheel145)).
+p1(golfC,ctrl_needspart(1,motor14)).
+p1(golfC,ctrl_needspart(1,wheel145)).
+p1(golfC,ctrl_needspart(2,motor14)).
+p1(golfC,ctrl_needspart(2,wheel145)).
+p1(golfC,ctrl_stop_in(1)).
+p1(golfCL,ctrl_change(1)).
+p1(golfCL,ctrl_hascfg(0,newConfig(golfCL,0))).
+p1(golfCL,ctrl_hascfg(1,newConfig(golfCL,0))).
+p1(golfCL,ctrl_hascfg(2,newConfig(golfCL,2))).
+p1(golfCL,ctrl_needspart(0,motor18)).
+p1(golfCL,ctrl_needspart(0,wheel145)).
+p1(golfCL,ctrl_needspart(1,motor18)).
+p1(golfCL,ctrl_needspart(1,wheel145)).
+p1(golfCL,ctrl_needspart(2,motor18)).
+p1(golfCL,ctrl_needspart(2,wheel155)).
+p1(motor14,ctrl_hascfg(0,newConfig(motor14,0))).
+p1(motor14,ctrl_hascfg(1,newConfig(motor14,0))).
+p1(motor14,ctrl_hascfg(2,newConfig(motor14,0))).
+p1(motor14,ctrl_needspart(0,part1)).
+p1(motor14,ctrl_needspart(0,part2)).
+p1(motor14,ctrl_needspart(0,part3)).
+p1(motor14,ctrl_needspart(1,part1)).
+p1(motor14,ctrl_needspart(1,part2)).
+p1(motor14,ctrl_needspart(1,part3)).
+p1(motor14,ctrl_needspart(2,part1)).
+p1(motor14,ctrl_needspart(2,part2)).
+p1(motor14,ctrl_needspart(2,part3)).
+p1(motor14,ctrl_stop_in(1)).
+p1(part1,ctrl_stop_in(1)).
+p1(passatC,ctrl_change(0)).
+p1(passatC,ctrl_hascfg(0,newConfig(passatC,0))).
+p1(passatC,ctrl_hascfg(1,newConfig(passatC,1))).
+p1(passatC,ctrl_hascfg(2,newConfig(passatC,1))).
+p1(passatC,ctrl_needspart(0,motor14)).
+p1(passatC,ctrl_needspart(0,wheel145)).
+p1(passatC,ctrl_needspart(1,motor18)).
+p1(passatC,ctrl_needspart(1,wheel145)).
+p1(passatC,ctrl_needspart(2,motor18)).
+p1(passatC,ctrl_needspart(2,wheel145)).
+p1(passatCL,ctrl_hascfg(0,newConfig(passatCL,0))).
+p1(passatCL,ctrl_hascfg(1,newConfig(passatCL,0))).
+p1(passatCL,ctrl_hascfg(2,newConfig(passatCL,0))).
+p1(passatCL,ctrl_needspart(0,motor18)).
+p1(passatCL,ctrl_needspart(0,wheel145)).
+p1(passatCL,ctrl_needspart(1,motor18)).
+p1(passatCL,ctrl_needspart(1,wheel145)).
+p1(passatCL,ctrl_needspart(2,motor18)).
+p1(passatCL,ctrl_needspart(2,wheel145)).
+*/
+
+

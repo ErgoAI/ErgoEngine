@@ -1,0 +1,98 @@
+:- use_argumentation_theory{gcle}.
+?- [gclpe>>gcle].
+
+/* parent is alive in init state s0, but joe is not */
+@{\#} a(p)(s0). 
+@{\#} \neg a(j)(s0).
+
+/* parent conceives joe if parent is alive in s2, so then joe is alive in s3 */
+@{\#} a(j)(s3) :- a(p)(s2). 
+
+/* if joe is alive in s3, then he time travels to s1..s2, then returns to s3 */
+@{\#} t(j,s3,s1) :- a(j)(s3).
+
+/* if joe time travels, then he fires the gun at parent in s1 */
+@{\#} f(j,p)(s1) :- t(j,s3,s1).
+
+/* if the gun is fired at parent in s1, then the parent is dead in s2 */
+@{\#} \neg a(p)(s2) :- f(j,p)(s1).
+
+/* persistence axioms about aliveness */
+@{pe} a(p)(s3) :- a(p)(s2).
+@{pe} \neg a(p)(s3) :- \neg a(p)(s2).
+@{pe} a(p)(s2) :- a(p)(s1).
+@{pe} \neg a(p)(s2) :- \neg a(p)(s1).
+@{pe} a(p)(s1) :- a(p)(s0).
+@{pe} \neg a(p)(s1) :- \neg a(p)(s0).
+
+@{pe} a(j)(s3) :- a(j)(s2).
+@{pe} \neg a(j)(s3) :- \neg a(j)(s2).
+@{pe} a(j)(s2) :- a(j)(s1).
+@{pe} \neg a(j)(s2) :- \neg a(j)(s1).
+@{pe} a(j)(s1) :- a(j)(s0).
+@{pe} \neg a(j)(s1) :- \neg a(j)(s0).
+
+// interestingly, the following matters here, but not in other
+// argumentation theories
+/* persistence rules are lowest-pri */
+\overrides(?L,pe) :- tag{?L, ?}, ?L != pe. 
+/*
+  Unlike in the old/new gclp, GCLE gives the following results:
+    
+  true: a(p)(s2)
+  false: \neg a(p)(s2)
+         a(j)(s3)
+         \neg a(j)(s3)
+         t(j,s3,s1)
+         f(j,p)(s1)
+
+  Under the old/new gclp, all these are undefined.
+*/
+
+%pretest :-
+    write('Test #1: ')@\plg,
+    // all should be undefined
+    \if ( undefined{a(p)(s2)},
+         undefined{\neg a(p)(s2)},
+	 undefined{a(j)(s3)},
+	 undefined{\neg a(j)(s3)},
+	 undefined{t(j,s3,s1)},
+	 undefined{f(j,p)(s1)} )
+    \then
+       writeln(passed)@\plg
+    \else
+       writeln(failed)@\plg,
+
+    write('Test #2: ')@\plg,
+    // none should be true
+    \if ( true{a(p)(s2)} ;
+         true{\neg a(p)(s2)} ;
+	 true{a(j)(s3)} \or
+	 true{\neg a(j)(s3)} ;
+	 true{t(j,s3,s1)} ;
+	 true{f(j,p)(s1)} )
+    \then
+       writeln(failed)@\plg
+    \else
+       writeln(passed)@\plg,
+
+    write('Test #3: ')@\plg,
+    // none should be false
+    \if ( false{a(p)(s2)} \or
+         false{\neg a(p)(s2)} \or
+	 false{a(j)(s3)} \or
+	 false{\neg a(j)(s3)} \or
+	 false{t(j,s3,s1)} \or
+	 false{f(j,p)(s1)} )
+    \then
+       writeln(failed)@\plg
+    \else
+       writeln(passed)@\plg.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	//\abolishtables,
+	%pretest,
+	told@\plg().

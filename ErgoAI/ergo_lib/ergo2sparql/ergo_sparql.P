@@ -1,0 +1,493 @@
+/* File: ergo_lib/ergo2sparql/ergo_sparql.P -- Prolog-SPARQL adaptor
+**
+** Author(s): Paul Fodor
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2016-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+:- compiler_options([xpp_on]).
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+#define INVALID_TRIPLE_COMPONENT  'ErgoSPARQL: invalid component found in RDF triple'
+#define INVALID_TERM_PASSED_TO_QUERY  'ErgoSPARQL: invalid term passed to SPARQL query'
+#define CONNECTION_ID_ATOM 'connection Id must be an atom'
+
+#mode save
+#mode nostring "\!#'"
+#define FL_BLANK_NODE        rdf_blank_node
+#define FL_RDF_BLANK_NODE    FLORA_SYMBOL('FL_BLANK_NODE')
+#mode restore
+
+:- import
+        flora_file_op/2,
+        flora_concat_atoms/2,
+        flora_abort/2
+   from flrporting.
+
+:- import
+        flora_stdwarn_nl/0,
+        flora_warning_line/2
+   from flrprint.
+
+:- import
+        flora_read_parse_compile_build_term_errwarn/5
+   from flrutils.
+
+:- import
+        flora_decode_goal_as_atom_substitute_vars/2
+   from flrdecode.
+
+:- import
+        FLLIBNEWOID/2,
+        FL_ISSKOLEM/1
+   from flrnewoid.
+:- import
+        flora_w3c_type_name/2,
+        flora_printable_type_representation/2,
+        '\\isstring'/1,
+        '\\isiri'/1
+   from flrdatatype.
+
+:- import
+        java/2,
+        %%java/3,
+        java/4
+   from interprolog.
+
+:- export
+        prepareSparqlQuery/2,
+        sparqlOpen/5,
+        sparqlClose/1,
+        sparqlConnectionType/2,
+        sparqlConnectionURL/2,
+        sparqlSelect/3,
+        sparqlSelectAll/3,
+        sparqlConstruct/3,
+        sparqlConstructAll/3,
+        sparqlAsk/2,
+        sparqlDescribe/3,
+        sparqlDescribeAll/3,
+        sparqlUpdate/2.
+
+%% initialize (log4j will log the ERROR level)
+init :-
+        java('com.coherentknowledge.ergo.sparql.ErgoSPARQLAPI', 'ErgoSPARQLAPI').
+
+?- init.
+
+%% Method to get a connection identifier.
+%% ConnectionType: query or update
+sparqlOpen(ConnectionType,ConnectionId,TargetService,Username,Password) :-
+        ( atom(ConnectionId) -> true
+        ;
+            flora_decode_goal_as_atom_substitute_vars(ConnectionId,ConIdPrint),
+            flora_abort(['ErgoSPARQL(sparqlOpen): ',
+                         CONNECTION_ID_ATOM, ', ', ConIdPrint],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        /*
+           Should pass current Ergo encoding to translateRDF in Java:
+           flrencoding:flora_encoding_for_java(Charset),
+        */
+        java('com.coherentknowledge.ergo.sparql.ErgoSPARQLAPI', 
+             _Void_Null,
+             Exception, 
+             sparqlOpen(string(ConnectionType),string(ConnectionId), string(TargetService), string(Username), string(Password))), 
+        ( Exception == null -> true
+        ; Exception = exception(_JavaLangException,ExceptionString),
+            flora_abort([ExceptionString],FLORA_ABORT_NOTRACE)
+        ).
+
+%% Method for SPARQL CLOSE
+sparqlClose(ConnectionId) :-
+        ( atom(ConnectionId) -> true
+        ;
+            flora_decode_goal_as_atom_substitute_vars(ConnectionId,ConIdPrint),
+            flora_abort(['ErgoSPARQL(sparqlClose): ',
+                         CONNECTION_ID_ATOM, ', ', ConIdPrint],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        /*
+           Should pass current Ergo encoding to translateRDF in Java:
+           flrencoding:flora_encoding_for_java(Charset),
+        */
+        java('com.coherentknowledge.ergo.sparql.ErgoSPARQLAPI', 
+             X, 
+             Exception,
+             sparqlClose(string(ConnectionId))),
+        ( Exception == null -> true
+        ; Exception = exception(_JavaLangException,ExceptionString),
+            flora_abort([ExceptionString],FLORA_ABORT_NOTRACE)
+        ),
+        X=boolean(1).
+
+
+%% Method to check if connection is open and get its type
+sparqlConnectionType(ConnectionId, ConnectionType) :-
+        ( atom(ConnectionId) -> true
+        ;
+            flora_decode_goal_as_atom_substitute_vars(ConnectionId,ConIdPrint),
+            flora_abort(['ErgoSPARQL(sparqlAsk): ',
+                         CONNECTION_ID_ATOM, ', ', ConIdPrint],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        /*
+           Should pass current Ergo encoding to translateRDF in Java:
+           flrencoding:flora_encoding_for_java(Charset),
+        */
+        java('com.coherentknowledge.ergo.sparql.ErgoSPARQLAPI', 
+             string(ConnectionType), 
+             Exception, 
+             sparqlConnectionType(string(ConnectionId))),
+        ( Exception == null -> true
+        ; Exception = exception(_JavaLangException,ExceptionString),
+            flora_abort([ExceptionString],FLORA_ABORT_NOTRACE)
+        ),
+        ConnectionType \== null.
+
+%% Method to check if connection is open and get its URL
+sparqlConnectionURL(ConnectionId, URL) :-
+        ( atom(ConnectionId) -> true
+        ;
+            flora_decode_goal_as_atom_substitute_vars(ConnectionId,ConIdPrint),
+            flora_abort(['ErgoSPARQL(sparqlAsk): ',
+                         CONNECTION_ID_ATOM, ', ', ConIdPrint],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        /*
+           Should pass current Ergo encoding to translateRDF in Java:
+           flrencoding:flora_encoding_for_java(Charset),
+        */
+        java('com.coherentknowledge.ergo.sparql.ErgoSPARQLAPI', 
+             string(URL), 
+             Exception, 
+             sparqlConnectionURL(string(ConnectionId))),
+        ( Exception == null -> true
+        ; Exception = exception(_JavaLangException,ExceptionString),
+            flora_abort([ExceptionString],FLORA_ABORT_NOTRACE)
+        ),
+        URL \== null.
+
+
+%% Method to execute a SPARQL SELECT query and return the results
+sparqlSelect(ConnectionId, SelectQuery, OneResult) :-
+        ( atom(ConnectionId) -> true
+        ;
+            flora_decode_goal_as_atom_substitute_vars(ConnectionId,ConIdPrint),
+            flora_abort(['ErgoSPARQL(sparqlSelect): ',
+                         CONNECTION_ID_ATOM, ', ', ConIdPrint],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        flora_file_op(tmpfilename,AnsFile),
+        /*
+           Should pass current Ergo encoding to translateRDF in Java:
+           flrencoding:flora_encoding_for_java(Charset),
+        */
+        java('com.coherentknowledge.ergo.sparql.ErgoSPARQLAPI', 
+             _Void_Null,
+             Exception, 
+             sparqlSelect(string(AnsFile),string(ConnectionId),string(SelectQuery))),
+        ( Exception == null -> true
+        ; Exception = exception(_JavaLangException,ExceptionString),
+            flora_abort([ExceptionString],FLORA_ABORT_NOTRACE)
+        ),
+        open(AnsFile,read,Stream),
+        !,
+        ( readAnswersFromFileAndConvert(Stream,OneResult)
+        ;
+            %% when done iterating, remove temp file of answers
+            close(Stream),
+            flora_file_op(rm,AnsFile),
+            !,
+            fail
+        ).
+
+
+%% Method for SPARQL SELECT that returns all the results in an array.
+sparqlSelectAll(ConnectionId, Query, OutputList) :-
+        ( atom(ConnectionId) -> true
+        ;
+            flora_decode_goal_as_atom_substitute_vars(ConnectionId,ConIdPrint),
+            flora_abort(['ErgoSPARQL(sparqlSelectAll): ',
+                         CONNECTION_ID_ATOM, ', ', ConIdPrint],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        findall(OneResult, 
+                sparqlSelect(ConnectionId, Query, OneResult), 
+                OutputList).
+
+/*
+** Method for SPARQL CONSTRUCT query: 
+** CONSTRUCT is an alternative SPARQL result clause to SELECT.
+** Instead of returning a table of result values, CONSTRUCT returns an RDF
+** graph. The result RDF graph is created by taking the results of
+** the equivalent SELECT query and filling in the values of variables that
+** occur in the CONSTRUCT query.
+** Triples are not created in the result graph for query patterns that
+** involve an unbound variable.
+*/
+sparqlConstruct(ConnectionId, ConstructQuery, OneResult) :-
+        ( atom(ConnectionId) -> true
+        ;
+            flora_decode_goal_as_atom_substitute_vars(ConnectionId,ConIdPrint),
+            flora_abort(['ErgoSPARQL(sparqlConstruct): ',
+                         CONNECTION_ID_ATOM, ', ', ConIdPrint],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        flora_file_op(tmpfilename,AnsFile),
+        /*
+           Should pass current Ergo encoding to translateRDF in Java:
+           flrencoding:flora_encoding_for_java(Charset),
+        */
+        java('com.coherentknowledge.ergo.sparql.ErgoSPARQLAPI', 
+             _Void_Null,
+             Exception, 
+             sparqlConstruct(string(AnsFile),string(ConnectionId),string(ConstructQuery))),
+        ( Exception == null -> true
+        ; Exception = exception(_JavaLangException,ExceptionString),
+            flora_abort([ExceptionString],FLORA_ABORT_NOTRACE)
+        ),
+        open(AnsFile,read,Stream),
+        !,
+        ( readAnswersFromFileAndConvert(Stream,OneResult)
+        ;
+            %% when done iterating, remove temp file of answers
+            close(Stream),
+            flora_file_op(rm,AnsFile),
+            !,
+            fail
+        ).
+
+
+%% Method for SPARQL CONSTRUCT that returns all the results in an array.
+sparqlConstructAll(ConnectionId, Query, OutputList) :-
+        findall(OneResult,
+                sparqlConstruct(ConnectionId, Query, OneResult),
+                OutputList).
+
+
+%% Method for SPARQL ASK query.
+sparqlAsk(ConnectionId, AskQuery) :-
+        ( atom(ConnectionId) -> true
+        ;
+            flora_decode_goal_as_atom_substitute_vars(ConnectionId,ConIdPrint),
+            flora_abort(['ErgoSPARQL(sparqlAsk): ',
+                         CONNECTION_ID_ATOM, ', ', ConIdPrint],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        /*
+           Should pass current Ergo encoding to translateRDF in Java:
+           flrencoding:flora_encoding_for_java(Charset),
+        */
+        java('com.coherentknowledge.ergo.sparql.ErgoSPARQLAPI', 
+             X, 
+             Exception, 
+             sparqlAsk(string(ConnectionId), string(AskQuery))),
+        ( Exception == null -> true
+        ; Exception = exception(_JavaLangException,ExceptionString),
+            flora_abort([ExceptionString],FLORA_ABORT_NOTRACE)
+        ),
+        X=boolean(1).
+
+%% Method for SPARQL DESCRIBE query.
+sparqlDescribe(ConnectionId, DescribeQuery, OneResult) :-
+        ( atom(ConnectionId) -> true
+        ;
+            flora_decode_goal_as_atom_substitute_vars(ConnectionId,ConIdPrint),
+            flora_abort(['ErgoSPARQL(sparqlDescribe): ',
+                         CONNECTION_ID_ATOM, ', ', ConIdPrint],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        flora_file_op(tmpfilename,AnsFile),
+        /*
+           Should pass current Ergo encoding to translateRDF in Java:
+           flrencoding:flora_encoding_for_java(Charset),
+        */
+        java('com.coherentknowledge.ergo.sparql.ErgoSPARQLAPI', 
+             _Void_Null,
+             Exception, 
+             sparqlDescribe(string(AnsFile),string(ConnectionId),string(DescribeQuery))),
+        ( Exception == null -> true
+        ; Exception = exception(_JavaLangException,ExceptionString),
+            flora_abort([ExceptionString],FLORA_ABORT_NOTRACE)
+        ),
+        open(AnsFile,read,Stream),
+        !,
+        ( readAnswersFromFileAndConvert(Stream,OneResult)
+        ;
+            %% when done iterating, remove temp file of answers
+            close(Stream),
+            flora_file_op(rm,AnsFile),
+            !,
+            fail
+        ).
+
+%% Method for SPARQL DESCRIBE that returns all the results in an array.
+sparqlDescribeAll(ConnectionId, Query, OutputList) :-
+        ( atom(ConnectionId) -> true
+        ;
+            flora_decode_goal_as_atom_substitute_vars(ConnectionId,ConIdPrint),
+            flora_abort(['ErgoSPARQL(sparqlDescribeAll): ',
+                         CONNECTION_ID_ATOM, ', ', ConIdPrint],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        findall(OneResult,
+                sparqlDescribe(ConnectionId, Query, OneResult),
+                OutputList).
+
+%% Method for SPARQL UPDATE
+sparqlUpdate(ConnectionId, Query) :-
+        ( atom(ConnectionId) -> true
+        ;
+            flora_decode_goal_as_atom_substitute_vars(ConnectionId,ConIdPrint),
+            flora_abort(['ErgoSPARQL(sparqlUpdate): ',
+                         CONNECTION_ID_ATOM, ', ', ConIdPrint],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        /*
+           Should pass current Ergo encoding to translateRDF in Java:
+           flrencoding:flora_encoding_for_java(Charset),
+        */
+        java('com.coherentknowledge.ergo.sparql.ErgoSPARQLAPI', 
+             X, 
+             Exception, 
+             sparqlUpdate(string(ConnectionId), string(Query))),
+        ( Exception == null -> true
+        ; Exception = exception(_JavaLangException,ExceptionString),
+            flora_abort([ExceptionString],FLORA_ABORT_NOTRACE)
+        ),
+        X=boolean(1).
+
+%% test for null value;
+%% putting 'NULL'(_) in the head of this rule does not work: unification bug?
+convertToErgoDataType(X,X) :-
+        X = 'NULL'(_),
+        !.
+
+convertToErgoDataType('\b\b\bRDFblanknode',String) :-
+        !,
+        FLLIBNEWOID(FL_RDF_BLANK_NODE,String).
+convertToErgoDataType(String,String) :-
+        %% IRIs get passed from Java in the internal form with the i\b prefix
+        '\\isiri'(String),
+        !.
+convertToErgoDataType(String,String) :-
+        %% Strings get passed from Java in the internal form with the i\s prefix
+        '\\isstring'(String),
+        !.
+convertToErgoDataType(String,String) :-
+        %% Not sure how internal-form Flora skolems slip in here, but they do
+        FL_ISSKOLEM(String),
+        !.
+convertToErgoDataType(Number,Number) :-
+        number(Number),
+        !.
+convertToErgoDataType(String,DataTypeCode) :-
+        atom(String),
+        !,
+        fmt_write_string(DottedStr,'%s.',arg(String)),
+        flora_read_parse_compile_build_term_errwarn(atom(DottedStr),DataTypeCode_aux,_,Status,_NoErrWarn),
+        (Status = [ok|_] ->
+            %% we might have to handle special situations here as they arise
+            DataTypeCode = DataTypeCode_aux
+        ; lists:last(Status,error(_,ErrMsg)),
+            flora_stdwarn_nl,
+            flora_warning_line('ErgoSPARQ: error while parsing RDF data item ~w - ~w; returning ''!!!type error''(~w)\n',
+                               [String, ErrMsg,String]),
+            DataTypeCode = '!!!type error'(String)
+        ).
+
+convertToErgoDataType(List,DataTypeCodeList) :-
+        is_list(List),
+        !,
+        convertListToErgoDataTypeList(List,DataTypeCodeList).
+
+convertToErgoDataType(Term,_) :-
+        flora_abort([INVALID_TRIPLE_COMPONENT, ', ',Term],FLORA_ABORT_NOTRACE).
+
+convertListToErgoDataTypeList([],[]) :- !.
+convertListToErgoDataTypeList([H|Rest],[DT|DataTypeCodeList]) :-
+        convertToErgoDataType(H,DT),
+        convertListToErgoDataTypeList(Rest,DataTypeCodeList).
+
+
+
+%% convert types to atoms in order to prepare a SPARQL query to be sent to Jena
+%% prepareSparqlQuery(+QueryList,-Query)
+prepareSparqlQuery(Query,Query):-
+        atom(Query),
+        !.
+prepareSparqlQuery(QueryList,Query):-
+        convertTypesToAtomList(QueryList,QueryListStrings,QueryList),
+        flora_concat_atoms(QueryListStrings,Query).
+
+%% TYpes should be converted to a form understood by Sparql. They must be atoms
+%% which are then concatenated into a query.
+%% convertTypesToAtomList(+QueryList,-QueryListStrings,+QueryList)
+%% the second QueryList is used for error reporting
+convertTypesToAtomList([],[],_).
+convertTypesToAtomList([H|T],[H2|T2],QueryList) :-
+        convertTypeToAtom(H,H2,QueryList),
+        convertTypesToAtomList(T,T2,QueryList).
+
+%% convertTypeToAtom(+Parameter,-ParameterAtom,+QueryList)
+convertTypeToAtom(X,Y,_) :-
+        %% comes before atom test
+        '\\isiri'(X),
+        !,
+        flora_printable_type_representation(X,[_,Printable]),
+        flora_concat_atoms(['<',Printable,'>'],Y).
+convertTypeToAtom(X,Y,_) :-
+        atom(X),
+        !,
+        %%flora_concat_atoms(['"',X,'"'],Y).  %% do not add double quotes!
+        Y = X.
+convertTypeToAtom(X,Y,_) :-
+        flora_printable_type_representation(X,[Type,Val]),
+        flora_w3c_type_name(Type,W3Ctype),
+        !,
+        flora_concat_atoms(['"',Val,'"^^<',W3Ctype,'>'],Y).
+convertTypeToAtom(X,_,QueryList) :-
+	%%flora_decode_goal_as_atom_substitute_vars(X,PrintX),
+        fmt_write_string(PrintX,'%S',arg(X)),
+        %% Just passing QueryList to flora_abort is not good because it
+        %% flattens lists. Many errors arise when one passes a list to a SPARQL
+        %% query, which is a mistake. We need to make sure lists are preserved,
+        %% and fmt_write_string/3 does the job
+        fmt_write_string(PrintQueryList,'%S',arg(QueryList)),
+        flora_abort([INVALID_TERM_PASSED_TO_QUERY,', ',PrintX,
+                     '\n\tquery = ',PrintQueryList],FLORA_ABORT_NOTRACE).
+
+readAnswersFromFileAndConvert_aux(Stream,Result) :-
+        read_canonical(Stream,Result_aux),
+        (Result_aux == end_of_file -> Result = Result_aux
+        ; Result_aux == read_canonical_error -> Result = Result_aux
+        ; convertToErgoDataType(Result_aux,Result)
+        ).
+readAnswersFromFileAndConvert_aux(Stream,Result) :-
+        readAnswersFromFileAndConvert_aux(Stream,Result).
+
+readAnswersFromFileAndConvert(Stream,Result) :-
+        readAnswersFromFileAndConvert_aux(Stream,Result_aux),
+        (Result_aux == read_canonical_error ->
+            flora_abort('ErgoSPARQL: error reading answers',FLORA_ABORT_NOTRACE)
+        ; Result_aux \== end_of_file -> true
+        ; !, fail   %% Result == end_of_file - cut, fail, and stop backtracking
+        ),
+        Result = Result_aux.

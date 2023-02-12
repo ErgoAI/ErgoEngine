@@ -1,0 +1,171 @@
+:- use_rule_structure_db.
+:- use_argumentation_theory.
+:- ignore_depchk{%check_state(?)}.
+:- setsemantics{tabling=reactive}.
+
+:- table{\overrides/2, \overrides/4, \opposes/2, \opposes/4}.
+:- table{\cancel/1, \cancel/2}.
+
+:- symbol_context{
+      occurs/2, tst3/0, tst4/0, tst5/0, tst6/0, tst7/0, tst8/0,
+        tst9/0, tst10/0, tst11/0, tst12/0, tst13/0, tst14/0, tst15/0,
+        tst16/0, tst17/0, tst18/0, tst19/0, tst20/0, tst21/0, tst22/0
+   }.
+
+// Example 1
+@{tdf1,tdf1n} dies(?s1,?x,?f,?y) :-
+	isnumber{?s1},
+	?s \is ?s1-1,
+	?s > 0,
+	occurs(?s,toxicDischarge,?x),
+	river(?x),
+	fishPopulationOf(?s,?x,?f,?y).
+
+@{pe1,pe1n}  \neg dies(?s1,?x,?f,?y) :-
+	isnumber{?s1},
+	?s \is ?s1-1,
+	?s > 0,
+	\neg dies(?s,?x,?f,?y),
+	river(?x),
+	fishPopulationOf(?s,?x,?f,?y).
+
+@{pe2,pe2n}  fishPopulationOf(?s1,?x,?f,?y) :-
+	isnumber{?s1},
+	?s \is ?s1-1,
+	?s > 0,
+	river(?x),
+	fishPopulationOf(?s,?x,?f,?y).
+
+\overrides(tdf1,pe1).
+
+river(Squamish).
+
+fishPopulationOf(1,Squamish,trout,400).
+
+occurs(2,toxicDischarge,Squamish).
+// next fact missing in BG?
+\neg dies(1,Squamish,trout,400).
+
+%tst1 :- dies(3,Squamish,trout,400) \and 
+	  \neg dies(2,Squamish,trout,400).
+
+
+// Example 2
+
+@{cmove1,cmove1n} loc(nxt(?s),?x,?z) \and \neg loc(nxt(?s),?x,?y) :-
+	occurs(?s,move(?x,?y,?z)),
+	loc(?s,?x,?y),
+	\naf loc(?s,?_w,?z).
+
+/* Note: in the above, the subgoal (forall ?w. \neg loc(?s,?w,?z))
+   was translated as subgoal \naf loc(?s,?w,?z), which means
+   Naf exists ?w such that loc(?s,?w,?z). Not completely kosher,
+   but do not know how to translate forall \neg otherwise.
+*/
+@{pee1,pee1n} loc(nxt(?s),?x,?y) :-
+	%check_state(?s),
+	loc(?s,?x,?y).
+
+@{pee2,pee2n} \neg loc(nxt(?s),?x,?y) :-
+	%check_state(?s),
+	\neg loc(?s,?x,?y).
+
+@!{cwarule} @{cwa_loc} @{cwa_loc_n} \neg loc(?_s,?_y,?_z).
+/*
+  It is important that this initial fact have a label,
+  so it would override cwa_loc.
+*/
+@{pee1,pee1nn} loc(0,block4,square7).
+
+// should be disqualified by cwa - just for testing
+@{p,p_n} loc(nxt(nxt(nxt(nxt(0)))),block4,square7).
+
+occurs(nxt(0),move(block4,square7,square3)).
+
+\overrides(cmove1,pee1).
+\overrides(cmove1,pee2).
+\overrides(cmove1,cwa_loc).
+\overrides(pee1,cwa_loc).
+
+/*
+  We must ground ?x and ?y before comparing them using !+,
+  since otherwise != is a non-logical operation (?- 1 != ?X is false).
+*/
+\opposes(loc(?_s,?_x,?y),loc(?_s,?_x,?z)) :-
+	position(?y),
+	position(?z),
+	?y != ?z.
+
+position(square1). position(square2). position(square3). position(square4).
+position(square5). position(square6). position(square7). position(square8).
+
+%check_state(?s) :- isground{?s}, !.
+%check_state(?s) :-
+	abort(['Nonground state found: ',
+		?s,
+		'. Might cause infinite recursion.'])@\sys.
+
+
+%tst2 :- loc(nxt(nxt(0)),block4,square3) 
+           \and loc(nxt(nxt(nxt(0))),block4,square3)
+           \and \naf loc(nxt(nxt(nxt(nxt(0)))),block4,square3) // this is defeated
+	   \and \neg loc(nxt(nxt(0)),block4,square7)
+	   \and loc(nxt(0),block4,square7). 
+
+%tst3 :- collectset{?X|status(cwa_loc,\neg loc(0,block4,square7))[howDefeated->?X]@\gcl} = ?L, writeln(tst3=?L)@\io.
+
+%tst4 :- collectset{?X|status(cwa_loc,\neg loc(nxt(0),block4,square7))[howDefeated->?X]@\gcl} = ?L, writeln(tst4=?L)@\io.
+
+%tst5 :- collectset{?X|status(cwa_loc,\neg loc(nxt(nxt(0)),block4,square7))[howDefeated->?X]@\gcl} = ?L, writeln(tst5=?L)@\io.
+
+%tst6 :- collectset{?O|status(?I,loc(nxt(nxt(0)),block4,square3))[howDefeated->?X]@\gcl, ?O = ?I+?X} = ?L, writeln(tst6=?L)@\io.
+
+%tst7 :- collectset{?O|status(?I,\neg loc(nxt(nxt(0)),block4,square3))[howDefeated->?X]@\gcl, ?O = ?I+?X} = ?L, writeln(tst7=?L)@\io.
+
+// the two below are disqualified; all three queries succeed
+%tst8 :- collectset{?O|status(?I,loc(nxt(nxt(nxt(nxt(0)))),block4,square7))[howDefeated->?X]@\gcl, ?O = ?I+?X} = ?L, writeln(tst8=?L)@\io.
+
+%tst9 :- collectset{?O|status(?I,\neg loc(nxt(nxt(nxt(nxt(0)))),block4,square7))[howDefeated->?X]@\gcl, ?O = ?I+?X} = ?L, writeln(tst9=?L)@\io.
+
+%tst10 :- collectset{?X|status(p,loc(nxt(nxt(nxt(nxt(0)))),block4,square7))[howDisqualified->?X]@\gcl} = ?L, writeln(tst10=?L)@\io.
+
+// We artificially block the use of non-ground ?P with check_state/1.
+// Otherwise, ?P in place of 0 succeeds
+%tst11 :- collectset{?I|status(?I,loc(nxt(nxt(nxt(nxt(0)))),block4,square7))[info->candidate]@\gcl} = ?L, writeln(tst11=?L)@\io.
+
+// Using ?P instead of 0 causes infinite loop. We block that with check_state
+%tst12 :- collectset{?I|status(?I,loc(nxt(nxt(nxt(0))),block4,square3))[info->candidate]@\gcl} = ?L, writeln(tst12=?L)@\io.
+
+%tst13 :- collectset{?O|status(?I,loc(nxt(nxt(nxt(0))),block4,square3))[info->conflictsWith(?X,?Y)]@\gcl, ?O = ?I+?X+?Y} = ?L, writeln(tst13=?L)@\io.
+
+%tst14 :- collectset{?O|status(?I,loc(nxt(nxt(nxt(nxt(0)))),block4,square7))[info->conflictsWith(?X,?Y)]@\gcl, ?O = ?I+?X+?Y} = ?L, writeln(tst14=?L)@\io.
+
+%tst15 :- collectset{?O|status(?I,loc(0,block4,square7))[info->conflictsWith(?X,?Y)]@\gcl, ?O = ?I+?X+?Y} = ?L, writeln(tst15=?L)@\io.
+
+%tst16 :- collectset{?O|status(?I,loc(nxt(nxt(nxt(0))),block4,square3))[info->?X]@\gcl, ?O = ?I+?X} = ?L, writeln(tst16=?L)@\io.
+
+%tst17 :- collectset{?O|status(?I,loc(nxt(0),block4,square7))[info->?X]@\gcl, ?O = ?I+?X} = ?L, writeln(tst17=?L)@\io.
+
+%tst18 :- collectset{?O|status(?I,loc(0,block4,square7))[info->?X]@\gcl, ?O = ?I+?X} = ?L, writeln(tst18=?L)@\io.
+
+%tst19 :- collectset{?O|status(?I,loc(nxt(0),block4,square7))[howDefeated->?X]@\gcl, ?O = ?I+?X} = ?L, writeln(tst19=?L)@\io.
+
+%tst20 :- collectset{?X|status(pee1,\neg loc(nxt(0),block4,square7))[howDefeated->?X]@\gcl} = ?L, writeln(tst20=?L)@\io.
+
+%tst21 :- collectset{?X|status(cwa_loc,\neg loc(nxt(0),block4,square7))[howDefeated->?X]@\gcl} = ?L, writeln(tst21=?L)@\io.
+
+%tst22 :- collectset{?X|status(pee1,loc(nxt(0),block4,square7))[howDefeated->?X]@\gcl} = ?L, writeln(tst22=?L)@\io.
+
+// crashes XSB
+//?- status(?I,\neg loc(nxt(nxt(0)),?X,?Y))[howDefeated->?X]@\gcl.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9,
+            %tst10, %tst11, %tst12, %tst13, %tst14, %tst15, %tst16, %tst17,
+	    %tst18, %tst19, %tst20, %tst21, %tst22.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.

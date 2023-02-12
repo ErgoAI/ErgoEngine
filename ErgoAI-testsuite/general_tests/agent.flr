@@ -1,0 +1,71 @@
+:- use_rule_structure_db.
+
+// Agent that can do Modus Ponens
+?- Method[mustDefine(off,${q(?)@\@})]@\sys.
+
+john[believes-> ${p(a)}].
+john[believes-> ${constr(?)}].
+john[believes-> ${q(?_X) :- constr(?), p(?_X)}].
+constr(?Y) :- ?Y > 2,?Y=3.
+
+john[believes-> ${bob[likes->?_X] :- mary[likes->?_X]}].
+john[believes-> ${mary[likes->sally]}].
+
+john[believes-> ?A] :-
+	// block john[believes-> ${A :- B}] from matching the head of this rule
+	\if (\isnonvar(?A), ?A = ${?_H :- ?_B}) \then \false,
+	john[believes-> ${?A :- ?B}]
+        \and john[believes-> ?B].
+
+john[believes-> (?A,?B)] :-
+	john[believes-> ?A],
+	len(?A,?NA),
+	?NA < 2,  // allow only non-and answers
+        john[believes-> ?B],
+	len(?B,?NB),
+	?NB < 2,  // allow only non-and answers
+	?B != ?A,
+	\true.
+
+// used to limit term depth
+len(?X,1) :- \isvar(?X), !.
+len(?X,1)  :- \isnonvar(?X), ?X \= (?,?), !.
+len((?X,?Y),?N) :-
+	len(?X,?N1),
+	len(?Y,?N2),
+	?N \is ?N1+?N2.
+
+/*
+   Test 1 answers:
+test1: q(a)
+test1: p(a)
+test1: constr(?A)
+test1: @!{?A} q(?D) :- (constr(?G), p(?D))
+test1: @!{?A} bob[likes -> ?E] :- mary[likes -> ?E]
+test1: mary[likes -> sally]
+test1: bob[likes->sally]
+
+  Weird!!
+*/
+%tst1 :-
+	john[believes->?X],
+	?X \= (?,?),  // display only non-compound answers
+	write('test1: ')@\plg(),
+	flora_write_goal_substitute_vars(?X)@\plg(flrdecode), nl@\plg(), \false.
+%tst1 :- \true.
+
+%tst2 :-
+	write('test2: ')@\plg(),
+	john[believes-> ?X], ?X = ${?_A :- ?_B}, insert{?X, p(a)}, q(?Z),
+	writeln(Z=?Z)@\plg.
+
+%pretest :- %tst1, %tst2.
+
+%test :- tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	!,
+	\abolishtables,
+	%pretest,
+	told@\plg.

@@ -1,0 +1,117 @@
+:- use_rule_structure_db.
+:- symbol_context{
+      a/0
+   }.
+
+%tst1 :- write('tst1: ')@\plg(), insert{p(${a@main})}, ?X= ${q(${a@main})}, insert{?X}, flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+
+%tst2 :- write('tst2: ')@\plg(), p(?X),
+	write('x=')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	q(?Y),
+	write(' y=')@\plg(), flora_write_goal(?Y)@\plg(flrdecode),
+	nl@\plg().
+
+%tst3 :- write('tst3: ')@\plg(), ?X= ${a@main}, q(?Y), ?X = ?Y, flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+
+%tst4 :- write('tst4: ')@\plg(), ?X= ${a@main}, p(?Y), ?X = ?Y,
+	flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+
+%tst5 :- write('tst5: ')@\plg(), ?Y=a, ?Z=main, ?X = ${pp(${?Y@?Z})}, insert{?X},
+	flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+%tst6 :- write('tst6: ')@\plg(), pp(?X),
+	flora_write_goal(?X)@\plg(flrdecode), nl@\plg(), ?X = ${a@main}.
+
+%tst7 :- write('tst7: ')@\plg(), ?Y=a, ?Z=main, insert{qq(${?Y@?Z})},
+	writeln(' done')@\plg().
+%tst8 :- write('tst8: ')@\plg(), qq(?X),
+	flora_write_goal(?X)@\plg(flrdecode), nl@\plg(), ?X = ${a@main}.
+
+%tst9 :- write('tst9: ')@\plg(), insert{p[${a@main}]}, ?X= ${q[${a@main}]},
+	insert{?X},
+	flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+
+%tst10 :- write('tst10: ')@\plg(), p[?X],
+	 write('x=')@\plg(),
+	 flora_write_goal(?X)@\plg(flrdecode),
+	 q[?Y],
+	 write(' y=')@\plg(), flora_write_goal(?Y)@\plg(flrdecode),
+	 nl@\plg().
+
+%tst11 :- write('tst11: ')@\plg(), ?X= ${a@main}, q[?Y], ?X = ?Y,
+	 flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+
+%tst12 :- write('tst12: ')@\plg(), ?X= ${a@main}, p[?Y], ?X = ?Y,
+	 flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+
+%tst13 :- write('tst13: ')@\plg(), ?Y=a(), ?Z=main, ?X = ${pp[${?Y@?Z}]}, insert{?X},
+	 flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+%tst14 :- write('tst14: ')@\plg(), pp[?X],
+	 flora_write_goal(?X)@\plg(flrdecode), nl@\plg(), ?X = ${a@main}.
+
+%tst15 :- write('tst15: ')@\plg(), ?Y=a(), ?Z=main,insert{qq[${?Y@?Z}]},
+	 writeln(' done')@\plg().
+%tst16 :- write('tst16: ')@\plg(), qq[?X],
+	 flora_write_goal(?X)@\plg(flrdecode), nl@\plg(), ?X = ${a@main}.
+
+%tst17 :- write('tst17: ')@\plg(),
+	 insert{ppp(${a[c->d]@main})}, ?X= ${qqq(${a[c->d]@main})}, insert{?X},
+	 flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+
+// X is encoded as head, while Y as body - no good
+%tst18 :- write('tst18: ')@\plg(), ppp(?X),
+	 write('x=')@\plg(),
+	 flora_write_goal(?X)@\plg(flrdecode),
+	 qqq(?Y),
+	 write(' y=')@\plg(), flora_write_goal(?Y)@\plg(flrdecode),
+	 nl@\plg().
+
+%tst19 :- write('tst19: ')@\plg(), ?X= ${a[c->d]@main}, qqq(?Y), ?X = ?Y,
+	 flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+
+// Should succeed but fails
+%tst20 :- write('tst20: ')@\plg(), ?X= ${a[c->d]@main}, ppp(?Y),
+	 write('x=')@\plg(),
+	 flora_write_goal(?X)@\plg(flrdecode),
+	 write(' y=')@\plg(),
+	 flora_write_goal(?Y)@\plg(flrdecode),
+	 ?X = ?Y,
+	 writeln(' done')@\plg().
+
+%tst21 :- write('tst21: ')@\plg(), ?Y= a, ?Z=main, ?X = ${pppp(${?Y[c->d]@?Z})},
+	 insert{?X},
+	 flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+%tst22 :- write('tst22: ')@\plg(), pppp(?X),
+	 flora_write_goal(?X)@\plg(flrdecode), nl@\plg(),
+	 ?X = ${a[c->d]@main}.
+
+%tst23 :- write('tst23: ')@\plg(), ?Y= a, ?Z=main, insert{qqqq(${?Y[c->d]@?Z})},
+	 writeln(' done')@\plg().
+// should succeed but fails because X is encoded as head while Y as body
+%tst24 :- write('tst24: ')@\plg(), qqqq(?X),
+	 write('x=')@\plg(),
+	 flora_write_goal(?X)@\plg(flrdecode),
+	 ?Y = ${a[c->d]@main},
+	 write(' y=')@\plg(),
+	 flora_write_goal(?Y)@\plg(flrdecode),
+	 ?X=?Y, writeln(' done')@\plg().
+
+
+// Should succeed
+%tst25 :- write('tst25: ')@\plg(), ?X=main, ?Y = ${aa[g->h]},
+	insert{aa[c->d]@main, aa[e->f]@?X, ?Y},
+	aa[c->d], aa[e->f], aa[g->h],
+	writeln(' done')@\plg().
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9,
+	   %tst10, %tst11, %tst12, %tst13, %tst14, %tst15, %tst16, %tst17,
+	   %tst18, %tst19, %tst20, %tst21, %tst22, %tst23, %tst24, %tst25.
+
+%test :- tell(temp)@\plg(), 
+	%pretest,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	told@\plg().
+
+

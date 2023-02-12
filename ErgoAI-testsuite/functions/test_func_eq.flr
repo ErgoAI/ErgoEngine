@@ -1,0 +1,78 @@
+\udf moo(?x):=?y \if mooDef(?x,?y).
+\udf rr(?x):=?y \if rrDef(?x,?y).
+\udf rr(a):=p.
+\udf bar(?x):=moo(?x) \if t(?x).
+\udf bar1(?x):=moo(?x) \if t(?x).
+\udf foo(?x):=bar(?x) \if q(?x).
+\udf foo1(?x):=bar1(?x) \if q(?x).
+\udf foo(?x):=rr(?x) \if r(?x).
+\udf foo(p):=aa.
+\udf foo(q):=cc.
+
+mooDef(a,b).
+mooDef(b,c).
+mooDef(c,d).
+mooDef(d,e).
+mooDef(e,f).
+mooDef(f,g).
+
+q(a).
+q(b).
+q(c).
+q(d).
+q(f).
+
+r(a).
+r(c).
+r(d).
+
+t(a).
+t(d).
+t(f).
+t(e).
+
+f(b).
+f(d).
+f(g).
+
+
+/*
+  Note: foo(?x)=bar(?x) will return ?x as follows:
+   ?x = a,f,d: because foo(?x) = bar(?x) since
+               (1) rewriting both into bar(?x) due to foo(?x):=bar(?x) if q(?x).
+               (2) rewriting both into moo(?x) due to bar(?x):=moo(?x) if t(?x).
+               (3) rewriting foo(a)/bar(a)->moo(a)->b
+                                           due to moo(a):=b if mooDef(a,b).
+                   rewriting foo(d)/bar(d)->moo(d)->e
+                                           due to moo(d):=e if mooDef(d,e).
+                   rewriting foo(f)/bar(f)->moo(f)->g
+                                           due to moo(f):=g if mooDef(f,g).
+   ?x = b,c: not returned because bar(b/c) must be further rewritten
+             conditionally on t/1, and t(b/c) is false.
+
+  To optimize this, we would have to translate foo(?x)=bar(?x) as
+   :- table mycall/1.
+   mycall(X) :-
+      UDFHILOGPREDICATENAME(X,Arity,Module,_newvar1),
+      UDFHILOGPREDICATENAME(X,Arity,Module,_newvar2),             **
+      _newvar1 = _newvar1.
+  and use mycall/1 in the actual rule instead of the entire body **.
+   
+  Need to think about it: this can cause hard-to-explain cut-over-table errors.
+  For instance, if the usr write foo(?x)=bar(?x), ! then he has no reason to
+  suspect that he will be cutting over a tabled predicate and the resulting
+  error wiuld be hard to explain/justify.
+*/
+%test1 :- foo(?x)=bar(?x), writeln(?x)@\plg, \false.
+%test1 :- \true.
+%test2 :- bar(?x)=moo(?x), writeln(?x)@\plg, \false.
+%test2 :- \true.
+%test3 :- moo(?x)=foo(?x), writeln(?x)@\plg, \false.
+%test3 :- \true.
+
+%pretest :- %test1, %test2, %test3.
+
+%test:- 
+	tell(temp)@\plg,
+	%pretest,
+	told@\plg.

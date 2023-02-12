@@ -1,0 +1,50 @@
+#include "standard.h"
+
+r(1,2).
+r(3,4).
+q(1,2).
+q(3,2).
+
+ans(?Z) :-
+        r(?,?Z),
+        forall(?X)^forall(?Y)^(r(?X,?Y) ~~> ?Y=?Z).
+
+ans2(?Z) :-
+        forall(?X,?Y)^(r(?X,?Y) ~~> ?Y=?Z).
+
+ans3(?Z) :-
+        r(?,?Z),
+        forall(?X)^(r(?X,?Y) ~~> ?Y=?Z).
+
+ans4(?Z) :-
+        q(?,?Z),
+        \naf exist(?X,?Y)^(q(?X,?Y) , \naf ?Y=?Z).
+ans5(?Z) :-
+        \naf exist(?X,?Y)^(q(?X,?Y) , \naf ?Y=?Z).
+
+%tst1 :- \naf ans(?), ?L=setof{?Z|ans2(?Z)}, ?LL=setof{?Z|ans3(?Z)},
+        (?L+?LL)[show->?O]@\show,
+        writeln(test1=?O)@\io.
+
+%tst2 :- ?L=setof{?Z|ans4(?Z)}, ?LL=setof{?Z|ans5(?Z)},
+        (?L+?LL)[show->?O]@\show,
+        writeln(test2=?O)@\io.
+
+%pretest :- %tst1, %tst2.
+%test :-
+        (File[exists(lt5_old)]@\io -->> File[unlink(lt5_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(lt5_flora_old,lt5_old)]@\io
+	;  File[link(lt5_ergo_old,lt5_old)]@\io
+        ),
+        tell(temp)@\plg,
+	file_reopen(temp1,w,STDWARN,?_)@\plg(file_io),
+	%pretest,
+	file_close(STDWARN)@\plg(file_io),
+	told@\plg,
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp)@\plg,append,?Port2)@\plg,
+	copyIOport(?Port1,?Port2)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	flora_file_op(unlink,temp1)@\plg(flrporting).

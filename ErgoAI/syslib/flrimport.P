@@ -1,0 +1,118 @@
+/* File:      flrimport.P - implementation of \flimport, Prolog/Flora interface
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**      Coherent Knowledge Systems, 2016-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+
+:- import flora_is_system_module_name/1 from flrwrapper.
+
+
+FLORA_SYMBOL('check_args')(P,A,Module) :-
+	(atom(Module),!
+	; flora_error_line('\\flimport: Module must be an atom'),
+	  abort
+	),
+	%% check that P is given as foo/arity
+	(functor(P,'/',_) -> true
+	; flora_error_line('\\flimport: ~w Arg 1 must have the form Pred/Arity',
+			   [P]),
+	    %% don't use flora_abort here because this predicate can be
+	    %% called from pure prolog where this exception is not caught.
+	    %% It is also more correct to report this as a Prolog abort than
+	    %% Flora abort.
+	    abort
+	),
+	%% check that A is given as bar(_,_,_) and not as bar/Arity
+	(functor(A,'/',_)
+	-> flora_error_line('\\flimport: ~w Arg 2 must have the form Pred(_,_,...)',
+			    [A]),
+	    abort
+	%% check if A and P have the same arity
+	; functor(A,_,Arity), P=_/Arity -> true
+	; flora_error_line('\\flimport: ~w and ~w must have the same arity',
+			   [P,A]),
+	    abort
+	).
+
+%% Clone A in the same module. Return a cloned A and the list of its arguments
+FLORA_SYMBOL('duplicate')(A,NewA,Args) :-
+	copy_term(A,NewA),
+	(dynamic NewA),
+	NewA =.. [_|Args].
+
+%% assert the connecting rule and load file into module, 
+%% if file is not a variable
+FLORA_SYMBOL('funish_up')(NewA,NewP,File,Module) :-
+	assert((NewA :- NewP)), % assert(A :- P).
+	(var(File) -> true
+        ; %% system module must be already loaded, so don't reload
+            flora_is_system_module_name(Module) -> true
+	; flora_load_module_util(File,Module,FL_SHELL_FICTITIOUS_FILENAME)
+	-> true %% load the module
+	; abort
+	).
+
+%% The following two predicates do the following:
+%% Get P in the form foo/Arity and A of the form bar(_,_,_,...)
+%% of the same arity and assert
+%%         bar(X,Y,Z) :- PREFIXfoo(X,Y,Z).
+%% for the right arity, where PREFIX is the appropriate Flora prefix for Module
+%% Make bar(...) dynamic and place it
+%% into the correct XSB module (the module where \flimport is called)
+%% Use:
+%%        :- \flimport P as A from File>>Module.
+
+
+%% This assumes that P is a prolog predicate within a flora program.
+flora_import_predicate(P,A,File,Module) :-
+	FLORA_SYMBOL('check_args')(P,A,Module),
+	P = FuncP/ArityP,
+	%% attach the workspace
+        ( FuncP = FL_TRAN(KFuncP) ->
+	    flora_hilog_module_predicate_symbol(Module,FloraHiLogWrap)
+        ;
+            KFuncP=FuncP,
+	    flora_tabled_hilog_module_predicate_symbol(Module,FloraHiLogWrap)
+        ),
+	%% +1 due to HiLog, +1 due to FWContext argument
+	ArityP1 is ArityP + 2,
+	functor(NewP,FloraHiLogWrap,ArityP1),
+	arg(1,NewP,KFuncP),
+	FLORA_SYMBOL('duplicate')(A,NewA,Args),
+	(import FloraHiLogWrap/ArityP1 from usermod), % import Flora Hilog pred
+	%% unify the arguments of P and A.
+	%% In HiLog the first arg is the predicate name, which is why _,_
+	%% The last arg is FL_PLIB, which indicates that
+	%% the flora predicate is called from a Prolog module
+	FWContext = FL_CONTEXT(FL_PLIB,_,_),
+	append([_,_|Args],[FWContext],NewP_template),
+	NewP =.. NewP_template,
+	FLORA_SYMBOL('funish_up')(NewA,NewP,File,Module).
+
+

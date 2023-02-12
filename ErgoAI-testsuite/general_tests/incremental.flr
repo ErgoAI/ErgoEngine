@@ -1,0 +1,79 @@
+
+:- setsemantics{tabling=variant+reactive}.
+#include "flora_terms.flh"
+
+/* This redeclaration of FL_RULE_ENABLER/3 is needed FOR TEST 3
+   because on-the-fly changes to reactive tabling no longer work,
+   since FL_RULE_ENABLER predicate is not modularized, is declared as opaque,
+   and cannot be changed to reactive on the per-module basis.
+*/
+?- dynamic(as(FL_RULE_ENABLER/3,incremental)@\plg)@\plg.
+
+
+q(a,b).
+q(aa,bb).
+b[foo->c].
+bb[foo->cc].
+bb1[foo->cc1].
+bb2[foo->cc2].
+r(aa1,bb1).
+r(aa2,bb2).
+
+p(?X) :- bar[?X->?].
+p(?X) :- q(?X,?).
+?X[f(?Y)->?Z] :- q(?X,?Y), ?Y[foo->?Z].
+
+collect(?L1,?L2) :-
+	?L1=setof{?X|p(?X)}, ?L2=setof{?R|?X[f(?Y)->?Z],?R=(?X,?Y,?Z)}.
+
+%tst1 :- write('tst1: ')@\plg,
+	collect(?L1,?L2),
+	write(L1 = ?L1)@\plg,
+	write(' ')@\plg,
+	writeln(L2 = ?L2)@\plg.
+
+// this should return more
+%tst2 :- write('tst2: ')@\plg,
+	insert{q(aaa,bbb), bbb[foo->ccc]},
+	collect(?L1,?L2),
+	write(L1 = ?L1)@\plg,
+	write(' ')@\plg,
+	writeln(L2 = ?L2)@\plg.
+
+// test for rule addition
+%tst3 :- write('tst3: ')@\plg,
+	insertrule{q(?X,?Y) :- r(?X,?Y)},
+	insertrule{bar[?X->?X] :- r(?,?X)},
+	collect(?L1,?L2),
+	write(L1 = ?L1)@\plg,
+	write(' ')@\plg,
+	writeln(L2 = ?L2)@\plg.
+
+// test for rule deletion
+%tst4 :- write('tst4: ')@\plg,
+	deleterule{q(?X,?Y) :- r(?X,?Y)},
+	deleterule{bar[?X->?X] :- r(?,?X)},
+	collect(?L1,?L2),
+	write(L1 = ?L1)@\plg,
+	write(' ')@\plg,
+	writeln(L2 = ?L2)@\plg.
+
+// this should return more
+%tst5 :- write('tst5: ')@\plg,
+	delete{q(aaa,bbb), bbb[foo->ccc]},
+	collect(?L1,?L2),
+	write(L1 = ?L1)@\plg,
+	write(' ')@\plg,
+	writeln(L2 = ?L2)@\plg.
+
+
+
+%pretest :- %tst1, !, %tst2, !, %tst3, !, %tst4, !, %tst5.
+
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\prolog.

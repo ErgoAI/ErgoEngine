@@ -1,0 +1,88 @@
+
+// test data
+person(p1,Ann,19900101,'1 main st').
+person(p2,John,19800808,'2 maple st').
+person(p3,Joe,19840404,'4 oak ln').
+person(p4,May,19940909,'4 timber rd').
+person(p5,Bob,19950509,'4 timber rd').
+person(p6,Faye,19960501,'7 wine dr').
+person(p7,Bill,19781112,'70 shirley way').
+person(p8,Sally,19791119,'10 shirley way').
+person(p9,Miriam,19821013,'8 college dr').
+person(p10,April,19851015,'11 shore rd').
+
+organization(o1,Acme,'111 timber rd').
+organization(o2,GoodMood,'34 wine rd').
+organization(o3,SuperiorCruft,'55 main st').
+organization(o4,AwesomeProducts,'66 main st.').
+
+signer(o1,{p4,p3}).
+signer(o2,{p1,p4}).
+signer(o3,p5).
+signer(o4,{p1,p6,p7}).
+
+cc(c1,o1,10001,11000).
+cc(c2,o2,18000,26000).
+cc(c3,o3,27500,28000).
+cc(c4,o4,26500,27200).
+cc(c5,p1,1000,26000).
+cc(c6,p3,5000,28000).
+cc(c7,p5,5000,20000).
+cc(c8,p4,5000,26000).
+cc(c9,p6,3000,25000).
+cc(c10,p7,4000,30000).
+cc(c11,p9,4000,30000).
+cc(c12,p10,4000,30000).
+cc(c13,p9,1000,10000).
+cc(c14,p9,2000,10000).
+cc(c15,p9,2000,50000).
+cc(c16,p8,2000,24000).
+cc(c17,p8,0,24000).
+cc(c18,p8,110,2000).
+cc(c19,p8,220,2000).
+
+authuser({c2},p2).
+authuser({c10},p3).
+authuser({c10},p4).
+//authuser({c3,c11},p5).
+authuser({c12},p6).
+authuser({c5},p7).
+authuser({c1,c2,c3},p8).
+authuser({c1,c2,c3},p9).
+authuser({c4},p10).
+
+acctsigner(?acct,?pid) :-
+	cc(?acct,?owner,?,?),
+	//organization(?owner,?,?),
+	signer(?owner,?pid).
+authuser(?acct,?pid) :- acctsigner(?acct,?pid).
+
+client(?C,?Name) :- person(?C,?Name,?,?).
+client(?C,?Name) :- organization(?C,?Name,?).
+
+tst1(?CC) :-
+	cc(?CC,?owner,?,?),
+	organization(?owner,?,?),
+	forall(?S)^(signer(?owner,?S)
+                    ~~>
+		    exists(?limit)^(
+			cc(?,?S,?,?limit), ?limit >= 25000)
+		    ),
+	writeln(test1=?CC)@\plg.
+
+tst2(?CC) :-
+	cc(?CC,?owner,?,?),
+	organization(?owner,?,?),
+	forall(?S)^exists(?limit)^(signer(?owner,?S)
+                    ~~>
+		    (
+			cc(?,?S,?,?limit), ?limit >= 25000)
+		    ),
+	writeln(test2=?CC)@\plg.
+
+pretest :- tst1(?), tst2(?).
+
+%test :- tell(temp)@\plg(),
+	pretest,
+        told@\plg().
+

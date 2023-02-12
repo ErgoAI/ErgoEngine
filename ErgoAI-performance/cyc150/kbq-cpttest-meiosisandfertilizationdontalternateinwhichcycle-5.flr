@@ -1,0 +1,125 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-MeiosisAndFertilizationDONTAlternateInWhichCycle (query 5)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28derived_from.29_Biology_Chapter_13_Review
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, isa(phasesAlternateInCycleType, PartiallyCommutativePredicate)).
+istAsserted(UniversalVocabularyMt, isa('partwiseDisjoint-TypeType', SymmetricBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, transitiveViaArgInverse('partwiseDisjoint-TypeType', superEventTypes, 1)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, 'partwiseDisjoint-TypeType'(ReproductiveFertilizationEvent, AsexualLifeCycle)).
+istAsserted(UniversalVocabularyMt, negationPreds('partwiseDisjoint-TypeType', 'shareParts-TypeType')).
+
+// Implicit Background Rules
+forwardSentence(genlInverse(?PRED, ?PRED)) :- removalSentence(isa(?PRED, SymmetricBinaryPredicate)).
+forwardSentence('partwiseDisjoint-TypeType'(?EVENT_TYPE, ?ITERATION_TYPE)) :- removalSentence(iteratedSubsituationTypeOfSerialCycleType(?CYCLE, ?ITERATION_TYPE)), removalSentence('partwiseDisjoint-TypeType'(?CYCLE, ?EVENT_TYPE)).
+
+// Explicit Background Facts
+istAsserted(BiologyMt, iteratedSubsituationTypeOfSerialCycleType(TheCellCycle, CellCycle)).
+istAsserted(UniversalVocabularyMt, commutativeInArgs(phasesAlternateInCycleType, 2, 3)).
+istAsserted(BiologyMt, 'partwiseDisjoint-TypeType'(CellCycle, Meiosis)).
+istAsserted(BiologyMt, 'partwiseDisjoint-TypeType'(Meiosis, EukaryoticCellCycle)).
+istAsserted(BaseKB, iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, EukaryoticCellCycle)).
+istAsserted(UniversalVocabularyMt, iteratedSubsituationTypeOfSerialCycleType(AsexualLifeCycle, SingleIterationThroughCycleTypeFn(AsexualLifeCycle))).
+
+// Explicit Background Rules
+backwardSentence(properSubEventTypes(?TYPE, ?PHASE1)) :- mtVisible(BaseKB), naf backchainForbidden(properSubEventTypes), iteratedSubsituationTypeOfSerialCycleType(?CYCLE_TYPE, ?TYPE), phasesAlternateInCycleType(?CYCLE_TYPE, ?XPHASE2, ?PHASE1).
+backwardSentence(not(iteratedSubsituationTypeOfSerialCycleType(?CYCLE_TYPE, ?TYPE))) :- mtVisible(BaseKB), naf backchainForbidden(iteratedSubsituationTypeOfSerialCycleType), phasesAlternateInCycleType(?CYCLE_TYPE, ?XPHASE2, ?PHASE1), not(properSubEventTypes(?TYPE, ?PHASE1)).
+backwardSentence(not(phasesAlternateInCycleType(?CYCLE_TYPE, ?XPHASE2, ?PHASE1))) :- mtVisible(BaseKB), naf backchainForbidden(phasesAlternateInCycleType), iteratedSubsituationTypeOfSerialCycleType(?CYCLE_TYPE, ?TYPE), not(properSubEventTypes(?TYPE, ?PHASE1)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-MeiosisAndFertilizationDONTAlternateInWhichCycle 5').
+%pretest :- neg phasesAlternateInCycleType(?CYCLE, ReproductiveFertilizationEvent, Meiosis), %write_results('SUCCESS  : $CPTTest-MeiosisAndFertilizationDONTAlternateInWhichCycle 5').
+
+// Debugging
+proof(6467, 0) :- iteratedSubsituationTypeOfSerialCycleType(TheCellCycle, CellCycle).
+proof(6467, 1) :- iteratedSubsituationTypeOfSerialCycleType(TheCellCycle, CellCycle).
+proof(6467, 2) :- iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, EukaryoticCellCycle).
+proof(6467, 3) :- iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, EukaryoticCellCycle).
+proof(6467, 4) :- iteratedSubsituationTypeOfSerialCycleType(AsexualLifeCycle, SingleIterationThroughCycleTypeFn(AsexualLifeCycle)).
+proof(6467, 5) :- iteratedSubsituationTypeOfSerialCycleType(AsexualLifeCycle, SingleIterationThroughCycleTypeFn(AsexualLifeCycle)).
+proof(6467, 6) :- not(properSubEventTypes(SingleIterationThroughCycleTypeFn(AsexualLifeCycle), ReproductiveFertilizationEvent)).
+proof(6467, 7) :- not(properSubEventTypes(SingleIterationThroughCycleTypeFn(AsexualLifeCycle), ReproductiveFertilizationEvent)).
+proof(6467, 8) :- iteratedSubsituationTypeOfSerialCycleType(AsexualLifeCycle, SingleIterationThroughCycleTypeFn(AsexualLifeCycle)), not(properSubEventTypes(SingleIterationThroughCycleTypeFn(AsexualLifeCycle), ReproductiveFertilizationEvent)).
+proof(6467, 9) :- not(phasesAlternateInCycleType(AsexualLifeCycle, ReproductiveFertilizationEvent, Meiosis)).
+proof(6467, 10) :- not(properSubEventTypes(CellCycle, Meiosis)).
+proof(6467, 11) :- not(properSubEventTypes(CellCycle, Meiosis)).
+proof(6467, 12) :- iteratedSubsituationTypeOfSerialCycleType(TheCellCycle, CellCycle), not(properSubEventTypes(CellCycle, Meiosis)).
+proof(6467, 13) :- not(phasesAlternateInCycleType(TheCellCycle, ReproductiveFertilizationEvent, Meiosis)).
+proof(6467, 14) :- not(properSubEventTypes(EukaryoticCellCycle, Meiosis)).
+proof(6467, 15) :- not(properSubEventTypes(EukaryoticCellCycle, Meiosis)).
+proof(6467, 16) :- iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, EukaryoticCellCycle), not(properSubEventTypes(EukaryoticCellCycle, Meiosis)).
+proof(6467, 17) :- not(phasesAlternateInCycleType(TheEukaryoticCellCycle, ReproductiveFertilizationEvent, Meiosis)).
+
+proof(6467, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(6467, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(6467, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(6467, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(6467, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(6467, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(6467, 1006) :- genlInverse('partwiseDisjoint-TypeType', 'partwiseDisjoint-TypeType').
+proof(6467, 1007) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(6467, 1008) :- iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, EukaryoticCellCycle).
+proof(6467, 1009) :- 'partwiseDisjoint-TypeType'(ReproductiveFertilizationEvent, SingleIterationThroughCycleTypeFn(AsexualLifeCycle)).
+
+proof(6467, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(6467, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(6467, 2002) :- admittedArgument(SecondFn(51, MinuteFn(56, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(6467, 2003) :- admittedArgument(SecondFn(51, MinuteFn(56, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(6467, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(6467, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(6467, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiologyMt).
+proof(6467, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(6467, 2008) :- isa(phasesAlternateInCycleType, PartiallyCommutativePredicate).
+proof(6467, 2009) :- isa('partwiseDisjoint-TypeType', SymmetricBinaryPredicate).
+proof(6467, 2010) :- negationInverse('partwiseDisjoint-TypeType', properSubEventTypes).
+proof(6467, 2011) :- negationPreds('partwiseDisjoint-TypeType', properSubEventTypes).
+proof(6467, 2012) :- superEventTypes(AsexualLifeCycle, AsexualLifeCycle).
+proof(6467, 2013) :- 'partwiseDisjoint-TypeType'(AsexualLifeCycle, ReproductiveFertilizationEvent). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

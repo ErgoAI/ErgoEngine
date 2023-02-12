@@ -1,0 +1,165 @@
+/* This module should be loaded using: [encap_mod1 >> encap_mod1].
+** It is used in conjunction with module encap_mod2.flr.
+*/
+:- use_rule_structure_db.
+
+#include "flora_exceptions.flh"
+?- [encap_mod2 >> encap_mod2].
+
+/********** teaches exported as updatable ****************/
+
+%tst1 :-
+	?_T=encap_mod2,mary[teaches(spring,1999) -> ?V]@?_T, 
+	write('test 1, query ')@\plg(), 
+	write(v=?V)@\plg(),
+	writeln(' succeeded, as expected')@\plg().
+
+%tst2 :-
+	write('test 2, insertion ')@\plg(), 
+	insert{mary[teaches(spring,1999)->cse632]@encap_mod2}, 
+	writeln('succeeded, as expected')@\plg().
+
+%tst3 :-
+	?_Y= encap_mod2, ?_A= ${mary[teaches(spring,1999) -> ?B]@?_Y}, ?_A,
+	write('test 3, query ')@\plg(), 
+	write(b=?B)@\plg(),
+	writeln(' succeeded, as expected')@\plg(),
+	\false.
+%tst3 :- \true.
+
+%tst4 :- write('test 4, deletion ')@\plg(), 
+	delete{mary[teaches(spring,1999)->cse532]@encap_mod2}, 
+	writeln('succeeded, as expected')@\plg().
+
+%tst5 :-
+	?_Y= encap_mod2, ?_A@?_M ~ mary[teaches(spring,1999) -> ?B]@?_Y, ?_A, 
+	write('test 5, query ')@\plg(), 
+	write(b=?B)@\plg(),
+	writeln(' succeeded, as expected')@\plg(),
+	\false.
+%tst5 :- \true.
+
+%tst6 :-
+	mary[teaches(spring,1999) -> ?C]@encap_mod2, 
+	write('test 6, query ')@\plg(), 
+	write(c=?C)@\plg(),
+	writeln(' succeeded, as expected')@\plg(),
+	\false.
+%tst6 :- \true.
+
+
+/******** simple predicate exported as updatable *********/
+
+%tst11 :-
+	?_A=p(?X), ?_A@encap_mod2, 
+	write('test 11, query ')@\plg(), 
+	write(x=?X)@\plg(),
+	writeln(' succeeded, as expected')@\plg().
+
+
+/******* salary only exported as read module *************/
+
+%tst21 :-
+	mary[salary(1999,?F)->?G]@encap_mod2,
+	write('test 21, query ')@\plg(), 
+	write(f+g=?F+?G)@\plg(),
+	writeln(' succeeded, as expected')@\plg().
+
+%tst22 :-
+	write('test 22, insertion: ')@\plg(), 
+	catch{insert{mary[salary(1999,4)->5580]@encap_mod2},
+	      FLORA_ABORT_NOTRACE(FLORA_NOT_EXPORTED_EXCEPTION(?_Predicate,?_ErrorMsg),?_),
+	      write(?_ErrorMsg)@\plg()},
+        writeln(': failed, as expected')@\plg().
+
+%tst23 :-
+	mary[salary(1999,?P)->?Q]@encap_mod2,
+	write('test 23, query ')@\plg(), 
+	write(p+q=?P+?Q)@\plg(),
+	writeln(' succeeded, as expected')@\plg().
+
+
+
+
+/******* students are exported for update only to module module 3************/
+
+%tst31 :-
+	write('test 31, insertion ')@\plg(), 
+	catch{insert{mary[students(spring)->vishal]@encap_mod2},
+	      FLORA_ABORT_NOTRACE(FLORA_NOT_EXPORTED_EXCEPTION(?_Pred1,?_ErrorMsg1),?_),
+	      write('call to unexported predicate')@\plg()},
+        writeln(': failed, as expected')@\plg().
+
+
+%tst32 :-
+	write('test 32, query ')@\plg(), 
+	catch{mary[students(spring)->?_R]@encap_mod2,
+	      FLORA_ABORT_NOTRACE(FLORA_NOT_EXPORTED_EXCEPTION(?_Predicate2,?_ErrorMsg2),?_),
+	      write('call to unexported predicate')@\plg()},
+        writeln(': failed, as expected')@\plg().
+
+
+
+/********** simple atom "export_success" exported as read only ************/
+
+%tst41 :-
+	write('test 41, query ')@\plg(), 
+	export_success@encap_mod2,
+	writeln('succeeded, as expected')@\plg().
+
+%tst42 :-
+	write('test 42, deletion: ')@\plg(), 
+	catch{delete{export_success@encap_mod2},
+	      FLORA_ABORT_NOTRACE(FLORA_NOT_EXPORTED_EXCEPTION(?_Predicate,?_ErrorMsg),?_),
+	      write(?_ErrorMsg)@\plg()},
+        writeln(': failed, as expected')@\plg().
+
+
+
+/********** trying to access an un-exported predicate h(X,Y) ************/
+
+%tst51 :-
+	write('test 51, deletion ')@\plg(), 
+	catch{delete{h(a,b)@encap_mod2},
+	      FLORA_ABORT_NOTRACE(FLORA_NOT_EXPORTED_EXCEPTION(?_Pred1,?_ErrorMsg1),?_),
+	      write('call to unexported predicate')@\plg()},
+        writeln(': failed, as expected')@\plg().
+
+
+%tst52 :-
+	write('test 52, query ')@\plg(), 
+	catch{h(?_X,?_Y)@encap_mod2,
+	      FLORA_ABORT_NOTRACE(FLORA_NOT_EXPORTED_EXCEPTION(?_Predicate2,?_ErrorMsg2),?_),
+	      write('call to unexported predicate')@\plg()},
+        writeln(': failed, as expected')@\plg().
+
+/************* trying to access an un-exported predicate h(X,Y) ************/
+
+%tst61 :-
+	export{?_[pubs(?_,?_)->?_]}@encap_mod2,
+	write('test 61, query ')@\plg(), 
+	writeln('succeeded, as expected')@\plg().
+
+/************************************************************************
+  Open query to check what's exported 
+************************************************************************/
+
+%tst71 :-
+	write('test 71: ')@\plg(), 
+	?L = collectset{?X|?X()@encap_mod2},
+	writeln(?L)@\plg.
+%tst72 :-
+	write('test 72: ')@\plg(), 
+	?L = collectset{?A|?X(?P)@encap_mod2, ?A = (?X,?P)},
+	writeln(?L)@\plg.
+
+%tst73 :-
+	write('test 73: ')@\plg(), 
+	?L = collectset{?A|aaa[?M->?X]@encap_mod2, ?A = (?M,?X)},
+	writeln(?L)@\plg.
+
+%tst74 :-
+	write('test 74: ')@\plg(), 
+	?L = collectset{?A|?[?M(?,?)->?X]@encap_mod2, ?A = (?M,?X)},
+	writeln(?L)@\plg.
+

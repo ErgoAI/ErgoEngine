@@ -1,0 +1,293 @@
+
+
+\section{Omniformity: General Formulas in Rule Heads}\label{sec-omniform} 
+
+\index{quantifier!forall}
+\index{quantifier!exist}
+\index{quantifier!exists}
+\index{omniformity}
+\index{\url{==>}}
+\index{\url{<==}}
+\ERGO greatly expands the syntactic form of the rules in \FLORA
+by allowing
+general first-order formulas in the \emph{rule heads}---a feature called
+\emph{omniformity}. 
+This feature is
+particularly important for translating English sentences into logic, but
+also in other kinds of reasoning about knowledge, especially 
+when contrapositive forms of the rules are required during the reasoning.
+
+\index{omni=on!compiler directive}
+\index{compiler directive!omni=on}
+However, since this is an advanced feature that requires a very good
+understanding of the meaning of such expanded formulas, omniform rules are
+not enabled by default: the user must request omniformity explicitly by
+placing the compiler directive
+%% 
+\begin{verbatim}
+   :- compiler_options{omni=on}.
+\end{verbatim}
+%% 
+\index{omni\{...\}!primitive}
+\index{primitive!omni\{...\}}
+More information on compiler options appears in Section~\ref{misc-options}.
+In the \ERGO shell, one can also enable this feature by executing the command
+%% 
+\begin{verbatim}
+   ?- omni{on}.    // use omni{off} to turn that off.
+\end{verbatim}
+%% 
+
+\index{head-formula}
+In \FLSYSTEM (with the omniformity feature turned on), the head formulas can be statements composed out of the
+following elements in a logically correct syntactic forms. That is, a
+\emph{head-formula} is a logical formula recursively defined as follows:
+%% 
+\begin{itemize}
+\item  an atomic formula (frame or HiLog);
+\item  $\RULELOGNEG\,head$, where $head$ is a head-formula.
+\item  $head_1,head_2$ and $head_1;head_2$, where $head_1$ and $head_2$ are
+  head formulas. As before, \texttt{\bs{}and} and \texttt{\bs{}or} can be used in place
+  of ``,'' and ``;'', respectively.
+\item $(head)$, where $head$ is a head-formula.
+\item  $head_1 ~op~ head_2$, where $head_1$ and $head_2$ are
+  head formulas and $op$ is \texttt{==>}, \texttt{<==}, or \texttt{<==>}.
+\item  $\texttt{forall}(VarList)\widehat{\ }(head)$ and $\texttt{exist}(VarList)\widehat{\ }(head)$, where
+  $head$ is a head-formula and \texttt{VarList} is a comma-separated list of
+  variables. The keyword \texttt{exists} can be used in place of
+  \texttt{exist} and parentheses can be omitted, if \emph{head} is an
+  atomic formula.   
+\end{itemize}
+%% 
+Note that $\RULELOGNAF$, the implications \rnafarr, \lnafarr,
+\rlnafarr, and the rule connective \texttt{:-}  are \emph{not permitted} in rule heads.
+Likewise, builtins (e.g., $=$, $!=$, \texttt{\bs{}is}, etc.), calls to Prolog,
+and non-logical
+operators (e.g., \texttt{load}, \texttt{compile}, updates, etc.) are
+prohibited. This type of formulas must always go into rule bodies.
+Also note that formulas like
+%% 
+\begin{alltt}
+   \ensuremath{\phi} <== \ensuremath{\phi}.
+   \ensuremath{\phi} ==> \ensuremath{\phi}.
+\end{alltt}
+%% 
+are syntactically classified in \ERGO as \emph{facts}, \emph{not} rules,  even
+though it is
+tempting to call these constructs rules because they are implications.
+Thus, both $\phi$ and $\psi$ appear in the \emph{head} there (since facts
+can be viewed as body-less rules). 
+In \ERGO, a rule always has the form $\phi$\texttt{:-}$\psi$, and only this
+type of constructs have rule bodies ($\psi$ in this case).
+We will explain the meaning of $\rnegarr$ and $\lnegarr$ in rule heads
+shortly.
+
+For clarity, consider some examples first. Suppose we know that
+\texttt{Agent666} is either a terrorist or works for an enemy state and
+that either case is dangerous:
+%% 
+\begin{verbatim}
+   enemystate(Agent666) \or terrorist(Agent666).
+   dangerous(?X) :- terrorist(?X) ; enemystate(?X).
+\end{verbatim}
+%% 
+In classical logic, it would be possible to derive \texttt{dangerous(Agent666)},
+but $\FLSYSTEM$ cannot reason by cases and it cannot reach such a
+conclusion just yet.
+However, if we also know that \texttt{\RULELOGNEG enemystate(Agent666)}  is
+true then
+$\ERGO$ would be able to derive \texttt{terrorist(Agent666)} and thus
+also \texttt{dangerous(Agent666)}.
+
+The inability of \ERGO to reason by cases is a fundamental limitation
+of this class of logic languages, and
+working around it is difficult.\footnote{
+  But this has very important advantages from the point of view of
+  computational complexity the reasoning.
+}
+%% 
+For instance, even if \texttt{foo \bs{}or
+  foo} is given, \ERGO still cannot conclude \texttt{foo}. 
+
+
+For another example, let us represent the statement that U.S. Senate has exactly
+two senators from each state. We give two alternative representations:
+%% 
+\begin{verbatim}
+    // version 1
+    forall(?St)^exist(?Sn1,?Sn2)^(senator(?St,{?Sn1,?Sn2}) <== state(?St)).
+    // version 2
+    exist(?Sn1,?Sn2)^senator(?St,{?Sn1,?Sn2}) :- state(?St).
+    state(NY).
+    state(AL).
+    state(TX).
+    ...
+\end{verbatim}
+%% 
+The two statements have somewhat different properties with respect
+omniformity---a concept discussed next.
+
+
+\index{omniformity of \texttt{<==}, \texttt{==>}, \texttt{<===>}}
+\index{\texttt{<==}!omniformity}
+\index{\texttt{==>}!omniformity}
+\index{\texttt{<==>}!omniformity}
+\subsection{Omniformity of \texttt{<==}, \texttt{==>}, and \texttt{<===>}}
+We have already seen that the implication \texttt{<==} and its related forms
+are different from $\lnafarr$ and friends in that the latter cannot occur in
+the rule heads. They are also different from the rule connective
+\texttt{:-} in that the body of a \texttt{:-} can be more general and
+\texttt{<==} -- statements are not even called rules.
+There are also other differences.
+The most interesting one is the \emph{omniformity} property. 
+Consider the following statements:
+%% 
+\begin{verbatim}
+    mother1(?X,?Y) :- female(?X), parent(?X,?Y).       // (*)
+    mother2(?X,?Y) <== female(?X), parent(?X,?Y).      // (**)
+    female(Mary), parent(Mary,Bob).
+    \neg mother1(Bob,Bill), \neg mother2(Bob,Bill), parent(Bob,Bill).
+    \neg mother1(Sally,Peter), \neg mother2(Sally,Peter), female(Sally).
+\end{verbatim}
+%% 
+Statement (*) lets us derive \texttt{mother1(Mary,Bob)}, while
+statement (**) allows us to conclude \texttt{mother2(Mary,Bob)}.
+So far the conclusions are similar. However, the facts given in the example
+should also let us conclude more, if we use the contrapositive statements
+corresponding to the implications
+(*) and (**). For instance, since we know that Bob is not the mother of Bill,
+we should be able to conclude that Bob is not a female.
+The catch is that the semantics of \texttt{:-}  
+does \emph{not} sanction any contrapositive inferences, while the semantics
+of \texttt{<==} \emph{does}. Thus, the contrapositive forms of (**)
+%% 
+\begin{verbatim}
+    \neg female(?X) <== parent(?X,?Y), \neg mother2(?X,?Y).
+    \neg parent(?X,?Y) <== female(?X), \neg mother2(?X,?Y).
+\end{verbatim}
+%% 
+let us conclude \texttt{\RULELOGNEG female(Bob)} and
+\texttt{\RULELOGNEG parent(Sally,Peter)}. 
+This sanctioning of the contrapositive implications that are not explicitly
+written is called \emph{omniformity}, and it is the property of
+$\lnegarr$, $\rnegarr$, and $\rlnegarr$ \emph{when they occur in the rule
+  heads} (or facts). (Recall from
+Section~\ref{pg-strong-vs-weak-implication} that in rule bodies these
+connectives act as tests only, no omniformity.)
+
+For a more involved example, let us come back to the statement that
+every U.S. state has two senators:
+%% 
+\begin{verbatim}
+    // version 1
+    forall(?St)^exist(?Sn1,?Sn2)^(senator(?St,{?Sn1,?Sn2}) <== state(?St)).
+    // version 2
+    exist(?Sn1,?Sn2)^senator(?St,{?Sn1,?Sn2}) :- state(?St).
+    state(NY).
+    ...
+\end{verbatim}
+%%
+Since Puerto Rico is not a state, it would not be listed among the states, but
+this is still not enough to conclude \texttt{\RULELOGNEG state(PuertoRico)}.\footnote{
+  But is enough to evaluate \texttt{\RULELOGNAF state(PuertoRico)} to true.
+  However, remember that \texttt{\RULELOGNAF} cannot occur in rule heads, so
+  it is not possible to \emph{derive}  \texttt{\RULELOGNAF
+    state(PuertoRico)}.
+}
+%% 
+However, if we also assert that Puerto Rico has no senators
+%% 
+\begin{verbatim}
+    \neg senator(PuertoRico,?).              // this
+    \neg exist(?X)^senator(PuertoRico,?X).   // or that
+\end{verbatim}
+%% 
+then the version 1 implication above but not (version 2!) will sanction
+the derivation of \texttt{\RULELOGNEG state(PuertoRico)}.
+
+Note that one has to be careful in the way the absence of senators is
+specified.  The following might seem to be a correct way to say this and,
+indeed, it \emph{is} a correct way to express the absence of senators in
+\emph{classical} logic:
+%% 
+\begin{verbatim}
+    \neg exist(?X,?Y)^senator(PuertoRico,{?X,?Y})    //  (***)
+\end{verbatim}
+%% 
+The trouble is that this is equivalent to
+%% 
+\begin{verbatim}
+    forall(?X,?Y)^(\neg senator(PuertoRico,?X) \or \neg senator(PuertoRico,?Y))
+\end{verbatim}
+%% 
+and, since \ERGO cannot reason by cases, it cannot
+conclude
+%% 
+\begin{verbatim}
+    forall(?X)^(\neg senator(PuertoRico,?X)) 
+\end{verbatim}
+%% 
+from the above.
+For that reason, we cannot use a contrapositive instance of
+%% 
+\begin{verbatim}
+    forall(?St)^exist(?Sn1,?Sn2)^(senator(?St,{?Sn1,?Sn2}) <== state(?St))
+\end{verbatim}
+%% 
+namely,
+%% 
+\begin{verbatim}
+   \neg state(PuertoRico):- forall(?Sn1,?Sn2)^(\neg senator(PuertoRico,{?Sn1,?Sn2}).
+\end{verbatim}
+%% 
+since we lack the necessary premise. Therefore, we would not be able to
+derive that Puerto Rico is not a state, if we the absence of senators were
+given using (***).
+
+
+
+\subsection{Omniformity and Builtins}
+As follows from the above discussion, the head-formulas that 
+use \texttt{<==} and related connectives behave very much like rules (since
+they are translated into sets of rules) and can
+be used in lieu of them in many contexts. One thing to remember, however,
+is that these constructs \emph{cannot} contain builtins. 
+Suppose we want to represent the statement ``Customers over 65 years old
+are eligible to receive discounts.'' We could try
+%% 
+\begin{verbatim}
+    eligible(?X) <== customer(?X), birthYear(?X,?YoB),
+                     \date[now->?[year->?Yr]]@\basetype,
+                     ?Yr-?YoB > 64.
+\end{verbatim}
+%% 
+but this implication contains a builtin, which
+cannot occur in this kind of statements. The solution is to make a rule out
+of the above and put the forbidden predicates in the body:
+%% 
+\begin{verbatim}
+    eligible(?X) <== customer(?X) :-                           //  (****)
+                     birthYear(?X,?YoB),
+                     \date[now->?[year->?Yr]]@\basetype,
+                     ?Yr-?YoB>64.
+\end{verbatim}
+%% 
+Note that the above still enjoys the omniformity feature with respect to
+the head-implication. That is, if we know
+%% 
+\begin{verbatim}
+    customer(Bob), birthYear(Bob,1940).
+    \neg eligible(Bill), birthYear(Bill,1945).
+\end{verbatim}
+%% 
+then we can use (****) to
+conclude \texttt{eligible(Bob)} and use the
+contrapositive form of (****) to conclude
+\texttt{\RULELOGNEG customer(Bill)}.
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

@@ -1,0 +1,76 @@
+
+?- setsemantics{class_expressions=on}.
+
+:- symbol_context{p(*)@?}.
+
+:- ergotext{template1}.
+
+    \(?X.abc is a ?Y\) :- \(?X is a ?Y\).
+    //\(?X.abc is a ?Y\) :- ?X[cde->?Y:?].
+//:- ergotext_template{test2}.
+ \(John is  a boy\) :- \(boy is a member of type\).
+boy:type.
+ \(Mary is  a girl\) :- \(girl is a member of type\).
+boy:type.
+girl:type.
+
+//@!{a12345[p->?O]} @{ddddd} Mob[has->Mall].
+moy:fype.
+\(Id=a12345 Tag=ddddd | Bob has Ball\).
+\(Id=b456 Tag=eee | Mary has Doll\).
+\(if ?X has ?Y then ?X likes ?Y\).
+
+\neg ppp(aa).
+pp(1).
+pp(2).
+p(1,5), p(3,5).
+p(2,6), p(4,6).
+
+%tst1 :- ?X[likes->?Z], writeln(test1=?X+?Z)@\io, \false.
+%tst1 :- !.
+
+%tst2 :-  \(?X likes ?Z\), writeln(test2=?X+?Z)@\io, \false.
+%tst2 :- !.
+
+%tst3 :-  \(?X.abc is a ?Z\), writeln(test3=?X+?Z)@\io, \false.
+%tst3 :- !.
+
+%tst4 :- ?X[abc->?Y], writeln(test4=?X+?Y)@\io, \false.
+%tst4 :- !.
+
+%tst5 :- insert{\(aaa has bbbb\)}, \(aaa has bbbb\), d[e->f], writeln(test5=ok)@\io.
+%tst6 :- delete{\(aaa has bbbb\)}, \naf \(aaa has bbbb\), \naf d[e->f], writeln(test6=ok)@\io.
+
+%tst7 :- insert{\(chain facts a b c\), ww(1)}, a(b), b(c), ww(1), writeln(test7=ok)@\io,
+	  delete{\(chain facts a b c\), ww(1)}.
+%tst8 :- \(insert facts aa bb cc\), aa(bb), bb(cc), writeln(test8=ok)@\io,
+	 \(delete facts aa bb cc\).
+
+r(1), q(2).
+
+%tst9 :- \(insert rule p(?XX) q(?YY) r(?YY) q(?XX)\), p(?ZZ),q(?WW), writeln(test9=?ZZ+?WW)@\io, \false.
+%tst9 :- \(delete rule p(?XX) q(?YY) r(?YY) q(?XX)\).
+
+rr(1),qq(2).
+%tst10 :- insertrule{\(dynamic rule pp(?XX) qq(?YY) rr(?YY) qq(?XX)\)},
+	  pp(?ZZ), qq(?WW), writeln(test10=?ZZ+?WW)@\io, \false.
+%tst10 :- deleterule{\(dynamic rule pp(?XX) qq(?YY) rr(?YY) qq(?XX)\)}.
+
+%tst11 :-  \(test1 ?X\), writeln(test11=?X)@\plg.
+%tst12 :-  (\(test2 ?X\), !!, writeln(test12=?X)@\plg, \false ; \true).
+%tst13 :-
+        setruntime{unsafe_naf(ignoreonce)},
+        undefined{\(test3\)}, writeln(test13=ok)@\plg.
+%tst14 :-  (\(test4 ?L+?Y\), writeln(test14=?L+?Y)@\plg, \false ; \true).
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9,
+	    %tst10, %tst11, %tst12, %tst13, %tst14.
+
+
+%test :- tell(temp)@\plg(),
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        %pretest,
+        told@\plg().
+

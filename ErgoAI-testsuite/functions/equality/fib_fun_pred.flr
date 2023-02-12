@@ -1,0 +1,19 @@
+:- prolog{fib/2}.
+:- table{fib/2}.
+:- prolog{fib2/2}.
+:- table{fib2/2}.
+
+fib(0,1):- !.
+fib(1,1):- !.
+//fib(?n,?y) :- ?n>1,is(?x1,?n-1)@\plg, is(?x2,?n-2), fib(?x1,?y1), fib(?x2,?y2), is(?y,?y1+?y2)@\plg.
+fib(?n,?y) :- is(?x1,?n-1)@\plg, is(?x2,?n-2)@\plg, fib(?x1,?y1), fib(?x2,?y2), is(?y,?y1+?y2)@\plg.
+
+fib2(?x,?nv):- ?nv=?y, fib(?x,?y).
+
+/*test(?X,?Y) :- cputime(?T)@\plg, ?Y=fib(?X), cputime(?TT)@\plg,
+       is(?TTT,?TT-?T)@\plg, writeln(cputime=?TTT)@\plg.
+
+?- nl@\plg,test(10000,?y).*/
+
+?- fib2(10000,?y).
+

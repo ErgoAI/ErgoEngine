@@ -1,0 +1,164 @@
+//test(?f,?name) :- \unless ?f \do fmt_write('%S: FAILED',f1(?name))@\io.
+test(?f,?name) :- \if ?f \then fmt_write('%S: OK\n',f1(?name))@\io
+                  \else fmt_write('%S: FAILED\n',f1(?name))@\io.
+
+// Hilog formulas
+
+p(${?(?)}) :- \true.
+
+?- write('test1=')@\plg, test(${p( ${q(a)} )}, hilog1).
+
+p(${?(?)(?)}) :- \true.
+
+?- write('test2=')@\plg, test(${p( ${f(a)(b)} )}, hilog2).
+
+p(${%?(?)}) :- \true.
+
+?- write('test3=')@\plg, test(${p( ${%r(b)} )}, proc1).
+
+
+// Frame formulas
+
+p(${?[?->?]}) :- \true.
+
+?-  write('test4=')@\plg, test(${p( ${a[b->c]} )}, frame1).
+
+p(${?[?=>?]}) :- \true.
+
+?- write('test5=')@\plg, test(${p( ${a[b=>c]} )}, frame2).
+
+p(${?[?{?..?}=>?]}) :- \true.
+
+?- write('test6=')@\plg, test(${p( ${a[b{?..?}=>c]} )}, frame3).
+
+p(${?[?]}) :- \true.
+
+?- write('test7=')@\plg, test(${p( ${a[b]} )}, frame4).
+
+p(${?[=>?]}) :- \true.
+
+?- write('test8=')@\plg, test(${p( ${a[=>b]} )}, frame4).
+
+
+// isvar{}
+
+p(${isvar{?}}) :- \true.
+
+?- write('test9=')@\plg, test(${p( ${isvar{a}} )}, isvar1).
+
+// isnonvar{}
+
+p(${isnonvar{?}}) :- \true.
+
+?- write('test10=')@\plg, test(${p( ${isnonvar{a}} )}, isnonvar1).
+
+// isground{}
+
+p(${isground{?}}) :- \true.
+
+?- write('test11=')@\plg, test(${p( ${isground{a}} )}, isground1).
+
+// isnonground{}
+
+p(${isnonground{?}}) :- \true.
+
+?- write('test12=')@\plg, test(${p( ${isnonground{a}} )}, isnonground1).
+
+// isiri{}
+
+p(${isiri{?}}) :- \true.
+
+?- write('test13=')@\plg, test(${p( ${isiri{a}} )}, isiri1).
+
+// TODO: Add more is..{} operators
+
+
+// and, or, etc
+
+p(${?f1@?m1 \and ?f2@?m2}) :- p(?f1@?m1), p(?f2@?m2).
+
+?- write('test14=')@\plg, test(${p( ${p(a) \and q(a)} )}, and1).
+
+p(${(?f1@?m1, ?f2@?m2)}) :- p(?f1@?m1), p(?f2@?m2).
+
+?- write('test15=')@\plg, test(${p( ${p(a), q(a)} )}, and2).
+
+p(${?f1@?m1 \or ?f2@?m2}) :- p(?f1@?m1), p(?f2@?m2).
+
+?- write('test16=')@\plg, test(${p( ${p(a) \or q(a)} )}, or1).
+
+p(${(?f1@?m1; ?f2@?m2)}) :- p(?f1@?m1), p(?f2@?m2).
+
+?- write('test17=')@\plg, test(${p( ${p(a); q(a)} )}, or2).
+
+
+// negations
+
+p(${\+ ?f@?m}) :- p(?f@?m).
+
+// again: problem of mislatch between fllibmodlit and the actual literal
+?- write('test18=')@\plg, test(${p( ${\+ p(a)} )}, pnaf1).
+
+?- write('test19=')@\plg, test(${p( ${\+ a[b->c]} )}, pnaf2).
+
+p(${\naf ?f@?m}) :- p(?f@?m) , ? = naf2.
+
+// can't do these two: different var sets in fllibexecute_delayed_calls
+?- write('test20=')@\plg, test(${p( ${\naf p(a)} )}, naf1).
+?- write('test21=')@\plg, test(${p( ${\naf a[b->c]} )}, naf2).
+
+p(${\neg ?f@?m}) :- p(?f@?m).
+
+?- write('test22=')@\plg, test(${p( ${\neg p(a)} )}, neg1).
+
+?- write('test23=')@\plg, test(${p( ${\neg a[b->c]} )}, neg2).
+
+
+// if-then-else etc
+
+// can't do this because ?p1@?m1 is a libmodlib and p(a) is an flapply term.
+p(${\if ?p1@?m1 \then ?p2@?m2 \else ?p3@?m3}) :- p(?p1@?m1), p(?p2@?m2), p(?p3@?m3).
+
+?- write('test24=')@\plg, test(${p( ${\if p(a) \then p(b) \else p(c)} )}, ifthenelse1).
+
+// TODO: Add tests for the other control constructs (unless-do, while-do, etc)
+
+
+// aggregate operators
+
+// Not even allowed (Flora limitation/bug)
+// p(${? = setof{?_x | ?f@?m}}) :- p(?f@?m).
+
+p(${? = count{?_x | p(?_x)}}) :- \true.
+
+?- write('test25=')@\plg, test(${p( ${? = count{?_x | p(?_x)}} )}, count1).
+
+// TODO: Add tests for the other aggregate ops (setof, bagof, etc)
+
+
+// Types constants
+
+p(?^^\string) :- \true.
+?- write('test26=')@\plg, test(${p( "foo"^^\string )}, string1).
+p(?^^\date) :- \true.
+?- write('test27=')@\plg, test(${p( "2001-11-12"^^\date )}, date1).
+p(?^^\time) :- \true.
+?- write('test28=')@\plg, test(${p( "11:12:44"^^\time )}, time1).
+
+// TODO: Add test for the other types
+
+
+// Arithmetic
+
+p(? + ?) :- \true.
+
+?- write('test29=')@\plg, test(${p(a + b)}, plus1).
+
+// TODO: Add the other arithmetic ops
+
+// this cannot work, since RHS of \is must be an expression
+//p(${? \is ?f@?m}) :- p(?f@?m).
+p(${? \is ?+?}) :- \true.
+
+?- write('test30=')@\plg, test(${p( ${? \is a + b} )}, is1).
+?- write('test31=')@\plg, test(${p( ${? \is ? } )}, is2).

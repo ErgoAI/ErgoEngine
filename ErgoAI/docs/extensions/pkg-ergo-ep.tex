@@ -1,0 +1,172 @@
+\chapter[Evidential Probabilistic Reasoning in  \FLSYSTEM]
+{Evidential Probabilistic Reasoning in  \FLSYSTEM\\
+  {\Large by Theresa Swift}}
+
+\newcommand{\pct}{{\ensuremath{\tt \backslash{}pct}}}
+\newcommand{\isa}{\,{\bf{:}}\,}
+\newcommand{\subcl}{\,{\bf{::}}\,}
+
+Evidential probability~\cite{KybTen:2001} is an approach to reasoning
+about probabilistic information that may be approximate, incomplete,
+or even contradictory. Rather than providing a full calculus for
+probabilistic deduction, evidential probability addresses the question
+of the probability of whether a given object is a member of a given
+class.  To support this, evidential probability extends 
+%the subclass declarations of 
+\FLSYSTEM with {\em statistical statements} of
+the form
+\[
+    \pct (targC,refC,Low,High)
+\]
+where $targC,~refC$ are \ERGO classes, while $Low$ and $High$ are
+numbers between 0 and 1.  Such a statement indicates that any given
+element of $refC$ is an element of $targC$ with probability between
+$Lower$ and $Upper$.  For instance
+\begin{center}
+{\tt \pct(stolen,redRacing,0.0084,0.0476).}
+\end{center}
+could be used to indicate that the proportion of {\tt redRacing}
+bicycles that are stolen in a given town is between $0.0084$ and
+$0.476$.~\footnote{
+  In \cite{KybTen:2001}, a more general model is
+  presented, which addresses the question of whether a given $n$-tuple
+  of domain elements is in the extension of a formula with $n$ free
+  variables.}
+
+In order to determine the probability of whether an individual $o$ is
+in a class $C$ (when $o$ cannot be proved for certain to be in $C$)
+statistical statements are used together with Ergo's class membership
+(\isa/2) and subclass (\subcl/2) statements.  Information about the
+classes to which $o$ certainly belongs is extended with statistical
+information in the following manner.  A \emph{candidate} set $Cand$ is
+collected by examining each statistical $\pct$-statement $S$ for which
+$o$ is known to be an element of the reference class of $S$ and for
+which $C$ is a subclass of the target class of $S$.  Namely,
+\[
+Cand = \{refC|\,\pct(targC,refC,Low,High),~C::targC,~o\in refC\}
+\]
+Using this candidate set, a series of rules is used to derive a single
+interval representing the probability that $o \in targC$.  
+
+As mentioned above, evidential probability is good for modelling
+situations where probabilistic information may be missing or
+inconsistent.  For instance, consider an individual {\em Mary} in a
+given knowledge base.  {\em Mary} might belong to a number of
+different classes: female, mother-of-2, American, resident-of-Virginia, over-40, college-educated, weekend-painter, and so on.  To
+understand the likelihood that {\em Mary} would contract a given
+well-studied disease, {\em d}, information for various epidemiological
+studies could be consulted.  Some studies, such as those restricted to
+male subjects, would not apply to Mary because she is not a member of the
+reference class \emph{Man}.  On the other hand, some of
+the classes to which {\em Mary} belongs, such as weekend painter, are
+also irrelevant to whether she will contact $d$ --- this time because there
+would be no $\pct$-facts with \emph{weekend-painter} as a reference class
+(presumably because there would be no studies of the relationship between
+painting on weekends to the disease in question).
+Of the studies that do
+pertain to {\em Mary}, some might be more relevant than others.  For
+instance, a study of the incidence of $d$ for women over 35 would be
+more relevant than a study of the general population because \emph{Mary}
+belongs to the class \emph{over-40}, which is more specific than the class
+of all persons.  At the same
+time, various studies that pertain to {\em Mary} may conflict with one
+another.  In general, we can't expect there to be a perfect study that
+considers all potential risk factors for {\em Mary}.  Also, we can't
+necessarily expect that information from the relevant studies is
+entirely consistent, due to differences in experimental methods.
+Thus, evidential probability combines the relevant information, weighs
+some information more heavily than other information, and resolves
+conflicts.
+
+\paragraph{The Principles of Evidential Probability}
+One means of weighing information is the principle of {\em
+  specificity}: a statement $S_1$ may override statement $S_2$ if 1)
+their associated intervals conflict (one interval is not contained in
+the other); and 2) the reference class of $S_1$ is more specific to an
+object $o_1$ than that of $S_2$.  A second principle is that of {\em
+  precision}.  Given two intervals $(L_1,U_1)$ and $(L_2,U_2)$ where
+one interval is retained in the other, only the more precise interval
+is contained.  After repeatedly applying the principle of specificity,
+then of precision, a final candidate set of intervals, $S_{fin}$ is
+obtained.  The final probability is taken to be the smallest interval
+containing all intervals in $S_{fin}$.
+
+Evidential probability is thus not a full probabilistic logic, but a
+meta-logic for defeasible reasoning about statistical statements once
+non-probabilistic aspects of a model have been derived.  It is thus
+more specialized and less powerful than other types of probabilistic
+logics; but it is efficient to compute, and applicable to situations
+where such logics don't apply, due to contradiction, incompleteness,
+or other factors.~\footnote{Other prioritizations could also be
+  considered, such as prioritizing more trusted information (say,
+  information from better experiments or studies).  This type of
+  priority is described in \cite{KybTen:2001} as {\em sharpening by
+    richness}, but is not implemented here.}
+
+\section*{Demonstration Example: Stolen Bikes}
+The file {\tt
+  .../Ergo/ergo\_demos/evidential\_probability/bikes.ergo}
+provides an example of reasoning about evidential probability, and
+contains a subclass hierarchy along with a set of statistical
+statements.  To use evidential probability, first load the package
+into the module {\tt ergo\_ep}:
+%
+\begin{verbatim}
+ergo> [ evidential_probability >> ergo_ep].
+\end{verbatim}
+%
+then load the example
+%
+\begin{alltt}
+ergo> ['\textit{path-to}/ergo_demos/evidential_probability/bikes'].
+\end{alltt}
+%
+On Windows, use double-backslashes instead of forward slashes:
+%% 
+\begin{alltt}
+ergo> ['c:\textit{path-to}/ergo_demos/evidential_probability/bikes'].
+\end{alltt}
+%% 
+At this stage, queries can be made about evidential probability.  The query:
+%
+\begin{verbatim}
+ergo> \ep(stolen,redRacingImported,?L,?H)@ergo_ep.
+\end{verbatim}
+%
+should return {\tt ?L = 0},{\tt ?H = 0.0454}.  We show in detail how these
+bounds bounds were derived.  The first step is to {\em sharpen by
+  specificity}, i.e., to collect all of the relevant statistical
+statements that pertain to {\tt redRacingImported}, beginning with the
+most specific.  There are no statistical statements about stolen
+bicycles in the class {\tt redRacingImported}, but there are
+statements for its immediate superclasses {\tt redRacing}, {\tt
+  racingImported} and {\tt redImported}, all of which form the current
+{\em candidate set}.  Next, we check statistical statements for the
+immediate superclasses of the candidate set, namely {\tt red}, {\tt
+  racing} and {\tt imported}.  Consider first the interval associated
+with {\tt red}:{\tt [0.0084,0.0476]}.  This interval is considered to
+conflict with that of e.g., {\tt redRacing}: {\tt [0,0.0454]} since
+neither interval is contained in the other.  In this case, the
+interval for {\tt red} is overridden and not considered further.
+Similar considerations override intervals for {\tt imported} and
+{\tt bike}.  Thus, at the end of sharpening by specificity, the
+candidate classes and their intervals are:
+
+{\tt redRacing:[0,0.0454], racing:[0,0.0467], redImported:[0,0.0467], racingImported:[0,0.0582]}.
+
+The next step is to {\em sharpen by precision}, which throws out all
+candidate intervals that are contained in other intervals.  This step
+throws out all intervals except for that of {\tt redRacing}: [0,0.0454].
+
+%%From this example, it can be seen that the statistical statements of
+%%Evidential Probability essentially offer a way to probabilistically
+%%extend the inheritance hierarchy of \ERGO.  The idea is to get
+%%whatever information is relevant, but to prioritize information that
+%%is more specific to an object more than general evidence, and in this
+%%sense Evidential Probability has a defeasible flavor.  
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora-packages"
+%%% End: 

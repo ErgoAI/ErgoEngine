@@ -1,0 +1,87 @@
+:- use_rule_structure_db.
+
+:- symbol_context{
+      %ggg/1, %hhh/1, %ttt/1, %ttt/0, ppp/0,
+        ppp(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)@\@,
+        ppp(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)@\@
+   }.
+
+// ppp/18 is exported, but ppp/20 is not
+:- export{ppp, qqq(?), qq1(?),
+	  ppp(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?), ?[foo->?]}.
+:- export{?[fff->?], ?[%ggg], ?[%hhh], ?[%ggg(?)], ?[%hhh(?)], %p1(?), %p2(?)}.
+:- export{?[attr2->?, attr1->?]}.
+
+ppp.
+qqq(a).
+qqq(b).
+qqq(?X) :- p(?X), r(?X,?).
+
+qq1(?).
+qq2(?). // not exported
+
+aaa[foo->{1,2}].
+aaa[foo->?X] :- p(?X).
+
+bbb[fff->{1,2}].
+bbb[fff->?X] :- p(?X).
+
+bbb[fff=>\int].
+
+
+// rrr is not exported
+// **** error in import module! it gets imported!
+rrr.
+ttt(a).
+// moo is not exported
+aaa[moo->{1,2}].
+?X[moo-?Y] :- ?X[foo->?Y].
+
+p(a).
+p(d).
+p(dd).
+r(a,b).
+r(a,c).
+r(d,d).
+r(d,d2).
+
+// ppp/18
+ppp(a1,a,a,a,a,a,a,a,a,a10,a,a,a,a,a,a,a,a).
+ppp(?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X) :- p(?X).
+yyy(?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X) :- p(?X).
+
+// ppp/20
+ppp(a1,a,b,a,a,a,a,a1,1,2,3,a,a10,a,a,a,a,a,a,a).
+ppp(?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X) :- p(?X).
+
+
+aaa[%ggg].
+aaa[%ggg(?X)] :- p(?X).
+
+bbb[%hhh].
+bbb[%hhh(?X)] :- p(?X).
+
+aaa[%ttt].
+?X[%ttt(?Y)] :- ?X[foo->?Y].
+
+
+%p1(a).
+
+%p2(?) :- \true.
+
+%p3(ppp).
+%p4(?) :- \true.
+
+
+:- export{?[name->?], ?[phones->?]}.
+person[|name{1..2}=>\string|].
+
+bob[phones{1..2}=>\integer].
+bbb[|fff=>person|].
+
+
+
+Class1[|attr1 => string|].
+Class1::Class3.
+Class3[|attr2 => foo|] :- p(?).
+Class3[|attr3 => moo|] :- p(?).

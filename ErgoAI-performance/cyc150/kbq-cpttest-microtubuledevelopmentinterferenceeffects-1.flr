@@ -1,0 +1,96 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-MicrotubuleDevelopmentInterferenceEffects (query 1)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28derived_from.29_Biology_Chapter_12_Self-Quiz.2C_Question_3
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(MicrobiologyMt, 'inputsCommitted-TypeType'(SpindleApparatusAssembly, Microtubule)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Implicit Background Rules
+forwardSentence(relationAllExists(inputsCommitted, ?X, ?Y)) :- removalSentence(assertedSentence('inputsCommitted-TypeType'(?X, ?Y))), removalSentence('inputsCommitted-TypeType'(?X, ?Y)).
+
+// Explicit Background Facts
+istAsserted(MicrobiologyMt, relationOnlyAll(outputsCreated, MicrotubuleProduction, Microtubule)).
+
+// Explicit Background Rules
+backwardSentence('inhibits-SitSitType'(?INHIBITION, ?INPUT_REQ_TYPE)) :- mtVisible(UniversalVocabularyMt), naf backchainForbidden('inhibits-SitSitType'), relationAllExists(inputsCommitted, ?INPUT_REQ_TYPE, ?RESOURCE_TYPE), relationOnlyAll(outputsCreated, ?SOLE_OUTPUTTER_TYPE, ?RESOURCE_TYPE), 'inhibits-SitSitType'(?INHIBITION, ?SOLE_OUTPUTTER_TYPE).
+backwardSentence(not('inhibits-SitSitType'(?INHIBITION, ?SOLE_OUTPUTTER_TYPE))) :- mtVisible(UniversalVocabularyMt), naf backchainForbidden('inhibits-SitSitType'), relationAllExists(inputsCommitted, ?INPUT_REQ_TYPE, ?RESOURCE_TYPE), not('inhibits-SitSitType'(?INHIBITION, ?INPUT_REQ_TYPE)), relationOnlyAll(outputsCreated, ?SOLE_OUTPUTTER_TYPE, ?RESOURCE_TYPE).
+backwardSentence(not(relationAllExists(inputsCommitted, ?INPUT_REQ_TYPE, ?RESOURCE_TYPE))) :- mtVisible(UniversalVocabularyMt), naf backchainForbidden(relationAllExists), relationOnlyAll(outputsCreated, ?SOLE_OUTPUTTER_TYPE, ?RESOURCE_TYPE), 'inhibits-SitSitType'(?INHIBITION, ?SOLE_OUTPUTTER_TYPE), not('inhibits-SitSitType'(?INHIBITION, ?INPUT_REQ_TYPE)).
+backwardSentence(not(relationOnlyAll(outputsCreated, ?SOLE_OUTPUTTER_TYPE, ?RESOURCE_TYPE))) :- mtVisible(UniversalVocabularyMt), naf backchainForbidden(relationOnlyAll), relationAllExists(inputsCommitted, ?INPUT_REQ_TYPE, ?RESOURCE_TYPE), 'inhibits-SitSitType'(?INHIBITION, ?SOLE_OUTPUTTER_TYPE), not('inhibits-SitSitType'(?INHIBITION, ?INPUT_REQ_TYPE)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260034', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260034', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Situation-260035', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260034', MtTimeDimFn(Now)), isa('HYP-Situation-260035', Situation)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260034', MtTimeDimFn(Now)), 'inhibits-SitSitType'('HYP-Situation-260035', MicrotubuleProduction)).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260034')).
+//REMOVED TITLE('KBQ  : $CPTTest-MicrotubuleDevelopmentInterferenceEffects 1').
+%pretest :- 'inhibits-SitSitType'('HYP-Situation-260035', ?WHAT), %write_results('SUCCESS  : $CPTTest-MicrotubuleDevelopmentInterferenceEffects 1').
+
+// Debugging
+proof(4061, 0) :- 'inhibits-SitSitType'('HYP-Situation-260035', MicrotubuleProduction).
+proof(4061, 1) :- relationOnlyAll(outputsCreated, MicrotubuleProduction, Microtubule).
+proof(4061, 2) :- relationAllExists(inputsCommitted, SpindleApparatusAssembly, Microtubule).
+proof(4061, 3) :- relationAllExists(inputsCommitted, SpindleApparatusAssembly, Microtubule), relationOnlyAll(outputsCreated, MicrotubuleProduction, Microtubule).
+proof(4061, 4) :- relationAllExists(inputsCommitted, SpindleApparatusAssembly, Microtubule), relationOnlyAll(outputsCreated, MicrotubuleProduction, Microtubule).
+proof(4061, 5) :- relationAllExists(inputsCommitted, SpindleApparatusAssembly, Microtubule), relationOnlyAll(outputsCreated, MicrotubuleProduction, Microtubule), 'inhibits-SitSitType'('HYP-Situation-260035', MicrotubuleProduction).
+proof(4061, 6) :- 'inhibits-SitSitType'('HYP-Situation-260035', SpindleApparatusAssembly).
+
+proof(4061, 2000) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(4061, 2001) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(4061, 2002) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(4061, 2003) :- relationAllExists(inputsCommitted, SpindleApparatusAssembly, Microtubule).
+
+proof(4061, 3000) :- admittedArgument('Hypothesis-HypotheticalContext-260034', 1, genlMt).
+proof(4061, 3001) :- admittedArgument('Hypothesis-HypotheticalContext-260034', 2, genlMt).
+proof(4061, 3002) :- admittedArgument(SecondFn(30, MinuteFn(29, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(4061, 3003) :- admittedArgument(SecondFn(30, MinuteFn(29, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(4061, 3004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260034'), UniversalVocabularyMt).
+proof(4061, 3005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260034'), BaseKB).
+proof(4061, 3006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260034'), MicrobiologyMt).
+proof(4061, 3007) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260034'), MtSpace('Hypothesis-HypotheticalContext-260034', MtTimeDimFn(Now))). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

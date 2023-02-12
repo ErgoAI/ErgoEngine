@@ -1,0 +1,26 @@
+// test ctrace
+edge[1->2].
+edge[2->3].
+edge[3->4].
+edge[4->1].
+path[?X->?Y] :- edge[?X->?Y].
+path[?X->?Y] :- edge[?X->?Z], path[?Z->?Y].
+
+//infinite terms
+edge1[a->b].
+edge2[b->a].
+path1[?X->?Y] :- edge1[?X->?Y].
+path2[?X->?Y] :- edge2[?X->?Y].
+path1[?X->f1(?Y)] :- path2[?X->?Y].
+path2[?X->f2(?Y)] :- path1[?X->?Y].
+
+?- \logforest('ftclog.flr').
+//?- path[?Start->?End].
+
+?- timed_call(${path1[?Start->?End]},
+	10,
+	${\nologforest,\halt}
+   )@\plg.
+
+//?- \nologforest.
+//?- \halt.

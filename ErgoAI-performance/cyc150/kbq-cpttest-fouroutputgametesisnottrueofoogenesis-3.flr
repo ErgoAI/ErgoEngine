@@ -1,0 +1,92 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-FourOutputGametesIsNotTrueOfOogenesis (query 3)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28derived_from.29_ETS_example_GRE_test.2C_question_45
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Explicit Background Facts
+istAsserted(MicrobiologyMt, durationBetweenSubSituationTypes(Oogenesis, MeiosisI, MeiosisII, 'SKF-0568857702'())).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260860', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260860', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Oogenesis-260861', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260860', MtTimeDimFn(Now)), isa('HYP-Oogenesis-260861', Oogenesis)).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260865', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260865', 'Hypothesis-HypotheticalContext-260860')).
+istAsserted(UniversalVocabularyMt, isa('HYP-MeiosisI-260866', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260865', MtTimeDimFn(Now)), isa('HYP-MeiosisI-260866', MeiosisI)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260865', MtTimeDimFn(Now)), isa('HYP-MeiosisI-260866', CreationEvent)).
+istAsserted(UniversalVocabularyMt, isa('HYP-SomethingExisting-260867', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260865', MtTimeDimFn(Now)), isa('HYP-SomethingExisting-260867', SomethingExisting)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260865', MtTimeDimFn(Now)), properSubEvents('HYP-Oogenesis-260861', 'HYP-MeiosisI-260866')).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260865', MtTimeDimFn(Now)), outputsCreated('HYP-MeiosisI-260866', 'HYP-SomethingExisting-260867')).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260869', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260869', 'Hypothesis-HypotheticalContext-260860')).
+istAsserted(UniversalVocabularyMt, isa('HYP-CreationEvent-260870', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260869', MtTimeDimFn(Now)), isa('HYP-CreationEvent-260870', CreationEvent)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PolarBody-260871', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260869', MtTimeDimFn(Now)), isa('HYP-PolarBody-260871', PolarBody)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260869', MtTimeDimFn(Now)), properSubEvents('HYP-Oogenesis-260861', 'HYP-CreationEvent-260870')).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260869', MtTimeDimFn(Now)), outputsCreated('HYP-CreationEvent-260870', 'HYP-PolarBody-260871')).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260873', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260873', 'Hypothesis-HypotheticalContext-260860')).
+istAsserted(UniversalVocabularyMt, isa('HYP-MeiosisI-260874', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260873', MtTimeDimFn(Now)), isa('HYP-MeiosisI-260874', MeiosisI)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260873', MtTimeDimFn(Now)), isa('HYP-MeiosisI-260874', CreationEvent)).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260860')).
+//REMOVED TITLE('KBQ  : $CPTTest-FourOutputGametesIsNotTrueOfOogenesis 3').
+%pretest :- durationBetweenSubSituationTypes(Oogenesis, MeiosisI, MeiosisII, ?_X), %write_results('SUCCESS  : $CPTTest-FourOutputGametesIsNotTrueOfOogenesis 3').
+
+// Debugging
+proof(7267, 0) :- durationBetweenSubSituationTypes(Oogenesis, MeiosisI, MeiosisII, 'SKF-0568857702'()).
+proof(7267, 1) :- durationBetweenSubSituationTypes(Oogenesis, MeiosisI, MeiosisII, 'SKF-0568857702'()).
+
+proof(7267, 1000) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(7267, 1001) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(7267, 1002) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(7267, 2000) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260860'), UniversalVocabularyMt).
+proof(7267, 2001) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260860'), MicrobiologyMt). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

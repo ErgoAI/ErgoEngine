@@ -1,0 +1,99 @@
+/* File:      flraggmin.P
+**
+** Author(s): Guizhen Yang 
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_errors.flh"
+#include "flora_exceptions.flh"
+
+:- import member/2 from basics.
+
+:- import flora_decode_oid_list_as_atom_list_substitute_vars/2 from flrdecode.
+:- import flora_abort/2 from flrporting.
+%%:- import ground_memberchk/1 from flrauxil.
+:- import flora_type_numeric_value/2 from flrdatatype.
+
+:- import inf/2 from clpr.
+
+
+
+/*********************************************************************
+  fllibmin(+Var,+GrpByLst,[],+Goal,-Min)
+*********************************************************************/
+FLLIBMIN(Var,[],[],Goal,Min) :-
+	!,
+	findall(Var,Goal,Matches),
+	Matches=[H|L],
+	flora_minaux(L,H,Min).
+
+/*
+FLLIBMIN(Var,GrpByLst,[],Goal,_Min) :-
+	ground_memberchk(GrpByLst),
+	!,
+	flora_decode_oid_list_as_atom_list_substitute_vars([Var,GrpByLst,Goal],
+							   [VarA,GrpByLstA,GoalA]),
+	flora_abort(['In ',FL_MIN,'{',VarA,GrpByLstA,'|',GoalA,'}',GROUPING_VAR_GROUND],
+		    FLORA_ABORT_NOTRACE).
+*/
+
+
+FLLIBMIN(Var,GrpByLst,[],Goal,Min) :-
+	!,
+	findall(flora_result(Var,GrpByLst),Goal,Matches),
+	findall(Grp,member(flora_result(_,Grp),Matches),GL),
+	sort(GL,Groups),
+	member(GrpByLst,Groups),
+	findall(D,member(flora_result(D,GrpByLst),Matches),DL),
+	DL=[H|L],
+	flora_minaux(L,H,Min).
+
+
+/********************************************************************
+  flora_minaux(+List,+CurrMin,-Min)
+********************************************************************/
+flora_minaux([],X,LB) :-
+        var(X),
+        !,
+        inf(X,LB).
+flora_minaux([],X,X) :- !.
+
+flora_minaux([H|L],X,Min) :-
+	!,
+	( (number(H), HLB = H ; var(H), inf(H,HLB)),
+            (number(X), XLB = X ; var(X), inf(X,XLB)) ->
+	    (HLB<XLB -> flora_minaux(L,HLB,Min)
+	    ; flora_minaux(L,XLB,Min)
+	    )
+	;
+            %% the use of flora_type_numeric_value/2 allows us to get
+            %% the right min/max for things like dates, time, etc.
+            flora_type_numeric_value(H,HVval),
+            flora_type_numeric_value(X,XVval),
+            HVval @< XVval -> flora_minaux(L,H,Min)
+	; flora_minaux(L,X,Min)
+	).

@@ -1,0 +1,44 @@
+
+%tst1 :- write('test1 = ')@\plg,
+	tinsert{a}, tinsert{a(1)}, tinsert{b,b(1)},
+	\if (a,a(1),b,b(1)) \then writeln(success)@\plg
+        \else writeln(failure)@\plg.
+
+%tst2aux :-
+	tinsert{aa}, tinsert{aa(1)}, tinsert{bb,bb(1)},
+	\false.
+%tst2aux :- !.
+
+%tst2 :- write('test2 = ')@\plg,
+	%tst2aux,
+	\if (aa;aa(1);bb;bb(1)) \then writeln(failure)@\plg
+        \else writeln(success)@\plg.
+
+%tst3aux :-
+	tdelete{a}, tdelete{a(1)}, tdelete{b,b(1)},
+	\false.
+%tst3aux :- !.
+
+%tst3 :- write('test3 = ')@\plg,
+	%tst3aux,
+	\if (a,a(1),b,b(1)) \then writeln(success)@\plg
+        \else writeln(failure)@\plg.
+
+%tst4 :- write('test4 = ')@\plg,
+	tdelete{a}, tdelete{a(1)}, tdelete{b,b(1)},
+	\if (a;a(1);b;b(1)) \then writeln(failure)@\plg
+        \else writeln(success)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4.
+
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(off,(aa@main,bb@main,aa(?)@main,bb(?)@main))]@\sys,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	!,
+	\abolishtables,
+	%pretest,
+	told@\plg().
+

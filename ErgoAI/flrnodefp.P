@@ -1,0 +1,206 @@
+/* File:      flrnodefp.P -- Flora standard predicates disallowing redefinition
+**
+** Author(s): Guizhen Yang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+
+
+:- index flora_nodefp/2-1.
+
+%% These are predicates that are not supposed to have definitions.
+%% Parser issues errors when these occur in the head of a rule.
+
+%% PROLOG builtins
+
+flora_nodefp(FL_OR_CONNECTIVE,2) :- !.
+flora_nodefp(FL_AND_CONNECTIVE,2) :- !.
+
+%% We've unreserved 'and' and 'or'
+%%flora_nodefp(FL_OR,2) :- !.
+%%flora_nodefp(FL_AND,2) :- !.
+
+flora_nodefp(FL_RULELOGNAF,_) :- !.
+flora_nodefp(FL_PLGNAF,_) :- !.
+
+flora_nodefp(FL_UNIVEQ,2) :- !.
+flora_nodefp(FL_UNIVNOTEQ,2) :- !.
+flora_nodefp(FL_EQ,2) :- !.
+flora_nodefp(FL_NOTEQ,2) :- !.
+flora_nodefp(FL_ORDERLT,2) :- !.
+flora_nodefp(FL_ORDEREQLT,2) :- !.
+flora_nodefp(FL_ORDERGT,2) :- !.
+flora_nodefp(FL_ORDEREQGT,2) :- !.
+flora_nodefp(FL_IS,2) :- !.
+flora_nodefp(FL_MATHEQ,2) :- !.
+flora_nodefp(FL_MATHNOTEQ,2) :- !.
+flora_nodefp(FL_LT,2) :- !.
+flora_nodefp(FL_EQLT,2) :- !.
+flora_nodefp(FL_GT,2) :- !.
+flora_nodefp(FL_EQGT,2) :- !.
+flora_nodefp(FL_RIGHTTO,2) :- !.
+flora_nodefp(FL_LEFTTO,2) :- !.
+
+flora_nodefp(FL_IN,2) :- !.
+flora_nodefp(FL_INN,2) :- !.
+
+flora_nodefp(FL_CUT,0) :- !.
+flora_nodefp(FL_TRUECONST,0) :- !.
+flora_nodefp(FL_FALSECONST,0) :- !.
+flora_nodefp(FL_UNDEFCONST,0) :- !.
+
+%% FLORA builtins
+flora_nodefp(FL_UNIVEQFORM,2) :- !.
+flora_nodefp(FL_NOTUNIVEQFORM,2) :- !.
+flora_nodefp(FL_REIFYOP,1) :- !.
+flora_nodefp(FL_DESCRIPTOROP,1) :- !.
+flora_nodefp(FL_METAUNIV,2) :- !.
+
+flora_nodefp(FL_C_UNEQUAL,2) :- !.
+
+%% FLORA special connectives
+flora_nodefp(FL_LEFTNAFIMPLY,2).
+flora_nodefp(FL_RIGHTNAFIMPLY,2).
+flora_nodefp(FL_NAFIFF,2).
+
+flora_nodefp(FL_LEFTNEGIMPLY,2).
+flora_nodefp(FL_RIGHTNEGIMPLY,2).
+flora_nodefp(FL_NEGIFF,2).
+
+%%flora_nodefp(FL_LATENT_QUERYOP,1).  %% !- can have any number of arguments
+flora_nodefp(FL_RIGHTIMPLYOP,2).
+
+flora_nodefp(FL_IMPLYOP,2) :- !.
+flora_nodefp(FL_IMPLYOP,1) :- !.
+flora_nodefp(FL_QUERYOP,1) :- !.
+
+
+%% FLORA special syntax
+flora_nodefp(FL_WHILE,1) :- !.
+flora_nodefp(FL_LOOP,1) :- !.
+flora_nodefp(FL_LOOP,2) :- !.
+flora_nodefp(FL_DO,1) :- !.
+flora_nodefp(FL_DO,2) :- !.
+flora_nodefp(FL_UNTIL,2) :- !.
+flora_nodefp(FL_UNLESS,1) :- !.
+
+flora_nodefp(FL_IF,1) :- !.
+flora_nodefp(FL_THEN,2) :- !.
+flora_nodefp(FL_ELSE,2) :- !.
+
+flora_nodefp(FL_UDFF,1) :- !.
+
+flora_nodefp('\\isvar',1) :- !.
+flora_nodefp('\\isnonvar',1) :- !.
+flora_nodefp('\\isground',1) :- !.
+flora_nodefp('\\isnonground',1) :- !.
+flora_nodefp('\\iscompound',1) :- !.
+flora_nodefp('\\isnumber',1) :- !.
+flora_nodefp('\\isinteger',1) :- !.
+flora_nodefp('\\isdecimal',1) :- !.
+flora_nodefp('\\isatom',1) :- !.
+flora_nodefp('\\isatomic',1) :- !.
+flora_nodefp('\\isfloat',1) :- !.
+flora_nodefp('\\islist',1) :- !.
+flora_nodefp('\\ischarlist',1) :- !.
+flora_nodefp('\\isstring',1) :- !.
+flora_nodefp('\\isiri',1) :- !.
+
+flora_nodefp('\\isvar',1) :- !.
+flora_nodefp('\\isnonvar',1) :- !.
+flora_nodefp('\\isground',1) :- !.
+flora_nodefp('\\isnonground',1) :- !.
+flora_nodefp('\\iscompound',1) :- !.
+flora_nodefp('\\isnumber',1) :- !.
+flora_nodefp('\\isinteger',1) :- !.
+flora_nodefp('\\isdecimal',1) :- !.
+flora_nodefp('\\isatom',1) :- !.
+flora_nodefp('\\isatomic',1) :- !.
+flora_nodefp('\\isfloat',1) :- !.
+flora_nodefp('\\islist',1) :- !.
+flora_nodefp('\\ischarlist',1) :- !.
+flora_nodefp('\\isstring',1) :- !.
+flora_nodefp('\\isiri',1) :- !.
+flora_nodefp(FL_ISBASEFACT,1)  :- !.
+
+flora_nodefp('!!',_) :- !.
+
+%% The following are reserved but rdefinable UNLESS they are also in
+%% flora_nodefp/2.
+%% In comparison, the predicates in flora_nodefp/2 are not redefinable
+%% The flora_reserved_builtin/2 reserved symbols are designed for the
+%% following purposes:
+%%    1. to squash the symbol_context warnings
+%%    2. to prevent the user from using these symbols
+%%       with the wrong number of arguments
+flora_reserved_builtin(FL_OPPOSES,2)   :- !.
+flora_reserved_builtin(FL_OPPOSES,4)   :- !.
+flora_reserved_builtin(FL_OVERRIDES,2) :- !.
+flora_reserved_builtin(FL_OVERRIDES,4) :- !.
+flora_reserved_builtin(FL_CANCEL,1)    :- !.
+flora_reserved_builtin(FL_CANCEL,2)    :- !.
+flora_reserved_builtin(FL_IS,1)        :- !.
+flora_reserved_builtin(FL_EVALEXPR,1)  :- !.
+flora_reserved_builtin(Name,Arity)     :- flora_nodefp(Name,Arity).
+
+%% exceptions for update operators
+flora_nodefp_exception(FL_IMPLYOP,2) :- !.
+
+%% these symbols are top-level and cannot appear as terms
+flora_reserved_symbol_not_as_term(FL_QUANTVARCONNECTOR,2) :- !.
+flora_reserved_symbol_not_as_term(FL_LEFTNAFIMPLY,2) :- !.
+flora_reserved_symbol_not_as_term(FL_RIGHTNAFIMPLY,2) :- !.
+flora_reserved_symbol_not_as_term(FL_NAFIFF,2) :- !.
+flora_reserved_symbol_not_as_term(FL_LEFTNEGIMPLY,2) :- !.
+flora_reserved_symbol_not_as_term(FL_RIGHTNEGIMPLY,2) :- !.
+flora_reserved_symbol_not_as_term(FL_NEGIFF,2) :- !.
+flora_reserved_symbol_not_as_term(FL_IMPLYOP,2) :- !.
+flora_reserved_symbol_not_as_term(FL_IMPLYOP,1) :- !.
+flora_reserved_symbol_not_as_term(FL_RIGHTIMPLYOP,2) :- !.
+flora_reserved_symbol_not_as_term(FL_LATENT_QUERYOP,2) :- !.
+flora_reserved_symbol_not_as_term(FL_QUERYOP,2) :- !.
+flora_reserved_symbol_not_as_term(FL_LATENT_QUERYOP,1) :- !.
+flora_reserved_symbol_not_as_term(FL_QUERYOP,1) :- !.
+
+flora_reserved_symbol_not_literal(FL_STRCONCAT,2) :- !.
+flora_reserved_symbol_not_literal(FL_EVALEXPR,1) :- !.
+flora_reserved_symbol_not_literal(FL_PLUS,2) :- !.
+flora_reserved_symbol_not_literal(FL_MINUS,2) :- !.
+flora_reserved_symbol_not_literal(FL_INT_DIV,2) :- !.
+flora_reserved_symbol_not_literal(FL_STAR,2) :- !.
+flora_reserved_symbol_not_literal(FL_DBLSTAR,2) :- !.
+flora_reserved_symbol_not_literal(FL_SLASH,2) :- !.
+flora_reserved_symbol_not_literal(FL_SYMOR,2) :- !.
+flora_reserved_symbol_not_literal(FL_SYMAND,2) :- !.
+
+flora_reserved_symbol(F,N) :-
+	flora_reserved_symbol_not_as_term(F,N),
+	!.
+flora_reserved_symbol(F,N) :-
+	flora_reserved_symbol_not_literal(F,N),
+	!.

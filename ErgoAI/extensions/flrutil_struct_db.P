@@ -1,0 +1,127 @@
+
+#include "ergo_structdb.flh"
+
+:- import
+        flora_clear_runtime_switch_registry/2,
+        flora_set_runtime_switch_registry/2,
+        flora_runtime_switch_registry/2
+   from flrregistry.
+:- import
+	flora_install_dir/1,
+	flora_slash/1,
+	flora_concat_atoms/2
+   from flrporting.
+:- import
+        ergo_structdb_write_canonical/1
+   from ergo_struct_db.
+
+:- export
+        util_save_structural_db/2.
+
+
+util_save_structural_db(RuleSignatureList,FlrFile) :-
+	telling(OldFile),
+        util_FSTRDB_filename(FlrFile,FSTRDBFile),
+	tell(FSTRDBFile),
+	flora_current_out_line('%% Structural DB for source file: ~w~n~n',
+                               [FlrFile]),
+	flora_current_out_line('#include "flrheader.flh"'),
+	util_write_structural_db(RuleSignatureList),
+	told,
+	tell(OldFile).
+util_write_structural_db([]) :- !.
+util_write_structural_db([NULL|RuleSignatureList]) :-
+        !,
+	util_write_structural_db(RuleSignatureList).
+/*
+util_write_structural_db([Direct|RuleSignatureList]) :-
+        %% skip directived/queries that may occur among signatures
+        (flrcoder:is_prdirective(Direct,_) ; flrcoder:is_prquery(Direct,_)),
+        !,
+	util_write_structural_db(RuleSignatureList).
+*/
+util_write_structural_db([RuleSignature|RuleSignatureList]) :-
+	ergo_structdb_write_canonical(RuleSignature),
+	util_write_structural_db(RuleSignatureList).
+
+
+%% file name for structure DB
+util_FSTRDB_filename(File,FSTRDBFile) :-
+	util_hidden_aux_file_base(File,AuxBase),
+	flora_concat_atoms([AuxBase,'.',ERGO_FSTRDB_EXT],FSTRDBFile).
+%% file name for structure DB, but does not create .ergo_aux_dir
+util_FSTRDB_filename_nocheck(File,FSTRDBFile) :-
+	util_hidden_aux_file_base_nocheck(File,AuxBase,_),
+	flora_concat_atoms([AuxBase,'.',ERGO_FSTRDB_EXT],FSTRDBFile).
+
+%% file name for adding structure DB
+util_addFSTRDB_filename(File,FSTRDBFile) :-
+	util_hidden_aux_file_base(File,AuxBase),
+	flora_concat_atoms([AuxBase,FLORA_FOR_ADD_SUFFIX,ERGO_FSTRDB_EXT],
+                           FSTRDBFile).
+
+%%%%%%%%%%%%%%%%%%% Trie handling routines %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+:- import
+	incr_storage_insert_fact/3,
+	storage_find_fact/2,
+	storage_delete_all/1
+   from storage.
+
+:- export
+        flora_FSTRDB_trie_name/2,
+        set_use_rule_structural_db_mode/2,
+        using_rule_structural_db/1,
+        util_load_structdb/2,
+        util_clear_structdb/1.
+
+flora_FSTRDB_trie_name(ModuleName,TrieName) :-
+	flora_concat_atoms([ERGO_STRUCTDB_TRIE_PREFIX,'''',ModuleName],TrieName).
+
+%% if FSTRDBFile does not exist - do nothing
+util_load_structdb(File,Module) :-
+        util_FSTRDB_filename_nocheck(File,FSTRDBFile),
+        (flora_file_op(exists,FSTRDBFile) ->
+            util_load_structdb_aux(FSTRDBFile,Module)
+        ; true
+        ).
+util_load_structdb_aux(FSTRDBFile,Module) :-
+	flora_loader_message('Dynamically loading ~w', [FSTRDBFile]),
+        flora_FSTRDB_trie_name(Module,TrieName),
+	modularized_file_name(FSTRDBFile,PostGppFile,Module),
+        xpp_datafile_for_module_and_cache(FSTRDBFile,PostGppFile,Module),
+	seeing(OldF),
+	see(PostGppFile),
+	repeat,
+	read_canonical(Term),
+	( Term == end_of_file, !
+	;
+            incr_storage_insert_fact(TrieName,Term,_),
+	    fail
+	),
+	seen,
+	see(OldF),
+	Info = FL_TEXTUAL_INFO_PRED(_X,_Y,_Z,_U,_V,_W),
+	assert((Info :- storage_find_fact(flora_textual_info_trie,Info))).
+
+util_clear_structdb(Module) :-
+	flora_FSTRDB_trie_name(Module,TrieName),
+	storage_delete_all(TrieName).
+
+using_rule_structural_db(Module) :-
+        flora_runtime_switch_registry(ERGO_STRUCTURE_DB_OPTION(on),Module).
+set_use_rule_structural_db_mode(Module,Flag) :-
+        atom(Module),
+        (Flag == on ; Flag == off),
+        !,
+        (Flag == on ->
+            flora_set_runtime_switch_registry(ERGO_STRUCTURE_DB_OPTION(Flag),Module)
+        ; Flag == off ->
+            flora_clear_runtime_switch_registry(ERGO_STRUCTURE_DB_OPTION(_),Module)
+        ).
+set_use_rule_structural_db_mode(Module,Flag) :-
+        flora_decode_oid_as_atom(Module,ModuleAtm),
+        flora_decode_oid_as_atom(Flag,FlagAtm),
+        flora_abort([ERROR_USE_STRUCTDB_EXECDIRECT,'; this call: Module=',ModuleAtm,' Flag=',FlagAtm],
+                    FLORA_ABORT_NOTRACE).
+

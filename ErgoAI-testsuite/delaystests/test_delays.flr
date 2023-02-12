@@ -1,0 +1,89 @@
+:- use_rule_structure_db.
+
+#include "standard.h"
+
+?- Method[mustDefine(on)]@\sys.
+
+:- symbol_context{b/?}.
+
+m1(?X,?Y,?Z) :- must(ground(?X),ground(?Y),nonvar(?Z))^wish(ground(?W))^foo(?X,?Y,?Z,?W).
+m2(?X,?Y,?Z,?W) :- must(ground(?X),ground(?Y),ground(?Z))^foo(?X,?Y,?Z,?W).
+m3(?X,?Y,?Z,?W) :- must(ground(?X),ground(?Y))^wish(ground(?Z),ground(?W))^foo(?X,?Y,?Z,?W).
+%m4(?X,?Y,?Z,?W) :- must(nonvar(?X);ground(?Y))^(foo123(?X,?Y), must(ground(?Z);ground(?W))^bar123(?X,?Z,?W)).
+m5(?X,?Y,?Z,?W) :- must(ground(?X),ground(?Y);ground(?Z))^wish(ground(?W))^(foo(?X,?Y,?Z,?W), writeln(xxx=?X)@\plg).
+
+foo123(f(a),b).
+bar123(f(a),c,d).
+q(ppp).
+
+foo(a,b,c,d).
+
+foo[bar(2)->3].
+p(1).
+
+%test1 :- m1(a,b,c).
+%test2 :- m1(a,b(?x),?x).
+%test3(?x) :- m2(a,b,c,?x).
+%test4 :- (m3(?_x,?_y,c,d);\true).
+%test5 :- (m3(a,?_x,?_y,?_z);\true).
+%test6(?x,?y) :- m3(a,b,?x,?y).
+%test7 :- %m4(?X,?Y,?Z,?W), ?X=f(?V), ?Z=c,
+	writeln(test7=?V+?Y+?Z+?W)@\plg.
+%test8 :- %m4(?_X,?_Y,?Z,?_W), ?Z=c.
+%test10 :- m5(?X,?Y,?Z,?W), ?Z=c,
+	  wish(ground(?X))^(writeln(test10=?X+?Y+?W)@\plg).
+
+%test11 :- write('test11: ')@\plg,
+	must(ground(?X) \or ground(?Y))^wish(nonvar(?Z))^
+                (p(?X), wish(nonvar(?W))^q(?W), foo[bar(?Y)->?Z]),
+	?X=1,
+	!!, // force execution of delayed goals
+	//flora_execute_delayed_calls([?X,?Y,?Z,?W],[])@\plg(flrdelaysupport),
+	writeln(?X+?Y+?Z+?W)@\plg.
+%test12 :- must(ground(?X) \or ground(?Y))^must(nonvar(?Z))^
+                (p(?X), wish(nonvar(?W))^q(?W), foo[bar(?Y)->?Z]),
+	?X=1.
+%test13 :- must(ground(?X) \or ground(?Y))^wish(nonvar(?Z))^
+                (p(?X), must(nonvar(?W))^q(?W), foo[bar(?Y)->?Z]),
+	?X=1.
+
+
+%pretest :-
+	%test1, %test2, %test3(?x),
+	writeln(test3=?x)@\plg,
+	%test4, %test5, %test6(?y,?z),
+	flora_decode_oid_as_atom_substitute_vars(?y+?z,?Atm)@\plg(flrdecode),
+	writeln(test6=?Atm)@\plg,
+	%test7, %test8,
+	m5(?XX,?YY,c,?WW),
+	!!{?XX,?YY,?WW}, // force execution of delayed goals
+	//flora_execute_delayed_calls([?XX,?YY,?WW],[])@\plg(flrdelaysupport),
+	writeln(test9=?XX+?YY+?WW)@\plg,
+	%test10,
+	!,
+	%test11, %test12,
+	%test13.
+%test :-
+	(File[exists(test_delays_old)]@\io -->> File[unlink(test_delays_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(test_delays_flora_old,test_delays_old)]@\io
+	;  File[link(test_delays_ergo_old,test_delays_old)]@\io
+        ),
+	set_test_mode(delayquant)@\plg(flrtesting),
+	file_reopen(temp1,w,STDERR,?_)@\plg(file_io),
+	file_reopen(temp2,w,STDWARN,?_)@\plg(file_io),
+	tell(temp)@\plg,
+	%pretest,
+	told@\plg,
+	file_close(STDWARN)@\plg(file_io),
+	file_close(STDERR)@\plg(file_io),
+	open(file(temp)@\plg,append,?Port)@\plg,
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp2)@\plg,read,?Port2)@\plg,
+	copyIOport(?Port1,?Port)@\plg(file_io),
+	copyIOport(?Port2,?Port)@\plg(file_io),
+	close(?Port)@\plg,
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	flora_file_op(unlink,temp1)@\plg(flrporting),
+	flora_file_op(unlink,temp2)@\plg(flrporting).

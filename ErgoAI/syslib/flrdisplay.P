@@ -1,0 +1,53 @@
+/* File:        flrdisplay.P
+**
+** Author(s): Guizhen Yang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "standard.h"
+
+
+:- import flora_err_stream/1, flora_fdbk_stream/1 from flrprint.
+:- import flora_write_oid/2 from flrdecode.
+
+:- export
+	flora_display_error/1,
+	flora_display_feedback/1.
+
+
+/********************************************************************/
+%% These two are called to display errors/results,
+%% which are Flora literals, in human-readable form
+flora_display_error(InTerm) :-
+	flora_err_stream(Stream),
+	!,
+	flora_write_oid(Stream,InTerm).
+
+flora_display_feedback(InTerm) :-
+	flora_fdbk_stream(Stream),
+	!,
+	flora_write_oid(Stream,InTerm).
+

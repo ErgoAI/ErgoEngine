@@ -1,0 +1,347 @@
+
+:- use_argumentation_theory{ogcle}.
+?- [ogclpe>>ogcle].
+
+// Ex 1
+@{p1} p.
+@{q1} q.
+@{r1} r.
+\overrides(p1,q1).
+\overrides(p1,r1).
+\overrides(q1,r1).
+
+m1:\Exclusion[\opposers->{p, q, r}].
+
+/*
+  Desired conclusions:  p, q, \naf r.
+  Justification:  p and q are both higher priority than r, thus 
+  r should be the one thrown out in the 3-ary mutex.
+*/
+%tst1 :-  write('test1: ')@\plg,
+	   p, q, \naf r,
+	   !,
+	   writeln(passed)@\plg.
+%tst1 :- writeln(failed)@\plg.
+
+
+// Ex 2
+@{pp1} pp.
+@{qq1} qq.
+@{rr1} rr.
+\overrides(pp1,rr1).
+
+m2:\Exclusion[\opposers->{pp, qq, rr}].
+
+/* 
+   Desired conclusions: pp, \naf qq, \naf rr.
+   Intuitive justification: The interpretation {q,r} is less preferred
+   than {p,q} since ov(p1,r1). {p,r}, as well as {p,q}, is maximally
+   preferred.  Thus p should be a
+   conclusion since it is true in all maximally preferred
+   interpretations, but neither q nor r is true in all maximally
+   preferred interpretations so neither should be a conclusion.
+   Another way to describe this is that p beats r, but q beats no one.
+*/
+%tst2 :-  write('test2: ')@\plg,
+	   pp, \naf qq, \naf rr,
+	   !,
+	   writeln(passed)@\plg.
+%tst2 :- writeln(failed)@\plg.
+
+
+
+// Ex 3
+@{p3L} p3.
+@{q3L} q3.
+@{r3L} r3.
+\overrides(p3L,q3L).
+\overrides(q3L,r3L).
+
+m3:\Exclusion[\opposers->{p3, q3, r3}].
+
+/*
+  Desired conc's: p3, q3, \naf r3. Intuitive justification: {p,r} < {p,q}
+  since ov(q1,r1). {q,r} < {p,r} since ov(p1,q1).  Thus {p,q} is the
+  sole mpi, if one can apply transitivity to the preceding two
+  pairwise model preferences. I.e., p beats q, and q beats r.
+*/
+%tst3 :-  write('test3: ')@\plg,
+	   p3, q3, \naf r3,
+	   !,
+	   writeln(passed)@\plg.
+%tst3 :- writeln(failed)@\plg.
+
+
+
+// Ex 4
+@{p4L} p4.
+@{q4L} q4.
+@{r4L} r4.
+\overrides(p4L,q4L).
+\overrides(q4L,r4L).
+
+m4:\Exclusion[\opposers->{p4, q4, r4}].
+
+/*
+  Desired conc's: p4, q4, \naf r4. Intuitive justification: {p,r} < {p,q}
+  since ov(q1,r1). {q,r} < {p,r} since ov(p1,q1).  Thus {p,q} is the
+  sole mpi, if one can apply transitivity to the preceding two
+  pairwise model preferences. I.e., p beats q, and q beats r.
+*/
+%tst4 :-  write('test4: ')@\plg,
+	   p4, q4, \naf r4,
+	   !,
+	   writeln(passed)@\plg.
+%tst4 :- writeln(failed)@\plg.
+
+
+// Ex 5
+@{p5L} p5.
+@{q5L} q5.
+@{r5L} r5 :- \naf r5.
+\overrides(p5L,q5L).
+
+m5:\Exclusion[\opposers->{p5, q5, r5}].
+
+/*
+  Desired conc's:  p5, \naf q5, \naf r5
+  Intuitive justification:  p beats q, and q beats no one.  
+  (Perhaps it's OK if q=u instead?)
+*/
+%tst5 :-  write('test5: ')@\plg,
+	   p5, \naf q5, \naf r5,
+	   !,
+	   writeln(passed)@\plg.
+%tst5 :- writeln(failed)@\plg.
+
+
+// Ex 6
+@{p6L1} p6.
+@{q6L1} q6.
+@{r6L1} r6.
+@{p6L2} p6.
+@{q6L2} q6.
+@{r6L2} r6.
+\overrides(p6L1,q6L1).
+\overrides(p6L1,r6L1).
+\overrides(p6L2,q6L2).
+\overrides(p6L2,r6L2).
+
+m6:\Exclusion[\opposers->{p6, q6, r6}].
+
+/*
+  Desired conc's:  p, \naf q, \naf r.
+*/
+%tst6 :-  write('test6: ')@\plg,
+	   p6, \naf q6, \naf r6,
+	   !,
+	   writeln(passed)@\plg.
+%tst6 :- writeln(failed)@\plg.
+
+
+// Ex 7
+@{p7L1} p7.
+@{q7L1} q7.
+@{r7L1} r7.
+@{p7L2} p7.
+@{q7L2} q7.
+@{r7L2} r7.
+\overrides(p7L1,q7L1).
+\overrides(q7L1,r7L1).
+\overrides(p7L1,r7L1). // also interesting example without this fact
+\overrides(p7L2,r7L2).
+\overrides(r7L2,q7L2).
+\overrides(p7L2,q7L2). // also interesting example without this fact
+
+m7:\Exclusion[\opposers->{p7, q7, r7}].
+
+/*
+  Desired conc's:  p, \naf q, \naf r.
+*/
+%tst7 :-  write('test7: ')@\plg,
+	   p7, \naf q7, \naf r7,
+	   !,
+	   writeln(passed)@\plg.
+%tst7 :- writeln(failed)@\plg.
+
+
+// Ex 8
+@{p8L1} p8.
+@{q8L1} q8.
+@{r8L1} r8.
+@{q8L2} q8.
+@{r8L2} r8.
+\overrides(p8L1,q8L1).
+\overrides(q8L1,r8L1).
+\overrides(p8L1,r8L1).
+\overrides(p8L1,r8L2).
+\overrides(r8L2,q8L2).
+\overrides(p8L1,q8L2).
+
+m8:\Exclusion[\opposers->{p8, q8, r8}].
+
+/*
+  Desired conc's:  p, \naf q, \naf r.
+*/
+%tst8 :-  write('test8: ')@\plg,
+	   p8, \naf q8, \naf r8,
+	   !,
+	   writeln(passed)@\plg.
+%tst8 :- writeln(failed)@\plg.
+
+
+// Ex 9
+@{p9L1} p9.
+@{q9L1} q9.
+@{p9L2} p9.
+@{r9L2} r9.
+\overrides(p9L1,q9L1).
+\overrides(p9L2,r9L2).
+
+m9:\Exclusion[\opposers->{p9, q9, r9}].
+
+/*
+  Desired conc's:  p, \naf q, \naf r.
+*/
+%tst9 :-  write('test9: ')@\plg,
+	   p9, \naf q9, \naf r9,
+	   !,
+	   writeln(passed)@\plg.
+%tst9 :- writeln(failed)@\plg.
+
+
+// Ex 10
+@{p10L1} p10.
+@{q10L1} q10.
+@{r10L1} r10.
+@{p10L2} p10.
+@{r10L2} r10.
+\overrides(p10L1,q10L1).
+\overrides(p10L2,r10L2).
+
+m10:\Exclusion[\opposers->{p10, q10, r10}].
+
+/*
+  Desired conc's:  p, \naf q, \naf r.
+*/
+%tst10 :-  write('test10: ')@\plg,
+	   p10, \naf q10, \naf r10,
+	   !,
+	   writeln(passed)@\plg.
+%tst10 :- writeln(failed)@\plg.
+
+
+// Ex 11
+@{p11L1} p11.
+@{q11L1} q11.
+@{r11L1} r11.
+@{p11L2} p11.
+@{q11L2} q11.
+@{r11L2} r11.
+\overrides(p11L1,q11L1).
+\overrides(p11L2,r11L2).
+
+m11:\Exclusion[\opposers->{p11, q11, r11}].
+
+/*
+  Desired conc's:  \naf p, \naf q, \naf r.
+*/
+%tst11 :-  write('test11: ')@\plg,
+	   \naf p11, \naf q11, \naf r11,
+	   !,
+	   writeln(passed)@\plg.
+%tst11 :- writeln(failed)@\plg.
+
+
+
+// Ex 12
+@{p12L1} p12.
+@{q12L1} q12.
+@{r12L1} r12.
+@{p12L2} p12.
+@{q12L2} q12.
+@{r12L2} r12.
+\overrides(p12L1,q12L1).
+\overrides(q12L1,r12L1).
+\overrides(p12L1,r12L1).
+\overrides(p12L2,q12L2).
+\overrides(q12L2,r12L2).
+\overrides(p12L2,r12L2).
+
+m12:\Exclusion[\opposers->{p12, q12, r12}].
+
+/*
+  Desired conc's:  p, q, \naf r.
+*/
+
+%tst12 :-  write('test12: ')@\plg,
+	   p12, q12, \naf r12,
+	   !,
+	   writeln(passed)@\plg.
+%tst12 :- writeln(failed)@\plg.
+
+
+// Ex 13
+@{p13L1} p13.
+@{q13L1} q13.
+@{r13L1} r13.
+@{q13L2} q13.
+\overrides(p13L1,q13L1).
+\overrides(r13L1,q13L2).
+
+m13:\Exclusion[\opposers->{p13, q13, r13}].
+
+/*
+  Desired conc's:  \naf p, \naf q, \naf r.
+
+  Discussion: A bit of a subtlety here is the LACK
+              of the prioritizations p1>q2 and r1>q1.  
+	      Thus q2 is a rebutting argument for p1,
+	      and likewise q1 is a rebutting argument for r1.  
+*/
+
+%tst13 :-  write('test13: ')@\plg,
+	   \naf p13, \naf q13, \naf r13,
+	   !,
+	   writeln(passed)@\plg.
+%tst13 :- writeln(failed)@\plg.
+
+
+
+// Ex course taking.
+
+@{c1L}  crs1.
+@{c2L}  crs2.
+@{c3L}  crs3.
+@{c4L}  crs4.
+
+// only two courses are allowed:
+c1m:\Exclusion[\opposers->{crs1, crs2, crs3}].
+c2m:\Exclusion[\opposers->{crs1, crs2, crs4}].
+c3m:\Exclusion[\opposers->{crs1, crs3, crs4}].
+c4m:\Exclusion[\opposers->{crs2, crs3, crs4}].
+
+\overrides(c4L,?X) :- ?X = c1L ; ?X= c2L ; ?X = c3L.
+\overrides(c3L,?X) :- ?X = c1L \or ?X= c2L.
+
+/*
+  Desired conc's:  crs4, crs3. 
+  After all, 4 is the highest desirable course and 3 is the next one.
+*/
+
+
+%tst14 :-  write('test14: ')@\plg,
+	   \if (crs3, crs4, \naf crs1, \naf crs2) \then writeln(passed)@\plg
+	   \else writeln(failed)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9,
+            %tst10, %tst11, %tst12, %tst13, %tst14.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	!,
+	\abolishtables,
+	%pretest,
+	told@\plg.

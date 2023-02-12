@@ -1,0 +1,301 @@
+/************************************************************************
+** Usage:
+**   id_scorelist_report([midterm,proj1,proj2]).
+**   id_scorelist_report(gradesForPosting,[midterm,proj1,proj2,final]).
+**   full_report([midterm,proj1,proj2]).
+**   full_report(finalGrades,[midterm,proj1,proj2,final]).
+
+** After you look at the histogram, fill out
+**   gradeMap(Course)[
+**    	'A'  ->100,
+**    	'A-' ->90,
+**    	'B+' ->82,
+**    	'B'  ->74,
+**    	'B-' ->66,
+**    	'C+' ->60,
+**    	'C'  ->54,
+**    	'C-' ->48,
+**    	'D'  ->38,
+**    	'F'  ->1
+**    	'NR' ->0
+**   ].
+**   Then let the program produce the full report and automatically grade 
+**   students. This also produces listing suitable for posting on the Web.
+*************************************************************************/
+
+:- setsemantics{tabling=reactive}.
+
+:- ignore_depchk{(%?_)@?_}.
+
+
+#define SEPARATOR '______________________________________________________________________________'
+#define MODULE  class
+
+
+//?- Method[mustDefine(off,%recorded(?,?)@grade)]@\sys.
+// to pacify undefinedness checker
+%histogram(null,null,null,null).
+%recorded(null,null).
+
+// Redirect the output from Goal to File
+%print_to_file(?File,?Goal) :-
+	tell(?File)@\plg(),
+	cputime(?Start)@\plg(),
+	?Goal,
+	cputime(?End)@\plg(),
+	told@\plg(),
+	?Delta \is ?End - ?Start,
+	write('CPU time: ')@\plg(),
+	writeln(?Delta)@\io.
+
+
+// This also updates the histogram
+?Stud[weighted_average(?AsgList,?Val)] :-
+	?Stud:student@MODULE,
+	%weighted_sum(?Stud,?AsgList,?Result),
+	%totals(?AsgList,?Stud.course@MODULE, ?Total),
+	?Val1 \is ?Result/?Total,
+	%round(?Val1,?Val),
+	%updateHistogram(?Stud,?Stud.course@MODULE,averages,?Val),
+	!.
+
+?Stud[grade(?AsgList)->?Val] :-
+	?Stud:student@MODULE,
+	// collectset sorts in ascending order
+	?Bounds = collectset{?V| gradeMap(?Stud.course)[?_G->?V]@MODULE},
+	// but we need in descending order
+	reverse(?Bounds,?DescendingBounds)@\plg(basics),
+	?Stud[weighted_average(?AsgList,?AvgVal)],
+	%find_grade(?Stud,?AvgVal,?DescendingBounds,?Grade),
+	?Val = ?Grade.
+
+%find_grade(?Stud,?Avg,[],?_) :- !,
+	abort(('Avg ', ?Avg, 'for ', ?Stud, ' is out of range'))@\sys.
+%find_grade(?Stud,?Avg,[?B|?Bounds],?Grade) :-
+	?B > ?Avg,
+	!,
+	%find_grade(?Stud,?Avg,?Bounds,?Grade).
+%find_grade(?Stud,?Avg,[?B|?_],?Grade) :-
+	?B =< ?Avg,
+	!,
+	gradeMap(?Stud.course)[?Grade->?B]@MODULE.
+
+
+%weighted_sum(?_Stud,[],0) :- !.
+%weighted_sum(?Stud,[?Asg|?AsgList],?Res) :-
+	\if (weights(?Stud.course)[?Asg->?Weight]@MODULE,
+	    integer(?Weight)@\plg(), ?Weight > 0)
+        \then (
+	    \if ?Stud[?Asg->?Score]@MODULE
+	    \then (
+		%weighted_sum(?Stud,?AsgList,?Res1),
+		?Res \is ?Weight*?Score + ?Res1
+	    ) \else
+	        // Assume Score=0
+	        %weighted_sum(?Stud,?AsgList,?Res)
+	) \else
+            abort(('Missing weight for assignment: ', ?Asg))@\sys.
+
+%average(?Crs,?Asg,?Res) :-
+	\if ?Res = avg{?Score| (?_Stud:student[course->?Crs, ?Asg->?Score])@MODULE,
+			       ?Score > thresholds(?Crs).average@MODULE}
+        \then \true
+        \else ?Res = 0.
+// Does error checking
+%get_score(?Stud,?Asg,?Score) :-
+	\if ranges(?Stud.course)[?Asg->[?Beg,?End]]@MODULE
+        \then \true
+        \else abort(('No range information for assignment: ', ?Asg))@\sys,
+	\if ?Stud[?Asg->?Score]@MODULE
+        \then
+           (?Score >= ?Beg, ?Score =< ?End, !
+            ; abort(('Out of range score for assignment ',
+	            ?Asg, ' student ', ?Stud))@\sys
+	    )
+        \else
+           ?Score=?Beg.
+        
+
+        
+// ID_GRADELIST/student
+?Stud[%print_id_scorelist(?AsgList)] :-
+	%print_id(?Stud),
+	?Stud[%print_id_scorelist_internal(?AsgList)].
+
+?_Stud[%print_id_scorelist_internal([])] :- !.
+?Stud[%print_id_scorelist_internal([?Asg|?AsgList])] :-
+	%get_score(?Stud,?Asg,?Score),
+	fmt_write('%7d ',arg(?Score))@\io,
+	?Stud[%print_id_scorelist_internal(?AsgList)].
+
+?Stud[%print_id_scorelist_grade(?AsgList)] :-
+	?Stud[%print_id_scorelist(?AsgList)],
+	?Stud.grade(?AsgList) = ?Gr,
+	format('    ~w', [?Gr])@\plg(format).
+
+// Print ID with last 2 digits stripped
+%print_id(?Stud) :-
+	//substring(Stud,2,-1,StrippedID)@\plg(),
+	\if str_sub('USB',?Stud,0)@\plg()
+        \then
+           ?StrippedID=?Stud
+        \else
+	   string_substitute(?Stud,[s(7,9)@\plg()],
+	                     ['XX'],?StrippedID)@\plg(string),
+	fmt_write('%-9s',arg(?StrippedID))@\io.
+
+?Stud[%print_full(?AsgList)] :-
+	?Stud[%print_basic_info],
+	?Stud[%print_scores(?AsgList)],
+	?Stud[weighted_average(?AsgList,?AvgVal)],
+	format('    Average:    ~w~n', [?AvgVal])@\plg(format),
+	?Stud[grade(?AsgList)->?Gr],
+	format('    Grade:      ~w~n', [?Gr])@\plg(format),
+	nl@\plg().
+
+?Stud[%print_basic_info] :-
+	?Stud[last->?L,first->?F,course->?C]@MODULE,
+	fmt_write('%s, %s   %s\n', args(?L,?F,?Stud))@\io,
+	fmt_write('    Course:  %s\n', args(?C))@\io.
+
+?_Stud[%print_scores([])] :- \true.
+?Stud[%print_scores([?Asg|?AsgList])] :-
+	\if ?Stud[?Asg->?Score]@MODULE
+        \then
+           fmt_write('    %-9s = %d', asg(?Asg,?Score))@\io
+        \else
+           fmt_write('    %-9s = 0', asg(?Asg))@\io,
+	nl@\plg(),
+	?Stud[%print_scores(?AsgList)].
+
+
+/************************* Reports *************************/
+
+// Compute total possible scores
+%init_report(?AsgList) :-
+	insertall{stealth{%courses(?_Crs)}|?_[course->?_Crs]@MODULE},
+	( %courses(?Crs),
+	  ?Total = sum{?Val | weights(?Crs)[?Asg->?Val]@MODULE,
+	                    member(?Asg,?AsgList)@\plg(basics)},
+          insert{stealth{%totals(?AsgList,?Crs,?Total)}},
+	  \false
+        ; \true).
+
+%print_report(?ReportMethod,?StudList,?AsgList) :-
+	%init_report(?AsgList),
+	keysort(?StudList,?SortedStud)@\plg(),
+        %print_report_internal(?ReportMethod,?SortedStud,?AsgList).
+
+%print_report_internal(?_ReportMethod,[],?_AsgList) :- !.
+%print_report_internal(?ReportMethod,[?_-?Stud|?StudList],?AsgList) :-
+	?Stud[%?ReportMethod(?AsgList)],
+	nl@\plg(),
+	%print_report_internal(?ReportMethod,?StudList,?AsgList).
+
+%print_averages(?_Crs,[]) :- nl@\plg().
+%print_averages(?Crs,[?Asg|?AsgList]) :-
+	%average(?Crs,?Asg,?Res),
+	fmt_write('%7.4S ', arg(?Res))@\io,
+	%print_averages(?Crs,?AsgList).
+
+
+//---------------------------------------------------
+
+// E.g., id_scorelist_report([proj1,midterm,proj2]).
+%id_scorelist_report(?AsgList) :-
+	?StudList = collectset{?V| ?S:student@MODULE, ?V=?S-?S},
+	%print_report(print_id_scorelist,?StudList,?AsgList),
+	writeln(SEPARATOR)@\plg(),
+	( %courses(?Crs),
+	  fmt_write('Averages (%s):\n\t   ',arg(?Crs))@\io,
+	  %print_averages(?Crs,?AsgList),
+	  \false
+        ; \true
+        ).
+
+// like id_scorelist_report, but also assigns grade
+%id_scorelist_grade_report(?AsgList) :-
+	?StudList = collectset{?V| ?S:student@MODULE, ?V=?S-?S},
+	%print_report(print_id_scorelist_grade,?StudList,?AsgList),
+	writeln(SEPARATOR)@\plg(),
+	( %courses(?Crs),
+	  fmt_write('Averages (%s):\n\t   ',arg(?Crs))@\io,
+	  %print_averages(?Crs,?AsgList),
+	  \false
+        ; \true
+        ).
+
+%id_scorelist_report(?File,?AsgList) :-
+	%print_to_file(?File, ${%id_scorelist_report(?AsgList)}).
+
+
+// E.g., full_report([proj1,midterm,proj2]).
+%full_report(?AsgList) :-
+	?StudList = collectset{?V| (?S:student[last->?L])@MODULE, ?V=?L-?S},
+	%print_report(print_full,?StudList,?AsgList),
+	nl@\plg(),
+	nl@\plg(),
+	nl@\plg(),
+	%id_scorelist_grade_report(?AsgList),
+	nl@\plg(),
+	nl@\plg(),
+	%printAllHistograms(averages).
+
+%full_report(?File,?AsgList) :-
+	%print_to_file(?File, ${%full_report(?AsgList)}).
+	            
+
+// Histograms
+%updateHistogram(?Stud,?Course,?Assignment,?Value) :-
+	\naf %recorded(?Stud,?Course),
+	!,
+	insert{stealth{%recorded(?Stud,?Course)}},
+	\if %histogram(?Course,?Assignment,?Value,?NumOfStuds)
+        \then (
+           delete{stealth{%histogram(?Course,?Assignment,?Value,?NumOfStuds)}},
+           ?NewVal \is ?NumOfStuds+1,
+	   insert{stealth{%histogram(?Course,?Assignment,?Value,?NewVal)}}
+        )
+        \else
+	   insert{stealth{%histogram(?Course,?Assignment,?Value,1)}}.
+%updateHistogram(?_Stud,?_Course,?_Assignment,?_Value) :- \true.
+
+%printHistogram(?Course,?Assignment) :-
+	fmt_write('\nHistogram for: %s/%s\n',
+	          args(?Assignment,?Course))@\io,
+	writeln('-------------------------------------------')@\plg(),
+	ranges(?Course)[?Assignment->[?Low,?High]]@MODULE,
+	!,
+	%printHistogramInternal(?Course,?Assignment,?Low,?High).
+
+%printHistogramInternal(?_Course,?_Assignment,?Low,?High) :-
+	?Low > ?High,
+	abort(('Bug: Low ', ?Low, ' exceeds ', ?High))@\sys.
+%printHistogramInternal(?Course,?Assignment,?Low,?High) :-
+	?Low < ?High,
+	!,
+	%printHistogramItem(?Course,?Assignment,?High),
+	?NewHigh \is ?High - 1,
+	%printHistogramInternal(?Course,?Assignment,?Low,?NewHigh).
+%printHistogramInternal(?Course,?Assignment,?Low,?Low) :-
+	!,
+	%printHistogramItem(?Course,?Assignment,?Low).
+
+%printHistogramItem(?Course,?Assignment,?Val) :-
+	%histogram(?Course,?Assignment,?Val,?Number),
+	!,
+	fmt_write('%3d       %d\n', args(?Val,?Number))@\io.
+%printHistogramItem(?_Course,?_Assignment,?Val) :- 
+	fmt_write('%3d       -\n', arg(?Val))@\io.
+
+// Print histograms for all courses that occur in the class file
+%printAllHistograms(?Assignment) :-
+	( %courses(?C),
+	  %printHistogram(?C,?Assignment),
+	  nl@\plg(),
+	  \false
+	; \true).
+
+%round(?X,?Result) :- ?Result \is floor(?X+0.5)@\plg().
+
+

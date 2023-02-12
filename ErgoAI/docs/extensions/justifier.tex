@@ -1,0 +1,942 @@
+
+\section{Explaining Answers}\label{sec-expl-answers}
+
+\index{ErgoAI}
+\index{Ergo Studio}
+\index{Query Tool}
+\index{Studio Listener}
+When Ergo runs as an Ergo Studio application,
+the user can request explanations for the answers either by running a query
+using the \emph{Query Tool}  or on command line, through the \emph{Studio
+Listener}.  In addition, explanations can be obtained
+\emph{programmatically}, via the explanation API. This latter method is
+available both in and outside of the studio; it is
+suitable for applications developers who need to add an explanation
+capability to their software (such as a chatbot).
+
+We should note that, at present, explanations can be
+obtained only for queries that can be \emph{replayed}. These are the
+queries that leave the underlying state of the knowledge base intact.
+This includes the
+queries that do not involve update operators or the queries in which
+%% 
+\begin{enumerate}
+\item  all update operators are \emph{transactional} (\texttt{tinsert},
+  \texttt{tdelete}, etc.) and
+\item all such update operators occur in the scope of a hypothetical
+  operator \texttt{<>} or \texttt{$\sim$<>}.  
+\end{enumerate}
+%% 
+
+\subsection{Obtaining Explanations via the Studio}
+
+\index{why\{...\}}
+In case of the Ergo Studio, explanations can be requested by
+double-clicking on any particular answer (or by choosing an appropriate
+menu item---Why? or Why not?). Alternatively, the user may
+request explanations by typing the query
+%% 
+\begin{alltt}
+   why\{\textnormal{\emph{Goal}}\}. 
+\end{alltt}
+%% 
+in the Studio Listener, where \emph{Goal} is a unitary goal  In both cases, a window pops up, which explains how
+answers were obtained or why they were \emph{not} obtained.
+Statements marked in {\color{green}green} in the explanation window are proved to be true,
+those displayed in the {\color{blue}blue color} are false. {\color{red}Red}
+means contradiction (both
+\emph{p} and \emph{\RULELOGNEG p} can be proved), and {\color{purple}purple}
+means undefined
+(neither \emph{p} nor \emph{\RULELOGNAF p}  can be proven).
+Finally, the {\color{brown}brown color}
+denotes facts that should have been true, but were defeated.
+
+\paragraph{Non-ground justifications.}
+\emph{Goal} is expected to be a ground unitary goal
+(no variables) because this facility
+is intended to explain why a particular answer was or was not derived. If
+it is not ground, the goal will be instantiated to the first derivable
+answer and that particular answer will be explained. For instance, if
+\texttt{grandchild(May,Bob)} and \texttt{grandchild(Bill,Sue)} are both
+true then \texttt{why\{grandchild(?X,?Y)\}} will match \texttt{?X} and
+\texttt{?Y} against one of the above
+answers non-deterministically
+(e.g., \texttt{?X=Bill} and \texttt{?X=Sue}) and only
+\texttt{grandchild(Bill,Sue)} will be explained.    
+However, there is an easy way to get all justifications for all answers at
+once. All one has to do is to pose this as a query:
+%% 
+\begin{verbatim}
+    grandchild(?X,?Y), why{grandchild(?X,?Y)}.
+\end{verbatim}
+%% 
+What this does is it obtains one answer at a time, binding \texttt{?X} and
+\texttt{?Y} and making \texttt{grandchild(?X,?Y)} ground, and then
+explanation is obtained for each of these groundings. Each explanation will
+appear in a separate tab in the explanation window and so it should be clear
+that doing this for queries that have many answers is not advisable.
+
+\paragraph{Explanations and text generation.}
+Explanations can be combined with the ErgoText feature, described in
+Section~\ref{sec-ergotext}, to generate textual explanations (e.g., in
+English)
+instead of the more technical \ERGO's logic syntax. This feature is described in
+Section~\ref{sec-ergo-textgen} and is called \emph{text generation}.  
+A way to do this is to create Enlish sentence templates for the
+subgoals that one desires to appear in explanations as
+English sentences. See
+Section~\ref{sec-ergo-textgen} for more details.
+Another, complementary way of generating textual explanations is TextIt,
+described in Section~\ref{sec-textit}. It is a lighter-weight facility,
+which can be used together with ErgoText or by itself.
+
+
+\subsection{Obtaining Explanations via the \ERGO Programmatic API}
+
+\index{Explanation API}
+\index{Explanation API!all-at-once}
+\index{Explanation API!step-by-step}
+Developers can add explanation capability to their applications
+via the \emph{Explanation API}, which provides high-level calls for
+obtaining explanations \emph{all-at-once} or \emph{step-by-step.}
+Most users would choose the all-at-once method, since it is much easier.
+The step-by-step method is suitable for very advanced users who need their
+apps to provide heavily customized explanations in cases when the
+all-at-once API falls short for some reason.
+Another situation where the step-by-step method may be better is when full
+explanations contain millions of items (for instance, when rules involve
+many aggregate functions that aggregate tens of thousands of values).
+In such a case, generating a full explanation may take significant amount
+of time and space.
+
+\subsubsection{Obtaining Explanations All-at-once}
+
+This portion of the API provides calls that take a goal to explain and
+return a structure that represents a
+complete explanation of why that goal was or
+was not derived. The following API calls are provided---all in the system
+module \texttt{\bs{}why}:
+%% 
+\begin{itemize}
+\item \texttt{\textnormal{\emph{?Goal}}[why(full) ->
+    \texttt{\textnormal{\emph{?Explanation}}}]@\bs{}why.}
+  \\
+  This is the most common call in this API. \emph{?Goal} must be
+  instantiated to a \emph{reified} unitary goal to be explained and thus it
+  can be very general. It is expected
+  to be ground (variables must be substituted with constants or other
+  ground terms). If it is not, \emph{?Goal} will be matched against the
+  first-found matching ground answer and this will be the answer that will
+  be explained. An explanation for a goal shows one of the possible
+  derivations of that goal given the rules and facts that were provided to
+  \ERGO.  The derivation will be aware of F-logic inheritance, background
+  axioms (e.g., the transitivity of \texttt{::}, \texttt{:=:}), and
+  defeasibility.  If \emph{?Goal} is false, the explanation will show some of
+  the reasons why this might be so. In general, the number of reasons
+  for why a particular answer was \emph{not} derived 
+  can be huge, so \ERGO just tries to give some ``reasonable''
+  explanations.  If the truth value of \emph{?Goal} is undefined, it is
+  usually either due to a negative loop through negation (which will be
+  demonstrated) or because at some point \texttt{\RULELOGNAF} was applied
+  to a non-ground subgoal some of whose instances are true and some false
+  (or undefined).  If \emph{?Goal} is contradictory, i.e., both it and its
+  negation can be derived, both derivations will be shown. Note that \ERGO
+  is based on a paraconsistent logic, so a contradiction is always
+  localized to specific subgoals and this does not destroy the knowledge
+  base, unlike in classical logic.
+
+  The result of the above query,
+  \emph{?Explanation}, is
+  a recursive data structure consisting of \emph{explanation snippets} of
+  the form  
+  %% 
+  \begin{quote}
+   explanation(\emph{TruthValue}(\emph{Goal},\emph{Reason},\emph{RuleInfo}),\emph{SupportList}) 
+  \end{quote}
+  %% 
+  where
+  %% 
+  \begin{itemize}
+  \item \emph{Goal} is a unitary goal that one wishes to be explained. 
+    It thus can be very general.
+  \item   \emph{TruthValue} can be \texttt{true}, \texttt{false},  
+    \texttt{undefined}, or \texttt{contradiction}, depending on the     
+    truth value of \emph{Goal}. 
+    It can also be \texttt{unknown} in some cases. This usually happens with
+    arithmetic builtins and means that the builtin appears in a query before
+    all of its variables were bound to concrete values. 
+  \item \emph{Reason} is a text string that provides an explanation for the
+    reason why \emph{Goal} appears in that explanation snippet.  For the
+    top goal, that reason is \texttt{'top query'}, but usually it is just
+    \texttt{null} because in most cases snippets appear in explanations   
+    because they occur in the bodies of rules used in the derivation.
+    When they are not \texttt{null}, it is usually because the snippet 
+    \emph{defeats} the subgoal $G'$ that it is supposed to
+    explain (in this case, $G'$ would be false or undefined and
+    the reason would be \texttt{refutedBy},
+    \texttt{rebuttedBy}, etc.---see Section~\ref{sec-defeasible} for a
+    refresher on the concepts of defeasible reasoning)
+    or because the aforesaid subgoal $G'$
+    was inherited from \emph{Goal}
+    (in which case the reason will describe
+    the type of inheritance used, i.e., inheritance of type, value, etc.).
+  \item \emph{RuleInfo} provides information about the rule that was used
+    to derive \emph{Goal}. It has the form
+    \texttt{ruleid}(\emph{LocalId},\emph{File},\emph{Module}) and supplies
+    the three components that constitute an Id of a rule in \ERGO.
+    The meaning of these items is explained in Section~\ref{sec-rule-id}.
+    If the rule cannot be determined or is inapplicable (for instance, if
+    \emph{Goal} is composite, is an aggregate function, or was concluded by
+    an axiom such as the transitivity of \texttt{::}) then \emph{LocalId}
+    is \texttt{null} (and \emph{File}/\emph{Module} may or may not be
+    \texttt{null}).       
+  \item \emph{SupportList} is a list of explanation snippets that explain
+    how \emph{Goal} got its \emph{TruthValue}. That is, the members of the
+    list are snippets of the above form (\texttt{explanation(...)}), which makes the explanation
+    structure recursive. If no support is required for \emph{Goal},
+    \emph{SupportList} would be an empty list. This happens when
+    \emph{Goal} is a base fact or there is a rule like $Goal :- \bs{}true.$, a builtin that evaluates to true,
+    or a statement that has no matching rules.
+
+    Note that, by default, the explanation snippets in the
+    support list are sorted, so the supporting
+    explanations may not appear in the order in which they were found and in
+    which supporting subgoals appear in the rules.
+    To change the order to coincide with the one specified in the
+    rules, change a global flag by executing the command
+    %% 
+\begin{verbatim}
+     ?- use_unsorted_explanations@\why.    
+\end{verbatim}
+    %% 
+    To switch back to the default, execute
+    %% 
+\begin{verbatim}
+     ?- use_sorted_explanations@\why.    
+\end{verbatim}
+    %% 
+  \end{itemize}
+  %% 
+  In general, an explanation structure is rather long, so we will give just
+  a small number of simple examples:
+  %% 
+  {\small
+\begin{alltt}
+// demo1.ergo
+p :- q,r.
+p :- s, \RULELOGNAF t.
+q :- r,v.
+r, s, v.
+
+?- \$\{p\}[why(full)->?E]@\bs{}why.
+?E=explanation(
+       true(\$\{p@main\},'top query',\textbf{ruleid(4,'demo1.ergo',main)}),
+        [explanation(true(\$\{q@main\},null,\textbf{ruleid(8,'demo1.ergo',main)}),
+           [explanation(true(\$\{r@main\},'base fact',ruleid(null,null,null)),[]),
+            explanation(true(\$\{v@main\},'base fact',ruleid(null,null,null)),[])]),
+          explanation(true(\$\{r@main\},'base fact',ruleid(null,null,null)),[])])
+
+?- \$\{\RULELOGNAF p\}[why(full)->?E]@\bs{}why.
+?E=explanation(false((\RULELOGNAF p@main),'top query',ruleid(null,null,main)),
+               [explanation(true((\RULELOGNAF t@main),null,ruleid(null,null,main)),
+                 [explanation(false(\$\{t@main\},null,ruleid(null,null,null)),[])]),
+                explanation(true(\$\{q@main\},null,\textbf{ruleid(8,'demo1.ergo',main)}),
+                             [explanation(true(\$\{r@main\},'base fact',
+                                                ruleid(null,null,null)),[]),
+                              explanation(true(\$\{v@main\},'base fact',
+                                                ruleid(null,null,null)),[])]),
+                explanation(true(\$\{r@main\},'base fact',ruleid(null,null,null)),[]),
+                explanation(true(\$\{s@main\},'base fact',ruleid(null,null,null)),[])])
+\end{alltt}
+    }
+%% 
+  Observe that in some cases (in bold) the explanation includes the
+  identification information for the rules involved in the inference,
+  which can be used to get to those rules via the \texttt{clause\{...\}}
+  and the \texttt{@!\{...\}} queries.  
+  In other cases, the rule information does not exist because the
+  conclusions were made by relying of base facts.
+
+Next is an example that involves defeasibility in which the fact $q$ is
+refuted by $p$, making $q$ false while leaving $p$ true.
+%% 
+{\small
+\begin{alltt}
+// demo2.ergo
+:- use_argumentation_theory.
+@\{high\} p :- r,s.
+@\{low\}  q.
+\bs{}opposes(p,q).
+\bs{}overrides(high,low).
+r,s.
+
+?- \$\{q\}[why(full)->?E]@\bs{}why.
+?E=explanation(false(\$\{q@main\},'top query',ruleid(null,null,main)),
+     [explanation(true(rebuttedBy(high,\$\{p@main\}),rebuttedBy,ruleid(null,null,main)),
+        [explanation(true(\$\{p@main\},null,\textbf{ruleid(4,'demo2.ergo',main)}),
+          [explanation(true(\$\{r@main\},'base fact',ruleid(null,null,null)),[]),
+           explanation(true(\$\{s@main\},'base fact',ruleid(null,null,null)),[])])]),
+      explanation(true(refutedBy(high,\$\{p@main\}),refutedBy,ruleid(null,null,main)),
+        [explanation(true(\$\{p@main\},null,\textbf{ruleid(4,'demo2.ergo',main)}),
+           [explanation(true(\$\{r@main\},'base fact',ruleid(null,null,null)),[]),
+            explanation(true(\$\{s@main\},'base fact',ruleid(null,null,null)),[])])])])
+\end{alltt}
+  }
+%% 
+Again, in two cases where inference was made via a rule, the rule
+information was provided. In other case, the statements were base facts
+(in which case rule information is inapplicable)
+or inference was made via a defeasibility axiom, which is indicated via
+\texttt{rebuttedBy} and \texttt{refutedBy} clauses.  
+
+The following is an example of an explanation that involves inheritance of
+type by method specialization:
+%% 
+{\small
+\begin{alltt}
+// demo3.ergo
+employee[|salary(year)=>\bs{}integer|].
+2017:year.
+Bob:employee.
+
+?- \$\{Bob[salary(2017)=>?SalaryType]\}[why(full)->?E]@\bs{}why.
+?SalaryType = \bs{}integer
+?E = explanation(true(\$\{Bob[salary(2017)=>\bs{}integer]@main\},'top query',
+                      ruleid(null,null,main)),
+       [explanation(true(\$\{Bob:employee@main\},'base fact',
+                         ruleid(null,null,null)),[]),
+        explanation(true(\$\{employee[|salary(2017)=>\bs{}integer|]@main\},null,
+                         ruleid(null,null,main)),
+         [explanation(true(\textbf{'method salary(year) is a generalization of salary(2017)'},
+                            null,
+                            ruleid(null,null,null)),[]),
+           explanation(true(\$\{employee[|salary(year)=>\bs{}integer|]@main\},
+                            'base fact',
+                            ruleid(null,null,null)),[])])])
+\end{alltt}
+  }
+%% 
+  Note that the explanation indicates how inheritance was used in the
+  inference. Since no rules were used in this inference, the
+  \texttt{ruleid(...)} part is null.
+Finally, we show an example of behavioral inheritance:
+%% 
+{\small
+\begin{verbatim}
+// demo4.ergo
+employee[|vacationdays->20|].
+{Mary,Bob}:employee.
+Mary[vacationdays->25].
+
+?- ${Bob[vacationdays->?V]}[why(full)->?E]@\why.
+?V = 20
+?E = explanation(
+         true(${Bob[vacationdays->20]@main},'top query',ruleid(null,null,main)),
+                [explanation(true(${Bob:employee@main},'base fact',
+                               ruleid(null,null,null)),[]),
+                 explanation(true(${employee[|vacationdays->20|]@main},'base fact',
+                               ruleid(null,null,null)),[])])
+
+?- ${Mary[vacationdays->?V]}[why(full)->?E]@\why.
+?V = 25
+?E = explanation(
+         true(${Mary[vacationdays->25]@main},'top query',ruleid(null,null,null)),
+                 [explanation(true(${Mary[vacationdays->25]@main},'base fact',
+                  ruleid(null,null,null)),[])])
+\end{verbatim}
+  }
+%% 
+  As in the previous example, all inference is done without the use of
+  rules so that part of the explanation is null.
+Note, on the other hand,
+how the first explanation shows the inheritance of vacation days from the
+class \texttt{employee}  in case of
+Bob and that the second explanation shows that
+inheritance is not used in case of Mary because her
+information about vacation days is explicit and overrides what is inherited
+from her superclass.
+
+
+\item  \texttt{\textnormal{\emph{?Goal}}[why(full,withtext) -> \texttt{\textnormal{\emph{?Explanation}}}]@\bs{}why.}
+  \\
+  This call may be useful in case ErgoText and/or \texttt{textit{...}} 
+  is being used for all or some of
+  the logic in the application.
+  The description of this call is the same as above with the only
+  difference being that the truth-value component in an explanation snippet
+  has the form
+  %% 
+  \begin{quote}
+      \emph{TruthValue}(\emph{Goal}, \emph{Reason}, \emph{GoalText}, \emph{RuleInfo} )
+  \end{quote}
+  %% 
+  where \emph{GoalText} is a textual representation of \emph{Goal}. If \emph{Goal}
+  has an ErgoText template (or a textit template)
+  then \emph{GoalText} is the ErgoText phrase
+  corresponding to \emph{Goal} in that template. If no ErgoText/textit
+  template for \emph{Goal} exists,
+  \emph{GoalText} is simply a string that corresponds to the textual
+  appearance of \emph{Goal} (like what one sees when query answers are
+  shown). 
+
+  The \emph{RuleInfo} part in this case has the form
+  %% 
+  \begin{quote}
+    \texttt{ruleinfo}(\texttt{ruleid}(\emph{LocalId},\emph{File},\emph{Module}),
+    \emph{RuleText})
+  \end{quote}
+  %% 
+  Here \emph{RuleText} could be one of these:
+  %% 
+  \begin{itemize}
+  \item  If \emph{Goal} was inferred by a rule and that rule had a
+    \texttt{textit} attribute in its descriptor (see
+    Section~\ref{sec-rule-id} about rule descriptors) as in
+    \label{page-rule-textit}
+    %% 
+\begin{verbatim}
+      @!{rule123[textit->'If a & b is true then c is also!']}
+      c :- a, b.
+\end{verbatim}
+    %% 
+    then \emph{RuleText} is what that attribute gives (\texttt{'If a \& b
+      is true then c is also!'} in this example).
+    \label{page-textit}
+    \index{textit attribute in rule descriptors}
+  \item If \emph{Goal} was derived by a rule but \texttt{textit} was not
+    specified in that rule's descriptor then  \emph{RuleText} is
+    \texttt{no text given for the relevant rule}. 
+  \item If \emph{Goal} is inferred via an axiom and not a rule
+    then this axiom's text is used, prefixed with \texttt{axiom|}.
+    (See an example below.)
+  \item If \emph{Goal} is a base fact or a builtin
+    and none of the above applies,
+    then  \emph{RuleText} is \texttt{it is a base fact} or \texttt{this is a base fact or a builtin}.
+  \item \emph{RuleText} is \texttt{derived via a builtin axiom (negation,
+      defeasibility, composite goal, etc.)} if the goal cannot be
+    derived via a single user rule (a composite goal, a negated goal, etc.).
+  \item Otherwise, \emph{RuleText} is \texttt{inferrence rule cannot be
+      determined}. This usually
+    happens if \emph{Goal} was derived by a rule that has only builtins or
+    Prolog predicates.
+  \end{itemize}
+  %% 
+    For instance, in example
+    demo3.ergo above, we would get the following:
+%% 
+{\small
+\begin{alltt}
+// demo3.ergo with text
+employee[|salary(year)=>\bs{}integer|].
+2017:year.
+Bob:employee.
+
+?- \$\{Bob[salary(2017)=>?SalaryType]\}[why(full,\textbf{withtext})->?E]@\bs{}why.
+?SalaryType=\bs{}integer
+?E=explanation(true(\$\{Bob[salary(2017)=>\bs{}integer]@main\},'top query',
+                    'Bob[salary(2017)=>\bs{}integer]',
+                    ruleinfo(ruleid(null,null,main),
+                             \textbf{'axiom|inheritance of type to class member'})),
+     [explanation(true(\$\{Bob:employee@main\},'base fact',
+                       'Bob:employee',
+                       ruleinfo(ruleid(null,null,null),base_or_builtin)),[]),
+      explanation(true(\$\{employee[|salary(2017)=>\bs{}integer|]@main\},null,
+                       'employee[|salary(2017)=>\bs{}integer|]',
+                       ruleinfo(ruleid(null,null,main),
+                                \textbf{'axiom|inheritance by method specialization'})),
+        [explanation(true('method salary(year) is a generalization of salary(2017)',
+                           null,
+                          'method salary(year) is a generalization of salary(2017)',
+                           ruleinfo(ruleid(null,null,null),base_or_builtin)),[]),
+         explanation(true(\$\{employee[|salary(year)=>\bs{}integer|]@main\},'base fact',
+                          'employee[|salary(year)=>\bs{}integer|]',
+                          ruleinfo(ruleid(null,null,null),base_or_builtin)),[])])])
+\end{alltt}
+  }
+%% 
+
+\item  \texttt{\textnormal{\emph{?Goal}}[why(full,textonly) -> \texttt{\textnormal{\emph{?Explanation}}}]@\bs{}why.}
+  \\
+  Sometimes one needs only the textual information from explanations---not
+  the actual subgoal or a reason. In this case, this call would be most
+  effective. It is like the \texttt{withtext} call except that only the
+  \emph{GoalText} part is returned:
+  %% 
+  \begin{quote}
+      \emph{TruthValue}(\emph{GoalText}, \emph{RuleInfo})
+  \end{quote}
+  %% 
+  where \emph{GoalText} is as above. \emph{RuleInfo} in this case consists
+  of just the \emph{RuleText} component described above (with the
+  \texttt{withtext} option).   
+
+\item  \texttt{\textnormal{\emph{?Goal}}[why(full,raw) -> \texttt{\textnormal{\emph{?Explanation}}}]@\bs{}why.}
+  \\
+  This call is very rarely used as it is lower-level than the calls
+  described above. It is like \texttt{why(full)} except that the elements of the
+  \emph{?Explanation} structure are \emph{support objects}. One can use the
+  calls in the step-by-step API to get information out of these objects.
+  The structure of an explanation snippet in this case is also similar to
+  the first API call (\texttt{why(full)})  except that the truth-value
+  portion of the snippet is as follows:
+  %% 
+  \begin{itemize}
+  \item    In the very top snippet, the truth-value portion is the same as
+    in the first API call:  \emph{TruthValue}(\emph{Goal},\texttt{'top query'}).
+  \item In all subsequent snippets, this element is an aforesaid support object.
+    A support object is a 6-ary HiLog term. The step-by-step API, described
+    next, lets one extract the various components out of these structures.
+  \end{itemize}
+
+\item \texttt{\textnormal{\emph{?Explanation}}[size ->
+    \texttt{\textnormal{\emph{?number}}}]@\bs{}why.}
+  \\
+  Sometimes it is useful to know how large is a full explanation. Since
+  an explanation is a complex recursive structure, getting the size information
+  out is a chore. This API call does it.
+  %% 
+\end{itemize}
+%% 
+
+
+\subsubsection{Obtaining Explanations Step-by-step}
+
+As mentioned previously, this API is mostly for do-it-yourselfers who need
+heavily customized explanation mechanisms.
+%% 
+\begin{itemize}
+\item  \texttt{\textnormal{\emph{?Goal}}[why ->
+    \texttt{\textnormal{\emph{?SupportObject}}}]@\bs{}why.}
+  \\
+  This call takes a reified goal and returns the support objects that can
+  be used to prove that goal. This is always a top-level
+  call. Subsequently, the \texttt{support} attribute can be used to drill
+  further down into the explanations. 
+\item \texttt{\textnormal{\emph{?SupportObject}}[support ->
+    \texttt{\textnormal{\emph{?ChildSupportObject}}}]@\bs{}why.}
+  \\
+  This call can be used to deepen the exploration of the derivation tree
+  for a query answer.
+\item \texttt{\textnormal{\emph{?SupportObject}}[isleaf]@\bs{}why.}
+  \\
+  This call tells if a support object is a \emph{leaf}, in which case no
+  further deepening is necessary. 
+\item \texttt{\textnormal{\emph{?SupportObject}}[goal ->
+    \texttt{\textnormal{\emph{?Goal}}}]@\bs{}why.}
+  \\
+  Returns the goal encapsulated inside \emph{?SupportObject}. 
+\item \texttt{\textnormal{\emph{?SupportObject}}[reason ->
+    \texttt{\textnormal{\emph{?Text}}}]@\bs{}why.}
+  \\
+  Returns the special reason for this derivation step;
+  encapsulated inside \emph{?SupportObject}. 
+\item \texttt{\textnormal{\emph{?SupportObject}}[text ->
+    \texttt{\textnormal{\emph{?GoalText}}}]@\bs{}why.}
+  \\
+  Converts the goal encapsulated within \emph{?SupportObject} into its
+  textual representation. If an ErgoText template that corresponds to  that
+  goal exists, then the English phrase from that template is
+  used. Otherwise, the goal is just converted to its string representation. 
+\item \texttt{\textnormal{\emph{?SupportObject}}[rule ->
+    \texttt{ruleid(\textnormal{\emph{?LocalId}},\textnormal{\emph{?File}},\textnormal{\emph{?Module}})}]@\bs{}why.}
+  \\
+  Returns the Id of the rule in which this support object's goal was
+  used as a condition in the body.
+\item \texttt{\textnormal{\emph{?SupportObject}}[info ->
+    \texttt{\textnormal{\emph{?InfoObject}}}]@\bs{}why.}
+  \\
+  Extracts the truth-value/reason information from the
+  \emph{?SupportObject} structure. It has the form that is already familiar
+  to us from the first API call:
+  \emph{TruthValue}(\emph{Goal},\emph{Reason}).
+\end{itemize}
+%% 
+
+\subsubsection{Explanations for Non-ground Queries}
+
+The explanation API expects that the subgoals that are to be explained are
+ground. If not, \ERGO finds one of the answers non-deterministically
+and explains just that one answer.  If a query is non-ground,
+can we make \ERGO to return
+explanations for \emph{all} answers to the query without tediously
+feeding the answers one-by-one and asking many separate queries? This is actually quite easy. For a
+non-ground query one can simply pose the following
+as a query (change \texttt{full} to the arguments appropriate for your
+sitation; e.g., \texttt{full,textonly}):
+%% 
+\begin{verbatim}
+    query, ${query}[why(full)->?Explanation]@\why.
+\end{verbatim}
+%% 
+or like this, which can be shorter if \texttt{query} is a long sentence:
+%% 
+\begin{verbatim}
+    ?NewVar = ${query}, ?NewVar, ?NewVar[why(full)->?Explanation]@\why.
+\end{verbatim}
+%% 
+That is, first call \texttt{query} and then ask for the explanations for
+whatever answers were found. Both must be done in the \emph{same} query or
+rule body. 
+For instance,
+%% 
+\begin{verbatim}
+    :- compiler_options{omni=on}.
+    exist(?Sen1,?Sen2)^senator(?State,{?Sen1,?Sen2}) :- state(?State).
+    state(NY).
+    state(AL).
+    state(TX).
+    ?- senator(?State,?_Senator),
+           ${senator(?State,?_Senator)}[why(full)->?Explanation]@\why.
+\end{verbatim}
+%% 
+will return three answers, each containing an explanation for a particular
+binding \texttt{NY}, \texttt{AL}, and \texttt{TX} for \texttt{?State}:
+%% 
+\begin{verbatim}
+    ?State = NY
+    ?Explanation = explanation(true(${senator(NY,...
+
+    ?State = TX
+    ?Explanation = explanation(true(${senator(TX,...
+
+    ?State = TX
+    ?Explanation = explanation(true(${senator(TX,...
+\end{verbatim}
+%% 
+Try it!.
+
+
+\subsection{Special Display Mode for Explanations}\label{sec-expl-display}
+
+\FLSYSTEM provides an optional special display mode for explanations.
+See Section~\ref{sec-display-mode} for the details of the various display modes.
+The special display mode for explanations can be invoked by executing
+%% 
+\begin{verbatim}
+   ?- setdisplaymode{explanation}.
+\end{verbatim}
+%% 
+before requesting explanations.
+This has the effect that various primitive data types
+will look friendlier for the end-users (who are not programmers or
+knowledge engineers) of \FLSYSTEM applications. For instance, in the
+default display mode, a date would look like this:
+\verb|2018-09-18^^\date|, while in the explanation mode it will be just
+\texttt{2018-09-18}. The former form would be useful for a knowledge
+engineer who is debugging a query; the latter is more useful to the 
+end user of a finished application.
+For that reason, the explanation mode is not hard-wired into the
+explanation facility but has to be requested by the application builder.
+
+
+
+\subsection{Text Generation for Explanations via TextIt}\label{sec-textit}
+
+\index{TextIt}
+\index{text generation!TextIt}
+In Section~\ref{sec-ergo-textgen} we discussed the use of ErgoText
+templates for text generation for the answer explanation process.
+However, when ErgoText is not used, one might still want explanations
+to appear in a textual form rather than in a logical form (for
+instance, for showing to domain experts). \emph{TextIt} is a simplified facility for
+that. The general forms of a TextIt template are as follows:
+%% 
+\begin{alltt}
+   textit\{\textnormal{\emph{Subgoal},\emph{FormatString},\emph{ArgList}}\}
+   textit\{\textnormal{\emph{Subgoal},\emph{FormatString},\emph{ArgList},\emph{Condition}}\}
+\end{alltt}
+%% 
+(Note the curly braces.)
+\emph{Subgoal} here is a subgoal for which one wants to generate text. It
+does \emph{not} need to be reified, since \ERGO knows that this is supposed  
+to be a formula and will reify it automatically. \emph{FormatString} is a
+Prolog atom where markers of the form \texttt{\%s} have special meaning:
+they are substituted by the arguments from \emph{ArgList} in the order of
+appearance. That \emph{ArgList} is usually the list of variables from
+\emph{Subgoal} but can also contain other terms.
+The number of \texttt{\%s}'s in \emph{FormatString} must equal the length
+of the list \emph{ArgList}. If not, an error or a warning will be issued.
+
+The optional \emph{Condition} argument (which has the same syntax as a rule
+body), if used, makes the template
+conditional. Each time before the textit template is used, \emph{Condition}
+is evaluated. If it is false, the template is not used. Note that if
+\emph{Condition} has more than one subgoal, it must be enclosed in
+parentheses. 
+
+\noindent
+(To avoid confusion, we should mention that the TextIt facility described
+here is distinct from the \texttt{textit} attribute in rule descriptors
+introduced earlier, on page \pageref{page-textit}, in conjunction with the
+\texttt{withtext} option. Both facilities are used to provide
+textual explanations for \ERGO inferences: the former for subgoals and the
+latter for rules.)
+
+
+\noindent
+TextIt templates can be made known to \ERGO as facts as in
+%% 
+\begin{alltt}
+   textit\{\textnormal{\emph{Subgoal1},\emph{FormatString1},\emph{ArgList1}}\}.
+   textit\{\textnormal{\emph{Subgoal2}},...,...\}.
+   ...
+   textit\{\textnormal{\emph{SubgoalN}},...,...\}.
+\end{alltt}
+%% 
+or via queries like this:
+%% 
+\begin{alltt}
+   ?- textit\{\textnormal{\emph{Subgoal1},\emph{FormatString1},\emph{ArgList1}}\},
+      textit\{\textnormal{\emph{Subgoal2}},...,...\},
+      ...
+      textit\{\textnormal{\emph{SubgoalN}},...,...\}.
+\end{alltt}
+%% 
+
+\noindent
+For instance,
+%% 
+\begin{verbatim}
+   textit{address(?P,?A), '%s lives at %s', [?P,?A]}.
+   ?- textit{foo(?X), 'this is foo of %s %s', [the,?X]},
+      textit{salary(?P,?S), '%s has salary %s', [?P,?S]}.
+\end{verbatim}
+%% 
+If subgoal \texttt{foo(bar)} occurs in an explanation, it will be shown as
+the sentence \texttt{this is foo of the bar}.
+If \texttt{salary(John,100000)} appears in an explanation, it will be shown as
+\texttt{John has salary 100000}. Similarly, \texttt{address(Bob,'1 Main
+  St.')} will be shown as \texttt{Bob lives at 1 Main St}.    
+For instance,
+%% 
+\begin{verbatim}
+   ergo> textit{salary(?P,?S),'%s has salary %s', [?P,?S]}.
+   ...
+   ergo> insert{salary(John,100000)}.
+   ...
+   ergo> ${salary(John,?)}[why(full,textonly)->?E]@\why.
+   ?E = explanation(true('John has salary 100000'),
+                    [explanation(true('John has salary 100000'),[])])
+\end{verbatim}
+%% 
+or
+%% 
+\begin{verbatim}
+    ergo> ${salary(John,?)}[why(full,withtext)->?E]@\why.
+    ?E = explanation(true(${salary(John,100000)@main},
+                     'top query',
+                     'John has salary 100000'),
+                     [explanation(true(${salary(John,100000)@main},
+                                  'base fact',
+                                  'John has salary 100000'),[])])
+\end{verbatim}
+%% 
+
+The choice of whether queries or facts should be used depends on the situation.
+Facts are imported faster, so if there is a very large number of TextIt
+templates then one should use that method. On the other hand, the query
+method is more flexible, as it lets one apply templates conditionally
+and even construct them on the fly. For instance, in
+%% 
+\begin{verbatim}
+   ?- db_pred(?P), db_word(?W), textit{?P(?X),'this is %s of %s %s',[?P,?W,?X]}.
+\end{verbatim}
+%% 
+if \texttt{?P} gets bound to \texttt{test} and \texttt{?W} to \texttt{my}
+then the following template will be recorded by the system:
+%% 
+\begin{verbatim}
+   textit{test(?X),'this is %s of %s %s',[test,my,?X]}.
+\end{verbatim}
+%% 
+The \texttt{textit} primitives can appear even in rule bodies! 
+
+Here is an example of a 4-ary textit primitive, with a condition argument:
+%% 
+\begin{verbatim}
+   textit{spouse(?PID,?SID),
+          '%s has spouse named %s', [?PN,?SN],
+          (name(?PID,?PN),name(?SID,?SN))}.
+\end{verbatim}
+%% 
+The condition here converts person Ids into their names so that the names
+and not Ids will appear in the explanations.
+Note that since the condition here contains two subgoals,
+it is enclosed in parentheses.
+
+Textit can also be specified as a property of the rule Id construct, as in
+%% 
+\begin{verbatim}
+      @!{IRS_Rule123[textit->'IRS Rule such and such.']}
+      nondeductible(?X) :- mealExpense(?X), \naf ordinary(?X).
+\end{verbatim}
+%% 
+This information is returned as part of explanations (see page
+\pageref{page-rule-textit}) and can be
+utilized in visual presentation of these explanations.
+
+Here are some even more sophisticated uses of TextIt:
+%% 
+\begin{verbatim}
+  textit{?X \is ?Y, '%s = %s', [?X,?Y], ?X \== ?Y}.
+  textit{?_X \is ?_Y, '\\IGNORE', [], ?_X == ?_Y}.
+\end{verbatim}
+%% 
+Both of these are conditional 4-argument TextIts. The first statement
+directs text generation to convert \verb|X \is Y| to \texttt{X = Y} \emph{if} the
+arguments are not identical. If the arguments \emph{are} identical then the
+second statement kicks in and converts the \verb|\is|  statement to the
+\verb|'\\IGNORE'| statement. This signals the explanation generator to
+ignore explanation elements like \texttt{8=8} or \texttt{a=a}, which are
+obvious to humans and are thus perceived as noise. 
+
+The next example is even more advanced:
+%% 
+\begin{verbatim}
+  textit{\if ?C \then ?T \else ?E,
+        'either (%s) and (%s) or not (%s), but (%s)',
+        [?CT,?TT,?CT,?ET],
+        (%textify(?C,?CT)@\why, %textify(?T,?TT)@\why, %textify(?E,?ET)@\why)
+      }.
+\end{verbatim}
+%% 
+\index{\%textify()}
+This is also a conditional TextIt, but the advanced part here is that the
+arguments \texttt{?C}, \texttt{?T}, and \texttt{?E} are supposed to be
+instantiated by \FLSYSTEM formulas. These formulas themselves may have
+textual representations defined through TextIt or ErgoText.
+To obtain that representation during explanation generation, we use the
+\texttt{\%textify(...,...)} built-in provided by  the system
+module \verb|\why|. 
+
+A number of advanced uses of conditional TextIt statements can be found in
+the file\\
+\texttt{ErgoAI/ergo\_demos/complex\_textification\_examples.ergo}
+in the Ergo distribution. 
+
+Caution: the condition in the 4-argument \texttt{textit\{...\}} (i.e.,
+argument 4) must
+\textbf{not} bind any variables that appear in the goal (argument 1).  
+This is because any such variables must appear in the textification of that
+goal as variables that denote unknown objects and not as some arbitrary
+bindings that result from the application of the
+condition in the TextIt statement.
+If such a binding occurs, the textification of the goal in question is
+likely to be confusing to the user.
+
+
+We remind that, as explained in Section~\ref{sec-ergo-textgen}, text generation via
+ErgoText and TextIt can be used together.
+If a subgoal matches both an ErgoText template and a TextIt template,
+the latter will be shown as an explanation. If only one kind of a template
+(ErgoText or TextIt) matches the subgoal, the text generated from that
+template is used.
+
+\subsection{Fine-tuning the Explanations}
+
+Ergo provides certain control over which subgoals will be shown in the
+explanations via the following two predicates:
+%% 
+\index{\bs{}trivialJustification}
+\index{\bs{}opaqueJustification}
+\begin{quote}
+    \texttt{\bs{}trivialJustification}(\emph{type},\emph{reified-goal})  
+    \\
+    \texttt{\bs{}opaqueJustification}(\emph{type},\emph{reified-goal})  
+\end{quote}
+%% 
+where \emph{type} can be \texttt{w}, \texttt{m}, or a variable
+(usually just \texttt{?}).   
+
+If a subgoal appears in \texttt{\bs{}trivialJustification} then neither it
+nor its subtree (if it depends on other subgoals)
+will show up in explanations. If the subgoal is mentioned in
+\texttt{\bs{}opaqueJustification}
+then it will appear in explanations, but its subtree will not.
+More precisely, the above statements are true only if the aforesaid
+\emph{type} is a variable. If \emph{type} is \texttt{w} then the
+aforesaid explanations will be omitted only if \emph{reified-goal} is true
+or undefined.
+If \emph{type} is \texttt{m} then they will be omitted only if
+\emph{reified-goal} is false. 
+Here are some examples:
+
+%% 
+\begin{verbatim}
+ \trivialJustification(?,${p(?)}).    // omit p(?) and subtree
+ \trivialJustification(w,${q(?,?)}).  // omit q(?,?) & subtree if q(?,?) is true
+ \trivialJustification(m,${r(?)@foo}). // omit r(?)@foo only if r(?) is false
+ \trivialJustification(?,${?@foo}).    // omit everything in module foo
+
+ \opaqueJustification(?,${p(?)}).   // omit the subtree of p(?)
+ \opaqueJustification(w,${q(?,?)}). // omit the subtree of q(?,?) if q(?,?) is true
+ \opaqueJustification(?,${?@foo}).  // omit subtrees of everything in module foo
+\end{verbatim}
+%% 
+
+\subsection{Converting Explanations to JSON}
+
+One common use of the explanation API is to present explanations to the
+user in a graphical form as a tree using one of the existing packages for
+JavaScript, Java, or some other imperative language. Many of these packages
+expect input in the form of a JSON object, so converting explanations to
+JSON could be useful.
+
+\index{term2json!exporting terms to JSON}
+The \FLSYSTEM JSON interface is described in Chapter ``Importing and
+Exporting JSON Structures'' in ``A Guide to \FLSYSTEM Packages''
+and one can always apply the method \texttt{term2json} in module
+\texttt{\bs{}json} to obtain explanations in the Json form. However, this
+general facility was designed to work for arbitrary \FLSYSTEM terms and
+thus it yields JSON objects that are not specific to the particular form
+that explanations have, and this requires extra work for parsing.
+Fortunately, for the most common case of the explanations produced via the
+\texttt{why(full,textonly)} method described earlier in this chapter, a
+much more convenient method exists:
+\index{toJson!exporting exlanations to JSON}
+%% 
+\begin{verbatim}
+   ?Explanation[toJson->?Json]@\why.
+\end{verbatim}
+%% 
+given a text-only explanation such as 
+%% 
+\begin{verbatim}
+explanation(true('Top Goal Text',inapplicable),
+            [explanation(true('Goal1 text',indeterminable),
+                         [explanation(false('It rains','by observation'),[])]),
+             explanation(true('Add amounts 1 and 2','by depreciation rule'),[]),
+             explanation(true('Goal4 text',base_or_builtin),[]) ])
+\end{verbatim}
+%% 
+the above method would produce a JSON string of the form
+%% 
+\begin{verbatim}
+'{ "truthvalue":"true",
+   "goal":"Top Goal Text",
+   "ruleinfo":"inapplicable",
+   "support":[{ "truthvalue":"true",
+                "goal":"Goal1 text",
+                "ruleinfo":"indeterminable",
+                "support":[{ "truthvalue":"false",
+                             "goal":"It rains",
+                             "ruleinfo":"by observation",
+                             "support":[]}]},
+              { "truthvalue":"true",
+                "goal":"Add amounts 1 and 2",
+                "ruleinfo":"by depreciation rule",
+                "support":[]},
+              { "truthvalue":"true",
+                "goal":"Goal4 text",
+                "ruleinfo":"base_or_builtin",
+                "support":[]}]}'
+\end{verbatim}
+%% 
+Explanation GUIs can be built from this convenient form.
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

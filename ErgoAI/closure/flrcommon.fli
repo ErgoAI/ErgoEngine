@@ -1,0 +1,296 @@
+/*******************************************************************************
+  file: closure/flrcommon.fli - The common part of all trailers
+
+  Author(s): Guizhen Yang
+
+  Contact:   flora-users@lists.sourceforge.net
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+*******************************************************************************/
+
+
+#include "flora_wspredicates.flh"
+#include "flora_porting.flh"
+#include "flora_exceptions.flh"
+
+:- import flora_abort/1 from flrporting.
+
+:- import flora_runtime_switch_registry/2 from flrregistry.
+
+:- import flora_builtin_class/1 from flrdatatype.
+
+:- import FLORA_NAF_PREDICATE/1 from flrnegation.
+
+:- import flora_warning_line/2 from flrprint.
+
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_MODULE_NAME'.
+
+
+#include "flrtypes.fli"
+
+#include "flrcommon_neg.inc"
+
+
+/***************************************************************************
+  inferred predicates
+
+  These wrapper predicates with the 'inferred^' prefix (FLTRAILERPREFIX)
+  are needed to make the trailer dynamically loadable. Note that the
+  program rules use wrapper predicates with the 'derived^', prefix, i.e.,
+  FLHEADPREFIX.
+***************************************************************************/
+FLTRAILERPREFIX(WRAP_SUB)(X,Y,FWContext) :-
+        %% ::'s meaning is fixed for builtin types in flrdtype_sub.P
+        X \== FL_TOPTYPE,
+        Y \== FL_TOPTYPE,
+        \+ flrdatatype:flora_builtin_class(X),
+        \+ flrdatatype:flora_builtin_class(Y),
+	FLHEADPREFIX(WRAP_SUB)(X,Y,FWContext),
+        (flrdatatype:flora_builtin_class(X),
+         nonvar(Y),
+         \+ flrdatatype:flora_builtin_class(Y) ->
+            flrdecode:flora_decode_oid_list_as_atom_list([X,Y],[XD,YD]),
+            fmt_write_string(Printable,'%s::%s',args(XD,YD)),
+            flora_warning_line('the builtin class hierarchy has been altered by the user;\n\t\t the following user fact will be ignored: ~w', [Printable]),
+            fail
+        ; flrdatatype:flora_builtin_class(Y), Y \= FL_TOPTYPE,
+          nonvar(X),
+          \+ flrdatatype:flora_builtin_class(X) ->
+            flrdecode:flora_decode_oid_list_as_atom_list([X,Y],[XD,YD]),
+            fmt_write_string(Printable,'%s::%s',args(XD,YD)),
+            flora_warning_line('the builtin class hierarchy has been altered by the user;\n\t\t the following user fact will be ignored: ~w', [Printable]),
+            fail
+        ; true
+        ).
+FLTRAILERPREFIX(WRAP_ISA)(O,C,FWContext) :-
+        %% :'s meaning is fixed for builtin types in flrdtype_sub.P
+        C \== FL_TOPTYPE,
+        \+ flrdatatype:flora_builtin_class(C),
+	FLHEADPREFIX(WRAP_ISA)(O,C,FWContext).
+FLTRAILERPREFIX(WRAP_MVD)(O,A,V,FWContext) :-
+	FLHEADPREFIX(WRAP_MVD)(O,A,V,FWContext).
+FLTRAILERPREFIX(WRAP_IMVD)(C,A,V,FWContext) :-
+	FLHEADPREFIX(WRAP_IMVD)(C,A,V,FWContext).
+FLTRAILERPREFIX(WRAP_MVDDEF)(O,A,FWContext) :-
+	FLHEADPREFIX(WRAP_MVDDEF)(O,A,FWContext).
+FLTRAILERPREFIX(WRAP_IMVDDEF)(C,A,FWContext) :-
+	FLHEADPREFIX(WRAP_IMVDDEF)(C,A,FWContext).
+FLTRAILERPREFIX(WRAP_MVDSIG)(O,MethodArgs,R,FWContext) :-
+	FLHEADPREFIX(WRAP_MVDSIG)(O,MethodArgs,R,FWContext).
+FLTRAILERPREFIX(WRAP_MVDCONDEF)(O,MethodArgs,L,H,FWContext) :-
+	FLHEADPREFIX(WRAP_MVDCONDEF)(O,MethodArgs,L,H,FWContext),
+	( integer(L) -> true
+	;
+	     flora_concat_items(['Lower bound ',L,' of cardinality constraint of ',O,'[',MethodArgs,'=>?]  is not an integer.'],ErrorMsg),
+	     flora_abort(FLORA_CARDINALITY_CONSTRAINT_EXCEPTION(ErrorMsg))
+	),
+	( ((integer(H),H>=0);H=='*') -> true
+	;
+	     flora_concat_items(['Higher bound ',H,' of cardinality constraint of ',O,'[',MethodArgs,'=>?]  is not a non-negative integer or infinity(*).'],ErrorMsg),
+	     flora_abort(FLORA_CARDINALITY_CONSTRAINT_EXCEPTION(ErrorMsg))
+	).
+FLTRAILERPREFIX(WRAP_MVDSIGDEF)(O,MethodArgs,FWContext) :-
+	FLHEADPREFIX(WRAP_MVDSIGDEF)(O,MethodArgs,FWContext).
+FLTRAILERPREFIX(WRAP_IMVDSIG)(O,MethodArgs,R,FWContext) :-
+	FLHEADPREFIX(WRAP_IMVDSIG)(O,MethodArgs,R,FWContext).
+FLTRAILERPREFIX(WRAP_IMVDCONDEF)(O,MethodArgs,L,H,FWContext) :-
+	FLHEADPREFIX(WRAP_IMVDCONDEF)(O,MethodArgs,L,H,FWContext),
+	( integer(L) -> true
+	;
+	     flora_concat_items(['Lower bound ',L,' of cardinality constraint of ',O,'[|',MethodArgs,'=>?|]  is not an integer.'],ErrorMsg),
+	     flora_abort(FLORA_CARDINALITY_CONSTRAINT_EXCEPTION(ErrorMsg))
+	),
+	( ((integer(H),H>=0);H=='*') -> true
+	;
+	     flora_concat_items(['Higher bound ',H,' of cardinality constraint of ',O,'[|',MethodArgs,'=>?|]  is not a non-negative integer or infinity(*).'],ErrorMsg),
+	     flora_abort(FLORA_CARDINALITY_CONSTRAINT_EXCEPTION(ErrorMsg))
+	).
+FLTRAILERPREFIX(WRAP_IMVDSIGDEF)(O,MethodArgs,FWContext) :-
+	FLHEADPREFIX(WRAP_IMVDSIGDEF)(O,MethodArgs,FWContext).
+FLTRAILERPREFIX(WRAP_METH)(O,M,FWContext) :-
+	FLHEADPREFIX(WRAP_METH)(O,M,FWContext).
+FLTRAILERPREFIX(WRAP_IMETH)(C,M,FWContext) :-
+	FLHEADPREFIX(WRAP_IMETH)(C,M,FWContext).
+FLTRAILERPREFIX(WRAP_BOOLSIG)(O,M,FWContext) :-
+	FLHEADPREFIX(WRAP_BOOLSIG)(O,M,FWContext).
+FLTRAILERPREFIX(WRAP_IBOOLSIG)(C,M,FWContext) :-
+	FLHEADPREFIX(WRAP_IBOOLSIG)(C,M,FWContext).
+FLTRAILERPREFIX(WRAP_TRANSIG)(O,M,FWContext) :-
+	FLHEADPREFIX(WRAP_TRANSIG)(O,M,FWContext).
+FLTRAILERPREFIX(WRAP_ITRANSIG)(C,M,FWContext) :-
+	FLHEADPREFIX(WRAP_ITRANSIG)(C,M,FWContext).
+FLTRAILERPREFIX(WRAP_TRAN)(O,T,FWContext) :-
+	FLHEADPREFIX(WRAP_TRAN)(O,T,FWContext).
+FLTRAILERPREFIX(WRAP_OBJEQL)(X,Y,FWContext) :-
+	FLHEADPREFIX(WRAP_OBJEQL)(X,Y,FWContext).
+FLTRAILERPREFIX(WRAP_EXISTS)(X,FWContext) :-
+	FLHEADPREFIX(WRAP_EXISTS)(X,FWContext).
+
+
+/***************************************************************************
+  multivalued attributes inclusion
+***************************************************************************/
+WRAP_MVDINC(_O,_M,[],FWContext) :- !.
+WRAP_MVDINC(O,M,[H|T],FL_CONTEXT(Caller,_,_)) :-
+    	WRAP_MVD(O,M,H,FL_CONTEXT(Caller,_,_)),
+	WRAP_MVDINC(O,M,T,FL_CONTEXT(Caller,_,_)).
+
+
+WRAP_IMVDINC(_O,_M,[],FWContext) :- !.
+WRAP_IMVDINC(O,M,[H|T],FL_CONTEXT(Caller,_,_)) :-
+    	WRAP_IMVD(O,M,H,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMVDINC(O,M,T,FL_CONTEXT(Caller,_,_)).
+
+
+/****************************************************************************
+  multivalued attributes aggregation
+
+  Note: (1) These two predicates always succeeds.
+        (2) These two predicates are not tabled.
+****************************************************************************/
+WRAP_MVDTOLIST(O,M,L,FL_CONTEXT(Caller,_,_)) :-
+	WRAP_MVDDEF(O,M,FL_CONTEXT(Caller,_,_)),
+	findall(V,WRAP_MVD(O,M,V,FL_CONTEXT(Caller,_,_)),L_pre),
+        sort(L_pre,L).
+
+%% We want to return [] if method is undefined. Must use not_exists/1 here,
+%% NOT Flora-2's FLORA_NAF_EXISTS, as the latter tends to yield undefinedness
+WRAP_MVDTOLIST(O,M,[],_) :- tables:not_exists(WRAP_MVDDEF(O,M,_)).
+
+
+WRAP_IMVDTOLIST(O,M,L,FL_CONTEXT(Caller,_,_)) :-
+	WRAP_IMVDDEF(O,M,FL_CONTEXT(Caller,_,_)),
+	findall(V,WRAP_IMVD(O,M,V,FL_CONTEXT(Caller,_,_)),L_pre),
+        sort(L_pre,L).
+ 
+%% We want to return [] if method is undefined. Must use not_exists/1 here,
+%% NOT Flora-2's FLORA_NAF_EXISTS, as the latter tends to yield undefinedness
+WRAP_IMVDTOLIST(O,M,[],_) :- tables:not_exists(WRAP_IMVDDEF(O,M,_)).
+
+
+/****************************************************************************
+   Odd-lot predicates
+****************************************************************************/
+%% These are tabled in genincludes/flrtable.fli
+FL_TRUTHVALUE_TABLED_CALL(X) :- call(X).
+FL_TABLED_NAF_CALL(Goal) :- call(Goal).
+
+/*
+   The next bridge rules are needed because otherwise
+   flrcanon:flora_convert_to_head(...d^mvdcon(...), ...mvdcon(...))
+   gives an undefined head ...mvdcon(...), which can lead to an XSB error.
+   So, we brifge mvdcon to d^mdvcon here.
+   Such an invalid head might be produced, for example, with:
+   a[b{1..2}=>c] ~ ?A@?M, writeln(?A)@\plg.
+   ==> (_$_$_ergo'mod'main'mvdsig(a,b,c,_h11985),
+          _$_$_ergo'mod'main'mvdcon(a,b,1,2,_h12632))
+                             ^^^^^^
+*/
+WRAP_MVDCON(X,Y,Z,V,FWContext) :-
+        FLBodyPREFIX(WRAP_MVDCON)(X,Y,Z,V,FWContext).
+WRAP_IMVDCON(X,Y,Z,V,FWContext) :-
+        FLBodyPREFIX(WRAP_IMVDCON)(X,Y,Z,V,FWContext).
+
+
+/****************************************************************************
+  WRAP_EXISTS/1
+****************************************************************************/
+:- import FL_ISBASEFACT/1 from flrstorageutils.
+
+WRAP_EXISTS(X,FWContext) :- FL_ISBASEFACT(WRAP_MVD(X,_,_,FWContext)).
+WRAP_EXISTS(X,FWContext) :- FL_ISBASEFACT(WRAP_MVD(_,_,X,FWContext)).
+WRAP_EXISTS(X,FWContext) :- FL_ISBASEFACT(WRAP_MVDDEF(X,_,FWContext)).
+WRAP_EXISTS(X,FWContext) :- FL_ISBASEFACT(WRAP_IMVD(X,_,_,FWContext)).
+WRAP_EXISTS(X,FWContext) :- FL_ISBASEFACT(WRAP_IMVD(_,_,X,FWContext)).
+WRAP_EXISTS(X,FWContext) :- FL_ISBASEFACT(WRAP_IMVDDEF(X,_,FWContext)).
+
+WRAP_EXISTS(X,FWContext) :- FL_ISBASEFACT(WRAP_METH(X,_,FWContext)).
+WRAP_EXISTS(X,FWContext) :- FL_ISBASEFACT(WRAP_IMETH(X,_,FWContext)).
+
+%% We restrict these so that one could not infer existence merely
+%% due to standard classes such as \symbol, \object, (?;?), etc.
+WRAP_EXISTS(X,FWContext) :-
+    	FL_ISBASEFACT(WRAP_ISA(X,C,FWContext)),
+	\+ flora_builtin_class(C),
+	((C = (Class;_) ; C = (_;Class)) -> \+flora_builtin_class(Class)
+	; true
+	).
+WRAP_EXISTS(X,FWContext) :- WRAP_ISA(O,X,FWContext).
+WRAP_EXISTS(X,FWContext) :-
+    	FL_ISBASEFACT(WRAP_SUB(X,C,FWContext)),
+	\+ flora_builtin_class(C),
+	C\= (X;_),   C\= (_;X),
+	X \= (C,_),  X\= (_,C),   X\= C-_,
+	((C = (Class;_) ; C = (_;Class)) -> \+flora_builtin_class(Class)
+	; true
+	).
+WRAP_EXISTS(X,FWContext) :-
+    	FL_ISBASEFACT(WRAP_SUB(C,X,FWContext)),
+	X\= (C;_), X\= (_;C),
+	C\= (X,_), C\= (_,X), C\= X-_.
+
+/* Ensure that objects corresponding to the standard data types "exist" */
+WRAP_EXISTS(Class,_FWContext) :- flora_builtin_class(Class).
+
+/*
+%% This is now asserted in flrdefinition.fli. Asserting here is too late.
+%% Have to assert, because flora_defined_class/1 gets its content from
+%% different modules. Using compiled rules would cause each module to
+%% override another
+?- assert((
+       flora_defined_class(X) :-
+	    FLTRAILERPREFIX(WRAP_SUB)(X, _,_FWContext) ;
+	    FLTRAILERPREFIX(WRAP_SUB)(_, X,_FWContext) ;
+	    FLTRAILERPREFIX(WRAP_ISA)(_, X,_FWContext)
+    )).
+*/
+
+
+#include "flrequality_none.inc"
+
+
+/****************************************************************************
+    Introduced in support of the debugger
+****************************************************************************/
+%% like WRAP_SUB, but the debugger won't trace these
+silent_sub(C,S,FWContext) :- WRAP_SUB(C,S,FWContext).
+FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FWContext) :- WRAP_SUB(C,S,FWContext).
+FLINHERITANCEPREFIX(WRAP_ISA)(C,S,FWContext) :- WRAP_ISA(C,S,FWContext).
+
+%% Like inferred_* but the debugger (actually the decoder, flrdecode.P)
+%% will print them in a special way
+FLINHERITANCEPREFIX(WRAP_IMVD)(C,M,V,FWContext) :- FLTRAILERPREFIX(WRAP_IMVD)(C,M,V,FWContext).
+FLINHERITANCEPREFIX(WRAP_IMVDDEF)(C,M,FWContext) :- FLTRAILERPREFIX(WRAP_IMVDDEF)(C,M,FWContext).
+
+FLINHERITANCEPREFIX(WRAP_IMVD_EQL)(C,M,V,FWContext) :- FLTRAILERPREFIX(WRAP_IMVD_EQL)(C,M,V,FWContext).
+FLINHERITANCEPREFIX(WRAP_IMVDDEF_EQL)(C,M,FWContext) :- FLTRAILERPREFIX(WRAP_IMVDDEF_EQL)(C,M,FWContext).
+
+FLINHERITANCEPREFIX(WRAP_IMETH)(C,M,FWContext) :- FLTRAILERPREFIX(WRAP_IMETH)(C,M,FWContext).
+FLINHERITANCEPREFIX(WRAP_IMETH_EQL)(C,M,FWContext) :- FLTRAILERPREFIX(WRAP_IMETH_EQL)(C,M,FWContext).
+
+
+FL_SILENT_EQUAL(X,X).
+
+
+/****************************************************************************
+   common axioms for HiLog predicates
+****************************************************************************/
+#include "flrcommon_pred.fli"
+
+#include "extensions/flrbgaxioms_noeql.inc"
+
+

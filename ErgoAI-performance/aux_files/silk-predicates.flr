@@ -1,0 +1,34 @@
+:- iriprefix{silkb = "http://vulcan.com/2008/silk-builtins#"}.
+
+:- iriprefix{dc = "http://purl.org/dc/elements/1.1/"}.
+
+silkb#sendEmail : silk#ExternalPredicate[silk#arg-> {smtpServer[silk#type->xsd#string], from[silk#type->xsd#string], to[silk#type->xsd#string], subject[silk#type->xsd#string], text[silk#type->xsd#string]}, silk#binding-> addbp[silk#in-> {smtpServer, from, to, subject, text}, silk#javaClass-> ("org.semwebcentral.silk.externalpredicates.predicates.EmailPredicate"^^\string)]] .
+
+silkb#writeLn : silk#ExternalPredicate[silk#arg-> input[silk#type->xsd#string], silk#binding-> writeLnBP[silk#in-> input, silk#javaClass-> ("org.semwebcentral.silk.externalpredicates.predicates.WriteLinePredicate"^^\string)]] .
+
+silkb#querySilkInstance : silk#ExternalPredicate[silk#arg-> {outputs[silk#type->silk#list], outputsBindingOrder[silk#type->silk#list], inputs[silk#type->silk#list], url[silk#type->xsd#string], template[silk#type->xsd#string]}, silk#binding-> addbp[silk#in-> {outputsBindingOrder, inputs, url, template}, silk#out-> outputs, silk#javaClass-> ("org.semwebcentral.silk.externalpredicates.predicates.SilkQueryPredicate"^^\string)]] .
+
+silkb#fatal : silk#ExternalPredicate[silk#arg-> loggerName[silk#type->xsd#string], silk#arg-> message[silk#type->xsd#string], silk#binding-> fatalBP[silk#in-> {loggerName, message}, silk#javaClass-> ("org.semwebcentral.silk.externalpredicates.predicates.log4j.FatalPredicate"^^\string)]] .
+
+silkb#error : silk#ExternalPredicate[silk#arg-> loggerName[silk#type->xsd#string], silk#arg-> message[silk#type->xsd#string], silk#binding-> errorBP[silk#in-> {loggerName, message}, silk#javaClass-> ("org.semwebcentral.silk.externalpredicates.predicates.log4j.ErrorPredicate"^^\string)]] .
+
+silkb#warn : silk#ExternalPredicate[silk#arg-> loggerName[silk#type->xsd#string], silk#arg-> message[silk#type->xsd#string], silk#binding-> warnBP[silk#in-> {loggerName, message}, silk#javaClass-> ("org.semwebcentral.silk.externalpredicates.predicates.log4j.WarnPredicate"^^\string)]] .
+
+silkb#info : silk#ExternalPredicate[silk#arg-> loggerName[silk#type->xsd#string], silk#arg-> message[silk#type->xsd#string], silk#binding-> infoBP[silk#in-> {loggerName, message}, silk#javaClass-> ("org.semwebcentral.silk.externalpredicates.predicates.log4j.InfoPredicate"^^\string)]] .
+
+silkb#debug : silk#ExternalPredicate[silk#arg-> loggerName[silk#type->xsd#string], silk#arg-> message[silk#type->xsd#string], silk#binding-> debugBP[silk#in-> {loggerName, message}, silk#javaClass-> ("org.semwebcentral.silk.externalpredicates.predicates.log4j.DebugPredicate"^^\string)]] .
+
+silkb#trace : silk#ExternalPredicate[silk#arg-> loggerName[silk#type->xsd#string], silk#arg-> message[silk#type->xsd#string], silk#binding-> traceBP[silk#in-> {loggerName, message}, silk#javaClass-> ("org.semwebcentral.silk.externalpredicates.predicates.log4j.TracePredicate"^^\string)]] .
+
+silkb#cycEvaluate : silk#ExternalPredicate[silk#arg-> {output[silk#type->xsd#string], predicate[silk#type->xsd#string], arg1[silk#type->xsd#string], arg2[silk#type->xsd#string]}, silk#binding-> cycEvaluateBP[silk#out-> output, silk#in-> {predicate, arg1, arg2}, silk#javaClass-> ("org.semwebcentral.silk.externalpredicates.predicates.cyc.CycEvaluatePredicate"^^\string)]] .
+
+silkb#cycQuery : silk#ExternalPredicate[silk#arg-> {OutputBindings[silk#type->xsd#string], query[silk#type->xsd#string]}, silk#binding-> cycEvaluateBP[silk#out-> OutputBindings, silk#in-> {query}, silk#javaClass-> ("org.semwebcentral.silk.externalpredicates.predicates.cyc.CycQueryPredicate"^^\string)]] .
+
+silkb#currentTime : silk#ExternalPredicate[silk#arg-> {currentTime[silk#type->xsd#dateTime]}, silk#binding-> cycEvaluateBP[silk#out-> currentTime, silk#javaClass-> ("org.semwebcentral.silk.externalpredicates.predicates.CurrentTimePredicate"^^\string)]] .
+
+?- set_prolog_flag(max_table_subgoal_depth, 100)@\prolog.
+
+?- set_prolog_flag(heap_garbage_collection, none)@\prolog.
+
+//?- silk#violation(?kind) .
+

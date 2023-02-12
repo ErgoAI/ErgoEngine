@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project default="create_combined_jar" name="Create Combined Jar for Studio, Jena, OWL, SPARQL">
+  <property environment="env"/>
+  <property name="Jena.location" value=""/>
+  <property name="debuglevel" value="source,lines,vars"/>
+  <property name="target" value="1.7"/>
+
+  <condition property="git.exists">
+    <or>
+    <!--
+      <available file="git" filepath="${env.PATH}"/>
+      <available file="git.exe" filepath="${env.PATH}"/>
+      <available file="git.exe" filepath="${env.Path}"/>
+    -->
+    </or>
+  </condition>
+
+  <target name="do.gitlog" if="git.exists">
+    <exec dir="${GITDIR}" executable="git" outputproperty="fidji.build">
+      <arg value="log" />
+      <arg value="-1" />
+      <arg value="--pretty=format:%h" />
+    </exec> 
+  </target>
+  <target name="do.nolog" unless="git.exists">
+    <property name="fidji.build" value="unknown"/>
+  </target>
+
+  <target name="create_combined_jar" depends="do.gitlog,do.nolog">
+    <jar destfile="./ergoStudio.jar">
+      <manifest>
+     	<attribute name="Main-Class" value="com.declarativa.fiji.FijiPreferences" />
+     	<attribute name="Implementation-Version" value="${fidji.build}"/>
+      </manifest>
+      <zipfileset src="ergoStudio-pure.jar"/>
+      <zipfileset src="../../../Tools/jena/JenaAllInOne.jar"/>
+      <zipfileset src="../../ergo2owl/java/ergoOWL.jar"/>
+      <zipfileset src="../../ergo2sparql/java/ergoSPARQL.jar"/>
+    </jar>
+  </target>
+</project>

@@ -1,0 +1,132 @@
+/* File:      ergo_lib/ergo2sql.ergo -- Ergo-SQL adaptor
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2015-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+#include "flora_terms.flh"
+
+:- compiler_options{expert=on,production=on}.
+:- nontabled_module.
+:- suppress_rule_signatures.
+
+:- symbol_context{open/5}.
+
+:- export{
+            ?[open(?,?,?,?)],
+            ?[open(?,?,?,?,?)],
+            ?[close],
+            ?[query(?,?,?)],
+            ?[prepare(?,?)],
+            ?[execute(?,?)],
+            ?[qclose],
+    	    ensure_loaded
+	 }.
+
+:- ignore_depchk{insert{?},deleteall{?}}.
+
+?-  // initialize
+	feedback{tempoff},
+	[dbdrivers].
+
+
+// calling ensure_loaded@\sql ensures that the module \sql is loaded
+ensure_loaded :- !.
+
+
+/*
+   NOTE: ConnectId is an atom and is INPUT to the open/close and is an ATOM.
+   Example: odbc[open(id1,mydbn,me,mypwd)]@\sql
+            Assume mydbn ODBC data source uses the database called 'test'
+            with the account 'me' and the password 'mypwd'
+*/
+odbc[open(?ConnectId,?DSN,?User,?Password)] :-
+        (isatom{?ConnectId}, isatom{?DSN}, isatom{?Password}, isatom{?Password} -->> \true
+        ;  sysabort('odbc[open(...)]: all arguments must be Prolog atoms')@\sys
+        ),
+        load_driver(odbc)@\prolog(dbdrivers),
+	db_connect(?ConnectId,odbc,?DSN,?User,?Password)@\prolog.
+
+/*
+  Example: mysql[open(id2,localhost,test,me,mypwd)]@\sql.
+           Assume the database called 'test' on the server localhost
+           and has the account 'me' and the password 'mypwd'
+*/
+mysql[open(?ConnectId,?Server,?Database,?User,?Password)] :-
+        //(flora_running_under(windows)@\prolog(flrporting) -->>
+        //     sysabort('the mysql driver is not supported under Windows')@\sys
+        //; \true
+        //),
+        (isatom{?ConnectId}, isatom{?Server}, isatom{?Database}, isatom{?User}, isatom{?Password} -->> \true
+        ;  sysabort('mysql[open(...)]: all arguments must be Prolog atoms')@\sys
+        ),
+        load_driver(mysql)@\prolog(dbdrivers),
+	db_connect(?ConnectId,mysql,?Server,?Database,?User,?Password)@\prolog.
+
+// Example: id2[close]@\sql.
+?ConnectId[close] :- isatom{?ConnectId}, db_disconnect(?ConnectId)@\prolog.
+
+/*
+   ?QueryList  must be a list that concatenates into an SQL query
+   Example:  Assume the DB 'test' has the table
+             Person(name char(40),addr char(100),age integer)
+         Query:
+             id1[query(qa,['SELECT * FROM ',Person],
+                          [?Name,?Address,?Age]
+                      )
+                ]@\sql.
+*/
+?ConnectId[query(?QueryId,?QueryList,?ReturnList)] :-
+        isatom{?ConnectId}, islist{?QueryList}, islist{?ReturnList},
+	db_query(?ConnectId,?QueryId,?QueryList,?ReturnList)@\prolog.
+
+/*
+   ?QueryList  must be a list that concatenates into an SQL query
+   Example: same table Person
+            id1[prepare(qa,['SELECT T.addr FROM ', Person,
+                            ' T where T.name = ? and T.age = ?']
+                       )
+               ]@\sql.
+            id2[query(qa,
+                      ['insert into Person(name,addr,age)
+                                    values("mike","unknown",NULL)'],
+                      []
+                     )
+               ]@\sql.
+*/
+?ConnectId[prepare(?QueryId,?QueryList)] :-
+        isatom{?ConnectId}, islist{?QueryList},
+	db_prepare(?ConnectId,?QueryId,?QueryList)@\prolog.
+
+/*
+   Example: Assume 'qa' is the handle for the prepared query
+                id1[prepare(qa,['SELECT T.addr FROM ', Person,
+                                ' T where T.name = ? and T.age = ?']
+                           )
+                   ]@\sql.
+       Query:
+               qa[execute([mike,44],[?Address])]@\sql.
+*/
+?QueryId[execute(?BindList,?ReturnList)] :-
+        islist{?BindList}, islist{?ReturnList},
+	db_prepare_execute(?QueryId,?BindList,?ReturnList)@\prolog.
+
+// Example: qa[qclose]@\sql
+?QueryId[qclose] :-
+	db_statement_close(?QueryId)@\prolog.

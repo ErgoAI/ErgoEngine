@@ -1,0 +1,132 @@
+/* File:      flora_tabling_methods.flh -- tabling methods for various
+**                                         types of predicates
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018;
+**      and Vulcan, Inc., 2009-2013.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+/***************************************************************************
+       Tabling methods
+***************************************************************************/
+
+/*
+    If one configures FLORA-2 using
+
+       makeflora -S
+
+    then FLORA_SUBSUMPTIVE_TABLING gets defined in .ergo_default_tabling
+
+    With
+     
+      makeflora -NI
+
+    FLORA_NONINCREMENTAL_TABLING gets defined in .ergo_default_tabling
+
+    With
+
+      makeflora -S -NI
+
+    both FLORA_SUBSUMPTIVE_TABLING and FLORA_NONINCREMENTAL_TABLING get defined
+
+    Note: When default tabling changes via makeflora,
+          source .flr files will be recompiled on the first use.
+*/
+
+#define OTHER_TABLING_OPTIONS  ,if_not_tabled
+
+#include ".ergo_default_tabling"
+
+#if defined(FLORA_SUBSUMPTIVE_TABLING) && (!defined(FLORA_NONINCREMENTAL_TABLING) || defined(FLORA_INCREMENTAL_TABLING))
+
+/* Subsumptive tabling yields big speedups and improves termination */
+#define MOLECULE_TABLING_TYPE   (subsumptive,incremental OTHER_TABLING_OPTIONS)
+#define HILOG_TABLING_TYPE      (subsumptive,incremental OTHER_TABLING_OPTIONS)
+#define ISA_TABLING_TYPE	(subsumptive,incremental OTHER_TABLING_OPTIONS)
+#define EQUALITY_TABLING_TYPE   (subsumptive,incremental OTHER_TABLING_OPTIONS)
+/* AUXILIARY_TABLING_TYPE doesn't need to be subsumptive */
+#define AUXILIARY_TABLING_TYPE  (variant,incremental OTHER_TABLING_OPTIONS)
+
+#endif
+
+#if !defined(FLORA_SUBSUMPTIVE_TABLING) && (!defined(FLORA_NONINCREMENTAL_TABLING) || defined(FLORA_INCREMENTAL_TABLING))
+
+#define MOLECULE_TABLING_TYPE   (variant,incremental OTHER_TABLING_OPTIONS)
+#define HILOG_TABLING_TYPE      (variant,incremental OTHER_TABLING_OPTIONS)
+#define ISA_TABLING_TYPE	(variant,incremental OTHER_TABLING_OPTIONS)
+#define EQUALITY_TABLING_TYPE   (variant,incremental OTHER_TABLING_OPTIONS)
+#define AUXILIARY_TABLING_TYPE  (variant,incremental OTHER_TABLING_OPTIONS)
+
+#endif
+
+#if defined(FLORA_SUBSUMPTIVE_TABLING) && defined(FLORA_NONINCREMENTAL_TABLING) && !defined(FLORA_INCREMENTAL_TABLING)
+
+#define MOLECULE_TABLING_TYPE   (subsumptiv OTHER_TABLING_OPTIONSe)
+#define HILOG_TABLING_TYPE      (subsumptive OTHER_TABLING_OPTIONS)
+#define ISA_TABLING_TYPE	(subsumptive OTHER_TABLING_OPTIONS)
+#define EQUALITY_TABLING_TYPE   (subsumptive OTHER_TABLING_OPTIONS)
+#define AUXILIARY_TABLING_TYPE  (subsumptive OTHER_TABLING_OPTIONS)
+/*  Should start using the below when subsumptive+incremental works
+#define MOLECULE_TABLING_TYPE   (subsumptive,opaque OTHER_TABLING_OPTIONS)
+#define HILOG_TABLING_TYPE      (subsumptive,opaque OTHER_TABLING_OPTIONS)
+#define ISA_TABLING_TYPE	(subsumptive,opaque OTHER_TABLING_OPTIONS)
+#define EQUALITY_TABLING_TYPE   (subsumptive,opaque OTHER_TABLING_OPTIONS)
+#define AUXILIARY_TABLING_TYPE  (subsumptive,opaque OTHER_TABLING_OPTIONS)
+*/
+
+#endif
+
+#if !defined(FLORA_SUBSUMPTIVE_TABLING) && defined(FLORA_NONINCREMENTAL_TABLING) && !defined(FLORA_INCREMENTAL_TABLING)
+
+/* Use variant tabling */
+#define MOLECULE_TABLING_TYPE   (variant,opaque OTHER_TABLING_OPTIONS)
+#define HILOG_TABLING_TYPE      (variant,opaque OTHER_TABLING_OPTIONS)
+#define ISA_TABLING_TYPE	(variant,opaque OTHER_TABLING_OPTIONS)
+#define EQUALITY_TABLING_TYPE   (variant,opaque OTHER_TABLING_OPTIONS)
+#define AUXILIARY_TABLING_TYPE  (variant,opaque OTHER_TABLING_OPTIONS)
+
+#endif
+
+
+/* defines how dynamic predicates are handled with respect to incrementality */
+#if !defined(FLORA_NONINCREMENTAL_TABLING) || defined(FLORA_INCREMENTAL_TABLING)
+#define FLORA_DYNAMICS_TYPE     incremental
+#else
+#define FLORA_DYNAMICS_TYPE     opaque
+#endif
+
+/* this is for dynamic cases of :- prolog predicates */
+#ifdef FLORA_NONTABLED_DATA_MODULE
+#define FLORA_FLEX_DYNAMIC_TYPE_CLAUSE opaque
+#else
+#define FLORA_FLEX_DYNAMIC_TYPE_CLAUSE FLORA_DYNAMICS_TYPE
+#endif
+
+
+#define FLORA_TABLING_METHODS_INCLUDED
+
+
+/*
+%%% Local Variables: 
+%%% eval: (auto-fill-mode 0)
+%%% End:
+*/

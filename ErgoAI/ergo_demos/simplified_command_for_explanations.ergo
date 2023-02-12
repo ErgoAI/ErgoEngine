@@ -1,0 +1,142 @@
+/*
+   A simplified command that produces an explanation tree with the textonly
+   parameter (the most commoon case).
+   Allows passing the results both through the Java interface and also
+   through files (which might be faster for large explanation trees).
+*/
+
+
+/*
+   %explain(+query,-explanation)
+   %explain(+query,+VarNameValPairList,+filename)
+
+   The first form runs query with explanations and returns
+   one explanation for each answer. If explanation is a variable,
+   the explanation is returned in the Ergo form. If it is a ?Var+json,
+   ?Var is bound to the explanation in the JSON form.
+
+   The second form is similar, but saves all explanations in the given file
+   (argument 3).
+   If the file has the extension .json then results are written out in
+   the JSON format as a list of the form
+       [answer_1+justification_1,...,answer_N+justification_N].
+
+   Otherwise (for other file extensions), results (answer+explanation) are
+   written out in the Ergo form and are separated with lines of the form
+       //////;;;;;;
+   Such lines are needed because text in explanations may contain \n's and
+   it is not guaranteed that each explanation occupies exactly one line.
+
+   In the 3-argument form of %explain, argument 2 is a list of
+   varname-value pairs like this:
+       ['?var1'=?var1, ..., '?varN'=?varN].
+   These are the variables we want to be returned along with the explanations.
+
+   The format of the results in each case is best seen by running a small
+   example and then inspecting the files that contain the results.
+   The JSON format for the explanations is explained in Section 52.6 of the
+   ErgoAI Reasoner User's Manual.
+*/
+// %explain/2
+%explain(?_Query,?Result) :-
+        \+isvar{?Result},
+        \+(?Result=?R+json, isvar{?R}),
+        !,
+        sysabort(['%explain(QUERY,Result-or-file): argument 2 must be a variable or variable+json.'])@\sys.
+
+%explain(?Query,?Result) :-
+        isvar{?Result},
+        !,
+        %run_query(?Query,?Result).
+%explain(?Query,?Result+json) :-
+        isvar{?Result},
+        !,
+        %run_query(?Query,?ExplPrlg),
+        ?ExplPrlg[toJson->?Result]@\why.
+
+// %explain/3
+%explain(?_Query,?VarNameValList,?File) :-
+        ( issymbol{?File}
+        ; isstring{?File}
+        ),
+        ?FN = ?File.rawValue@\btp,
+        File[exists(?FN)]@\io,
+        \+ File[writable(?FN)]@\io,
+        !,
+        sysabort(['%explain(QUERY,', ?VarNameValList, ',', ?FN, '): argument 3 must be a writable file.'])@\sys.
+
+%explain(?Query,?VarNameValList,?File) :-
+        (?File[endsWith('.json')]@\btp -->>
+          %run_query_and_save_json(?Query,?VarNameValList,?File.rawValue@\btp)
+        ;
+          %run_query_and_save_ergo(?Query,?VarNameValList,?File.rawValue@\btp)
+        ).
+
+%run_query(?Query,?Result) :-
+        ?Query, ?Query[why(full,textonly)->?Result]@\why.
+
+%run_query_and_save_ergo(?Query,?VarNameValList,?File) :-
+        ?File[tell]@\io,
+        %run_query(?Query,?ErgoExplanation),
+        %print_var_bindings_ergo(?VarNameValList),
+        PRINTLN(?ErgoExplanation)@\io,
+        PRINTLN('.')@\plg,
+        PRINTLN('//////;;;;;;')@\plg,
+        \false.
+%run_query_and_save_ergo(?_Query,?_VarNameValList,?_File) :- told@\io.
+
+%run_query_and_save_json(?Query,?VarNameValList,?File) :-
+        ?File[tell]@\io,
+        PRINTLN('[')@\plg,
+        %run_query(?Query,?ErgoExplanation),
+        ?ErgoExplanation[toJson->?JsonExplanation]@\why, 
+        PRINTLN('  {')@\plg,
+        %print_var_bindings_json(?VarNameValList),
+        PRINT('    "explanation" : ')@\plg,
+        PRINTLN(?JsonExplanation)@\io,
+        PRINTLN('  }')@\plg,
+        PRINTLN(',')@\plg,
+        \false.
+%run_query_and_save_json(?_Query,?_VarNameValList,?_File) :-
+        PRINTLN(null)@\plg,
+        PRINTLN(']')@\plg,
+        told@\io.
+
+%print_var_bindings_ergo([]) :- !.
+%print_var_bindings_ergo([?VName=?VVal|?VarNameValList]) :-
+        PRINTLN(?VName = ?VVal)@\io,
+        PRINTLN('.')@\plg,
+        %print_var_bindings_ergo(?VarNameValList).
+
+%print_var_bindings_json(?VarList) :-
+        PRINTLN('    "variables" : [')@\plg,
+        %print_var_bindings_json_aux(?VarList),
+        PRINTLN('\n    ],')@\plg.
+%print_var_bindings_json_aux([]) :- !.
+%print_var_bindings_json_aux([?VName=?VVal|?VarNameValList]) :-
+        PRINTLN('      {')@\plg,
+        (PRINT('        "'),PRINT(name),PRINT('"  : "'), PRINT(?VName), PRINTLN('",'))@\plg,
+        flora_printable_type_representation_alltypes(?VVal,[?Type,?VValPrint])@\plg(flrdatatype),
+        ((?Type == \string ; ?Type == \symbol) -->>
+          flora_escape_2quotes_backslash_in_atom_undouble_quotes(?VValPrint,?VValEsc)@\plg(flrporting)
+        ; ?VValEsc = ?VValPrint
+        ),
+        (PRINT('        "'),PRINT(value),PRINT('" : "'), PRINT(?VValEsc), PRINTLN('",'))@\plg,
+        ?Type[substring(1,-1)->?TypeNoBackslash]@\btp,
+        (PRINT('        "'),PRINT(type),PRINT('"  : "'), PRINT(?TypeNoBackslash), PRINTLN('"'))@\plg,
+        PRINT('      }')@\plg,
+
+
+        (?VarNameValList == [] -->> \true
+        ; PRINTLN(',')@\plg
+        ),
+        %print_var_bindings_json_aux(?VarNameValList).
+
+/*
+   Tests:
+   %explain(${StrucingE#Potentially_reportable_currency_transactions(?text4,?text5,?date6,?an8,?text9,?da10)@QRE},
+             ?explanation+json).
+   %explain(${StrucingE#Potentially_reportable_currency_transactions(?text4,?text5,?date6,?an8,?text9,?da10)@QRE},
+             [text=?text4,date=?date6,net_amount=?da],
+             'resultfile.json').
+*/

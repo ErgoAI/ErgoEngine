@@ -1,0 +1,135 @@
+
+[test(Fact1), forall(?X,?Y)^((\neg aaaaa; (\neg obj[ppp]; (\neg obj[?X]; \neg obj[?Y])))), exists(?X)^(\neg pppppp(?X))]
+[test(Fact2), (\neg aaaaa; (\neg obj[ppp]; (\neg obj[?X]; \neg obj[?Y]))), \neg pppppp]
+[test(Fact3), \neg aaaaa, \neg obj[ppp], \neg obj[?X], \neg obj[?Y], \neg pppppp]
+[test(Fact4), (exists(?X,?Y)^((aaaaa, (obj[ppp], (obj[?X], obj[?Y])))); forall(?X)^(pppppp(?X)))]
+[test(Fact5), (exists(?X,?Y)^((\neg aaaaa, (\neg obj[ppp]; (\neg obj[?X]; \neg obj[?Y])))); forall(?X)^(pppppp(?X)))]
+[test(Fact6), forall(?X,?Y)^((\neg aaaaa; (\neg obj[ppp]; (\neg obj[?X]; \neg obj[?Y])))), exists(?X)^(\neg pppppp(?X))]
+[test(Fact7), forall(?X,?Y)^((\neg aaaaa; (\neg obj[ppp]; (\neg obj[?X]; \neg obj[?Y])))), forall(?X)^(pppppp(?X))]
+[test(Fact8), forall(?X,?Y)^((\neg aaaaa; (obj[ppp], (obj[?X], obj[?Y])))), forall(?X)^(pppppp(?X))]
+[test(Fact9), forall(?X,?Y)^(\neg obj(ppp, ?X, ?Y))]
+[test(Fact10), exists(?X,?Y)^(\neg obj[p])]
+[test(Fact12), exists(?X,?Y)^(((\neg obj[p]; \neg obj[q->{kkk}]), \neg obj[r]))]
+[test(Fact13), exists(?X,?Y)^(((\neg obj[p]; obj[q->{kkk}]), \neg obj[r]))]
+[test(Fact14), (\neg obj[p->{kkk}]; \neg obj[q]), \neg obj[r]]
+[test(Fact15), (\neg pp; \neg p), ((\neg qq; \neg q); (r; rr))]
+[test(Fact16), \neg pp, \neg p, \neg qq, \neg q, r, rr]
+[test(Fact17), ((pp, p); ((qq, q), (\neg r, \neg rr)))]
+
+[?- (test(LT1), ((\neg aaaaa; \naf exists(?X,?Y)^(\naf \neg obj[(ppp, (?X, ?Y))])), exists(?X)^(\neg pppppp(?X))))]
+[?- (test(LT2), ((\neg aaaaa; \neg obj[(ppp, (?X, ?Y))]), \neg pppppp))]
+[?- (test(LT3), (\neg aaaaa, (\neg obj[(ppp; (?X; ?Y))], \neg pppppp)))]
+[?- (test(LT4), ((aaaaa, exists(?X,?Y)^(obj[(ppp, (?X, ?Y))])); \naf exists(?X)^(\naf pppppp(?X))))]
+[?- (test(LT5), ((\neg aaaaa, exists(?X,?Y)^(\neg obj[(ppp, (?X, ?Y))])); \naf exists(?X)^(\naf pppppp(?X))))]
+[?- (test(LT6), ((\neg aaaaa; \naf exists(?X,?Y)^(\naf \neg obj[(ppp, (?X, ?Y))])), exists(?X)^(\neg pppppp(?X))))]
+[?- (test(LT7), ((\neg aaaaa; \naf exists(?X,?Y)^(\naf \neg obj[(ppp, (?X, ?Y))])), \naf exists(?X)^(\naf pppppp(?X))))]
+[?- (test(LT8), ((\neg aaaaa; \naf exists(?X,?Y)^(\naf obj[(ppp, (?X, ?Y))])), \naf exists(?X)^(\naf pppppp(?X))))]
+[?- (test(LT9), \naf exists(?X,?Y)^(\naf \neg obj(ppp, ?X, ?Y)))]
+[?- (test(LT10), exists(?X,?Y)^(\neg obj[p]))]
+[?- (test(LT12), exists(?X,?Y)^(\neg obj[((p, q->{kkk}); r)]))]
+[?- (test(LT13), exists(?X,?Y)^(\neg obj[((p, \neg q->{kkk}); r)]))]
+[?- (test(LT14), \neg obj[((p->{kkk}, q); r)])]
+[?- (test(LT15), ((\neg pp; \neg p), ((\neg qq; \neg q); (r; rr))))]
+[?- (test(LT16), ((\neg pp, \neg p), ((\neg qq, \neg q), (r, rr))))]
+[?- (test(LT17), ((pp, p); ((qq, q), (\neg r, \neg rr))))]
+
+
+
+[?- (test(insert1), insert{insertrule_z{((obj(p); obj(r)) :- \true)}})]
+[?- (test(insert2), insertrule{((obj(p); obj(r)) :- \true)})]
+[?- (test(insert3), insert{insertrule_z{(\neg obj(p), \neg obj(r) :- \true)}})]
+[?- (test(insert4), insertrule{(\neg obj(p), \neg obj(r) :- \true)})]
+[?- (test(insert5), insertrule{((\neg obj(p); \neg obj(r)) :- \true)})]
+[?- (test(insert6), insert{insertrule_z{((\neg a[p]; \neg a[q]) :- \true)}})]
+[?- (test(insert7), insert{\neg a[p], \neg a[q]})]
+[?- (test(insert8), insert{a[p], a[q]})]
+[?- (test(insert9), insert{insertrule_z{(((\neg obj[p->{kkk}]; \neg obj[q]), \neg obj[r]) :- \true)}})]
+[?- (test(insert10), insertrule{((\neg obj[p->{kkk}]; \neg obj[q]), \neg obj[r] :- \true)})]
+[?- (test(insert11), insertrule{((\neg obj[p->{kkk}]; (\neg obj[q]; \neg obj[r])) :- \true)})]
+[?- (test(insert12), insertrule{(\neg obj[p->{kkk}], \neg obj[q], \neg obj[r] :- \true)})]
+[?- (test(insert13), insert{insertrule_z{(\neg obj[p->{kkk}], \neg obj[q], \neg obj[r] :- \true)}})]
+[?- (test(insert14), insertrule{(((obj[p->{kkk}], obj[q]); obj[r]) :- \true)})]
+[?- (test(insert15), insert{insertrule_z{(exists(?X,?Y)^(((\neg obj[p]; \neg obj[q->{kkk}]), \neg obj[r])) :- \true)}})]
+[?- (test(insert16), insertrule{(exists(?X,?Y)^(((\neg obj[p]; \neg obj[q->{kkk}]), \neg obj[r])) :- \true)})]
+[?- (test(insert17), insert{insertrule_z{((forall(?X,?Y)^((\neg aaaaa; (\neg obj[ppp]; (\neg obj[?X]; \neg obj[?Y])))); exists(?X)^(\neg pppppp)) :- \true)}})]
+[?- (test(insert18), insert{insertrule_z{((forall(?X,?Y)^((\neg aaaaa; (\neg obj[ppp]; (\neg obj[?X]; \neg obj[?Y])))), forall(?X)^(pppppp)) :- \true)}})]
+[?- (test(insert19), insertrule{(forall(?X,?Y)^((\neg aaaaa; (\neg obj[ppp]; (\neg obj[?X]; \neg obj[?Y])))), forall(?X)^(pppppp) :- \true)})]
+[?- (test(insert20), insert{insertrule_z{((\neg a; \neg b) :- \true)}})]
+[?- (test(insert21), insert{insertrule_z{((\neg p(ac); \neg p(bc)) :- \true)}})]
+[?- (test(insert22), insertrule{((\neg p234(ac); \neg p234(bc)) :- abc)})]
+[?- (test(insert23), insertrule{(p123[ac->{1}], p123[bc->{1}] :- abc)})]
+[?- (test(insert24), insert{p234(ac), p234(bc)})]
+[?- (test(insert25), insertrule{((\neg p123[ac->{1}]; \neg p123[bc->{1}]) :- abc)})]
+
+[test(Rule1)]
+[forall(?X,?Y)^((\neg aaaaa; (\neg obj[ppp]; (\neg obj[?X]; \neg obj[?Y])))), exists(?X)^(\neg pppppp) :- \true]
+[test(Rule2)]
+[(\neg aaaaa; (\neg obj[ppp]; (\neg obj[?X]; \neg obj[?Y]))), \neg pppppp :- \true]
+[test(Rule3)]
+[\neg aaaaa, \neg pppppp :- \true]
+[test(Rule4)]
+[\neg obj[ppp], \neg obj[?X], \neg obj[?Y], \neg pppppp :- \true]
+[test(Rule5)]
+[(exists(?X,?Y)^((aaaaa, (obj[ppp], (obj[?X], obj[?Y])))); forall(?X)^(pppppp)) :- \true]
+[test(Rule6)]
+[(exists(?X,?Y)^((\neg aaaaa, (\neg obj[ppp]; (\neg obj[?X]; \neg obj[?Y])))); forall(?X)^(pppppp)) :- \true]
+[test(Rule7)]
+[forall(?X,?Y)^((\neg aaaaa; (\neg obj[ppp]; (\neg obj[?X]; \neg obj[?Y])))), exists(?X)^(\neg pppppp) :- \true]
+[test(Rule8)]
+[forall(?X,?Y)^((\neg aaaaa; (\neg obj[ppp]; (\neg obj[?X]; \neg obj[?Y])))), forall(?X)^(pppppp) :- \true]
+[test(Rule9)]
+[forall(?X,?Y)^((\neg aaaaa; (obj[ppp], (obj[?X], obj[?Y])))), forall(?X)^(pppppp) :- \true]
+[test(Rule10)]
+[forall(?X,?Y)^(\neg obj(ppp, ?X, ?Y)) :- \true]
+[test(Rule11)]
+[exists(?X)^(\neg obj[p(?X)]) :- \true]
+[test(Rule12)]
+[exists(?X,?Y)^(((\neg obj[p(?X)]; \neg obj[q->{kkk(?Y)}]), \neg obj[r])) :- \true]
+[test(Rule13)]
+[(\neg obj[p->{kkk}]; \neg obj[q]), \neg obj[r] :- \true]
+[test(Rule14)]
+[obj[p->{kkk}], obj[q], \neg obj[r] :- \true]
+[test(Rule15)]
+[(\neg pp; \neg p), ((\neg qq; \neg q); (r; rr)) :- \true]
+[test(Rule16)]
+[((pp, p); ((qq, q), (\neg r, \neg rr))) :- \true]
+
+[test(NestedFrame_fact1), \neg a[b], (\neg a[c->{u}]; (\neg u[d->{dd}], \neg u[e]))]
+[test(NestedFrame_fact2), \neg a[b], (\neg a[c->{u}]; (\neg u[|d->{dd}|]; \neg u[|e{0..*}=>ee|]))]
+[test(NestedFrame_fact3), \neg a[b], (\neg a[c->{u}]; (\neg u[|d|], \neg u[|e->{ee}|])) :- \true]
+[test(NestedFrame_fact4), \neg a[b], (\neg a[c->{u}]; (\neg u[|d{0..*}=>dd|]; \neg u[|e|])) :- \true]
+[test(NestedFrame_fact5), (((\neg a[u->{p}]; \neg u[d->{y}]); \neg a[mm]); (\neg a[ppp->{kkkk}]; \neg a : bb))]
+[test(NestedFrame_fact6), ((((\neg a[u->{p}]; \neg p :: pp); (\neg u[d->{y}]; \neg d : dd)); (\neg a[mm]; (\neg a[nnn]; \neg nnn :: nnnn))); (\neg a[ppp->{kkkk}]; \neg a : bb))]
+[test(NestedFrame_fact7), ((\neg a[u]; \neg u[d->{y}]); \neg u[f->{k}])]
+[test(NestedFrame_fact8), ((((\neg a[u->{p}]; \neg p :: pp); (\neg u[d{0..*}=>y]; \neg d : dd)); (\neg a[mm]; (\neg a[nnn]; \neg nnn :: nnnn))); (\neg a[ppp{0..*}=>kkkk]; \neg a : bb))]
+[test(NestedFrame_fact9), ((\neg a[u]; \neg u[d{0..*}=>y]); \neg u[f{0..*}=>k])]
+[test(NestedFrame_fact10), ((\neg a[c->{u}]; (\neg u[|d->{y}|], \neg u[|e{0..*}=>x|])); (\neg c[pp]; \neg pp : ppp))]
+[test(NestedFrame_fact11), a[|b{0..*}=>x|], b : dd, a[|b{0..*}=>y|], b : dd]
+[test(NestedFrame_fact12), ((\neg a[|b{0..*}=>x|]; \neg b : dd); (\neg a[|b{0..*}=>y|]; \neg b : dd))]
+
+Parse error
+Parse error
+Parse error
+[test(NestedFrame_fact16), ((\neg a[|=>bb|]; \neg bb[=>cc]); \neg bb : dd)]
+[test(NestedFrame_fact17), ((\neg a[=>bb]; \neg bb[|=>cc|]); \neg bb : dd)]
+
+[?- (test(NestedFrame_insert1), insert{insertrule_z{((\neg a[b], (\neg a[c->{u}]; (\neg u[|d=>(dd)|], \neg u[|e->{ee}|]))) :- \true)}})]
+[?- (test(NestedFrame_insert2), insert{insertrule_z{((\neg a[b], (\neg a[c->{u}]; (\neg u[d]; \neg u[e]))) :- \true)}})]
+[?- (test(NestedFrame_insert3), insertrule{(\neg a[b], (\neg a[c->{u}]; (\neg u[d], (\neg u[e->{tt}]; (\neg tt[ww]; \neg tt[bb{0..*}=>nn])))) :- \true)})]
+[?- (test(NestedFrame_insert4), insertrule{(\neg a[b], (\neg a[c->{u}]; (\neg u[d]; \neg u[e])) :- \true)})]
+[?- (test(NestedFrame_LT1), \neg a[(b; c->{u[(d; e)]})])]
+[?- (test(NestedFrame_LT2), \neg a[(b; c->{u[(d, e)]})])]
+
+
+
+++Error[Ergo]> [tnf_data.flr] <Parser> near line(116)/char(29) `%bb'
+                unexpected transactional symbol
+++Error[Ergo]> [tnf_data.flr] <Parser> near line(117)/char(29) `%bb'
+                unexpected transactional symbol
+++Error[Ergo]> [tnf_data.flr] <Parser> near line(118)/char(42) `[|'
+                invalid boolean signature
+
+++3 errors
+
+++compilation aborted
+

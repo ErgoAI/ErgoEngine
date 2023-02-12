@@ -1,0 +1,122 @@
+:- use_argumentation_theory.
+
+/*
+  This tests the directives for switching the defaults between defeasible
+  and strict. It also tests the tag{...} primitive
+*/
+      
+aaa :- bbb.
+aaa(?,?) :- bbb.
+@{ppp} @@{strict} aaaa1111:- kk.
+
+?- insert{AAA :- BBB}.
+?- insert{AAA(?,?) :- BBB}.
+
+?- insert{@!{?} @{PPP} @@{strict} AAAA1111:- KK}.
+
+:- default_is_defeasible_rules.
+
+aaa1 :- bbb1.
+aaa1(?,?,?) :- bbb1.
+
+@{pp} aaa2 :- bbb2.
+@{pppp} aaa2(?,?) :- bbb2.
+@@{strict} aaa2222222 :- ppp.
+
+?- insert{AAA1 :- BBB1}.
+?- insert{AAA1(?,?) :- BBB1}.
+?- insert{@{PP} AAA2 :- BBB2}.
+?- insert{@!{?} @@{strict} AAA2222222 :- PPP}.
+
+:- default_is_strict.
+
+aaa3 :- bbb3.
+aaa3(?) :- bbb3.
+
+@{qq} aaa4 :- ddd.
+@{qqqq} aaa4(?) :- ddd.
+@@{strict} aaa4444:- ppp.
+@@{strict} aaa4444:- ppp.
+
+?- insert{AAA3 :- BBB3}.
+?- insert{@{QQ} AAA4 :- DDD}.
+?- insert{@{QQ} AAA4(?,?,?) :- DDD}.
+?- insert{@!{?} @@{strict} AAA4444(?):- PPP}.
+
+%tst1 :- write('test01: ')@\plg,
+	clause{@@{strict} aaa@\@,?},
+	writeln(success)@\plg.
+%tst2 :- write('test02: ')@\plg,
+	clause{@@{?strict} aaa(?,?)@\@,?},
+	?strict=strict,
+	writeln(success)@\plg.
+%tst3 :- write('test03: ')@\plg,
+	tag{?L,aaa1@ \@},  // success
+	writeln(?L)@\plg.
+%tst4 :- write('test04: ')@\plg,
+	tag{?L,aaa1(?,?,?)@ \@},  // success
+	writeln(?L)@\plg.
+%tst5 :- write('test05: ')@\plg,
+	tag{?L,aaa2@ \@},  // success
+	writeln(?L)@\plg.
+%tst6 :- write('test06: ')@\plg,
+	tag{?L,aaa2(?,?)@ \@},  // success
+	writeln(?L)@\plg.
+%tst7 :- write('test07: ')@\plg,
+	clause{@@{strict} aaa2222222@\@,?},
+	writeln(success)@\plg.
+%tst8 :- write('test08: ')@\plg,
+	clause{@@{strict} aaa3@\@,?},
+	writeln(success)@\plg.
+%tst9 :- write('test09: ')@\plg,
+	clause{@@{strict} aaa3(?)@\@,?},
+	writeln(success)@\plg.
+%tst10 :- write('test10: ')@\plg,
+	tag{?L,aaa4@ \@}, // success
+	writeln(?L)@\plg.
+%tst11 :- write('test11: ')@\plg,
+	tag{?L,aaa4(?)@ \@}, // success
+	writeln(?L)@\plg.
+
+%tst12 :- write('test12: ')@\plg,
+	tag{?L,AAA1@ \@},  // success
+	writeln(?L)@\plg.
+%tst13 :- write('test13: ')@\plg,
+	tag{?L,AAA1(?,?)@ \@},  // success
+	writeln(?L)@\plg.
+%tst14 :- write('test14: ')@\plg,
+	tag{?L,aaa2@ \@},  // success
+	writeln(?L)@\plg.
+%tst15 :- write('test15: ')@\plg,
+	clause{@@{?l} AAA2222222@\@,?},
+	?l=strict,
+	writeln(success)@\plg.
+
+%tst16 :- write('test16: ')@\plg,
+	clause{@@{strict} AAA3@\@,?},
+	writeln(success)@\plg.
+%tst17 :- write('test17: ')@\plg,
+	tag{?L, AAA4}, // success
+	writeln(?L)@\plg.
+%tst18 :- write('test18: ')@\plg,
+	tag{?L, AAA4(?,?,?)}, // success
+	writeln(?L)@\plg.
+%tst19 :- write('test19: ')@\plg,
+	clause{@@{strict} AAA4444(?)@\@,?},
+	writeln(success)@\plg.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5,
+	%tst6, %tst7, %tst8, %tst9, %tst10,
+	%tst11, %tst12, %tst13, %tst14, %tst15,
+	%tst16, %tst17, %tst18, %tst19.
+
+
+
+%test :- tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	\abolishtables,
+	%pretest,
+	told@\plg.

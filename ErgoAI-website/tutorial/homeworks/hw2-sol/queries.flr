@@ -1,0 +1,30 @@
+
+// Load modules
+?- [students>>stud],
+    [faculty>>advisor],
+	[temporal>>time].
+
+?- Method[mustDefine(on)]@\sys.
+
+// Queries
+?S[valid(?Semester)] :-
+	?S:student[joined->?Join, graduated->?Grad]@stud,
+	?Semester[sameOrBefore->?Grad, sameOrAfter->?Join]@time.
+
+?S[advisor(?Semester) -> ?A] :-
+	?S:student[advisor->?A[since->?Since, until->?Until]]@stud,
+	?Semester[sameOrBefore->?Until, sameOrAfter->?Since]@time.
+
+?S[status(?Semester) -> ?StatName] :-
+	?S[status->?_Stat[type->?StatName, since->?Since, until->?Until]]@stud,
+	?Semester[sameOrAfter->?Since, sameOrBefore->?Until]@time.
+
+// For a given semester, write down all the currently valid MS students
+// along with their advisors.
+// Will use, say, Spring 2004.
+?- ?Sem=spring(2004),
+    // Note: the following are defined in the current module, not stud
+    ?_S[valid(?Sem), status(?Sem)->ms, advisor(?Sem) -> ?[?_AdvInfo]@stud],
+    ?_S[name->?N]@stud,
+    ?_AdvInfo[name->?AdvisorName]@advisor.
+    

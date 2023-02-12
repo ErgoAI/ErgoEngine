@@ -1,0 +1,17 @@
+#include "standard.h"
+
+%pretest :-
+        [+descriptors_errfile],
+        [+'auxfiles/descriptors_errfile'].
+
+%test :-
+	(File[exists(descriptors_errtest_old)]@\io -->> File[unlink(descriptors_errtest_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(descriptors_errtest_flora_old,descriptors_errtest_old)]@\io
+	;  File[link(descriptors_errtest_ergo_old,descriptors_errtest_old)]@\io
+        ),
+	flora_set_maxerrors(60)@\plg(flrutils),
+	file_reopen(temp,w,STDERR,?_)@\plg(file_io),
+        %pretest,
+	file_close(STDERR)@\plg(file_io).
+

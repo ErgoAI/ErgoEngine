@@ -1,0 +1,795 @@
+/* File:        flranswer.P
+**
+** Author(s): Guizhen Yang
+**            Michael Kifer 
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2023.
+**      and Vulcan, Inc., 2008-2013.
+**      Coherent Knowledge Systems, 2016-2020.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "char_defs.h"
+#include "standard.h"
+#include "flora_terms.flh"
+#include "flora_status_codes.flh"
+
+%% Request number for obtaining the delay register
+#define DELAY_REG  2
+
+%% Names of answer tries
+#define FLRANSWER_TRUE_TRIE   '_$_$flora_true_answer_storage'
+#define FLRANSWER_UNDEF_TRIE  '_$_$flora_undef_answer_storage'
+#define FLRANSWER_FUNCTOR     answer
+
+#define FLRANSWER_ENDBALL     flranswer_endball
+
+%% print Java time only if significant: > 2.
+%%#define TIME_MESSAGE(WT,T,JT) (JT<2.2 -> flora_stdfdbk_string('~nTimes (in seconds): elapsed = ~w; pure CPU = ~w~n', [WT,T]) ; flora_stdfdbk_string('~nTimes (in seconds): elapsed = ~w; pure CPU = ~w; Java time = ~w~n', [WT,T,JT]))
+#define TIME_MESSAGE(WT,T,JT)  FLORA_SYMBOL('time_message')(WT,T,JT)
+
+%%#define SOLUTIONS_MESSAGE(NumOfSolutions,WT,T,JT) \
+%%        (JT<2.2 -> flora_stdfdbk_string('~n~w solution(s) in ~w seconds; elapsed time = ~w~n', [NumOfSolutions,T,WT]) ; flora_stdfdbk_string('~n~w solution(s) in ~w seconds; Java time = ~w~n', [NumOfSolutions,T,JT]))
+#define SOLUTIONS_MESSAGE(NumOfSolutions,WT,T,JT) \
+                FLORA_SYMBOL('solutions_message')(NumOfSolutions,WT,T,JT)
+
+
+:- import
+        remove_timed_call_state/1,
+	timed_call/2
+   from standard.
+
+:- import windows_os/0 from xsb_configuration.
+
+
+:- import
+        memberchk/2,
+        length/2
+   from basics.
+
+:- import
+	close_open_tables/1,
+	is_acyclic/1,
+	xwam_state/2
+   from machine.
+
+:- import
+        gennum/1,
+        conset/2
+   from gensym.
+
+:- import
+        set_variable_rename_index/1,
+	flora_banner_control/1,
+        flora_running_as/1,
+	flora_get_counter/2,
+	flora_set_counter/2,
+	flora_increment_counter/4,
+	flora_walltime/1,
+	flora_cputime/1
+   from flrporting.
+
+:- import concat_atom/2 from string.
+
+:- import
+	storage_insert_fact/3,
+	storage_find_fact/2,
+	storage_delete_all/1
+   from storage.
+
+:- import flora_builtin_datatype/1 from flrdatatype.
+
+%%:- import flora_abolish_table_predicate/1 from flrtables.
+:- import check_variant/1 from tables.
+
+:- import
+	flora_stdfdbk_string/2,
+	flora_stdfdbk_string/1,
+	flora_stdfdbk_nl/0,
+	flora_stdfdbk_line/1
+   from flrprint.
+
+:- import flora_call_hooks/6 from flrhooks.
+
+:- import
+        flora_commit_storage/0,
+        flora_reclaim_storage_space/0
+   from flrutils.
+
+:- import flora_display_feedback/1 from flrdisplay.
+:- import
+	flora_display_schema/1,
+	flora_set_display_schema/1,
+	flora_display_mode/1,
+	flora_set_display_mode/1
+   from flrdecode.
+
+:- import
+	flora_handle_trace/0,
+	flora_handle_notrace/0,
+        flora_is_in_trace/0,
+	flora_answer_switch/1
+   from flrdebugger.
+
+:- import
+        %%flora_configuration/2,
+        flora_clear_nested_timeouts/0,
+	flora_runtime_limits_registry/3
+   from flrregistry.
+
+:- import
+	flora_get_break_level/1
+   from flora2.
+
+:- import
+        FLLIBSETRUNTIME/1,
+        enable_all_tripwires/0,
+        flora_restore_runtime_limits/0,
+        insert_goal_in_time_handlers/2
+   from flrerrhandler.
+
+:- import flora_clear_update_flag/0 from flrupdatecounter.
+
+:- import flrterm_vars_split/4 from flora_ground.
+
+:- import
+	FLORA_DELAY_CHECKER/2
+   from usermod.
+
+:- import flora_update_flag_raised/0 from flrupdatecounter.
+
+
+/********************************************************************/
+%% The coder adds this library to print all answers in the shell.
+fllibshellans(Gs,NVs) :-
+        set_variable_rename_index(0),
+	flora_answer_switch(all),
+	!,
+	catch(flora_print_all(Gs,NVs),FLRANSWER_ENDBALL,flora_end_of_answer_handler),
+	!,
+	%% to release XSB stack
+	fail.
+
+fllibshellans(Gs,NVs) :-
+        set_variable_rename_index(0),
+	catch(flora_print_one(Gs,NVs),FLRANSWER_ENDBALL,flora_end_of_answer_handler),
+	!,
+	%% to release XSB stack
+	fail.
+
+flora_end_of_answer_handler :-
+        flora_clear_nested_timeouts,
+	flora_reclaim_storage_space.
+
+flranswer_abolish_handler(P/N) :-
+        functor(Pred,P,N),
+        retractall(Pred).
+
+
+/********************************************************************/
+fllibprogramans(Gs,NVs) :-
+        set_variable_rename_index(0),
+	catch(flora_print_all(Gs,NVs),FLRANSWER_ENDBALL,flora_end_of_answer_handler),
+	!,
+	%% to release XSB stack
+	fail.
+
+/*
+%% The business of getting just one answer from a program query 
+%% needs to be thought out.
+fllibprogramans(Gs,NVs) :-
+        set_variable_rename_index(0),
+	flora_answer_switch(all),
+	!,
+	flora_print_all(Gs,NVs),
+	!,
+	fail.
+
+fllibprogramans(Gs,NVs) :-
+        set_variable_rename_index(0),
+	flora_print_one(Gs,NVs),
+	!,
+	fail.
+*/
+
+
+/********************************************************************
+  NVs is a list of output variables
+  Gs is a list of goals to evaluate
+
+  This always fails so that the XSB stack will be released.
+********************************************************************/
+%%#define TRY_TABLING
+%%#define TRY_FINDALL
+
+#ifdef TRY_TABLING
+#undef TRY_FINDALL
+#endif
+
+flora_print_all(Gs,NVs) :-
+	NVs == [],
+	!,
+	flora_cputime(T0),
+	flora_walltime(WT0),
+        flora_java_cputime(JT0),
+
+	flora_call_hooks(_Mod,QUERYHOOK,Gs,before,_Result,AroundQueryHookLink),
+
+#ifdef TRY_TABLING
+        %% This attempt uses tabling.
+        gennum(NewNum),
+        concat_atom([FL_QUERY_PREDICATE,NewNum],QueryPredName),
+        %% give it some arg: 0-ary does not work due to some XSB bug
+        QueryTemplate =.. [QueryPredName,1],
+        %%(table QueryPredName/1 as opaque),
+        (table QueryPredName/1),
+        assert((QueryTemplate :- Gs)),
+	(catch(flora_call(QueryTemplate,NVs,XWamState),
+	       Exception,
+	       flranswer_one_answer_query_errhandler(Exception,Gs,AroundQueryHookLink)
+	      ),
+#endif
+
+#ifdef TRY_FINDALL
+        %% This attempt uses findall.
+        (catch((findall(XWS,flora_call(Gs,NVs,XWS),States), States \== []),
+	       Exception,
+	       flranswer_one_answer_query_errhandler(Exception,Gs,AroundQueryHookLink)
+	      ),
+            sort(States,StatesSorted),
+            StatesSorted = [XWamState|_],  %% pick up "true" == 0, if it's there
+#endif
+
+#if !defined(TRY_FINDALL) && !defined(TRY_TABLING)
+	%% Problem: Sometimes this code may pick XWamState>0 (undefined)
+        %% even if there is XWamState=0 (true).
+	%% Not sure how to avoid this without findall, but we don't want to
+	%% findall Gs if NVs==[], since this might result in multiple calls
+        (catch(flora_call(Gs,NVs,XWamState),
+	       Exception,
+	       flranswer_one_answer_query_errhandler(Exception,Gs,AroundQueryHookLink)
+	      ),
+#endif
+
+	    flora_call_hooks(_Mod,QUERYHOOK,Gs,after,_Result,AroundQueryHookLink) ->
+            flora_clear_update_flag,
+	    (
+	      flora_cputime(T1),
+	      flora_walltime(WT1),
+              flora_java_cputime(JT1),
+	      T is T1-T0,
+	      WT is WT1-WT0,
+              JT is JT1-JT0,
+	      ( flora_answer_switch(chatter),
+		  \+flora_banner_control(nofeedback),
+		  flora_get_counter(flora_feedback_control,0)
+	      ->
+		  TIME_MESSAGE(WT,T,JT)
+	      ; true
+	      ),
+	      flora_write_Yes_or_Unknown(XWamState)
+	    )
+	;
+	    flora_cputime(T1),
+	    flora_walltime(WT1),
+            flora_java_cputime(JT1),
+	    T is T1-T0,
+	    WT is WT1-WT0,
+            JT is JT1-JT0,
+	    ( flora_answer_switch(chatter),
+		  \+flora_banner_control(nofeedback),
+		  flora_get_counter(flora_feedback_control,0)
+	      ->
+		TIME_MESSAGE(WT,T,JT)
+	    ; true
+	    ),
+	    flora_write_No
+	),
+#ifdef TRY_TABLING
+        AnsSpec = QueryPredName/1,
+        catch(abolish(AnsSpec),_,flranswer_abolish_handler(AnsSpec)),
+	throw(FLRANSWER_ENDBALL).
+#else
+	throw(FLRANSWER_ENDBALL).
+#endif
+
+flora_print_all(Gs,NVs) :-
+	flora_cputime(T0),
+	flora_walltime(WT0),
+        flora_java_cputime(JT0),
+	%% Construct a temporary trie-indexed predicate, FL_QUERY_PREDICATE-Num
+	%% All answers are asserted into that predicate.
+	%% Since it is trie-indexed, duplicates are deleted.
+	%% Reason: some answer lists might have thousands and
+	%% millions of items, which takes a long time to sort. Sometimes
+	%% sort runs out of memory and crashes XSB. 
+	%% Having a trie-asserted query predicate adds a very small
+	%% penalty to each query, but overall speeds up 
+	%% returning the answers, and sometimes avoids crashes.
+	%% FL_QUERY_PREDICATE-Num(XWamState,Var1=Val1,Var2=Val2,...)
+        gennum(NewNum),
+        concat_atom([FL_QUERY_PREDICATE,NewNum],QueryPredName),
+	QueryTemplate =.. [QueryPredName,_|NVs],
+        copy_term(QueryTemplate,QueryTemplateCopy),
+	length(NVs,QueryArity1),
+	QueryArity is QueryArity1+1, %% extra arg for XWamState
+	dynamic(QueryPredName/QueryArity),
+	index(QueryPredName/QueryArity,trie),
+	
+	flora_call_hooks(_Mod,QUERYHOOK,Gs,before,_Result,AroundQueryHookLink),
+	catch(
+	      flora_findall((NVs,XWamState),
+			    (flora_call(Gs,NVs,XWamState),
+			        arg(1,QueryTemplate,XWamState),
+                                %% \+QueryTemplateCopy guards against a bug in
+                                %% check_variant/1, which crashes on empty preds
+                                (\+QueryTemplateCopy -> true  %% Q result empty
+                                ; check_variant(QueryTemplate) -> true
+                                ; assert(QueryTemplate)
+                                )
+			    ),
+			    TempL
+			   ),
+	      Exception,
+	      flranswer_all_answers_query_errhandler(Exception,Gs,QueryTemplate,AroundQueryHookLink)
+	     ),
+	flora_cputime(T1),
+	flora_walltime(WT1),
+        flora_java_cputime(JT1),
+	T is T1-T0,
+	WT is WT1-WT0,
+        JT is JT1-JT0,
+	flora_call_hooks(_Mod,QUERYHOOK,Gs,after,_Result,AroundQueryHookLink),
+        flora_clear_update_flag,
+	/*
+	%% maybe limit the size of the list to be sorted?
+	(length(TempL,NumOfAnswers), NumOfAnswers < 100000 ->
+	    sort(TempL,L)
+	; L = TempL
+	),
+	*/
+	sort(TempL,L),
+	( L = [] ->
+	    ( flora_answer_switch(chatter),
+		  \+flora_banner_control(nofeedback),
+		  flora_get_counter(flora_feedback_control,0)
+	      ->
+		TIME_MESSAGE(WT,T,JT)
+	    ;
+		true
+	    ),
+	    flora_write_No
+	;
+	    flora_display_mode(DisplMode),
+            (memberchk(DisplMode,[stickydefault,deepanswer]) -> true
+            ; flora_set_display_mode(answer)
+            ),
+
+	    flora_write_matches(L,0,NumOfSolutions),
+
+	    flora_display_schema(DisplSchema),
+            (DisplSchema == tmpraw, flora_running_as(ergo) ->
+                flora_set_display_schema(ergo)
+            ; DisplSchema == tmpraw -> flora_set_display_schema(flora)
+            ; true
+            ),
+	    flora_set_display_mode(DisplMode),
+	    ( flora_answer_switch(chatter),
+		  \+flora_banner_control(nofeedback),
+		  flora_get_counter(flora_feedback_control,0)
+	      ->
+                SOLUTIONS_MESSAGE(NumOfSolutions,WT,T,JT)
+	    ;
+		true
+	    ),
+	    flora_write_Yes
+	),
+        AnsSpec = QueryPredName/QueryArity,
+        catch(abolish(AnsSpec),_,flranswer_abolish_handler(AnsSpec)),
+	%% throw to close open tables
+	throw(FLRANSWER_ENDBALL).
+
+
+/********************************************************************/
+flora_print_one(Gs,NVs) :-
+	NVs == [],
+	!,
+	(flora_call(Gs,NVs,XWamState) ->
+	    flora_write_Yes_or_Unknown(XWamState)
+	;
+	    flora_write_No
+	),
+	%% throw to close open tables
+	throw(FLRANSWER_ENDBALL).
+
+flora_print_one(Gs,NVs) :-
+	( flora_call(Gs,NVs,XWamState),
+	    flora_display_mode(DisplMode),
+            (memberchk(DisplMode,[stickydefault,deepanswer]) -> true
+            ; flora_set_display_mode(answer)
+            ),
+
+	    flora_write_pairs(NVs,XWamState),
+
+	    flora_display_schema(DisplSchema),
+            (DisplSchema == tmpraw, flora_running_as(ergo) ->
+                flora_set_display_schema(ergo)
+            ; DisplSchema == tmpraw -> flora_set_display_schema(flora)
+            ; true
+            ),
+	    flora_set_display_mode(DisplMode),
+	    flora_fail_unless_return
+	;
+	    flora_write_No
+	),
+	%% throw to close open tables
+	throw(FLRANSWER_ENDBALL).
+
+
+/********************************************************************/
+/*
+flora_if_then_else(Condition,Then,_Else) :-
+	call(Condition),
+	call(Then).
+
+flora_if_then_else(_Condition,_Then,Else) :-
+	call(Else).
+*/
+
+
+/********************************************************************/
+%% If the user types RETURN, then succeed. Otherwise, assume the user wants
+%% more answers, so fail in order to provide another answer.
+flora_fail_unless_return :- 
+	get_code(C),
+	(C =:= CH_NEWLINE; C =:= CH_EOF_P), !,
+	flora_write_Yes.
+flora_fail_unless_return :- flora_fail_unless_return, fail.
+
+
+/********************************************************************/
+flora_write_Yes :-
+	flora_get_counter(flora_feedback_control,C), C > 0,
+	!,
+	flora_increment_counter(flora_feedback_control,-1,_,_).
+flora_write_Yes :-
+	flora_banner_control(nofeedback),
+	!.
+flora_write_Yes :- flora_stdfdbk_line('~nYes~n').
+
+flora_write_No :-
+	flora_get_counter(flora_feedback_control,C), C>0,
+	!,
+	flora_increment_counter(flora_feedback_control,-1,_,_).
+flora_write_No :-
+	flora_banner_control(nofeedback),
+	!.
+flora_write_No  :- flora_stdfdbk_line('~nNo~n').
+
+flora_write_Yes_or_Unknown(_) :-
+	flora_get_counter(flora_feedback_control,C), C>0,
+	!,
+	flora_increment_counter(flora_feedback_control,-1,_,_).
+flora_write_Yes_or_Unknown(_) :-
+	flora_banner_control(nofeedback),
+	!.
+flora_write_Yes_or_Unknown(XWamState) :-
+	(XWamState =:= 0 -> flora_stdfdbk_line('~nYes~n')
+	; flora_stdfdbk_line('~nYes  - undefined~n')
+	).
+
+/********************************************************************/
+%% Hookup to the Flora debugger
+%% flora_call is a wrapper around XSB call
+%% Used only in top-level queries and
+%% flora_query/5 == flora_call_string_command/5
+%% If XWamState = 0, the answer is true. Otherwise: undefined
+flora_call(Goal,_NVs,XWamState) :- 
+    	flora_handle_trace,
+	statistics(walltime,[_,_]), %% reset statistics walltime
+        flora_get_break_level(BrkLevel),
+        (BrkLevel == 0 ->
+            flora_restore_runtime_limits,
+            conset(FL_WALLTIME,0) %% accumulates walltime 
+        ; true
+        ),
+        enable_all_tripwires,
+        (BrkLevel > 0 -> true
+	; flora_call_hooks(_,ALERTHOOK,Goal,before,AlertResult,AroundAlertLink)
+        ),
+	( flora_runtime_limits_registry(timeout,BrkLevel,Options) ->
+	    insert_goal_in_time_handlers(Goal,Options),
+	    timed_call(Goal,[nesting|Options])
+	; flora_is_in_trace -> Goal %% for debugging can't use call_cleanup
+        ; call_cleanup(Goal, remove_timed_call_state(BrkLevel))
+	),
+	FL_SILENT_ISACYCLIC(Goal),
+	flrterm_vars_split(Goal, _RegVars, AttrVars,0),
+	FLORA_DELAY_CHECKER(AttrVars,[]),
+	%% xwam_state MUST be after FLORA_DELAY_CHECKER to get a correct state
+	xwam_state(DELAY_REG,XWamState),
+	%%DBGOUTLN(final_xwam_state=XWamState+Goal),
+	(flora_update_flag_raised,
+            BrkLevel == 0,
+            flora_call_hooks(_,CONSTRAINTHOOK,Goal,after,Result,_),
+            Result == violation ->
+            %% If an integrity constraint becomes violated, roll back
+            %% transactional updates via failure.
+            flora_handle_end_of_call,
+            fail
+        ; true
+        ),
+        %% clear unsafe_naf_option ignoreonce (in flrerrhandler.P)
+        FLLIBSETRUNTIME([unsafe_naf(ignoreonce_done)]),
+	flora_commit_storage,
+	(flora_update_flag_raised, BrkLevel == 0 ->
+            flora_call_hooks(_,ALERTHOOK,Goal,after,AlertResult,AroundAlertLink)
+        ; true
+        ),
+	flora_handle_end_of_call.
+
+flora_call(_Goal,_NVs,_XWamState) :-
+	flora_handle_notrace,
+	fail.
+
+FL_SILENT_ISACYCLIC(X) :- is_acyclic(X).
+
+/********************************************************************/
+flora_write_matches(List,_,Num) :-
+        %% flora_feedback_control is set to 1 to disable feedback for the
+        %% current command. We decrement it to 0 and thus enable feedback again.
+	flora_get_counter(flora_feedback_control,C), C>0,
+	!,
+	length(List,Num),
+	flora_increment_counter(flora_feedback_control,-1,_,_).
+flora_write_matches(List,_,Num) :-
+	flora_banner_control(nofeedback),
+	length(List,Num),
+	!.
+flora_write_matches([],Count,Count).
+
+flora_write_matches([(M,XWamState)|Ms],InCount,OutCount) :-
+	flora_write_pairs(M,XWamState),
+	MidCount is InCount+1,
+	flora_stdfdbk_nl,
+	flora_skip_identical_answers((M,XWamState),Ms,PureMs),
+	flora_write_matches(PureMs,MidCount,OutCount).
+
+
+flora_write_pairs([],_).
+
+flora_write_pairs([N=V|NVs],XWamState) :-
+	flora_stdfdbk_nl,
+	flora_stdfdbk_string('~w = ',[N]),
+	flora_display_feedback(V),
+	flora_write_if_undefined(XWamState),
+	flora_write_pairs(NVs,XWamState).
+
+flora_write_if_undefined(XWamState) :-
+	(XWamState =:= 0 -> true
+	; flora_stdfdbk_string('  - undefined')
+	).
+
+%% skip answers matching M in sorted list. Return the skipped list
+/*
+   Without this pruning, the following can happen:
+   p(1) :- \true.
+   p(1) :- \undefined.
+   ?- p(?X).
+   X = 1
+   X = 1 - undefined
+*/
+flora_skip_identical_answers(_M,[],[]) :- !.
+flora_skip_identical_answers((M,XWamStateM),[(MM,XWamStateMM)|Rest],Out) :-
+	subsumes:variant(M,MM),
+	!,
+        %% just a precaution -- sort should have taken care of it
+        (XWamStateM =:= 0 -> XWamState = XWamStateM
+        ; XWamState = XWamStateMM
+        ),
+	flora_skip_identical_answers((M,XWamState),Rest,Out).
+flora_skip_identical_answers(_M,List,List).
+
+/********************************************************************/
+%% This turns off trace, so that flora internal stuff done after a
+%% subgoal call won''t be traced. However, on backtracking, this turns
+%% trace on and fails, thereby allowing to backtrack over the previous
+%% subgoal.
+flora_handle_end_of_call :- flora_handle_notrace.
+flora_handle_end_of_call :- flora_handle_trace, fail.
+
+/********************************************************************/
+
+/********************************************************************
+    filters to get rid of some classes
+********************************************************************/
+
+flora_noncomposite_class(C) :-
+        nonvar(C),
+	C \= (_;C1), var(C1), C \= (C2;_), var(C2),
+	C \= (_,C3), var(C3), C \= (C4,_), var(C4),
+	C \= (_ - C5), var(C5), C \= (C6 - _), var(C6).
+
+flora_nonbuiltin_class(C) :-
+        nonvar(C),
+        \+flora_builtin_datatype(C).
+
+
+%% clean up after query, if error
+flranswer_all_answers_query_errhandler(Exception,Goal,QueryTemplate,AroundQueryHookLink) :-
+	flora_call_hooks(_Mod,QUERYHOOK,Goal,after,_Result,AroundQueryHookLink),
+        flora_clear_update_flag,
+	flora_reclaim_storage_space,
+	retractall(QueryTemplate),
+	throw(Exception).
+
+flranswer_all_answers_query_errhandler_collect(Exception,Goal,AroundQueryHookLink) :-
+	flora_call_hooks(_Mod,QUERYHOOK,Goal,after,_Result,AroundQueryHookLink),
+        flora_clear_update_flag,
+	flora_reclaim_storage_space,
+	storage_delete_all(FLRANSWER_TRUE_TRIE),
+	storage_delete_all(FLRANSWER_UNDEF_TRIE),
+	throw(Exception).
+
+flranswer_one_answer_query_errhandler(Exception,Goal,AroundQueryHookLink) :-
+	flora_call_hooks(_Mod,QUERYHOOK,Goal,after,_Result,AroundQueryHookLink),
+        flora_clear_update_flag,
+	flora_reclaim_storage_space,
+	throw(Exception).
+
+
+%% to silence the tracer
+flora_findall(X,Y,Z) :- findall(X,Y,Z).
+
+
+/****************************************************************************
+TODO: rewrite flora_print_all using this more efficient predicate
+
+      flora_collect_all(+Goal,+NameVarPairList,?TrueAnswers,?UndefinedAnswers,?Exception)
+
+      Goal:            a reified goal
+      NameVarPairList: a list of the form
+                       [VarName1=val1, VarName2=val2,...]
+      TrueAnswers/UndefinedAnswers:
+                       lists of Prolog terms of the form
+                       answer(Var1=val1,Var2=val2,...),
+		       one for true answers and one for the undefined ones.
+
+      If either TrueAnswers or UndefinedAnswers is a nonvar, then the
+      corresponding argument is not touched. This is provided in order to
+      minimize communication over slow links, like HTTP or sockets, in case
+      either true or undefined answers are not required.
+
+      This predicate always succeeds. If the query has no answers,
+      both TrueAnswers and UndefinedAnswers are bound to [] 
+      (unless they were bound at the call time; in this case,
+      they retain their original bindings).
+
+      This is used for other applications that wish to call
+      FLORA-2 and get all results
+*****************************************************************************/
+flora_collect_all(Gs,NVs,TrueAns,UndefAns,Exception) :-
+	NVs == [],
+	!,
+	flora_call_hooks(_Mod,QUERYHOOK,Gs,before,_Result,AroundQueryHookLink),
+	(catch(flora_call(Gs,NVs,XWamState),
+	       Exception,
+	       flranswer_one_answer_query_errhandler(Exception,
+						     Gs,
+						     AroundQueryHookLink)
+	      ),
+	    close_open_tables(cleanup),
+	    (XWamState=:=0
+	    -> storage_insert_fact(FLRANSWER_TRUE_TRIE,FLRANSWER_FUNCTOR(true),_)
+	    ; storage_insert_fact(FLRANSWER_UNDEF_TRIE,FLRANSWER_FUNCTOR(undefined),_)
+	    ),
+	    fail
+	; true
+	),
+	(var(TrueAns)
+	-> flora_findall(X,storage_find_fact(FLRANSWER_TRUE_TRIE,X),TrueAns)
+	; true
+	),
+	(var(UndefAns)
+	-> flora_findall(X,storage_find_fact(FLRANSWER_UNDEF_TRIE,X),UndefAns)
+	; true
+	),
+	flora_call_hooks(_Mod,QUERYHOOK,Gs,after,_Result,AroundQueryHookLink),
+        flora_clear_update_flag,
+	flora_reclaim_storage_space,
+	storage_delete_all(FLRANSWER_TRUE_TRIE),
+	storage_delete_all(FLRANSWER_UNDEF_TRIE).
+
+
+flora_collect_all(Gs,NVs,TrueAns,UndefAns,Exception) :-
+	%% All answers are asserted into temp tries for true/undefined answers.
+	%% Since these are tries, duplicates are deleted.
+	%% Rationale: some answer lists might have hundreds of thousands
+	%% items, which takes a long time to collect and sort.
+	%% Sometimes sorting runs out of memory and crashes XSB. 
+	%% Dealing with tries adds a very small overhead to each query, but
+	%% overall speeds up returning the answers and often avoids crashes.
+	QueryTemplate =.. [FLRANSWER_FUNCTOR|NVs],
+	
+	flora_call_hooks(_Mod,QUERYHOOK,Gs,before,_Result,AroundQueryHookLink),
+	catch(
+	      (flora_call(Gs,NVs,XWamState),
+		  (XWamState=:=0
+		  -> storage_insert_fact(FLRANSWER_TRUE_TRIE,QueryTemplate,_)
+		  ; storage_insert_fact(FLRANSWER_UNDEF_TRIE,QueryTemplate,_)
+		  ),
+		  fail
+	      ; true
+	      ),
+	      Exception,
+	      flranswer_all_answers_query_errhandler_collect(Exception,
+							     Gs,
+							     AroundQueryHookLink)
+	     ),
+	(var(Exception) ->  Exception = FLORA_NORMAL
+	; true
+	),
+	close_open_tables(cleanup),
+	(var(TrueAns)
+	-> flora_findall(X,storage_find_fact(FLRANSWER_TRUE_TRIE,X),TrueAns1),
+	    sort(TrueAns1,TrueAns)
+	; true
+	),
+	(var(UndefAns)
+	-> flora_findall(X,storage_find_fact(FLRANSWER_UNDEF_TRIE,X),UndefAns1),
+	    sort(UndefAns1,UndefAns)
+	; true
+	),
+	flora_call_hooks(_Mod,QUERYHOOK,Gs,after,_Result,AroundQueryHookLink),
+        flora_clear_update_flag,
+	flora_reclaim_storage_space,
+	storage_delete_all(FLRANSWER_TRUE_TRIE),
+	storage_delete_all(FLRANSWER_UNDEF_TRIE).
+
+/****************************************************************************/
+
+FLORA_SYMBOL('time_message')(WT,T,JT) :-
+        (JT<2.2 ->
+            fmt_write(STDFDBK,'\nTimes (in seconds): elapsed = %1.3f; pure CPU = %1.3f\n',
+                      args(WT,T))
+        ; fmt_write(STDFDBK,'\nTimes (in seconds): elapsed = %1.3f; pure CPU = %1.3f; Java time = %1.3f\n',
+                    args(WT,T,JT))
+        ).
+FLORA_SYMBOL('solutions_message')(NumOfSolutions,WT,T,JT) :-
+        (JT<2.2 ->
+            fmt_write(STDFDBK,'\n%d solution(s) in %1.3f seconds; elapsed time = %1.3f\n',
+                      args(NumOfSolutions,T,WT))
+        ; fmt_write(STDFDBK,'\n%d solution(s) in %1.3f seconds; Java time = %1.3f\n',
+                    args(NumOfSolutions,T,JT))
+        ).
+
+/****************************************************************************/
+
+%% disabled; need to measure CPU time, not wall time,
+%% but get_java_current_time/1 currently measures walltime
+flora_java_cputime(0) :- !.
+flora_java_cputime(T) :-
+        curr_sym:current_module(ergo_java,_),
+        !,
+        ergo_java:get_java_current_time(T).
+flora_java_cputime(0).

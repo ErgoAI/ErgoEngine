@@ -1,0 +1,102 @@
+/* File:      flrchange_module.flr
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2017-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+:- compiler_options{production=on}.
+:- nontabled_module.
+:- suppress_rule_signatures.
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "flora_var_attributes.flh"
+
+:- verbatim{':-(import(from(/(FLORA_NAF_PREDICATE,1),flrnegation))).'}.
+
+/*
+   change_module_if_match(+?In,-?Out,+?ModToChange,+?NewMod)
+
+   Change the module of ?In to ?NewMod  **IF** the module of ?In is ?ModToChange
+   If the module of ?In is NOT ?ModToChange then don't change anything.
+
+   If ?ModToChange is unbound then change the module of ?In unconditionally
+   to ?NewMod.
+*/
+
+:- prolog{change_module_if_match/4}.
+
+ensure_loaded.
+
+change_module_if_match(?T,?T,?_ModToChange,?_NewMod) :-
+	isvar{?T},
+        \+get_attr(?T,FLWHENATTRIBUTE,?)@\prolog(machine),
+	!.
+change_module_if_match([],[],?_ModToChange,?_NewMod) :- !.
+change_module_if_match([?L|?R],[?LM|?RM],?ModToChange,?NewMod) :-
+	!,
+	change_module_if_match(?L,?LM,?ModToChange,?NewMod),
+	change_module_if_match(?R,?RM,?ModToChange,?NewMod).
+change_module_if_match((?L,?R),(?LM,?RM),?ModToChange,?NewMod) :-
+	!,
+	change_module_if_match(?L,?LM,?ModToChange,?NewMod),
+	change_module_if_match(?R,?RM,?ModToChange,?NewMod).
+change_module_if_match((?L;?R),(?LM;?RM),?ModToChange,?NewMod) :-
+	!,
+	change_module_if_match(?L,?LM,?ModToChange,?NewMod),
+	change_module_if_match(?R,?RM,?ModToChange,?NewMod).
+change_module_if_match(?T,?TM,?ModToChange,?NewMod) :-
+	is_flora_callable_literal(?T)@\prolog(flrwrapper),
+	flora_change_module(?T,?TM,(?ModToChange,?NewMod),?NewMod,
+	                    ['In ',?ModToChange,?T,
+			     ': unexpected argument'])@\prolog(flrwrapper),
+	!.
+change_module_if_match(?T,?TM,?ModToChange,?NewMod) :-
+        ?T ~ \naf ?Tnaf,
+        !,
+        change_module_if_match(?Tnaf,?TMnaf,?ModToChange,?NewMod),
+        // \naf var is not compiled quite right. Compare insert{p(1)}
+        // \naf exists(?X)^p(?X) (false) and
+        // ?P=${exists(?X)^p(?X)}, ?V ~ \naf ?P, ?V (undefined)
+        // because not enough info in the latter about the existential vars.
+        // So, we use a special builtin flora_reconstruct_naf_call/3.
+        //?TMpre ~ \naf ?TMnaf,
+        flora_reconstruct_naf_call(?T,?TMnaf,?TMpre)@\prolog(flrnegation),
+        // The next is needed because otherwise tabled_unnumber_call/1 will be
+        // in \changemodule and not in the module of the caller.
+        // This will then cause problems with meta-preds and textit.
+        flora_change_module_tabled_unnumber_call(?TMpre,?TM,(\@,?NewMod),?)@\prolog(flrwrapper).
+
+change_module_if_match(?R,?RM,?ModToChange,?NewMod) :-
+	?R ~ (?_H:-?_B),
+        (?R =.. [FLSYSRULEUPDATE,?Id,?File,?Vars,?StmtNo,?Meta,?Head,?Body,
+                                 ?HeadVars,?BdyVars,?DTVars,?H2BFront,?H2BBack,
+                                 ?PreBody,?PostBody,?Defeat])@\plg,
+	change_module_if_match(?Head,?HM,?ModToChange,?NewMod),
+	change_module_if_match(?Body,?BM,?ModToChange,?NewMod),
+        (?RM =.. [FLSYSRULEUPDATE,?Id,?File,?Vars,?StmtNo,?Meta,?HM,?BM,
+                                  ?HeadVars,?BdyVars,?DTVars,?H2BFront,?H2BBack,
+                                  ?PreBody,?PostBody,?Defeat])@\plg,
+	!.
+change_module_if_match(?_T,?_T,?_ModToChange,?_NewMod) :- \true.
+

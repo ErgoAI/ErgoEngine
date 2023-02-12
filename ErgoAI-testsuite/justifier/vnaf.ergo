@@ -1,0 +1,52 @@
+
+p(?X) :- q(deal(?X)), \naf r(?X).
+r(?Y) :- pp(?Y).
+q(?(0.026666)).
+
+pp(?X) :- qq(deal(?X)), \neg r(?X).
+pp(2).
+\neg r(1) :- !.
+qq(?(1)).
+
+//textit{\naf ?X, 'false: %s', [?Y], textit{?X,?Y,[?X]}}.
+
+// !!!!!!
+/*
+textit{?G, 'myfalse: %s', [?XX], 
+        (
+          writeln(iii=?G)@\plg,
+          ?G ~ \naf ?X,
+          %textify(?X,?XX)@\why
+        )
+      }.
+*/
+textit{\naf ?X, 'myfalse: %s', [?XX], 
+        (
+          %textify(?X,?XX)@\why
+        )
+      }.
+
+textit{?Y, 'known false: %s', [?XX],
+        (isnegform{?Y},
+          ?Y ~ \neg ?X, %textify(?X,?XX)@\why)
+      }.
+
+textit{r(?X)@main, '%s is in r', [?X]}.
+textit{p@\plg, 'p is in \'pp\'', []}.
+
+//?- setdisplayformat{float(precision=3,style=f)}.
+textit{q(?X(?Y)), 'q off \'%s\' Of %s%%',[?XX,?YY], 
+       (%textify(?X,?XX)@\why, (isvar{?Y}-->>?YY=?Y ; ?YY \is round(?Y*100)))}.
+
+%tst1 :- ${\naf q(pp(?))}[why(full,textonly)->?[toJson->?PP]]@\why, writeln(test1=?PP)@\plg.
+%tst2 :- ${\naf q(p(?))}[why(full,textonly)->?[toJson->?PP]]@\why, writeln(test2=?PP)@\plg.
+%tst3 :- ${\naf q(r(?))}[why(full,textonly)->?[toJson->?PP]]@\why, writeln(test3=?PP)@\plg.
+%tst4 :- ${\neg q(r(?))}[why(full,textonly)->?[toJson->?PP]]@\why, writeln(test4=?PP)@\plg.
+
+%tst5 :- ${\naf p(3)}[why(full,textonly)->?[toJson->?PP]]@\why, writeln(test5=?PP)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5.
+
+%test :- tell(temp)@\plg,
+	%pretest,
+	told@\plg.

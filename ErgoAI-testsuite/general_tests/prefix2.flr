@@ -1,0 +1,26 @@
+:- iriprefix{vt = 'http://www.ont.org/virt.owl#'}.
+
+@!{vt#rule1}
+vt#p :- q.
+
+
+?- insertrule{vt#ttt:-uuu}.
+?- insert{vt#fff,uuu}.
+
+%tst1 :- clause{@!{?id1} ?head, ?body},
+	?head !~ ${%?@?},
+	writeln(test1=?id1+?head+?body)@\io,
+	\false.
+%tst1 :- \true.
+%tst2 :- clause{@!{?id2} "http://www.ont.org/virt.owl#p"^^\iri, ?body}, writeln(test2=?id2+?body)@\io.
+%tst3 :- clause{@!{?id3} vt#p, ?body}, writeln(test3=?id3+?body)@\io.
+%tst4 :- clause{vt#p, ?body}, writeln(test4=?body)@\io.
+%tst5 :- vt#ttt, vt#fff, writeln(test5=ok)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5.
+
+%test :- tell(temp)@\plg,
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        told@\plg.

@@ -1,0 +1,115 @@
+
+?- p2h{?PT,f(a,b)}, insert{foo(?PT,g(h))}.
+?- p2h{?PT,bar(f(a,b))}, assert(?PT)@\plg().
+?- p2h{?PT,bar(${f(a,b)[b->c]})}, assert(?PT)@\plg().
+
+%tst1 :- write('tst1 ')@\plg(),
+	\if foo(f(?_X,?_Y),g(?_H)) \then writeln('Something wrong')@\plg()
+	   \else writeln('foo(f(?X,?Y),g(?H)) failed, as expected')@\plg().
+    
+%tst2 :- write('tst2 ')@\plg,
+	\if bar(f(?X,?Y))@\plgall
+	   \then writeln(('?X'=?X,'?Y'=?Y))@\plgall()
+	   \else writeln('something wrong')@\plg().
+
+%tst3 :- write('tst3 ')@\plg(),
+	\if bar(f(?_X,?_Y))@\plg()
+	   \then writeln('something wrong')@\plg()
+	   \else writeln('failed, as expected')@\plg().
+
+// Testing argument position
+?- p2h{?PT,g(f(a),f(?Y,k))}, insert{poo(?PT,d(h))}.
+
+%tst4:- write('tst4 ')@\plg(),
+	\if poo(g(f(?X),f(?Y,k))@\plgall(),d(?W))
+       \then (
+        \if isvar{?Y} \then ?YY='_',
+	writeln(('?X'=?X,'?Y'=?YY,'?W'=?W))@\plgall()
+       ) \else writeln('something wrong')@\plg().
+
+%tst5 :- write('tst5 ')@\plg(),
+	\if poo(g(f(?_X),f(?_Y,k))@\plg(),d(?_W))
+	   \then writeln('something wrong')@\plg()
+	   \else writeln('failed, as expected')@\plg().
+
+%tst6 :- write('tst6 ')@\plg(),
+	\if foo(f(?_X,?_Y)@\plg(),g(?_H))
+	   \then writeln('foo(f(?X,?Y)@\plg(),g(?H)) succeeded, as expected')@\plg()
+	   \else writeln('something wrong')@\plg().
+%tst7 :- write('tst7 ')@\plg(),
+	\if foo(f(?_X,?_Y)@\plgall(),g(?_H))
+	   \then writeln('foo(f(?X,?Y)@\plgall(),g(?H)) succeeded, as expected')@\plg()
+	   \else writeln('something wrong')@\plg().
+
+// Testing meta
+// Here we assert metapred(${a[b->c]}) as prolog
+%tst8 :- write('tst8 ')@\plg(),
+	insert{a[b->c], metapred(${a[b->c]})}, 
+	assert(metapred(${a[b->c]}))@\plgall(),
+	metapred(?X)@\plgall(),
+	\if ?X
+        \then writeln('metapred(?X)@\plgall() succeeded, as expected')@\plg()
+        \else  writeln('something wrong')@\plg().
+
+// Here we assert metapred(${a[b->c]}) as prolog
+%tst9 :- write('tst9 ')@\plg(),
+	insert{a[b->c], metapred(${a[b->c]})}, 
+	assert(metapred(${a[b->c]}))@\plgall(),
+	metapred(?X)@\plg(),
+	\if ?X
+        \then writeln('metapred(?X)@\plg() succeeded, as expected')@\plg()
+        \else  writeln('something wrong')@\plg().
+
+// Here we assert metapred(${a[b->c]}) as hilog
+%tst10 :- write('tst10 ')@\plg(),
+	insert{a[b->c], metapred(${a[b->c]})}, 
+	 assert(metapred(${a[b->c]}))@\plg(),
+	 metapred(?X),
+	 \if ?X
+         \then writeln('metapred(?X) succeeded, as expected')@\plg()
+         \else  writeln('something wrong')@\plg().
+
+
+// Prolog predicates with embedded Flora terms (not meta)
+%tst11 :- write('tst11 ')@\plg(),
+	 ?L = collectset{?T| bar(${f(a,?X)[b->?Y]})@\plgall(), ?T=(?X,?Y)},
+	 \if ?L \= []
+         \then (sort(?L,?SortedL)@\plg(), writeln(?SortedL)@\plgall())
+         \else writeln('something wrong')@\plg().
+
+%tst12 :- write('tst12 ')@\plg(),
+	?L = collectset{?T| a[b->?Y], bar(f(a,?X))@\plgall(), ?T=(?X,?Y)},
+	\if ?L \= []
+         \then (sort(?L,?SortedL)@\plg(), writeln(?SortedL)@\plgall())
+         \else writeln('something wrong')@\plg().
+
+:- setsemantics{equality=basic}.
+c :=: ?X :- ?X=x.y.
+x[y->5].
+
+%tst13 :- write('tst13 ')@\plg(),
+	 \if (a[b->x.y], bar(f(a,?X))@\plgall() )
+         \then writeln('bar(f(a,?X))@\plgall() ?X'=?X)@\plgall()
+         \else writeln('something wrong')@\plg().
+
+%tst14 :- write('tst14 ')@\plg(),
+	 p2h{?PT1, bar(f(${a[e.e->f.f[q->r.r]]},a))}, assert(?PT1)@\plg(),
+	 \if bar(f(${a[e.e->f.f[q->r.r]]},?X))@\plgall()
+         \then writeln('bar(f(${a[e.e->f.f[q->r.r]]},?X)@\plgall() ?X'=?X)@\plgall()
+         \else writeln('something wrong')@\plg().
+
+%tst15 :- write('tst15 ')@\plg(),
+	\if (a[b->x.y],bar(f(a,?_X))@\plg())
+         \then writeln('something wrong')@\plg()
+         \else writeln('bar(f(a[b->x.y],?X))@\plg() failed, as expected')@\plgall().
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5,
+	   %tst6, %tst7, %tst8, %tst9, %tst10,
+	   %tst11, %tst12, %tst13, %tst14, %tst15.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().

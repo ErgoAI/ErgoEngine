@@ -1,0 +1,1756 @@
+/* File:      flora_terms.flh -- Flora-2 main terms
+**
+** Author(s): Guizhen Yang, Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2023;
+**      and Vulcan, Inc., 2008-2013;
+**      Coherent Knowledge Systems, LLC, 2014-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+#mode standard Prolog
+
+#include "standard.h"
+
+#include "flora_prefix.flh"
+#include "flora_datatype_symbols.flh"
+#include "flora_var_attributes.flh"
+
+
+/*
+#define FLGETC(Char)         get_byte(Char)
+#define FLPEEKC(Char)        peek_byte(Char)
+*/
+/* UTF-8 stuff */
+#define FLGETC(Char)         get_code(Char)
+#define FLPEEKC(Char)        peek_code(Char)
+
+#include "flrproduct.flh"
+
+/**************************************************************************
+  The following are the types of tokens returned by the FLORA Lexer:
+  (1)  IDENTIFIER(I,TextInfo)
+  (2)  VARIABLE(V,TextInfo)
+  (3)  NUMBER(N,TextInfo)
+  (4)  QUOTED_ATOM(QA,TextInfo)
+  (5)  ASCII_STRING(AS,TextInfo)
+  (6)  SYMBOL_TOKEN(ST,TextInfo)
+  (7)  SPECIAL_TOKEN(SpT,TextInfo)
+  (8)  WHITESPACE(TextInfo)
+  (9)  COMMENT(TextInfo)
+  (10) RULE_DELIMITER(TextInfo)
+  (11) BUILTIN_IDENTIFIER(Identifier,TextInfo)
+  (12) DATATYPE(DataType,TextInfo)
+
+  TextInfo=TEXT(BeginX,BeginY,EndX,EndY,ListOfCodes)
+**************************************************************************/
+#define TEXT			text
+#define IDENTIFIER		identifier
+#define TRANSACTIONAL_IDENTIFIER transactional_identifier
+#define VARIABLE		variable
+#define TRANSACTIONAL_VARIABLE	transactional_variable
+#define NUMBER			number
+#define TRANSACTIONAL_NUMBER	transactional_number
+#define QUOTED_ATOM		quoted_atom
+#define TRANSACTIONAL_QUOTED_ATOM transactional_quoted_atom
+#define ASCII_STRING		ascii_string
+#define TRANSACTIONAL_ASCII_STRING transactional_ascii_string
+#define SYMBOL_TOKEN		symbol_token
+#define TRANSACTIONAL_SYMBOL_TOKEN transactional_symbol_token
+#define SPECIAL_TOKEN		special_token
+#define WHITESPACE		whitespace
+#define COMMENT			comment
+#define RULE_DELIMITER		rule_delimiter
+#define BUILTIN_IDENTIFIER	builtin_identifier
+#define TRANSACTIONAL_BUILTIN	transactional_builtin
+#define DATATYPE         	datatype
+
+
+/**************************************************************************
+  Indices of Tokens
+**************************************************************************/
+#define LOW_INDEX		1
+#define NO_INDEX		0
+
+#define NO_RULE	        	-1
+
+
+/**************************************************************************
+  The following are the types of tokens returned by the FLORA Composer:
+  (1)PREFIX(Symbol,Token,Index)
+  (2)INFIX(Symbol,LeftToken,RightToken,Index)
+  (3)SUFFIX(Symbol,Token,Index)
+  (4)FUNCTION(Function,Argument)
+  (5)ARGUMENT(Parenthesis,Token,Indx1,Indx2) or
+     ARGUMENT(Parenthesis,Indx1,Indx2)
+  (6)OBJECT(Token,Index)
+**************************************************************************/
+#define NULL			null
+
+/* types of operators: prefix, infix, suffix */
+#define PREFIX			prefix
+#define INFIX			infix
+#define SUFFIX			suffix
+
+#define FUNCTION		function
+#define ARGUMENT		argument
+#define OBJECT			object
+
+
+/**************************************************************************
+  FLORA Vocabulary
+**************************************************************************/
+#define FL_IMPLYOP		(':-')
+#define FL_QUERYOP		('?-')
+#define FL_RIGHTIMPLYOP		('-:')
+/* Latent queries */
+#define FL_LATENT_QUERYOP  	('!-')
+/* Alternative if-then */
+#define FL_LEFTNAFIMPLY		('<~~')
+#define FL_RIGHTNAFIMPLY	('~~>')
+#define FL_NAFIFF       	('<~~>')
+#define FL_LEFTNEGIMPLY		('<==')
+#define FL_RIGHTNEGIMPLY	('==>')
+#define FL_NEGIFF       	('<==>')
+
+#define FL_PARENTHESIS		'('
+#define FL_BRACKET		'['
+#define FL_BRACE		'{'
+#define FL_RIGHT_PARENTHESIS	')'
+#define FL_RIGHT_BRACKET	']'
+#define FL_RIGHT_BRACE		'}'
+
+#define FL_PARENBAR		'(|'
+#define FL_RIGHT_PARENBAR	'|)'
+#define FL_BRACKBAR		'[|'
+#define FL_RIGHT_BRACKBAR	'|]'
+#define FL_BRACEBAR		'{|'
+#define FL_RIGHT_BRACEBAR	'|}'
+#define FL_BRACEBRACE		'{{'
+#define FL_RIGHT_BRACEBRACE	'}}'
+#define FL_BACKPAREN		'\\('
+#define FL_RIGHT_BACKPAREN	'\\)'
+#define FL_BACKBRACK		'\\['
+#define FL_RIGHT_BACKBRACK	'\\]'
+#define FL_BACKBRACE		'\\{'
+#define FL_RIGHT_BACKBRACE	'\\}'
+
+#define FL_QUOTE		''''
+#define FL_DOUBLEQUOTE		'"'
+
+#define FL_VARSYM		'?'
+
+#define FL_COMMA		','
+#define FL_AND_CONNECTIVE	','
+/*
+#define ERGOTEXT_WORD_CONNECTOR '_$ergotxt word^tie'
+*/
+#define ERGOTEXT_WORD_CONNECTOR ','
+#define ERGOTEXT_WORD_CONNECTOR_FILLER  '''_^''^_'''
+#define FL_AND   		'\\and'
+#define FL_BAR			'|'
+#define FL_STRCONCAT		'||'
+#define FL_SETUNION 		'++'
+#define FL_SETDIFF 		'--'
+#define FL_SETINTERSECT		'&&'
+#define FL_SEMICOLON		';'
+#define FL_OR_CONNECTIVE	';'
+#define FL_OR		        '\\or'
+#define FL_PLUS			'+'
+#define FL_MINUS		'-'
+#define FL_STAR			'*'
+#define FL_DBLSTAR		'**'
+#define FL_SLASH		'/'
+#define FL_MOD			(mod)
+#define FL_DIV			(div)
+#define FL_SYMOR		'\\/'
+#define FL_SYMAND		'/\\'
+
+#define FL_CURIOP		'#'
+
+#define FL_URL    		url
+
+#define FL_FLOOR                floor
+#define FL_ROUND                round
+#define FL_ABS                  abs
+#define FL_FLOATFUNC            float
+#define FL_EXP                  exp
+#define FL_LOG                  log
+
+/* The prolog true/fail/undefined */
+#define FL_TRUE                 true
+#define FL_FALSE                fail
+#define FL_FALSE2               false
+#define FL_UNDEFINED            undefined
+/* These are shorthands for \boolean"true" and \boolean"false"ltins
+   Also: the flora true/false/undefined builtin
+*/
+#define FL_TRUECONST            '\\true'
+#define FL_FALSECONST           '\\false'
+#define FL_UNDEFCONST           '\\undefined'
+/* true{...}, false{...}, undefined{...}  */
+#define FL_TRUE_PRIMITIVE       true
+#define FL_FALSE_PRIMITIVE      false
+#define FL_UNDEFINED_PRIMITIVE  undefined
+#define FL_TRUTHVALUE_PRIMITIVE truthvalue
+#define FL_WHY_PRIMITIVE        why
+
+#define FL_TRUTHVALUE_TEST_PRED FLORA_SYMBOL('truthvalue_test')
+
+#define FL_PI_NUMBER            '\\pi'
+#define FL_PI_NUMBER_VALUE      3.1415926
+#define FL_E_NUMBER             '\\e'
+#define FL_E_NUMBER_VALUE       2.7182818
+
+#define FL_UNDERSCORE		'_'
+#define FL_HASH			'#' 
+#define FL_AT			'@'
+#define FL_CUT			'!'
+
+#define FL_ANON_VAR		'_'
+/*
+   Also: CH_ANON_VAR == 95 == '_' is defined in flora_characters.flh
+*/
+
+#define FL_QUANTVARCONNECTOR	'^'
+#define FL_POWER        	'^'
+#define FL_EXISTS		'exists'
+#define FL_EXIST		'exist'
+#define FL_FORALL		'forall'
+#define FL_MUST			'must'
+#define FL_WISH			'wish'
+#define FL_LAMBDA		'lambda'
+
+#define FL_THISMODULE           '\\@'
+#define FL_DUMMYMODULE          FLORA_SYMBOL('dummy')
+
+/* static newoid _# */
+#define FL_NEWOID		'\\#'
+#define FL_NEWOID_SYM           skolem
+#define FL_NEWOID_GLOBAL	'\\##'
+#define FL_NEWOID_GLOBAL_SYM    autogen
+
+#define FL_SPECIAL_VAR_TOKEN	'\\?'
+#define FL_SPECIAL_FILE_TOKEN   'F'
+#define FL_SPECIAL_LINE_TOKEN   'L'
+#define FL_SPECIAL_CALLER_TOKEN 'C'
+
+/* Dynamic newoid operation; newoid is deprecated */
+#define FL_NEWOIDOP		newoid
+#define FL_SKOLEMOP		skolem
+#define FL_SKOLEMIZE            skolemize
+#define FL_NEWOID_DYNSYM	dyn_skolem
+
+#define FL_SKOLEM		'\\skolem'
+#define FL_SKOLEMQUERY		'\\skolemquery'
+#define FL_ISSKOLEM		'\\isskolem'
+#define FL_ISSKOLEMPRIM		isskolem
+#define FL_ISBASEFACT		'\\isbasefact'
+#define FL_ISBASEFACTPRIM	isbasefact
+
+#define FL_OMNI_SKOLEM_PREFIX	'omni_'
+
+#mode save
+#mode nostring "\!#'"
+#define FL_NEWOID_PREFIX        FLORA_SYMBOL('FL_NEWOID_SYM')
+#define FL_NEWOID_DYNPREFIX     FLORA_SYMBOL('FL_NEWOID_DYNSYM')
+#define FL_NEWOID_GLOBAL_PREFIX FLORA_SYMBOL('FL_NEWOID_GLOBAL_SYM')
+#mode restore
+
+#define FL_RULELOGNAF		'\\naf'
+#define FL_NEG			'\\neg'
+#define FL_NEG_Atm		'\\neg'
+#define FL_PLGNAF		'\\+'
+#define FL_DEFLTNEG    	        default_negation
+#define FL_DELAYQUANT		FLORA_SYMBOL('delay_quantifier')
+
+#define FL_POSSIBLE             '<>'
+#define FL_IMPOSSIBLE           '~<>'
+#define FL_HYPOTHETICAL         hypothetical
+#define FL_NEGATION             negation
+
+/* synonyms for :: */
+#define FL_ISA			':'
+#define FL_ISAWORD              '\\isa'
+#define FL_MEMBEROF             '\\memberof'
+/* synonyms for :: */
+#define FL_SUB			'::'
+#define FL_SUBCLASSOF           '\\subclassof'
+#define FL_SUBOF                '\\sub'
+
+/* path expressions */
+#define FL_MVD			'.'
+#define FL_INHERIMVD		'!'
+
+#define FL_RULE_DELIMITER	'.'
+
+/* synonyms for the infix -> */
+#define FL_MVDARROW		'->'
+#define FL_HASVALUE		'\\hasvalue'
+
+#define FL_ALLINARROW		'+>>'
+#define FL_CONTAINS		'\\contains'
+#define FL_TOLISTARROW		'->->'
+#define FL_MVDSIGARROW		'=>'
+/* Used as Prolog -> */
+#define FL_PROLOG_IFTHEN	'-->>'
+
+/* synonyms for infix => */
+#define FL_HASTYPE		'\\hastype'
+
+#define FL_RANGE		'..'
+#define FL_BOOLSIGARR		'=>'
+#define FL_PROLOG_MODULE_TIE	':'
+
+#mode save
+#mode nocomment "%"
+#define FL_TRAN			'%'
+#define FL_INT_DIV		'%%'
+#mode restore
+
+#define FL_UNIVEQ		'='
+#define FL_EVALEXPR		'='
+#define FL_EVALEXPR2		'\\is'
+#define FL_UNIVNOTEQ		'\\='
+#define FL_C_UNEQUAL            '!='
+#define FL_TRYEQ		'?='
+#define FL_EQ			'=='
+#define FL_NOTEQ		'\\=='
+#define FL_C_NOTSAME		'!=='
+#define FL_ORDERLT		'@<'
+#define FL_ORDEREQLT		'@=<'
+#define FL_ORDERGT		'@>'
+#define FL_ORDEREQGT		'@>='
+#define FL_METAUNIV		'=..'
+#define FL_UNIVEQFORM		'~'
+#define FL_C_NOTUNIVEQFORM	'!~'
+#define FL_NOTUNIVEQFORM	'\\~'
+#define FL_IS			'\\is'
+#define FL_MATHEQ		'=:='
+#define FL_OBJEQL		':=:'
+#define FL_MATHNOTEQ		'=\\='
+#define FL_LT			'<'
+#define FL_EQLT			'=<'
+#define FL_GT			'>'
+#define FL_EQGT			'>='
+#define FL_RIGHTTO		'>>'
+#define FL_LEFTTO		'<<'
+#define FL_SETVALUE		':='
+/* Equality for user defined functions */
+#define FL_UDFEQ		':='
+/* 'if' in equality for user defined functions */
+#define FL_UDFIF		'\\if'
+/* 'udf' in definitions of user defined functions */
+#define FL_UDFF			'\\udf'
+/* 'udf' in symbol_context directive */
+#define FL_SYMBOL_CONTEXT_UDF	'udf'
+#define FL_SYMBOL_CONTEXT_SENSOR 'sensor'
+#define FL_SYMBOL_CONTEXT_PROLOG 'prlg'
+
+#define FL_REIFYOP		'$'
+#define FL_DESCRIPTOROP		'@'
+#define FL_DESCRIPTORFUNC	FLORA_SYMBOL('@')
+#define FL_RULEID_SYM		'!'
+#define FL_NULL_QUASI_SYM	'?'
+#define FL_BOOL_DESCR_SYM	'@'
+#define FL_TAG_DESCR_OP		'@'
+#define FL_RULEID_OP		'@!'
+#define FL_BOOL_DESCR_OP	'@@'
+
+#define FL_SPECIAL_CONST_TOKEN  '\\@'
+
+/* Executable op definition in the :- op directive */
+#define FL_OP			op
+#define FL_INDEX		index
+#define FL_PROLOG		prolog
+#define FL_TABLE		table
+
+/* specifies tabling method - don't want */
+/* #define FL_AS			as */
+
+#define FL_NONTABLEDMOD		nontabled_module
+#define FL_NONTABLEDDATAMOD	nontabled_data_module
+#define FL_DEFSENSOR		defsensor
+#define FL_USESENSOR		usesensor
+#define FL_USEUDF		useudf
+
+#define FL_IMPORTMODULE		importmodule
+#define FL_EXPORT		export
+#define FL_UPDATABLE		updatable
+
+#define FL_OID			oid
+#define FL_BODYFORMULA		meta
+#define FL_ARITH		flarith
+
+#define FL_HEAD                 head
+#define FL_BODY                 body
+
+#define FL_CMPOPT		compiler_options
+#define FL_IGNOREDEP            ignore_depchk
+#define FL_LOADTEXTGEN		load_textgen
+#define FL_LOADTEMPLATE		load_template
+
+#define FL_SEMANTICS		semantics
+#define FL_SETSEMANTICS		setsemantics
+#define FL_SETRUNTIME		setruntime
+#define FL_EQUALITY		equality
+#define FL_INHERITANCE		inheritance
+#define FL_SUBCLASSING		subclassing
+#define FL_CLASS_EXPRESSIONS    class_expressions
+#define FL_TABLING		tabling
+#define FL_CUSTOM		custom
+#define FL_PREFIXDEF		iriprefix
+#define FL_LOCALPREFIXDEF	irilocalprefix
+
+#define FL_SYMBOL_CONTEXT	symbol_context
+
+/* Tabling types */
+#define FL_SUBSUMPTIVE   	subsumptive
+#define FL_VARIANT      	variant
+#define FL_INCREMENTAL      	reactive
+#define FL_NONINCREMENTAL      	passive
+
+#define FL_LIBMOD               libmod_wrapper
+#define FL_NEGLIBMOD            FLNEGPREFIX(libmod_wrapper)
+#define FL_TRANSLIBMOD          FLTRANSPREFIX(libmod_wrapper)
+/* these two are for modularized prolog with variable module name */
+#define FL_PLGLIBMOD            plglibmod_wrapper
+#define FL_NEGPLGLIBMOD         FLNEGPREFIX(plglibmod_wrapper)
+
+#define FL_CHANGED              changed
+#define FL_UNCHANGED            unchanged
+
+#define FL_AGG			agg
+#define FL_MIN			min
+#define FL_MAX			max
+#define FL_SUM			sum
+#define FL_AVG			avg
+#define FL_COUNT		count
+#define FL_SUMDISTINCT		sumdistinct
+#define FL_AVGDISTINCT		avgdistinct
+#define FL_COUNTDISTINCT	countdistinct
+/* collectset/setof and collectbag/bagof are synonyms */
+#define FL_COLLECTSET		collectset
+#define FL_COLLECTBAG		collectbag
+#define FL_SET		        setof
+#define FL_BAG  		bagof
+
+#define FL_IN    		'\\in'
+#define FL_INN    		'\\subset'
+#define FL_SUBLIST    		'\\sublist'
+
+#define FL_INSERT		insert
+#define FL_INSERTALL		insertall
+#define FL_DELETE		delete
+#define FL_DELETEALL		deleteall
+#define FL_ERASE		erase
+#define FL_ERASEALL		eraseall
+
+/* Prolog predicates that must be relativized to FLORA modules */
+#define FL_TRUTHVALUE_TABLED_CALL truthvalue_tabled_call
+#define FL_TABLED_NAF_CALL      tabled_naf_call
+
+/* For refreshing table calls */
+#define FL_REFRESH		refresh
+
+#define FL_BTINSERT		t_insert
+#define FL_BTINSERTALL		t_insertall
+#define FL_BTDELETE		t_delete
+#define FL_BTDELETEALL		t_deleteall
+#define FL_BTERASE		t_erase
+#define FL_BTERASEALL		t_eraseall
+
+#define FL_CALLERMODULE		caller
+#define FL_NEWMODULE		newmodule
+#define FL_ERASEMODULE		erasemodule
+#define FL_INSERTRULE		insertrule
+#define FL_INSERTRULE_A		insertrule_a
+#define FL_INSERTRULE_Z		insertrule_z
+#define FL_DELETERULE_A		deleterule_a
+#define FL_DELETERULE_Z		deleterule_z
+#define FL_DELETERULE		deleterule
+
+#define FL_CONTEXT              '_$ctxt'
+
+/*  clause{...} */
+#define FL_CLAUSE		clause
+/*  tag{...} */
+#define FL_TAG_PRIMITIVE	tag
+/*  prefix{...} */
+#define FL_PREFIX_PRIMITIVE	prefix
+#define FL_SPLITIRI_PRIMITIVE	irisplit
+
+#define FL_CONSTRAINT_START     '{'
+#define FL_CONSTRAINT_END       '}'
+
+#define FL_CATCH		catch
+#define FL_THROW		throw
+#define FL_P2H  		p2h
+
+/* Optimization options */
+#define FLORA_LOCAL_OVERRIDE_OPTION   local_override
+
+/****************** rule struct db support (Ergo only) ***********************/
+/* Directive that tells Ergo to save rule structure */
+#define ERGO_STRUCTURE_DB_DIRECT  use_rule_structure_db
+/* option reported as a result of ERGO_STRUCTURE_DB_DIRECT */
+#define ERGO_STRUCTURE_DB_OPTION  rule_structure_db_opt
+
+
+/* used to indicate that all vars in a naf-ed expression are free */
+#define FL_ALLVARS  	        allvars
+
+/****************************************************************************
+  Intermediate coding of a FLORA program consists of the following constructs:
+
+  FLRULE(Head,Body)
+  FLFACT(Head)
+  FLQUERY(Body)
+  FLLATENTQUERY(Body)
+  FLDIRECTIVE(DirectList)
+  FLANNOTATEDCONSTRUCT(Descriptor,Construct)
+  FLUDF(Function,Predicate,ReturnValue)
+  FLUDFFACT(Function,ReturnValue)
+
+  FLUDFSYM(Term)
+  FLSENSORSYM(Term)
+  FLPRLGSYM(Term)
+
+  FLEXPORT(Body)
+  FLCOMMAND(Direct)
+  FLIMPORT(Functor,Arity)
+  FLARGUMENTS(Functor,Arity,Args)
+  FLPROLOG(SpecList)
+  FLTABLE(SpecList)
+  FLTABLEAS(TermName/Arity,TableType)
+  FLNONTABLEDMOD(SpecList)
+  FLNONTABLEDDATAMOD(SpecList)
+  FLQUANTIFIER(Quant,VarList,Body)
+  FLDELAYQUANTIFIER(Quant,Cond,Goal)
+  FLOPDEF(Predecence,Associativity,Op)
+  FLINDEX(Arity,ArgPos)
+  FLCMPOPT(OptionList)
+  FLSEMANTICS(Type)
+  FLSETSEMANTICS(Type)
+  FLSETRUNTIME(Type)
+ 
+  FLVAR(Name,Index)
+  FLATOM(Atom,Index)
+  FLNUMBER(Number,Index)
+  FLCURI(Prefix,Localname)
+  FLDATATYPE(DT,Index)
+  FLBUILTIN_IDENTIFIER(BI,Index)
+  FLSTRING(String,Index)
+  FLCHARLIST(String,Index)
+  FLTOKEN(Token,Index)
+  FLTERM(FLPATHEXP,Arity,[FLPATHEXPs])
+  FLARITH(Expr)
+  FLAGGREGATE(Operator,FLVAR,[FLVARs],FLLITERAL|FLCONJUNCT|FLDISJUNCT)
+  FLLIST([FLPATHEXPs],FLPATHEXP,Index)
+  FLBIRELATE(FLPATHEXP,BiRelType,FLPATHEXP)
+  FLOBJREF(FLPATHEXP,ObjRefType,FLPATHEXP)
+  FLOBJSPEC(FLPATHEXP,FLATTSPEC|FLTERM|FLCONJUNCT|FLDISJUNCT)
+  FLMVDATTSPEC(FLPATHEXP,AttRefType,FLPATHEXPLIST)
+  FLSIGATTSPEC(FLPATHEXP,AttRefType,FLPATHEXPLIST)
+  FLSIGATTCONSPEC(FLPATHEXP,Constraint,AttRefType,FLPATHEXPLIST)
+  FLINCATTSPEC(FLPATHEXP,AttRefType,FLPATHEXP)
+  FLTOLISTATTSPEC(FLPATHEXP,AttRefType,FLPATHEXP)
+  FLBOOLSIG(FLPATHEXP,AttRefType)
+  FLIBOOLSIG(FLPATHEXP,AttRefType)
+  FLTRANSIG(TRAN,AttRefType)
+  FLITRANSIG(TRAN,AttRefType)
+  FLMETHSPEC(Meth)
+  FLIMETHSPEC(IMeth)
+  FLSIGCONSTR(FLPATHEXP,FLPATHEXP)
+  FLTRANSPEC(Tran)
+  FLOBJEQL(O1,O2)
+  FLCUT(Index)
+  FLPASSTRU(PassthruObj)
+  FLLOAD(FLLIST)
+  FLADD(FLLIST)
+  FLADDNEW(FLLIST)
+  FLWORKSPACE(FLTERM|FLOBJSPEC|FLBIRELATE,Name)
+  FLRULEWORKSPACE(FLRULE)
+  FLPLIB(FLTERM,Name)
+  FLPLIB(FLTERM)
+  FLPLIBALL(FLTERM,Name)
+  FLPLIBALL(FLTERM)
+  FLFLORALIB(FLTERM,NAME)
+  FLCONJUNCT(Goal,Goal)
+  FLDISJUNCT(Goal,Goal)
+  FLNEG(Goal)
+  FLPLGNAF(Goal)
+  FLRULELOGNAF(Goal)
+
+  FLSETARG(FLTERM)
+
+  FLHYPOTHETICAL(Goal)
+
+  FLINSERT(Op,LiteralList,Condition)
+  FLINSERT(Op,LiteralList)
+  FLDELETE(Op,LiteralList,Conditon)
+  FLDELETE(Op,LiteralList)
+
+  FLREFRESH(Op,LiteralList)
+  FLSTEALTH(Lit)
+
+  FLCALLERMODULE(Op,Module)
+  FLNEWMODULE(Op,Module)
+  FLERASEMODULE(Op,Module)
+  FLUPDATERULE(Op,RuleList)
+
+  FLSIMPLEPRIMITIVE(Primitive,Args)
+  FLTHISRULEID(Arg)
+
+  FLIFTHEN(IfCondition,ThenStatement)
+  FLIFTHENELSE(IfCondition,ThenStatement,ElseStatement)
+
+  FLUNLESSDO(Condition,ActionWhenCondIsFalse)
+  FLWHILEDO(WhileCondition,Action)
+  FLDOUNTIL(Action,UntilCondition)
+  FLWHILELOOP(WhileCondition,Action)
+  FLLOOPUNTIL(Action,UntilCondition)
+
+  FLDELAYEDLITERAL(Name,Args)
+
+  FLMETAUNIV(LeftTerm,RightList)      % handles =..
+  FLUNIVEQFORM(LeftFormula,RightFormula)
+  FLPROLOGIFTHEN(LeftFormula,RightFormula)
+
+  FLREIFYOP(Formula)                  % ${...}
+
+  FLCATCH                             % catch{...,...,...}
+  FLTHROW                             % throw{...}
+  FLP2H	       	       	       	      % p2h{...}
+
+  FLUDFLIST(Funct,N,Arity,Predicate,ReturnValue)
+  FLTRANSACTIONALTERMDESCRIPTOR(TermName,TermArity)
+  FLTERMDESCRIPTOR(TermName,TermArity)
+****************************************************************************/
+#define FLRULE			flrule
+#define FLFACT			flfact
+#define FLQUERY			flquery
+#define FLLATENTQUERY		fllatent_query
+#define FLDIRECTIVE		fldirective
+#define FLUDF			fludfdef
+#define FLUDFFACT		fludfdef_fact
+
+#define FLANNOTATEDCONSTRUCT   	flannotatedconstruct
+#define FLTAG			fltag
+#define FLRULEID		flruleid
+#define FLBOOLDESCRIPTOR	flbooldescriptor
+#define FLDESCRIPTOR		fldescriptor
+
+#define FLDYNRULE               fldynrule
+
+#define FLCOMMAND		flcommand
+#define FLIMPORT		flimport
+#define FLPROLOG		flprolog
+#define FLTABLE 		fltable
+#define FLTABLEAS		as
+#define FLNONTABLEDMOD 		flnontabledmodule
+#define FLNONTABLEDDATAMOD	flnontableddatamodule
+#define FLQUANTIFIER	    	flquantifier
+#define FLDELAYQUANTIFIER	fldelayquantifier
+#define FLOPDEF			flopdef
+#define FLINDEX			flindex
+/* :- compiler_options */
+#define FLCMPOPT		flcmpopt
+#define FLIGNOREDEP             flignoredep
+#define FLDEPCHKEX              fldepchkex
+#define FLSEMANTICS		flsemantics
+#define FLSETSEMANTICS		flsetsemantics
+#define FLSETRUNTIME		flsetruntime
+#define FLPREFIXDEF		flprefixdef
+#define FLSYMBOLCONTEXT		flsymbolcontext
+
+#define FLUDFSYM		fludfsym
+#define FLSENSORSYM		flsensorsym
+#define FLPRLGSYM		flprlgsym
+
+#define FLATOM			flatom
+#define FLTRANSACTIONALATOM	fltransactionalatom
+#define FLNUMBER		flnumber
+#define FLCURI			flcuri
+#define FLDATATYPE		fldatatype
+#define FLBUILTIN_IDENTIFIER	flbuiltin_identifier
+#define FLTRANSACTIONALNUMBER	fltransactionalnumber
+#define FLSTRING		flstring
+#define FLTRANSACTIONALSTRING	fltransactionalstring
+#define FLCHARLIST		flcharlist
+#define FLVAR			flvar
+#define FLTRANSACTIONALVAR	fltransactionalvar
+#define FLTOKEN			fltoken
+#define FLTERM			flterm
+#define FLARITH			flarith
+#define FLTRANSACTIONALTERM	fltransactionalterm
+#define FLTRANSACTIONALPREDSPEC	fltransactionalpredspec
+#define FLAGGREGATE		flaggregate
+#define FLLIST			fllist
+#define FLBIRELATE		flbirelate
+#define FLOBJREF		flobjref
+#define FLOBJSPEC		flobjspec
+#define FLMVDATTSPEC		flmvdattspec
+#define FLSIGATTSPEC		flsigattspec
+#define FLSIGATTCONSPEC		flsigattconspec
+#define FLINCATTSPEC		flincattspec
+#define FLTOLISTATTSPEC		fltolistattspec
+#define FLBOOLSIG		flboolsig
+#define FLIBOOLSIG		fliboolsig
+#define FLTRANSIG		fltransig
+#define FLITRANSIG		flitransig
+#define FLMETHSPEC		flmethspec
+#define FLIMETHSPEC		flimethspec
+#define FLSIGCONSTR		flsigconstr
+#define FLTRANSPEC		fltranspec
+#define FLOBJEQL		flobjeql
+#define FLCUT			flcut
+#define FLPASSTRU		flpassthru
+#define FLLOAD			flload
+#define FLADD			fladd
+#define FLADDNEW		fladdnew
+#define FLWORKSPACE		flworkspace
+#define FLRULEWORKSPACE		flruleworkspace
+#define FLPLIB			flplib
+#define FLPLIBALL               flpliball
+#define FLFLORALIB		flfloralib
+#define FLCONJUNCT		flconjunct
+#define FLDISJUNCT		fldisjunct
+#define FLPLGNAF		flplgnaf
+#define FLRULELOGNAF		flrulelognaf
+#define FLNEG			flneg
+#define FLNEGIMPLY		flnegimply
+
+#define FLSETARG		flsetarg
+
+
+#define FLHYPOTHETICAL		flhypothetical
+
+#define FLINSERT		flinsert
+#define FLDELETE		fldelete
+
+/* for refreshing tables */
+#define FLREFRESH 		flrefresh
+
+#define FLCLAUSE                flclause
+#define FLANNOTATEDCLAUSE       flannotatedclause
+
+#define FLCALLERMODULE		flcallermodule
+#define FLNEWMODULE		flnewmodule
+#define FLERASEMODULE		flerasemodule
+#define FLUPDATERULE		flupdaterule
+
+#define FLSIMPLEPRIMITIVE       flsimpleprimitive
+#define FLTHISRULEID            flthisruleid
+
+#define FLSPECIALSKOLEM	        flspecialskolem
+
+#define FLCONSTRAINT	        flconstraint
+
+#define FLIFTHEN		flifthen
+#define FLIFTHENELSE		flifthenelse
+
+#define FLUNLESSDO		flunlessdo
+#define FLDOUNTIL		fldountil
+#define FLWHILEDO		flwhiledo
+#define FLWHILELOOP		flwhileloop
+#define FLLOOPUNTIL		flloopuntil
+
+/* Parse functor for ~ */
+#define FLUNIVEQFORM            fluniveqform
+/* Parse functor for =.. */
+#define FLMETAUNIV              flmetauniv
+/* Parse functor for -->> : Prolog -> */
+#define FLPROLOGIFTHEN          flprologifthen
+
+/* ${...} */
+#define FLREIFYOP               flreify
+#define FLEVALEXP               flevalexp
+
+#define FLCATCH	       	        flcatch
+#define FLTHROW	       	        flthrow
+#define FLP2H	       	        flp2h
+
+#define FLEMPTYTERM             emptyterm
+
+#define FLDELAYEDLITERAL        fldelayedliteral
+#define FLSENSOR  		flsensor
+#define FLUSESENSOR  		flusesensor
+
+#define FLUSEFUNCTION  		fluseudf
+
+#define FLDELAYSUPPORTMOD       flrdelaysupport
+#define FLORA_DELAY_CHECKER     fllibexecute_delayed_calls
+#define FLLIBSENSOR             fllibsensor
+#define FLLIBRECORDSENSORS      fllibrecordsensors
+#define FLLIBREGISTERSENSOR     fllibregistersensor
+
+#define FLORA_STOP_DELAY        '!!'
+#define FLSTOPDELAY             flstopdelay
+
+
+/* term descriptor */
+#define FLTRANSACTIONALTERMDESCRIPTOR	fltransactionaltermdescriptor
+#define FLTERMDESCRIPTOR	fltermdescriptor
+/****************************************************************************
+  Flags that control the behavior of plg2hlg
+****************************************************************************/
+#define P2H_UNIFY_VARS 	      1
+
+/* Used in @\prologall */
+#define P2H_DONOT_UNIFY_VARS  0
+
+#define P2H_PREDICATE           flora_plg2hlg
+#define P2H_CONVERSION(Plg,Hlg) P2H_PREDICATE(Plg,Hlg,WRAP_HILOG,P2H_UNIFY_VARS)
+
+/****************************************************************************
+  Prolog encoding of a compiled FLORA program
+****************************************************************************/
+#define PRRULE			prrule
+#define PRFACT			prfact
+#define PRQUERY			prquery
+#define PRDIRECTIVE		prdirective
+
+#define PRREIFY	       	        prreify
+
+#define PRCONSTRAINT		prconstraint
+#define PRTABLE  		prtable
+#define PRUSESENSOR  		prusesensor
+
+#define PRQUANTIFIER            prquantifier
+
+#define PRCOMMAND		prcommand
+#define PRIMPORT		primport
+/* operator definition */
+#define PROPDEF			propdef
+#define PRCMPOPT		prcmpopt
+#define PRIGNOREDEP             prignoredep
+#define PRPREFIXDEF		prprefixdef
+
+#define PRTHISMODULE		prthismodule
+/* For the trie that keeps database facts */
+#define PRTHISFDBSTORAGE	prthisfdbstorage
+#define PRFDBSTORAGE		prfdbstorage
+/* For the trie that keeps track of defined predicate skeletons */
+#define PRTHISFLDSTORAGE	prthisfldstorage
+
+/* Represents the special variable, which appears in the rule head, that is
+   bound to the caller name  */
+#define PRFLCONTEXTVAR             prcallervar
+#define PRDYNFLCONTEXTVAR          prdyncallervar
+#define PRFILENAMEINRULEIDVAR      prfilenameinruleidvar
+
+/*
+#define PRTHISRULEIDVAR         prthisruleidvar
+#define PRTHISDYNRULEIDVAR      prthisdynruleidvar
+*/
+
+/* Represents the term used to pass caller arguments to modules */
+#define PRCALLERARGSTERM        prcallerargsterm
+
+#define PRATOM			pratom
+#define PRMODULARIZEDATOM	prmodularizedatom
+#define PRDYNMODATOM     	prdynmodatom
+
+#define PRNUMBER		prnumber
+#define PRTRANSACTIONALNUMBER	prtransactionalnumber
+#define PRVARIABLE		prvariable
+#define PRTRANSACTIONALVARIABLE	prtransactionalvariable
+#define PRSTRING		prstring
+#define PRDATATYPE		prdatatype
+#define PRBUILTIN_IDENTIFIER	prbuiltin_identifier
+#define PRLIST			prlist
+#define PRTERM			prterm
+
+#define PRAND			prand
+#define PROR			pror
+#define PRBAND			prband
+#define PRRULELOGNAF		prrulelognaf
+#define PRPLGNAF		prplgnaf
+#define PRNEG			prneg
+#define PRATOMLIT		pratomlit
+#define PRTRANSACTIONALATOMLIT		prtransactionalatomlit
+#define PRTERMLIT		prtermlit
+#define PRTRANSACTIONALTERMLIT		prtransactionaltermlit
+#define PRCALL			prcall
+#define PRCUT			prcut
+#define PRWORKSPACE		prworkspace
+#define PRWORKSPACETERM		prworkspaceterm
+#define PRFLORALIB		prfloralib
+#define PROLOGTERM		prologterm
+#define PROLOGLIBLIT		prologliblit
+#define FLORASYSLIB		florasyslib
+
+#define PRNEWPRED		prnewpred
+#define PRNEWOID		prnewoid
+#define PRSPECIALVAR		prspecialvariable
+
+#define PRISA			prisa
+#define PRSUB			prsub
+#define PRMETH			prmeth
+#define PRIMETH			primeth
+#define PRTRAN			prtran
+#define PRMVDSIG		prmvdsig
+#define PRMVDCON		prmvdcon
+#define PRMVDCONDEF		prmvdcondef
+#define PRMVDSIGDEF		prmvdsigdef
+#define PRIMVDSIG		primvdsig
+#define PRIMVDCON		primvdcon
+#define PRIMVDCONDEF		primvdcondef
+#define PRIMVDSIGDEF		primvdsigdef
+#define PRBOOLSIG		prboolsig
+#define PRIBOOLSIG		priboolsig
+#define PRTRANSIG		prtransig
+#define PRITRANSIG		pritransig
+#define PRMVD			prmvd
+#define PRIMVD			primvd
+#define PRMVDINC		prmvdinc
+#define PRIMVDINC		primvdinc
+#define PRMVDTOLIST		prmvdtolist
+#define PRIMVDTOLIST		primvdtolist
+#define PREXISTS		prexists
+#define PRMVDDEF		prmvddef
+#define PRIMVDDEF		primvddef
+#define PROBJEQL		probjeql
+
+#define FLEXPORT		flexport
+#define FLEXPORT_LIST		flexport_list
+#define PREXPORT		prexport
+
+#define FLEXPORT_UPDATABLE 	updatable	
+#define FLEXPORT_READABLE	readable
+
+#define INHERITABLE	        inheritable
+#define NONINHERITABLE   	noninheritable
+
+#define FLIMPORTMOD             flimportmod
+#define FLIMPORTMOD_LIST        flimportmod_list
+#define PRIMPORTMOD             primportmod
+
+/****************************************************************************
+  wrappers
+****************************************************************************/
+/* WRAP_HILOG is used for HiLog terms */
+#define	WRAP_HILOG		flapply
+/* The next two are used for HiLog predicates */
+#define	WRAP_TABLED_HILOG	tblflapply
+#define	WRAP_NONTABLED_HILOG	nontblflapply
+
+#define	WRAP_ISA		isa
+#define	WRAP_SUB		sub
+#define	WRAP_METH		meth
+#define	WRAP_IMETH		imeth
+#define	WRAP_TRAN		tran
+#define	WRAP_MVD		mvd
+#define	WRAP_IMVD		imvd
+#define	WRAP_MVDSIG		mvdsig
+#define	WRAP_MVDSIGDEF		mvdsigdef
+#define	WRAP_MVDCON		mvdcon
+#define	WRAP_MVDCONDEF		mvdcondef
+#define	WRAP_MVDCONDERIVED	mvdconderived
+#define	WRAP_IMVDSIG		imvdsig
+#define WRAP_BOOLSIG		boolsig
+#define WRAP_IBOOLSIG		iboolsig
+#define WRAP_TRANSIG		transig
+#define WRAP_ITRANSIG		itransig
+#define	WRAP_IMVDSIGDEF		imvdsigdef
+#define	WRAP_IMVDCON		imvdcon
+#define	WRAP_IMVDCONDEF		imvdcondef
+#define	WRAP_IMVDCONDERIVED	imvdconderived
+#define	WRAP_MVDINC		mvdinc
+#define	WRAP_IMVDINC		imvdinc
+#define WRAP_MVDTOLIST		mvdtolist
+#define WRAP_IMVDTOLIST		imvdtolist
+#define	WRAP_EXISTS		exists
+#define	WRAP_MVDDEF		mvddef
+#define	WRAP_IMVDDEF		imvddef
+#define	WRAP_OBJEQL		objeql
+#define	WRAP_DIFFOBJEQL		diffobjeql
+#define	WRAP_DIFFOBJEQL_AUX	diffobjeql_aux
+
+#define	WRAP_ISA_EQL		isa_eql
+#define	WRAP_SUB_EQL		sub_eql
+#define	WRAP_METH_EQL		meth_eql
+#define	WRAP_IMETH_EQL		imeth_eql
+#define	WRAP_MVD_EQL		mvd_eql
+#define	WRAP_IMVD_EQL		imvd_eql
+#define	WRAP_MVDSIGDEF_EQL	mvdsigdef_eql
+#define	WRAP_MVDDEF_EQL		mvddef_eql
+#define	WRAP_IMVDDEF_EQL	imvddef_eql
+
+#define DYNRULE_DB_TBL_WRAPPER  dynrule_db_wrap
+#define SESSION_NUMBER          session_number
+
+/*
+   List of data wrappers used in FLORA-2 along with the arity (excluding the
+   caller arguments and such).
+
+   These are used to tell flrdbmodule.P which tables to create in the database.
+   
+   wrap=arity denotes the arity of the wrapper.
+   wrap < Number means that Number-1 is the max arity of the wrapper
+   supported in FLORA-2. The latter is used for HiLog only.
+*/
+#define MAX_HILOG_ARITY      24
+#define WRAP_LIST            [WRAP_TABLED_HILOG<MAX_HILOG_ARITY, \
+                              FLNEGPREFIX(WRAP_TABLED_HILOG)<MAX_HILOG_ARITY, \
+                              WRAP_NONTABLED_HILOG<MAX_HILOG_ARITY, \
+                              WRAP_ISA=2,  \
+                              FLNEGPREFIX(WRAP_ISA)=2,  \
+                              WRAP_SUB=2, \
+                              FLNEGPREFIX(WRAP_SUB)=2, \
+			      WRAP_METH=2, \
+			      FLNEGPREFIX(WRAP_METH)=2, \
+                              WRAP_IMETH=2, \
+                              FLNEGPREFIX(WRAP_IMETH)=2, \
+                              WRAP_TRANSIG=2, \
+                              WRAP_ITRANSIG=2, \
+                              WRAP_BOOLSIG=2, \
+                              FLNEGPREFIX(WRAP_BOOLSIG)=2, \
+                              WRAP_IBOOLSIG=2, \
+                              FLNEGPREFIX(WRAP_IBOOLSIG)=2, \
+                              WRAP_TRAN=2, \
+                              WRAP_MVD=3, \
+                              FLNEGPREFIX(WRAP_MVD)=3, \
+                              WRAP_IMVD=3, \
+                              FLNEGPREFIX(WRAP_IMVD)=3, \
+                              WRAP_MVDSIG=3, \
+                              FLNEGPREFIX(WRAP_MVDSIG)=3, \
+				 WRAP_MVDSIGDEF=2, \
+				 FLNEGPREFIX(WRAP_MVDSIGDEF)=2, \
+                              WRAP_MVDCON=4, \
+				 WRAP_MVDCONDEF=4, \
+                              WRAP_IMVDSIG=3, \
+                              FLNEGPREFIX(WRAP_IMVDSIG)=3, \
+				 FLNEGPREFIX(WRAP_IMVDSIGDEF)=2, \
+                              WRAP_IMVDCON=4, \
+				 WRAP_IMVDCONDEF=4, \
+                              WRAP_EXISTS=1, \
+                              WRAP_MVDDEF=2, \
+                              FLNEGPREFIX(WRAP_MVDDEF)=2, \
+                              WRAP_IMVDDEF=2, \
+                              FLNEGPREFIX(WRAP_IMVDDEF)=2, \
+                              WRAP_OBJEQL=2,   \
+                              FLNEGPREFIX(WRAP_OBJEQL)=2, \
+                              DYNRULE_DB_TBL_WRAPPER = 3,  \
+                              SESSION_NUMBER = 1 \
+                             ]
+
+#define WRAP_LIST_PRED       [WRAP_TABLED_HILOG, \
+                              WRAP_NONTABLED_HILOG \
+                             ]
+
+#define WRAP_LIST_METH       [WRAP_ISA,  \
+                              WRAP_SUB, \
+                              WRAP_MVD, \
+                              WRAP_IMVD \
+                             ]
+
+
+/****************************************************************************
+  FLORA builtin libraries
+****************************************************************************/
+#define	FLLIBMIN		fllibmin
+#define	FLLIBMAX		fllibmax
+#define	FLLIBSUM		fllibsum
+#define	FLLIBAVG		fllibavg
+#define FLLIBCOUNT		fllibcount
+#define	FLLIBSUMDISTINCT	fllibsumdistinct
+#define	FLLIBAVGDISTINCT	fllibavgdistinct
+#define FLLIBCOUNTDISTINCT	fllibcountdistinct
+#define	FLLIBSETOF     		fllibsetof
+#define	FLLIBBAGOF      	fllibbagof
+#define	FLLIBCOLLECTSET		fllibsetof
+#define	FLLIBCOLLECTBAG 	fllibbagof
+#define	FLLIBSORTBY     	fllibaggsortby
+#define	FLLIBSETSORTBY     	fllibsetsortby
+#define	FLLIBBAGSORTBY     	fllibbagsortby
+
+/* Determines the truth value of a goal */
+#define	FLLIBTRUTHVALUE 	fllibtruthvalue
+/* Library file for tag{...} */
+#define	FLLIBTAGPRIMITIVE 	fllibtagprimitive
+/* Library file for prefix{...} */
+#define	FLLIBPREFIXPRIMITIVE 	fllibprefixprimitive
+
+#define	FLLIBLOAD		fllibload
+#define	FLLIBADD		fllibadd
+#define	FLLIBADDNEW		fllibaddnew
+
+#define FLLIBANSWER		fllibanswer
+#define FLLIBSHELLANS		fllibshellans
+#define FLLIBPROGRAMANS		fllibprogramans
+
+/* insert/delete signature for ICs */
+#define FLLIBINSQUERYSIG	fllibinsquerysig
+#define FLLIBDELQUERYSIG	fllibdelquerysig
+#define FLSYSINSQUERYSIG	flsysinsquerysig
+#define FLSYSDELQUERYSIG	flsysdelquerysig
+
+#define FLLIBHYPOTHETICAL 	fllibhypothetical
+#define FLLIBIMPOSSIBLE 	fllibimpossible
+
+#define FLLIBDISPLAY		fllibdisplay
+
+#define FLLIBEXPORT		fllibexport
+#define FLLIBDBMODULE		fllibdbmodule
+
+#define FLLIBDBOP		fllibdbop
+#define FLLIBINSERT		fllibinsert
+#define FLLIBINSERTALL		fllibinsertall
+#define FLLIBDELETE		fllibdelete
+#define FLLIBDELETEALL		fllibdeleteall
+#define FLLIBERASE		flliberase
+#define FLLIBERASEALL		flliberaseall
+
+#define FLLIBREFRESH		fllibrefresh
+#define FLLIBTABLES		fllibtables
+
+#define FLLIBBTDBOP		fllibbtdbop
+#define FLLIBBTINSERT		fllibbtinsert
+#define FLLIBBTINSERTALL	fllibbtinsertall
+#define FLLIBBTDELETE		fllibbtdelete
+#define FLLIBBTDELETEALL	fllibbtdeleteall
+#define FLLIBBTERASE		fllibbterase
+#define FLLIBBTERASEALL		fllibbteraseall
+
+#define FLLIBNEWMODULE		fllibnewmodule
+#define FLLIBERASEMODULE	flliberasemodule
+
+#define FLLIBINSERTRULE_A	fllibinsertrule_a
+#define FLLIBINSERTRULE_Z	fllibinsertrule_z
+#define FLLIBDELETERULE_A	fllibdeleterule_a
+#define FLLIBDELETERULE_Z	fllibdeleterule_z
+#define FLLIBDELETERULE	        fllibdeleterule
+
+#define FLLIBCLAUSE	        fllibclause
+#define FLLIBINSRULESIG	        fllibinsrulesig
+
+#define FLLIBSHDIRECT		fllibshdirect
+
+#define FLENCODINGDIRECT	flencodingdirect
+
+#define FLLIBDYNMOD		fllibdynmod
+#define FLLIBMODLIT		fllibmodlit
+#define FLLIBMODOBJ		fllibmodobj
+#define FLNEGLIBMODLIT		flneglibmodlit
+#define FLNEGLIBMODOBJ		flneglibmodobj
+
+#define FLLIBSEMANTICS		fllibsemantics
+#define FLLIBSETSEMANTICS	fllibsetsemantics
+#define FLLIBSETRUNTIME  	fllibsetruntime
+
+#define FLLIBPREFIXDEF		fllibprefixdef
+
+#define FLLIBCONTROL		fllibcontrol
+#define FLLIBIFTHENELSE		fllibifthenelse
+#define FLLIBIFTHEN		fllibifthen
+
+#define FLLIBUNLESSDO           fllibunlessdo
+#define FLLIBWHILEDO		fllibwhiledo
+#define FLLIBDOUNTIL		fllibdountil
+#define FLLIBWHILELOOP		fllibwhileloop
+#define FLLIBLOOPUNTIL		fllibloopuntil
+
+#define FLLIBCHECKCARD          fllibcheckcard
+
+#define FLLIBMETAOPS		fllibmetaops
+/* The library predicate name for meta ~ */
+#define FLLIBUNIVEQFORM		fllibuniveqform
+/* The library predicate name for meta =.. */
+#define FLLIBMETAUNIV  		fllibmetauniv
+
+#define FLLIBUNIFYHANDLERS	fllibunifyhandlers
+
+/* keeps executable import statements that are needed by all in usermod */
+#define FLLIBIMPORTEDCALLS      fllibimportedcalls
+/* basic axioms for explicit negation and for opposition in GCL */
+#define FLOPPOSESBASELIB        flopposesbaselib
+
+#define FLLIBCATCH              fllibcatch
+#define FLLIBTHROW              fllibthrow
+#define FLLIBERRHANDLER         flliberrhandler
+
+#define FLLIBNEWOID             fllibnewoid
+#define FLLIBSKOLEM             fllibskolem
+
+/* Used to wrap canonical form of terms */
+#define FLCANON                 canon
+
+#define FLLIBDELAYEDLITERAL     fllibdelayedliteral
+#define FLLIBDEFEATDELAY        flibdefeatdelay
+#define FLLIBNAFDELAY           flibnafdelay
+#define FLLIBPEEK               fllibpeek
+
+/*****************************************************************************
+   Flora system modules IDs
+*****************************************************************************/
+/* This functor is used by the compiler. */
+#define FLSYSMOD		flsysmod
+
+#define FLSYSMODIO		'\\io'
+#define FLSYSMODDATABASE	'\\storage'
+#define FLSYSMODSYSTEM		'\\system'
+#define FLSYSMODSYSTEM_UNQ	\\system
+#define FLSYSMODTYPECHECK	'\\typecheck'
+#define FLSYSMODBASETYPE	'\\basetype'
+#define FLSYSMODPARSE   	'\\parse'
+#define FLSYSMODSHOW     	'\\show'
+#define FLSYSMODSUB		'\\sub'
+#define FLCHANGEMODULE		'\\changemodule'
+#define FLCHANGEMODULE_NQ	\\changemodule
+
+#define FLSYSMODXML             '\\xml'
+
+#define FL_PLIB			'\\prolog'
+#define FL_PLIBALL		'\\prologall'
+
+/* Typing ?- [] reads clauses from stdin.
+   '|' is used internally as the name of the inline module */
+#define FL_INLINEMODULE		'|'
+
+/* Ergo-only packages */
+#define ERGO2JAVA              	'\\e2j'
+#define ERGO2SPARQL            	'\\sparql'
+#define ERGO2HTTP              	'\\http'
+#define ERGO2OWL            	'\\owl'
+#define ERGO2SQL            	'\\sql'
+#define ERGO2JSON            	'\\json'
+#define ERGOEXPLAIN      	'\\why'
+#define ERGO_STUDIO_MODULE     	'\\fidji'
+#define ERGO_STUDIO_MODULE2BS  	'\\\\fidji'
+#define ERGOSET          	'\\set'
+
+
+/****************************************************************************
+  Types of update hooks
+****************************************************************************/
+
+#define INSERTFACT              insertfact
+#define DELETEFACT              deletefact
+#define FINDFACT                findfact
+
+#define INSERTRULE              insertrule
+#define DELETERULE              deleterule
+
+#define EXITFLORA               exitflora
+#define LOADTOMODULE            loadtomodule
+#define QUERYHOOK               endofquery
+#define CONSTRAINTHOOK          constraintcheck
+#define ALERTHOOK               alerthook
+
+
+/****************************************************************************
+  FLORA options
+****************************************************************************/
+#define	FLHEADER		flheader
+/* Files included after header, but before everything else */
+#define	FLHEADER_PROG		flheader_prog
+#define	FLHEADER2		flheader2
+#define	FLHEADER3		flheader3
+#define	FLTRAILER		fltrailer
+#define	FLTRAILERREGISTRY	fltrailerregistry
+
+#define	FLSKOLEM		flskolem
+#define	FLOBJEQLDEF		flobjeqldef
+#define FLEQLNONE		fleqlnone
+#define FLEQLBASIC		fleqlbasic
+#define FLEQLFLOGIC		fleqlflogic
+
+#define FLNONTABLEDMOD_OPT 	flnontabledmodule_option
+#define FLNONTABLEDDATAMOD_OPT 	flnontabledDATAmodule_option
+
+
+/****************************************************************************
+  FLORA include files
+****************************************************************************/
+#define FLDEFINITION		fldefinition
+#define FLDEFINITION_ADD	fldefinition_add
+#define FLPATCH			flpatch
+#define FLABOLISH		flabolish
+
+#define FLINDEX_P		flindex_P
+
+/* support for undefinedness checking */
+#define FLPREDDEF		flpreddef
+
+/* support for abolishing tabled calls */
+#define FLREFRESHTABLE	    	flrefreshtable
+/* connector rules to modularized preds querying descriptors, justifier, etc. */
+#define FLDYN_CONNECTORS	flrdynamic_connectors
+
+#define FLCALLMETAFACTS	flcall_metafacts
+
+/* true{...}, undefined{...}, false{...} */
+#define FLTRUTHVALUE	    	fltruthvalue
+/* tag{...} */
+#define FLTAGPRIMITIVE    	fltagprimitive
+/* prefix{...} */
+#define FLPREFIXPRIMITIVE    	flprefixprimitive
+
+/* libraries of dynamically inserted rules */
+#define FLDYNALIB			fldyna
+#define FLDYNZLIB			fldynz
+#define FLDYNDECLARE			fldyndeclare
+
+#define FLSTATICHEADLIB			flstatichead
+
+/****************************************************************************
+  default workspace
+****************************************************************************/
+#define FLORA_DEFAULT_WORKSPACE	   main
+#define FLORA_PROLOG_DEFAULT_MOD   usermod
+
+
+/****************************************************************************
+  commonly used identifiers
+
+  Notes: (1) FLORA_PREFIX_LEN is the length of FLORA_PREFIX PLUS 1. This
+             macro is used in syslib/flrdbop.P.
+****************************************************************************/
+#define	FLORA_EOF		eof
+#define FLORA_NOT_EOF		not_eof
+
+/* these three are used in flrutils, flora_read_parse_compile_build_term */
+#define FLORA_NULL_CODE 	null
+#define FLORA_GOOD_CODE 	ok
+#define FLORA_BAD_CODE  	error
+
+#define FLSYSLIB		flsyslib
+#define FLSYSDBUPDATE		flsysdbupdate
+
+#define FLSYSRULEUPDATE		flsysruleupdate
+
+
+/****************************************************************************
+  arguments to options of the semantics{...} & setsemantics{...} primitives
+****************************************************************************/
+#define NONE			none
+#define FL_NONE			none
+#define FL_ON  			on
+#define FL_OFF 			off
+#define FL_YES  		yes
+#define FL_NO 			no
+#define BASIC			basic
+#define FLOGIC			flogic
+#define MONOTONIC		monotonic
+#define STRICT_SUB		strict
+#define NONSTRICT_SUB		nonstrict
+
+/****************************************************************************
+  optional first arguments to the clause{...} primitive
+****************************************************************************/
+#define STATIC_CLAUSE           static
+#define DYNAMIC_CLAUSE          dynamic
+#define DYNA_CLAUSE             dyna
+#define DYNZ_CLAUSE             dynz
+
+
+/****************************************************************************
+  shell command operators for compilation and loading
+****************************************************************************/
+#define FL_COMPILE              '\\compile'
+#define FL_COMPILEPRIM          compile
+#define FL_COMPILE_ADD		'\\compileadd'
+#define FL_COMPILE_ADDPRIM	compileadd
+#define FL_LOAD			'\\load'
+#define FL_LOADPRIM		load
+#define FL_ADD                  '\\add'
+#define FL_ADDPRIM             add
+#define FL_ADDNEW              '\\addnew'
+#define FL_ADDNEWPRIM          addnew
+#define FL_DUMP			'\\dump'
+#define FL_DUMPPRIM		dump
+#define FL_SAVE                 '\\save'
+#define FL_SAVEPRIM            save
+#define FL_PROFILEPRIM         profile
+
+
+/****************************************************************************
+  control structure
+****************************************************************************/
+#define FL_IF			'\\if'
+#define FL_THEN			'\\then'
+#define FL_ELSE			'\\else'
+
+#define FL_WHILE		'\\while'
+#define FL_UNTIL		'\\until'
+#define FL_UNLESS		'\\unless'
+#define FL_DO			'\\do'
+#define FL_LOOP			'\\loop'
+#define FL_REPEAT		'\\repeat'
+
+/****************************************************************************
+  some debugger support
+****************************************************************************/
+#define FL_SILENT_EQUAL         FLORA_SYMBOL('silent_equal')
+#define FL_SILENT_ISACYCLIC     FLORA_SYMBOL('silent_is_acyclic')
+
+
+/****************************************************************************
+  markups for include files
+****************************************************************************/
+#define FLORA_GPP_MARKUP                 '_$_$_flora_gpp_markup'
+#define FLORA_INCLUDE_DEPENDENCY         FLORA_SYMBOL('include_dependency')
+#define FLORA_INCLUDE_DEPENDENCY_CLOSURE FLORA_SYMBOL('include_dependency_closure')
+#define FLORA_INCLUDE_PRJ_INFO           FLORA_SYMBOL('include_prj_info')
+#define FLORA_TEMPLATE_DEPENDENCY        FLORA_SYMBOL('template_dependency')
+
+#define FLORA_PROJECT_DEPENDENCY         FLORA_SYMBOL('all_project_dependency')
+
+/****************************************************************************
+  Flora compiler options
+****************************************************************************/
+#define XSB_SPECREPR		spec_repr
+#define FL_PRODUCTION           production
+#define FL_EXPERT               expert
+#define FL_OMNIFORM             omni
+/*** FL_QUANTTYPEDVARS not used any more */
+#define FL_QUANTTYPEDVARS       quantified_typed_variables
+
+/****************************************************************************
+  ignore_undefcheck
+****************************************************************************/
+#define FLORA_IGNORE_UNDEFCHECK	ignore_undefcheck
+
+#define FL_TRANSACTIONAL        FLORA_SYMBOL('transactional')
+#define FL_TABLED               FLORA_SYMBOL('tabled')
+#define FL_TABLED_NEG           FLORA_SYMBOL('tabled_neg')
+#define FL_NOTTABLED            FLORA_SYMBOL('nottabled')
+
+#define FL_TERM                 FLORA_SYMBOL('term')
+#define FL_MODULAR              FLORA_SYMBOL('modular')
+
+#define FL_INVALIDMODULE        '_invalid_flora_module_'
+
+#define FL_QUERY_PREDICATE      FLORA_SYMBOL('query_predicate')
+/* this one is for ground queries */
+#define FL_QUERY_PREDICATE0     FLORA_SYMBOL('query_predicate0')
+
+/****************************************************************************
+  constraint checking
+****************************************************************************/
+#define NOT_VIOLATED           ok
+
+
+/***************************************************************************
+        Contexts for the coder
+***************************************************************************/
+
+#define CODER_BODY_CONTEXT      coderbody_context
+#define CODER_HEAD_CONTEXT      coderhead_context
+#define CODER_GENERIC_CONTEXT   codergeneric_context
+
+
+/***************************************************************************
+   Symbols used for compiling and defining argumentation theories
+***************************************************************************/
+
+#define FL_DEFEASIBLE	    	defeasible
+#define FL_STRICT	    	strict
+
+#define FLVERBATIM	    	flverbatim
+#define PRVERBATIM	    	prverbatim
+#define FL_VERBATIM             verbatim
+
+#define FL_ENCODING             encoding
+
+#define FL_NEW_GLOBAL_OID_SCOPE new_global_oid_scope
+#define FLNEW_GLOBAL_OIDSCOPE   flnew_global_oidscope
+
+#define FLLITERATIM	    	flliteratim
+
+#define FLDEFEASIBLE	    	fldefeasible
+#define PRDEFEASIBLE	    	prdefeasible
+
+/* structs to switch default from defeasible to non-defeasible rules & back */
+#define FLDEFEASIBLE_RULE_DEFAULT fldefeasible_rule_default
+#define FLSTRICT_RULE_DEFAULT     flstrict_rule_default
+
+#define FLSYSMODGCLP	    	FL_DEFAULT_DEFEASIBLE_THEORY
+
+/* directives dealing with default theories and defeasibility of rules */
+#define FL_DEFEASIBLE_DIRECTIVE           use_argumentation_theory
+#define FL_DEFEASIBLE_DEFAULT_DIRECTIVE   default_is_defeasible_rules
+#define FL_STRICT_DEFAULT_DIRECTIVE       default_is_strict_rules
+#define FL_DEFEASIBLE_DEFAULT_DIRECTIVE2  default_is_defeasible
+#define FL_STRICT_DEFAULT_DIRECTIVE2      default_is_strict
+
+#define FL_SUPPRESS_RULE_SIGNATURES       suppress_rule_signatures
+#define FLSUPPRESS_RULESIGNS              flsuppress_rulesigns
+#define FLSUPPRESS_RULESIGNS_OPTION       flsuppress_rulesigns_opt
+
+#define FL_DEFAULT_DEFEASIBLE_THEORY  '\\gcl'
+#define FL_OPPOSES_BASE               FLORA_SYMBOL('opposes_base')
+#define FL_NEGATION_AXIOM             'negation_axiom'
+
+#define FL_OPPOSES_AUX          FLORA_SYMBOL('_opposes_aux')
+#define FL_OVERRIDES_AUX        FLORA_SYMBOL('_overrides_aux')
+#define FL_CANCEL_AUX           FLORA_SYMBOL('_cancel_aux')
+#define FL_OVERRIDEN_CANCELLATION     FLORA_SYMBOL('_overriden_cancellation')
+
+#define FL_DEFEASIBLE_CLEANUP   FLORA_SYMBOL('_defesible_cleanup')
+
+#define FL_RULE_TAG             FLORA_SYMBOL('rule_tag')
+#define FL_RULE_BODY            FLORA_SYMBOL('rule_body')
+
+/*
+   ***_CORE: these are modularized and used per-module
+   ***_UNION: these are unions of the modularized predicates.
+              the appropriate rules are added in
+	      genincludes/flrdynamic_connectors.fli
+*/
+#define FL_TAG_DESCRIPTOR_META_PREDICATE   	 FLORA_SYMBOL('tag_descriptor')
+#define FL_BOOL_DESCRIPTOR_META_PREDICATE  	 FLORA_SYMBOL('bool_descriptor')
+#define FL_PROP_DESCRIPTOR_META_PREDICATE  	 FLORA_SYMBOL('prop_descriptor')
+#define FL_DESCRIPTOR_VARS_WRAPPER      	 FLORA_SYMBOL('descr_vars')
+#define FL_RULE_ENABLER                          FLORA_SYMBOL('rule_enabled')
+#define FL_FORCED_DEFEASIBILITY                  forced_defeasibility
+#define FL_FORCED_DEFEASIBILITY_UNION            FLORA_SYMBOL('forced_defeasibility')
+
+#define FL_TEXTUAL_INFO_PRED                     FLORA_SYMBOL('textual_info')
+/* used for unknown files, lines, etc. */
+#define FL_UNKNOWN_OBJECT                        '<unknown>'
+#define FL_RUNTIME_OBJECT                        '<runtime>'
+
+#define FL_TRANS_RULEENABLE      tenable
+#define FL_TRANS_RULEDISABLE     tdisable
+#define FL_RULEENABLE            enable
+#define FL_RULEDISABLE           disable
+#define FL_ISRULEENABLED         isenabled
+#define FL_ISRULEDISABLED        isdisabled
+#define FL_MAKEDEFEASIBLE        makedefeasible
+#define FL_MAKESTRICT            makestrict
+#define FL_ISDEFEASIBLE          isdefeasible
+#define FL_ISSTRICT              isstrict
+#define FL_THISRULEID            thisruleid
+#define FL_RUN_QUERY             query
+#define FL_HERE                  here
+#define FL_PEEK                  peek
+#define FL_COUNTER               counter
+#define FL_VARIABLES             variables
+#define FL_ALERT                 alert
+#define FL_CONSTRAINT            constraint
+#define FL_FASTLOAD              fastload
+#define FL_FASTQUERY             fastquery
+#define FL_FASTERASE             fasterase
+#define FL_STRUCTDB              structdb
+
+/* the file name component of rule ids of dynamic (inserted, not added) rules */
+#define FL_DYNRULE_FICTITIOUS_FILENAME  'dynrule'
+#define FL_DYNRULE_FICTITIOUS_FILENAME_ANGLES  '<dynamic rule>'
+#define FL_SHELL_FICTITIOUS_FILENAME    '(runtime)'
+
+/*
+   FL_TAG_PROPERTY is used as the property in @!{id[...,tag->...]} that
+       indicates that this is a tag spec. This value may change to \tag or smth.
+   FLTAG_FEATURE is used in the compiler to indicate that a tag has been
+       explicitly specified. Not user-visible.
+*/
+#define FLTAG_FEATURE            tag
+#define FL_TAG_PROPERTY          tag
+#define FL_FILE_PROPERTY         file
+#define FL_MODULE_PROPERTY       module
+#define FL_TYPE_PROPERTY         type
+
+/* User-visible predicates */
+#define FL_OPPOSES              '\\opposes'
+#define FL_OPPOSES_UNQUOTED     \\opposes
+#define FL_OVERRIDES            '\\overrides'
+#define FL_OVERRIDES_UNQUOTED   \\overrides
+#define FL_CANCEL               '\\cancel'
+#define FL_CANCEL_UNQUOTED      \\cancel
+#define FL_UNDEFEATED           '\\undefeated'
+
+#define FL_ERGOTXT_TEXTGEN_INSERT 'ergo_textit:ergotext_textgen_insert'
+#define FL_ERGOTEXT_TEXTGEN     ergotext_textgen
+#define FL_TEXTIT_PRIMITIVE     textit
+
+/* function symbol used in the argumentation theories in explanations */
+#define FL_STATUS               status
+
+/* Internal predicates of argumentation theories */
+#define FL_CONFLICTS            conflicts
+#define FL_CANDIDATE            candidate
+#define FL_STRICT_CANDIDATE     strict_candidate
+#define FL_TRANS_DEFEATS        trans_defeats
+#define FL_DEFEATED_ID          defeated_id
+#define FL_DEFEATED             defeated
+#define FL_DEFEATS              defeats
+#define FL_REFUTES              refutes
+#define FL_REBUTS               rebuts
+#define FL_COMPROMISED          compromized
+#define FL_DISQUALIFIED         disqualified
+#define FL_REFUTED    	        refuted
+#define FL_REBUTTED             rebutted
+
+
+/* predicates used in multiple-exclusion theories */
+#define FL_COMPETES             competes
+#define FL_BEATER               beater
+#define FL_STOMPED              stomped
+#define FL_DOMINATES            dominates
+
+/****************************************************************************
+** Inheritance explanations                                                **
+****************************************************************************/
+
+#define FL_INHER_REASON             '\\inheritance'
+#define FL_INHER_REASON_MVD         '\\inheritance_mvd'
+#define FL_INHER_REASON_IMVD        '\\inheritance_imvd'
+#define FL_INHER_REASON_MVDDEF      '\\inheritance_mvddef'
+#define FL_INHER_REASON_IMVDDEF     '\\inheritance_imvddef'
+#define FL_INHER_REASON_METH        '\\inheritance_meth'
+#define FL_INHER_REASON_IMETH       '\\inheritance_imeth'
+/*
+%% Signatures are justified using \bgaxioms, not \inheritance
+#define FL_INHER_REASON_MVDSIG      '\\inheritance_mvdsig'
+#define FL_INHER_REASON_IMVDSIG     '\\inheritance_imvdsig'
+#define FL_INHER_REASON_MVDSIGDEF   '\\inheritance_mvdsigdef'
+#define FL_INHER_REASON_IMVDSIGDEF  '\\inheritance_imvdsigdef'
+#define FL_INHER_REASON_BOOLSIG     '\\inheritance_boolsig'
+#define FL_INHER_REASON_IBOOLSIG    '\\inheritance_iboolsig'
+#define FL_INHER_REASON_TRANSIG     '\\inheritance_transig'
+#define FL_INHER_REASON_ITRANSIG    '\\inheritance_itransig'
+*/
+
+/*************  Background axioms holder (per module) **********************/
+
+#define FL_BGAXIOM                  '\\bgaxiom'
+#define FL_BGAXIOM_MODULARIZED      '\\\\bgaxiom_mod'
+
+
+/* datatype cache */
+#define FLORA_DATATYPE_CACHE    FLORA_SYMBOL('datatype_cache')
+
+/*** Wrapper for stealth literals, prolog facts ***************************/
+#define WRAP_DYNPROLOG_FACT     FLORA_SYMBOL('dynprologfact')
+
+/***************************************************************************
+   Symbols used for parsing, compiling and defining user defined functions
+***************************************************************************/
+#define PRUDFDEFINITION		prudfdefinition
+#define PRUSEUDF                pruseudf_direct
+
+#define NEWUDFPREDICATENAME	new_udf_predicate_	
+#define UDFHILOGPREDICATENAME	FLORA_SYMBOL('udf_hilog_predicate')
+#define NO_UDF_PARSE		0
+#define UDF_TERM_PARSE		1
+#define UDF_ARG_PARSE		2
+
+/***************************************************************************
+   Symbols' contexts (each symbol name in the program is stored, so
+   it is possible to check for usage of symbols with the same name)
+***************************************************************************/
+#define UDF_SYMBOL		udf_symbol
+#define USE_UDF_SYMBOL		use_udf_symbol
+#define TRANSACTIONAL_SYMBOL	transactional_symbol
+#define NONTRANSACTIONAL_SYMBOL	nontransactional_symbol
+#define PREDICATE_SYMBOL	predicate_symbol
+#define FUNCTION_SYMBOL		function_symbol
+#define PROLOG_SYMBOL		prolog_symbol
+#define BUILTIN_SYMBOL		builtin_symbol
+#define SENSOR_SYMBOL		sensor_symbol
+#define USE_SENSOR_SYMBOL	use_sensor_symbol
+#define ANY_SYMBOL_CONTEXT	any_symbol_context
+
+#define HILOG_SYMBOL_NAME	flora_hilog_symbol_name
+
+#define ALLOW_TERM_DESCRIPTOR		1
+#define DISALLOW_TERM_DESCRIPTOR	0
+
+#define ALLOW_TERM_VARARGS		1 /* allow terms with variable number of arguments */
+#define DISALLOW_TERM_VARARGS		0
+
+#define FLORA_CONSTOFF			constoff
+#define FLORA_WARNOFF			warnoff
+
+
+#define FLORA_COMPILATION_COUNTER  flora_compile_id
+
+/* use this instead of writeln for debugging */
+#define DBGOUTLN(Arg)              writeln(STDERR,Arg)
+#define DBGOUT(Arg)                write(STDERR,Arg)
+#define DBGLN                      nl(STDERR)
+#define DBGNL                      nl(STDERR)
+#define WARNOUTLN(Arg)             writeln(STDWARN,Arg)
+#define WARNOUT(Arg)               write(STDWARN,Arg)
+#define WARNLN                     nl(STDWARN)
+#define WARNNL                     nl(STDWARN)
+#define PRINTLN(Arg)               writeln(Arg)
+#define PRINT(Arg)                 write(Arg)
+#define PRINTNL                    nl
+
+#define FL_PRINT                   write
+#define FL_PRINTLN                 writeln
+
+/*******************************************************************************
+  Modes for statement descriptors
+  Statement types
+*******************************************************************************/
+
+#define FL_DESCRMODE_RULE          rule
+#define FL_DESCRMODE_ADDRULE       addrule
+#define FL_DESCRMODE_DYNRULE       dynrule
+#define FL_DESCRMODE_UDFRULE       udfrule
+#define FL_DESCRMODE_PLAIN_QUERY      query
+#define FL_DESCRMODE_LATENT_QUERY     latent_query
+#define FL_DESCRMODE_LATENT_ADDQUERY  latent_query_add
+#define FL_DESCRMODE_LATENT_DYNQUERY  latent_query_dyn
+#define FL_DESCRMODE_CLAUSE           clause_construct
+
+#define FL_DESCRTYPE_RULE          rule
+#define FL_DESCRTYPE_QUERY         query
+#define FL_DESCRTYPE_UDF           udf
+
+
+#define FLRULESIG(Id,FileName,VarsTerm,Prefix,Module,RuleNum,Head,H2BSig,Body,PreBody,PostBody,DefeatCondition,Rule) rsign(Id,FileName,VarsTerm,Prefix,Module,RuleNum,Head,H2BSig,Body,PreBody,PostBody,DefeatCondition,Rule)
+
+#define FLQUERYSIG(RuleId,FileName,Module,RuleNum,PreLatentQuery,LatentQuery) qsign(RuleId,FileName,Module,RuleNum,PreLatentQuery,LatentQuery)
+
+/******************************************************************************
+    Miscellaneous
+******************************************************************************/
+
+#define FL_TYPE_GUARD          FLORA_SYMBOL('type_guard')
+#define FL_TYPE_ESCAPE         FLORA_SYMBOL('type_escape')
+
+#define FL_WALLTIME            FLORA_SYMBOL('calltime')
+
+#define FL_STARTUP_MSG         FLORA_SYMBOL('startup_message')
+
+/* indicates if waiting for input in the lexer */
+#define FL_LEXER_WAITS_INPUT   FLORA_SYMBOL('lexer_waits_input')
+
+#define FL_BEING_COMPILED   FLORA_SYMBOL('#flmakesetup^ergo^state') 
+
+#define UNICODE_MAX_CODEPOINT  1114112
+
+
+#define FL_STEALTHLIT   	stealth
+#define FLSTEALTHLIT   		flstealth
+#define WRAP_STEALTHLIT  	FLORA_SYMBOL('stealthlit')
+/* probability */
+#define FL_PROB         	'pb'
+
+/****************** ErgoText templates support ********************************/
+#define ERGOTEXT_TEMPLATE_DIRECTIVE      ergotext
+#define ERGOTEXT_PARSETIME_DUMMY_MODULE  FLORA_SYMBOL('parsetime_dummy_module')
+

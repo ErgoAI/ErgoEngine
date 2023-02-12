@@ -1,0 +1,78 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-MitoticSpindlesAreTubulin (query 1)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_In-house_12
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Explicit Background Facts
+istAsserted(MicrobiologyMt, relationAllExists(primaryConstituent, Microtubule, Tubulin)).
+istAsserted(MicrobiologyMt, primaryPhysicalPartType(MitoticSpindle, Microtubule)).
+
+// Explicit Background Rules
+backwardSentence(relationAllExists(primaryConstituent, ?SUPER_TYPE, ?CONST_TYPE_2)) :- mtVisible(UniversalVocabularyMt), naf backchainForbidden(relationAllExists), primaryPhysicalPartType(?SUPER_TYPE, ?CONST_TYPE_1), relationAllExists(primaryConstituent, ?CONST_TYPE_1, ?CONST_TYPE_2).
+backwardSentence(not(primaryPhysicalPartType(?SUPER_TYPE, ?CONST_TYPE_1))) :- mtVisible(UniversalVocabularyMt), naf backchainForbidden(primaryPhysicalPartType), relationAllExists(primaryConstituent, ?CONST_TYPE_1, ?CONST_TYPE_2), not(relationAllExists(primaryConstituent, ?SUPER_TYPE, ?CONST_TYPE_2)).
+backwardSentence(not(relationAllExists(primaryConstituent, ?CONST_TYPE_1, ?CONST_TYPE_2))) :- mtVisible(UniversalVocabularyMt), naf backchainForbidden(relationAllExists), primaryPhysicalPartType(?SUPER_TYPE, ?CONST_TYPE_1), not(relationAllExists(primaryConstituent, ?SUPER_TYPE, ?CONST_TYPE_2)).
+backwardSentence('primaryConstituent-TypeType'(?X, ?Y)) :- mtVisible(BaseKB), naf backchainForbidden('primaryConstituent-TypeType'), relationAllExists(primaryConstituent, ?X, ?Y).
+backwardSentence(not(relationAllExists(primaryConstituent, ?X, ?Y))) :- mtVisible(BaseKB), naf backchainForbidden(relationAllExists), not('primaryConstituent-TypeType'(?X, ?Y)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-MitoticSpindlesAreTubulin 1').
+%pretest :- 'primaryConstituent-TypeType'(MitoticSpindle, ?WHAT), %write_results('SUCCESS  : $CPTTest-MitoticSpindlesAreTubulin 1').
+
+// Debugging
+proof(6346, 0) :- primaryPhysicalPartType(MitoticSpindle, Microtubule).
+proof(6346, 1) :- primaryPhysicalPartType(MitoticSpindle, Microtubule).
+proof(6346, 2) :- relationAllExists(primaryConstituent, Microtubule, Tubulin).
+proof(6346, 3) :- relationAllExists(primaryConstituent, Microtubule, Tubulin).
+proof(6346, 4) :- primaryPhysicalPartType(MitoticSpindle, Microtubule), relationAllExists(primaryConstituent, Microtubule, Tubulin).
+proof(6346, 5) :- relationAllExists(primaryConstituent, MitoticSpindle, Tubulin).
+proof(6346, 6) :- 'primaryConstituent-TypeType'(MitoticSpindle, Tubulin).
+
+proof(6346, 1000) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(6346, 1001) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(6346, 1002) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(6346, 2000) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(6346, 2001) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(6346, 2002) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MicrobiologyMt). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

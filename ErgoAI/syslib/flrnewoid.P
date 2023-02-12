@@ -1,0 +1,117 @@
+/* File:      flrnewoid.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+
+%% Dynamic generation of new oid
+
+:- export
+        FLLIBNEWOID/1,
+        FLLIBNEWOID/2,
+        FLLIBSKOLEM/1,
+        FL_SKOLEMQUERY/1,
+        flora_skolemize_term/2,
+        flora_presentable_skolem/2,
+        FL_ISSKOLEM/1.
+:- import gensym/2 from gensym.
+:- import
+        flora_concat_atoms/2,
+        flora_get_substring/4,
+	flora_match_substring/5
+   from flrporting.
+
+
+%% May need to be more sophisticated here
+FLLIBNEWOID(NewOid) :- FLLIBNEWOID(FL_NEWOID_DYNPREFIX,NewOid).
+
+FLLIBNEWOID(Prefix,NewOid) :-
+        atom(Prefix),
+	var(NewOid),
+	!,
+	gensym(Prefix,NewOid).
+FLLIBNEWOID(Prefix,_NewOid) :- atom(Prefix).
+
+/*
+%% Unclear why this error is needed.
+%% Note: We now allow body-skolems:
+%% ...:-...,p(\#),... tests if the argument of p/1 is a Skolem const.
+%% We use FL_SKOLEMQUERY/1 for that.
+FLLIBSKOLEM(NewOid) :-
+	var(NewOid),
+	!,
+	flrporting:flora_abort([FL_ISSKOLEM, '(Arg): Arg must be bound.']).
+*/
+
+FLLIBSKOLEM(Id) :-
+	atom(Id),
+	!,
+	(
+	  flora_match_substring(FL_NEWOID_PREFIX,Id,forward,0,Pos),
+	  !
+	; flora_match_substring(FL_NEWOID_DYNPREFIX,Id,forward,0,Pos)
+	).
+
+%% \isskolem/1
+FL_ISSKOLEM(Id) :- FLLIBSKOLEM(Id).
+
+
+%% Test if Term is a Skolem const or a Skolem function.
+%% E.g., \# or \#(a,b).
+%% Used in the rule bodies and in checking ?X:\skolem
+FL_SKOLEMQUERY(Term) :-
+	atom(Term),
+	FL_ISSKOLEM(Term), !.
+FL_SKOLEMQUERY(Term) :-
+	nonvar(Term),
+	functor(Term,WRAP_HILOG,_),
+	arg(1,Term,F),
+	!,
+	FL_SKOLEMQUERY(F).
+
+flora_skolemize_term(Term,TermC) :-
+        copy_term(Term,TermC),
+        flrauxil:flora_term_variables(TermC,Vars),
+        bind_vars_to_skolems(Vars).
+
+bind_vars_to_skolems([]) :- !.
+bind_vars_to_skolems([V|Vars]) :-
+        FLLIBNEWOID(Sk),
+        (var(V) -> V=Sk ; true),
+        bind_vars_to_skolems(Vars).
+
+flora_presentable_skolem(Id, Presentable) :-
+	atom(Id),
+	!,
+	(
+	  flora_match_substring(FL_NEWOID_PREFIX,Id,forward,0,Pos),
+	  !
+	; flora_match_substring(FL_NEWOID_DYNPREFIX,Id,forward,0,Pos)
+	),
+        flora_get_substring(Id,Pos,-1,Suff),
+        flora_concat_atoms([obj,Suff],Presentable).

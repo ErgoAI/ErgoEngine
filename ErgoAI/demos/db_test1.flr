@@ -1,0 +1,63 @@
+/*
+  test13 creates a new db ext_db. So, this database must not exist prior 
+  to execution of this demo.
+*/
+#include "db_test.flh"
+
+:- symbol_context{xsb/0}.
+
+?- load{persistentmodules>>pm}.
+
+?- writeln('new module mod1')@\plg,
+   newmodule{mod1}.
+
+?- write('test 12, insert into mod1')@\plg,
+   insert{p(a,a)@mod1},insert{flora@mod1,xsb@mod1},
+   insert{p(a,b)@mod1,p(a,c)@mod1,p(a,d)@mod1,a[d->b1]@mod1,a[s->b1]@mod1},
+   writeln(' succeeded, as expected')@\plg.
+
+
+?- write('test 13, associate mod1 with a new database')@\plg,
+	mod1[attachNew(DSN,'ext_db',USER_NAME,PWD)]@pm,
+	writeln('succeeded, as expected')@\plg.
+
+?- write('test 14, insert more obj in mod1')@\plg,
+   insert{q(a)@mod1,q(b)@mod1,q(c)@mod1,q(d)@mod1},
+   insert{a[d->b2]@mod1,a[s->b2]@mod1},
+   writeln('succeeded, as expected')@\plg.
+
+?- writeln('load empty modules mod2, mod3 in memory')@\plg,
+   newmodule{mod2}, newmodule{mod3}.
+
+
+?- write('test 15, insert in mod2')@\plg,
+   insert{q(a)@mod2,q(b)@mod2,q(c)@mod2,q(d)@mod2},
+   insert{a[d->b2]@mod2,a[s->b2]@mod2},
+   writeln('succeeded, as expected')@\plg.
+
+?- write('test 16, insert in mod3')@\plg,
+   insert{q(a)@mod3,q(b)@mod3,q(c)@mod3,q(d)@mod3},
+   /*insert{a[d->b2]@mod3,a[s->b2]@mod3},*/
+   insert{p(a,a)@mod3},
+   insert{p(a,b)@mod3,p(a,c)@mod3,p(a,d)@mod3},
+   /*a[d->b1]@mod3,a[s->b1]@mod3},*/
+   writeln('succeeded, as expected')@\plg.
+
+?- write('test 17, associate mod3 with (old) database')@\plg,
+	mod3[attach(DSN,'ext_db',USER_NAME,PWD)]@pm,
+	writeln('succeeded, as expected')@\plg.
+
+?- write('test 18, associate mod2 with database')@\plg,
+	mod2[attach(DSN,'ext_db',USER_NAME,PWD)]@pm,
+	writeln('succeeded, as expected')@\plg.
+
+
+?- write('test 19, insert more obj in mod2')@\plg,
+   insert{p(a,a)@mod2},
+   insert{p(a,b)@mod2,p(a,c)@mod2,p(a,d)@mod2,a[d->b1]@mod2,a[s->b1]@mod2},
+   writeln('succeeded, as expected')@\plg.
+
+?- \halt.
+
+
+

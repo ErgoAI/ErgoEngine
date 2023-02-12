@@ -1,0 +1,279 @@
+/* File:      ergo_alert.P  -- DB-style constraint handling
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2016-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_prefix.flh"
+#include "flora_exceptions.flh"
+
+#define FL_CONFLICT_ALERT conflict
+#define FL_TRUE_ALERT     truth
+
+
+:- import
+        flora_add_hook/5,
+        flora_delete_hook/4
+   from flrhooks.
+
+:- import
+        %%flora_match_substring/3,
+        flora_abort/2
+   from flrporting.
+
+:- import
+        flora_modularize_atom/3,
+        negate_predicate/2,
+        flora_decode_predicate/7
+   from flrwrapper.
+
+:- import flora_defeasible_module_registry/2 from flrregistry.
+:- import flora_generalize_last/2 from flrtrim.
+
+:- import
+        flora_decode_oid_as_atom_substitute_vars/2,
+        flora_decode_goal_as_mainless_atom_substitute_vars/2
+    from flrdecode.
+:- import
+        memberchk/2
+   from basics.
+
+:- export
+        ergo_alert/6,
+        ergo_alert/7.
+
+valid_alert_type(FL_CONFLICT_ALERT). %% more might be added
+valid_alert_type(FL_TRUE_ALERT). 
+
+ergo_alert(PlusMinus,AlertType,MonitoredPred,File,Module,Line) :-
+        ergo_alert(PlusMinus,AlertType,MonitoredPred,NULL,File,Module,Line).
+
+ergo_alert(_PlusMinus,_AlertType,MonitoredPred,_CallBack,File,Module,Line) :-
+        compound(MonitoredPred),
+        (is_flora_callable(MonitoredPred,Module) -> true
+        ; %% not a callable, monitorable subgoal
+            flora_decode_oid_as_atom_substitute_vars(MonitoredPred,MonitoredPredAtom),
+            flora_abort([' invalid alert activation in file ',
+                         File, ' line ', Line, ':\n\t\t',
+                         MonitoredPredAtom,
+                         ' must be a HiLog predicate or a frame in module ',
+                         Module],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        fail.
+ergo_alert(_PlusMinus,_AlertType,_MonitoredPred,NULL,_File,_Module,_Line) :- fail.
+ergo_alert(_PlusMinus,_AlertType,_MonitoredPred,CallBack,File,Module,Line) :-
+        compound(CallBack),
+        %% must be HiLog pred with at least 1 argument
+        (is_hilog_predicate_with_atleast_one_argument(CallBack,Module) -> true
+        ; %% not a callable, monitorable subgoal
+            flora_decode_oid_as_atom_substitute_vars(CallBack,CallBackAtm),
+            flora_abort([' invalid callback specification in an alert in file ', File, ' line ', Line, ':\n\t\t',
+                         CallBackAtm,
+                         ' must be a HiLog predicate or a frame in module ',
+                         Module],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        fail.
+ergo_alert(PlusMinus,AlertType,_MonitoredPred,_CallBack,File,_Module,Line) :-
+        ((PlusMinus == ('-') ; PlusMinus == ('+')),
+            nonvar(AlertType),
+            valid_alert_type(AlertType)
+        -> true
+        ; %% wrong alert type
+            flora_abort([' in file ', File, ' line ', Line, ':\n\t\t',
+                         AlertType,
+                         ' is not a valid alert type specification;\n\t\t',
+                         'must be +Type or -Type.'],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        fail.
+
+
+ergo_alert(('+'),AlertType,MonitoredPred,CallBack,File,Module,Line) :-
+        !,
+        ergo_add_alert(AlertType,MonitoredPred,CallBack,File,Module,Line).
+ergo_alert(('-'),AlertType,MonitoredPred,_CallBack,File,Module,_Line) :-
+        !,
+        ergo_delete_alert(AlertType,MonitoredPred,File,Module).
+
+ergo_alert(_PlusMinus,_AlertType,MonitoredPred,_CallBack,File,_Module,Line) :-
+        flora_decode_oid_as_atom_substitute_vars(MonitoredPred,MonitoredPredAtom),
+        flora_abort([' ', MonitoredPredAtom,
+                     ' is not a valid alert specification\n\t\t',
+                     'in file ', File, ', line ', Line],
+                    FLORA_ABORT_NOTRACE).
+
+ergo_add_alert(AlertType,MonitoredPred,CallBack,File,Module,Line) :-
+        catch(
+              flora_add_hook(Module,ALERTHOOK,around,0,
+                             (
+                               alerthook_before(_Mod1,_Trans1,_Result,
+                                                _AroundHookLink1,
+                                                AlertType,MonitoredPred,
+                                                File,Module,Line),
+                               alerthook_after(_Mod2,_Trans2,_Result2,
+                                               _AroundHookLink2,
+                                               AlertType,MonitoredPred,CallBack,
+                                               File,Module,Line)
+                             )
+                            ),
+              _,
+              flora_abort([' in file ', File, ' on line ', Line,
+                           ': this alert has been activated before'],
+                          FLORA_ABORT_NOTRACE)
+             ).
+
+ergo_delete_alert(AlertType,MonitoredPred,File,Module) :-
+        flora_delete_hook(Module,ALERTHOOK,around,
+                          (
+                            alerthook_before(_Mod1,_Trans1,_Result1,
+                                             _AroundHookLink1,
+                                             AlertType, MonitoredPred,
+                                             File,Module,_),
+                            alerthook_after(_Mod2,_Trans2,_Result2,
+                                            _AroundHookLink2,
+                                            AlertType, MonitoredPred,_CallBack,
+                                            File,Module,_)
+                          )
+                         ).
+
+
+%% Before-hooks
+alerthook_before(_Mod,_Transaction,_Result,AroundHookLink,FL_CONFLICT_ALERT,MonitoredPred,_File,Module,_Line) :-
+        conflict_alert_before(AroundHookLink,MonitoredPred,Module).
+alerthook_before(_Mod,_Transaction,_Result,AroundHookLink,FL_TRUE_ALERT,MonitoredPred,_File,Module,_Line) :-
+        truth_alert_before(AroundHookLink,MonitoredPred,Module).
+
+%% After-hooks
+alerthook_after(_Mod,Transaction,_Result,AroundHookLink,FL_CONFLICT_ALERT,MonitoredPred,CallBack,File,Module,Line) :-
+        conflict_alert_after(Transaction,AroundHookLink,MonitoredPred,CallBack,File,Module,Line).
+alerthook_after(_Mod,Transaction,_Result,AroundHookLink,FL_TRUE_ALERT,MonitoredPred,CallBack,File,Module,Line) :-
+        truth_alert_after(Transaction,AroundHookLink,MonitoredPred,CallBack,File,Module,Line).
+
+
+%% not including Transaction, Result, since they are not used by lefpre-alarts
+%% Also, File, Line
+%% AroundHookLink carries the list of conflicts
+conflict_alert_before(AroundHookLink,MonitoredPred,Module) :-
+        find_conflicts(MonitoredPred,Module,AroundHookLink).
+
+        %% Not including Result - not used
+conflict_alert_after(Transaction,AroundHookLink,MonitoredPred,CallBack,File,Module,Line) :-
+        find_conflicts(MonitoredPred,Module,AfterConflicts),
+        list_difference(AfterConflicts,AroundHookLink,NewConflicts),
+        ( NewConflicts == [] -> true
+        ; CallBack == NULL ->
+            flora_decode_goal_as_mainless_atom_substitute_vars(Transaction,TransAtm),
+            WARNOUT('\n*** Conflict alerts raised after transaction '),
+            WARNOUT(TransAtm), WARNOUT(':\n'),
+            print_alerts(NewConflicts),
+            WARNOUT('    These alerts were activated on line '),
+            WARNOUT(Line),
+            WARNOUT(' in file '), WARNOUTLN(File)
+        ; arg(2,CallBack,NewConflicts), %% bind arg 1 of HiLog pred CallBack
+            call(CallBack)
+        ).
+
+truth_alert_before(AroundHookLink,MonitoredPred,_Module) :-
+        find_truth(MonitoredPred,AroundHookLink).
+
+truth_alert_after(Transaction,AroundHookLink,MonitoredPred,CallBack,File,_Module,Line) :-
+        find_truth(MonitoredPred,AfterTruth),
+        list_difference(AfterTruth,AroundHookLink,NewTruth),
+        ( NewTruth == [] -> true
+        ; CallBack == NULL ->
+            flora_decode_goal_as_mainless_atom_substitute_vars(Transaction,TransAtm),
+            WARNOUT('\n*** Truth alerts raised after transaction '),
+            WARNOUT(TransAtm), WARNOUT(':\n'),
+            print_alerts(NewTruth),
+            WARNOUT('    These alerts were activated on line '),
+            WARNOUT(Line),
+            WARNOUT(' in file '), WARNOUTLN(File)
+        ; arg(2,CallBack,NewTruth), %% bind arg 1 of HiLog pred CallBack
+            call(CallBack)
+        ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%% find all instances of Pred that have conflicts
+find_conflicts(Pred,_Module,ConflictsSorted) :-
+        %% strict pred conflicts
+        negate_predicate(Pred,NegPred),
+        flora_generalize_last(Pred,PredG),
+        flora_generalize_last(NegPred,NegPredG),
+        findall(PredGG,
+                (PredG,NegPredG,flora_generalize_last(PredG,PredGG)),
+                Conflicts),
+        sort(Conflicts,ConflictsSorted),
+        ConflictsSorted \== [],
+        !.
+find_conflicts(Pred,Module,ConflictsSorted) :-
+        %% defeasible conflicts
+        flora_defeasible_module_registry(Module,ArgTheoryMod),
+        %% strict conflicts
+        flora_modularize_atom(FL_CONFLICTS,ArgTheoryMod,ConflictCallFunctor),
+        flora_generalize_last(Pred,PredG),
+        ConflictCall =.. [ConflictCallFunctor,_,PredG,_,_OpposingPred,Module,_Context],
+        ConflictCallSpec = ConflictCall - PredG,
+        findall(PredGG,
+                (ConflictCallSpec = Call-PredG,Call,flora_generalize_last(PredG,PredGG)),
+                Conflicts),
+        sort(Conflicts,ConflictsSorted),
+        ConflictsSorted \== [].
+find_conflicts(_Pred,_Module,[]).
+
+find_truth(Pred,TruthSorted) :-
+        flora_generalize_last(Pred,PredG),
+        findall(PredGG,
+                (PredG,flora_generalize_last(PredG,PredGG)),
+                Truths),
+        sort(Truths,TruthSorted).
+
+print_alerts([]) :- !.
+print_alerts([H|T]) :-
+        WARNOUT('\t'),
+        flora_decode_goal_as_mainless_atom_substitute_vars(H,H_atm),
+        WARNOUTLN(H_atm),
+        print_alerts(T).
+
+list_difference([],_,[]).
+list_difference([X|Xs],Ys,L) :-
+	( memberchk(X,Ys) ->
+		list_difference(Xs,Ys,L)
+	;
+		L = [X|T],
+		list_difference(Xs,Ys,T)
+	).
+
+is_hilog_predicate_with_atleast_one_argument(Pred,Module) :-
+        %% Note: using _Context because Ergo-callable things always
+        %% have Context as the last argument.
+        flora_decode_predicate(Pred,hilog,Module1,_,_,_,[_PredName,_Arg1,_Context|_]),
+        Module1 == Module.
+
+is_flora_callable(Pred,Module) :-
+        flora_decode_predicate(Pred,_,Module1,_,_,_,_),
+        Module1 == Module .

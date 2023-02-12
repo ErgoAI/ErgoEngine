@@ -1,0 +1,76 @@
+
+
+:- compiler_options{expert=on}.
+
+
+%e(a,b). %e(b,c). %e(c,d).
+
+?- ?_Mod=mod1, insertrule_a{((tc(?X,?Y) :- %e(?X,?Y)@\@)@?_Mod),
+                        ((tc(?X,?Y) :- tc(?X,?Z),%e(?Z,?Y)@\@)@?_Mod)
+                       }.
+?- tc(?X,?Y)@mod1, fmt_write('query1: tc(%S,%S)\n',arg(?X,?Y))@\io.
+
+?- deleterule_a{(tc(?X,?Y) :- tc(?X,?Z),%e(?Z,?Y)@\@)@mod1}.
+?- tc(?X,?Y)@mod1, fmt_write('query2: tc(%S,%S)\n',arg(?X,?Y))@\io.
+
+?- ?M=mod1, deleterule_a{(tc(?X,?Y) :- %?P@?SomeModule)@?M}.
+?- \if tc(?X,?Y)@mod1
+   \then writeln('query3: wrong answer')@\plg()
+   \else writeln('query3: no answers')@\plg().
+
+?- insertrule_z{?X:student[register->?Term] :- %enroll(?X,?Term)@mod1}.
+
+?- insert{
+        %enroll('John','F02')@mod1,
+        %enroll('John','S03')@mod1,
+        %enroll('Mary','S03')@mod1
+        }.
+?- refresh{?X:student[register->?Term]}.
+?- ?X:student, fmt_write('query4: %S:student\n',arg(?X))@\io.
+?- ?X[register->?Term], fmt_write('query5: %S[register->%S]\n',arg(?X,?Term))@\io.
+
+?- deleterule_z{?X:student :- %enroll(?X,?Y)@?M}.
+?- \if ?X:student
+   \then writeln('query6: wrong answer')@\plg()
+   \else writeln('query6: no answers')@\plg().
+
+?- ?X[register->?Term], fmt_write('query7: %S[register->%S]\n',arg(?X,?Term))@\io.
+
+?- deleterule_z{?X[register->?Y] :- %?P@mod1}.
+?- \if ?X:student
+   \then writeln('query8: wrong answer')@\plg()
+   \else writeln('query8: no answers')@\plg().
+
+?- \if ?X[register->?Term]
+   \then writeln('query9: wrong answer')@\plg()
+   \else writeln('query9: no answers')@\plg().
+
+?- insertrule_a{(%p(?X),%q(?X)) :- %r1(?X)}.
+?- insertrule_z{%?P(?X) :- %r2(?P,?X)}.
+?- insert{%r1(a), %r2(p,b), %r2(q,b)}.
+?- %p(?X), write('query10: %p')@\plg(), fmt_write('(%S)\n', arg(?X))@\io.
+?- %q(?X), write('query11: %q')@\plg(), fmt_write('(%S)\n', arg(?X))@\io.
+
+// also deletes the matching rule %?P(?X) :- %r2(?P,?X)
+?- deleterule{%p(?_X) :- ?Y}.
+?- \if %p(?X)
+   \then writeln('query12: wrong answer')@\plg()
+   \else writeln('query12: no answers')@\plg().
+
+?- %q(?X), write('query13: %q')@\plg(), fmt_write('(%S)\n', arg(?X))@\io.
+
+?- insert{ssss, (aaaa:-bbbb), kkkkk, bbbb}.
+?- aaaa, writeln('query14: aaaa')@\plg().
+
+?- delete{ssss, (aaaa:-bbbb), kkkkk}.
+?- \if aaaa
+   \then writeln('query15: wrong answer')@\plg()
+   \else writeln('query15: no answers')@\plg().
+
+?- ?R= ${aa(?X) :- bb(?X)}, insert{?R, bb(ppp)}.
+?- aa(?X), fmt_write('query16: aa(%S)\n', arg(?X))@\io.
+
+?- ?R= ${aa(?X) :- bb(?X)}, delete{?R}.
+?- \if aa(?X)
+   \then writeln('query17: wrong answer')@\plg()
+   \else writeln('query17: no answers')@\plg().

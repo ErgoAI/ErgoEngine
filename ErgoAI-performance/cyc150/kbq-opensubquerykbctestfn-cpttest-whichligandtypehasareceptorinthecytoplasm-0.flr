@@ -1,0 +1,172 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ: ( : $OpenSubqueryKBCTestFn  : $CPTTest-WhichLigandTypeHasAReceptorInTheCytoplasm) (query 0)
+
+// Implicit Background Facts
+istAsserted(BaseKB, relationAllInstance(resultGenlArg, SubcollectionFunction, 1)).
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, resultGenlArg(CollectionIntersection2Fn, 1)).
+istAsserted(UniversalVocabularyMt, genlMt(CoreCycLImplementationMt, CoreCycLMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, isa(CollectionIntersection2Fn, SubcollectionFunction)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyMt, BiochemistryMt)).
+istAsserted(UniversalVocabularyMt, 'functionCorrespondingPredicate-Canonical'(CollectionIntersection2Fn, collectionIntersection2, 1)).
+istAsserted(UniversalVocabularyMt, genlMt(UniversalVocabularyImplementationMt, CoreCycLImplementationMt)).
+istAsserted(UniversalVocabularyMt, genlMt(UniversalVocabularyMt, UniversalVocabularyImplementationMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, isa(collectionIntersection2, PartiallyCommutativePredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genls(MoleculeFn(Lipid), HydrophobicChemicalObject)).
+istAsserted(UniversalVocabularyMt, genls(CholesterolMolecule, SteroidMolecule)).
+istAsserted(UniversalVocabularyMt, genls(TestosteroneMolecule, SteroidMolecule)).
+istAsserted(UniversalVocabularyMt, genls(MoleculeFn(Estrogen), SteroidMolecule)).
+istAsserted(BaseKB, termOfUnit(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)))).
+istAsserted(BaseKB, genls(LipidSolubleSignalingMolecule, MoleculeFn(Lipid))).
+istAsserted(BaseKB, genls(LipidSolubleSignalingMolecule, ExtracellularSignalingChemicalObject)).
+istAsserted(UniversalVocabularyMt, genls(SteroidMolecule, LipidSolubleSignalingMolecule)).
+istAsserted(BaseKB, termOfUnit(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)))).
+
+// Implicit Background Rules
+forwardSentence(collectionIntersection2(?INTERSECTION, ?COL1, ?COL2)) :- removalSentence(termOfUnit(?INTERSECTION, CollectionIntersection2Fn(?COL1, ?COL2))).
+forwardSentence(genls(?NAT, ?COL)) :- removalSentence(resultGenlArg(?FUNC, ?N)), removalSentence(natFunction(?NAT, ?FUNC)), removalSentence(natArgument(?NAT, ?N, ?COL)).
+forwardSentence(genls(?COL, ?GENL2)) :- removalSentence(collectionIntersection2(?COL, ?XGENL1, ?GENL2)).
+forwardSentence(?PRED(?NART, ?ARG1, ?ARG2)) :- naf impPred(?PRED), removalSentence('functionCorrespondingPredicate-Canonical'(?FUNC, ?PRED, 1)), removalSentence(termOfUnit(?NART, ?FUNC(?ARG1, ?ARG2))).
+
+// Explicit Background Facts
+istAsserted(BiochemistryMt, ligandForReceptorType(LipidSolubleSignalingMolecule, CytoplasmicReceptorMolecule)).
+
+// Explicit Background Rules
+backwardSentence(ligandForReceptorType(?MOL, CytoplasmicReceptorMolecule)) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(ligandForReceptorType), genls(?MOL, ExtracellularSignalingChemicalObject), genls(?MOL, HydrophobicChemicalObject).
+backwardSentence(not(genls(?MOL, ExtracellularSignalingChemicalObject))) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(genls), genls(?MOL, HydrophobicChemicalObject), not(ligandForReceptorType(?MOL, CytoplasmicReceptorMolecule)).
+backwardSentence(not(genls(?MOL, HydrophobicChemicalObject))) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(genls), genls(?MOL, ExtracellularSignalingChemicalObject), not(ligandForReceptorType(?MOL, CytoplasmicReceptorMolecule)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ ( : $OpenSubqueryKBCTestFn  : $CPTTest-WhichLigandTypeHasAReceptorInTheCytoplasm) 0').
+%pretest :- ligandForReceptorType(?LIGAND_TYPE, CytoplasmicReceptorMolecule), %write_results('SUCCESS ( : $OpenSubqueryKBCTestFn  : $CPTTest-WhichLigandTypeHasAReceptorInTheCytoplasm) 0').
+
+// Debugging
+proof(3372, 0) :- ligandForReceptorType(LipidSolubleSignalingMolecule, CytoplasmicReceptorMolecule).
+proof(3372, 1) :- ligandForReceptorType(LipidSolubleSignalingMolecule, CytoplasmicReceptorMolecule).
+proof(3372, 2) :- genls(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), ExtracellularSignalingChemicalObject).
+proof(3372, 3) :- genls(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), ExtracellularSignalingChemicalObject).
+proof(3372, 4) :- genls(CholesterolMolecule, ExtracellularSignalingChemicalObject).
+proof(3372, 5) :- genls(CholesterolMolecule, ExtracellularSignalingChemicalObject).
+proof(3372, 6) :- genls(SteroidMolecule, ExtracellularSignalingChemicalObject).
+proof(3372, 7) :- genls(SteroidMolecule, ExtracellularSignalingChemicalObject).
+proof(3372, 8) :- genls(MoleculeFn(Estrogen), ExtracellularSignalingChemicalObject).
+proof(3372, 9) :- genls(MoleculeFn(Estrogen), ExtracellularSignalingChemicalObject).
+proof(3372, 10) :- genls(TestosteroneMolecule, ExtracellularSignalingChemicalObject).
+proof(3372, 11) :- genls(TestosteroneMolecule, ExtracellularSignalingChemicalObject).
+proof(3372, 12) :- genls(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), ExtracellularSignalingChemicalObject).
+proof(3372, 13) :- genls(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), ExtracellularSignalingChemicalObject).
+proof(3372, 14) :- genls(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), HydrophobicChemicalObject).
+proof(3372, 15) :- genls(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), HydrophobicChemicalObject).
+proof(3372, 16) :- genls(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), HydrophobicChemicalObject), genls(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), ExtracellularSignalingChemicalObject).
+proof(3372, 17) :- ligandForReceptorType(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), CytoplasmicReceptorMolecule).
+proof(3372, 18) :- genls(CholesterolMolecule, HydrophobicChemicalObject).
+proof(3372, 19) :- genls(CholesterolMolecule, HydrophobicChemicalObject).
+proof(3372, 20) :- genls(CholesterolMolecule, HydrophobicChemicalObject), genls(CholesterolMolecule, ExtracellularSignalingChemicalObject).
+proof(3372, 21) :- ligandForReceptorType(CholesterolMolecule, CytoplasmicReceptorMolecule).
+proof(3372, 22) :- genls(TestosteroneMolecule, HydrophobicChemicalObject).
+proof(3372, 23) :- genls(TestosteroneMolecule, HydrophobicChemicalObject).
+proof(3372, 24) :- genls(TestosteroneMolecule, HydrophobicChemicalObject), genls(TestosteroneMolecule, ExtracellularSignalingChemicalObject).
+proof(3372, 25) :- ligandForReceptorType(TestosteroneMolecule, CytoplasmicReceptorMolecule).
+proof(3372, 26) :- genls(MoleculeFn(Estrogen), HydrophobicChemicalObject).
+proof(3372, 27) :- genls(MoleculeFn(Estrogen), HydrophobicChemicalObject).
+proof(3372, 28) :- genls(MoleculeFn(Estrogen), HydrophobicChemicalObject), genls(MoleculeFn(Estrogen), ExtracellularSignalingChemicalObject).
+proof(3372, 29) :- ligandForReceptorType(MoleculeFn(Estrogen), CytoplasmicReceptorMolecule).
+proof(3372, 30) :- genls(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), HydrophobicChemicalObject).
+proof(3372, 31) :- genls(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), HydrophobicChemicalObject).
+proof(3372, 32) :- genls(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), HydrophobicChemicalObject), genls(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), ExtracellularSignalingChemicalObject).
+proof(3372, 33) :- ligandForReceptorType(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), CytoplasmicReceptorMolecule).
+proof(3372, 34) :- genls(SteroidMolecule, HydrophobicChemicalObject).
+proof(3372, 35) :- genls(SteroidMolecule, HydrophobicChemicalObject).
+proof(3372, 36) :- genls(SteroidMolecule, HydrophobicChemicalObject), genls(SteroidMolecule, ExtracellularSignalingChemicalObject).
+proof(3372, 37) :- ligandForReceptorType(SteroidMolecule, CytoplasmicReceptorMolecule).
+
+proof(3372, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(3372, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(3372, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(3372, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(3372, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(3372, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(3372, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(3372, 1007) :- genls(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), ExtracellularSignalingChemicalObject).
+proof(3372, 1008) :- collectionIntersection2(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)).
+proof(3372, 1009) :- collectionIntersection2(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)).
+proof(3372, 1010) :- genls(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), MoleculeFn(Lipid)).
+proof(3372, 1011) :- genls(LipidSolubleSignalingMolecule, MoleculeFn(Lipid)).
+proof(3372, 1012) :- genls(LipidSolubleSignalingMolecule, ExtracellularSignalingChemicalObject).
+proof(3372, 1013) :- genls(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), SteroidMolecule).
+proof(3372, 1014) :- collectionIntersection2(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), SteroidMolecule, MoleculeFn(Hormone)).
+proof(3372, 1015) :- collectionIntersection2(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), SteroidMolecule, MoleculeFn(Hormone)).
+proof(3372, 1016) :- genls(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), SteroidMolecule).
+
+proof(3372, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(3372, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(3372, 2002) :- admittedArgument(SecondFn(30, MinuteFn(21, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(3372, 2003) :- admittedArgument(SecondFn(30, MinuteFn(21, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(3372, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), CoreCycLMt).
+proof(3372, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(3372, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(3372, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiochemistryMt).
+proof(3372, 2008) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MolecularBiologyMt).
+proof(3372, 2009) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(3372, 2010) :- genls(CholesterolMolecule, ExtracellularSignalingChemicalObject).
+proof(3372, 2011) :- genls(CholesterolMolecule, HydrophobicChemicalObject).
+proof(3372, 2012) :- genls(TestosteroneMolecule, ExtracellularSignalingChemicalObject).
+proof(3372, 2013) :- genls(TestosteroneMolecule, HydrophobicChemicalObject).
+proof(3372, 2014) :- genls(SteroidMolecule, ExtracellularSignalingChemicalObject).
+proof(3372, 2015) :- genls(SteroidMolecule, HydrophobicChemicalObject).
+proof(3372, 2016) :- genls(MoleculeFn(Estrogen), ExtracellularSignalingChemicalObject).
+proof(3372, 2017) :- genls(MoleculeFn(Estrogen), HydrophobicChemicalObject).
+proof(3372, 2018) :- genls(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), ExtracellularSignalingChemicalObject).
+proof(3372, 2019) :- genls(CollectionIntersection2Fn(ExtracellularSignalingChemicalObject, MoleculeFn(Lipid)), HydrophobicChemicalObject).
+proof(3372, 2020) :- genls(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), ExtracellularSignalingChemicalObject).
+proof(3372, 2021) :- genls(CollectionIntersection2Fn(SteroidMolecule, MoleculeFn(Hormone)), HydrophobicChemicalObject).
+proof(3372, 2022) :- isa(CollectionIntersection2Fn, SubcollectionFunction).
+proof(3372, 2023) :- isa(collectionIntersection2, PartiallyCommutativePredicate). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

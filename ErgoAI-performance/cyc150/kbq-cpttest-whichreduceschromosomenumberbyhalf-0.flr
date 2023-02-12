@@ -1,0 +1,167 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhichReducesChromosomeNumberByHalf (query 0)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example_Biology_Chapter_13_online_quiz.2C_Question_13
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Explicit Background Rules
+backwardSentence(ratioOfTo(?N, ?M, 2)) :- mtVisible(BiologyMt), naf backchainForbidden(ratioOfTo), daughterCells(?MEIOSIS, ?OUTPUT), cellHasNumberOfChromosomes(?OUTPUT, ?M), parentCell(?MEIOSIS, ?INPUT), cellHasNumberOfChromosomes(?INPUT, ?N), isa(?MEIOSIS, Meiosis).
+backwardSentence(not(isa(?MEIOSIS, Meiosis))) :- mtVisible(BiologyMt), naf backchainForbidden(isa), daughterCells(?MEIOSIS, ?OUTPUT), cellHasNumberOfChromosomes(?OUTPUT, ?M), parentCell(?MEIOSIS, ?INPUT), cellHasNumberOfChromosomes(?INPUT, ?N), not(ratioOfTo(?N, ?M, 2)).
+backwardSentence(not(daughterCells(?MEIOSIS, ?OUTPUT))) :- mtVisible(BiologyMt), naf backchainForbidden(daughterCells), cellHasNumberOfChromosomes(?OUTPUT, ?M), parentCell(?MEIOSIS, ?INPUT), cellHasNumberOfChromosomes(?INPUT, ?N), isa(?MEIOSIS, Meiosis), not(ratioOfTo(?N, ?M, 2)).
+backwardSentence(not(cellHasNumberOfChromosomes(?OUTPUT, ?M))) :- mtVisible(BiologyMt), naf backchainForbidden(cellHasNumberOfChromosomes), daughterCells(?MEIOSIS, ?OUTPUT), parentCell(?MEIOSIS, ?INPUT), cellHasNumberOfChromosomes(?INPUT, ?N), not(ratioOfTo(?N, ?M, 2)), isa(?MEIOSIS, Meiosis).
+backwardSentence(not(parentCell(?MEIOSIS, ?INPUT))) :- mtVisible(BiologyMt), naf backchainForbidden(parentCell), daughterCells(?MEIOSIS, ?OUTPUT), cellHasNumberOfChromosomes(?OUTPUT, ?M), cellHasNumberOfChromosomes(?INPUT, ?N), isa(?MEIOSIS, Meiosis), not(ratioOfTo(?N, ?M, 2)).
+backwardSentence(not(cellHasNumberOfChromosomes(?INPUT, ?N))) :- mtVisible(BiologyMt), naf backchainForbidden(cellHasNumberOfChromosomes), daughterCells(?MEIOSIS, ?OUTPUT), cellHasNumberOfChromosomes(?OUTPUT, ?M), parentCell(?MEIOSIS, ?INPUT), not(ratioOfTo(?N, ?M, 2)), isa(?MEIOSIS, Meiosis).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259944', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259944', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cytokinesis-259945', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259944', isa('HYP-Cytokinesis-259945', Cytokinesis)).
+istAsserted('Hypothesis-HypotheticalContext-259944', isa('HYP-Cytokinesis-259945', BiologicalReproductionEvent)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-259946', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259944', isa('HYP-Cell-259946', Cell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PositiveInteger-259947', PositiveInteger)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-259948', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259944', isa('HYP-Cell-259948', Cell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PositiveInteger-259949', PositiveInteger)).
+istAsserted('Hypothesis-HypotheticalContext-259944', daughterCells('HYP-Cytokinesis-259945', 'HYP-Cell-259946')).
+istAsserted('Hypothesis-HypotheticalContext-259944', cellHasNumberOfChromosomes('HYP-Cell-259946', 'HYP-PositiveInteger-259947')).
+istAsserted('Hypothesis-HypotheticalContext-259944', parentCell('HYP-Cytokinesis-259945', 'HYP-Cell-259948')).
+istAsserted('Hypothesis-HypotheticalContext-259944', cellHasNumberOfChromosomes('HYP-Cell-259948', 'HYP-PositiveInteger-259949')).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259951', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259951', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Mitosis-259952', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259951', isa('HYP-Mitosis-259952', Mitosis)).
+istAsserted('Hypothesis-HypotheticalContext-259951', isa('HYP-Mitosis-259952', BiologicalReproductionEvent)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-259953', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259951', isa('HYP-Cell-259953', Cell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PositiveInteger-259954', PositiveInteger)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-259955', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259951', isa('HYP-Cell-259955', Cell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PositiveInteger-259956', PositiveInteger)).
+istAsserted('Hypothesis-HypotheticalContext-259951', daughterCells('HYP-Mitosis-259952', 'HYP-Cell-259953')).
+istAsserted('Hypothesis-HypotheticalContext-259951', cellHasNumberOfChromosomes('HYP-Cell-259953', 'HYP-PositiveInteger-259954')).
+istAsserted('Hypothesis-HypotheticalContext-259951', parentCell('HYP-Mitosis-259952', 'HYP-Cell-259955')).
+istAsserted('Hypothesis-HypotheticalContext-259951', cellHasNumberOfChromosomes('HYP-Cell-259955', 'HYP-PositiveInteger-259956')).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259958', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259958', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Meiosis-259959', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259958', isa('HYP-Meiosis-259959', Meiosis)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-259960', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259958', isa('HYP-Cell-259960', Cell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PositiveInteger-259961', PositiveInteger)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-259962', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259958', isa('HYP-Cell-259962', Cell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PositiveInteger-259963', PositiveInteger)).
+istAsserted('Hypothesis-HypotheticalContext-259958', daughterCells('HYP-Meiosis-259959', 'HYP-Cell-259960')).
+istAsserted('Hypothesis-HypotheticalContext-259958', cellHasNumberOfChromosomes('HYP-Cell-259960', 'HYP-PositiveInteger-259961')).
+istAsserted('Hypothesis-HypotheticalContext-259958', parentCell('HYP-Meiosis-259959', 'HYP-Cell-259962')).
+istAsserted('Hypothesis-HypotheticalContext-259958', cellHasNumberOfChromosomes('HYP-Cell-259962', 'HYP-PositiveInteger-259963')).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259965', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259965', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-InterphaseOfEukaryoticCellCycle-259966', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259965', isa('HYP-InterphaseOfEukaryoticCellCycle-259966', InterphaseOfEukaryoticCellCycle)).
+istAsserted('Hypothesis-HypotheticalContext-259965', isa('HYP-InterphaseOfEukaryoticCellCycle-259966', BiologicalReproductionEvent)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-259967', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259965', isa('HYP-Cell-259967', Cell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PositiveInteger-259968', PositiveInteger)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-259969', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259965', isa('HYP-Cell-259969', Cell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PositiveInteger-259970', PositiveInteger)).
+istAsserted('Hypothesis-HypotheticalContext-259965', daughterCells('HYP-InterphaseOfEukaryoticCellCycle-259966', 'HYP-Cell-259967')).
+istAsserted('Hypothesis-HypotheticalContext-259965', cellHasNumberOfChromosomes('HYP-Cell-259967', 'HYP-PositiveInteger-259968')).
+istAsserted('Hypothesis-HypotheticalContext-259965', parentCell('HYP-InterphaseOfEukaryoticCellCycle-259966', 'HYP-Cell-259969')).
+istAsserted('Hypothesis-HypotheticalContext-259965', cellHasNumberOfChromosomes('HYP-Cell-259969', 'HYP-PositiveInteger-259970')).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259972', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259972', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Metaphase-259973', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259972', isa('HYP-Metaphase-259973', Metaphase)).
+istAsserted('Hypothesis-HypotheticalContext-259972', isa('HYP-Metaphase-259973', BiologicalReproductionEvent)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-259974', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259972', isa('HYP-Cell-259974', Cell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PositiveInteger-259975', PositiveInteger)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-259976', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259972', isa('HYP-Cell-259976', Cell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PositiveInteger-259977', PositiveInteger)).
+istAsserted('Hypothesis-HypotheticalContext-259972', daughterCells('HYP-Metaphase-259973', 'HYP-Cell-259974')).
+istAsserted('Hypothesis-HypotheticalContext-259972', cellHasNumberOfChromosomes('HYP-Cell-259974', 'HYP-PositiveInteger-259975')).
+
+// Query
+queryMt('Hypothesis-HypotheticalContext-259958').
+//REMOVED TITLE('KBQ  : $CPTTest-WhichReducesChromosomeNumberByHalf 0').
+%pretest :- ratioOfTo('HYP-PositiveInteger-259963', 'HYP-PositiveInteger-259961', 2), %write_results('SUCCESS  : $CPTTest-WhichReducesChromosomeNumberByHalf 0').
+
+// Debugging
+proof(3673, 0) :- parentCell('HYP-Meiosis-259959', 'HYP-Cell-259962').
+proof(3673, 1) :- parentCell('HYP-Meiosis-259959', 'HYP-Cell-259962').
+proof(3673, 2) :- isa('HYP-Meiosis-259959', Meiosis).
+proof(3673, 3) :- cellHasNumberOfChromosomes('HYP-Cell-259962', 'HYP-PositiveInteger-259963').
+proof(3673, 4) :- daughterCells('HYP-Meiosis-259959', 'HYP-Cell-259960').
+proof(3673, 5) :- daughterCells('HYP-Meiosis-259959', 'HYP-Cell-259960').
+proof(3673, 6) :- cellHasNumberOfChromosomes('HYP-Cell-259960', 'HYP-PositiveInteger-259961').
+proof(3673, 7) :- cellHasNumberOfChromosomes('HYP-Cell-259960', 'HYP-PositiveInteger-259961').
+proof(3673, 8) :- cellHasNumberOfChromosomes('HYP-Cell-259960', 'HYP-PositiveInteger-259961'), daughterCells('HYP-Meiosis-259959', 'HYP-Cell-259960').
+proof(3673, 9) :- isa('HYP-Meiosis-259959', Meiosis), cellHasNumberOfChromosomes('HYP-Cell-259962', 'HYP-PositiveInteger-259963'), cellHasNumberOfChromosomes('HYP-Cell-259960', 'HYP-PositiveInteger-259961'), daughterCells('HYP-Meiosis-259959', 'HYP-Cell-259960').
+proof(3673, 10) :- isa('HYP-Meiosis-259959', Meiosis), cellHasNumberOfChromosomes('HYP-Cell-259960', 'HYP-PositiveInteger-259961'), cellHasNumberOfChromosomes('HYP-Cell-259962', 'HYP-PositiveInteger-259963'), daughterCells('HYP-Meiosis-259959', 'HYP-Cell-259960').
+proof(3673, 11) :- isa('HYP-Meiosis-259959', Meiosis), cellHasNumberOfChromosomes('HYP-Cell-259960', 'HYP-PositiveInteger-259961'), cellHasNumberOfChromosomes('HYP-Cell-259962', 'HYP-PositiveInteger-259963'), parentCell('HYP-Meiosis-259959', 'HYP-Cell-259962'), daughterCells('HYP-Meiosis-259959', 'HYP-Cell-259960').
+proof(3673, 12) :- ratioOfTo('HYP-PositiveInteger-259963', 'HYP-PositiveInteger-259961', 2).
+
+proof(3673, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(3673, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(3673, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(3673, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(3673, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(3673, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(3673, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(3673, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-259958', 1, genlMt).
+proof(3673, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-259958', 2, genlMt).
+proof(3673, 2002) :- genlMt('Hypothesis-HypotheticalContext-259958', UniversalVocabularyMt).
+proof(3673, 2003) :- genlMt('Hypothesis-HypotheticalContext-259958', 'Hypothesis-HypotheticalContext-259958').
+proof(3673, 2004) :- genlMt('Hypothesis-HypotheticalContext-259958', BiologyMt).
+proof(3673, 2005) :- isa('HYP-Meiosis-259959', Meiosis). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

@@ -1,0 +1,1352 @@
+:- setsemantics{inheritance=none}.
+?- setsemantics{class_expressions=on}.
+
+
+//?- unless loaded('core/owl_swrl') do add{'core/owl_swrl'>>main}.
+
+//--- Ontology metadata ---
+
+:- iriprefix{rdf = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'}.
+:- iriprefix{vin = 'http://www.w3.org/TR/2003/PR-owl-guide-20031209/wine#'}.
+:- iriprefix{owl = 'http://www.w3.org/2002/07/'}.
+:- iriprefix{food = 'http://www.w3.org/TR/2003/PR-owl-guide-20031209/'}.
+:- iriprefix{rdfs = 'http://www.w3.org/2000/01/rdf-schema#'}.
+
+
+/* Derived from the DAML Wine ontology at 
+      http://ontolingua.stanford.edu/doc/chimaera/ontologies/wines.daml
+      Substantially changed, in particular the Region based relations.
+     */
+"http://www.w3.org/TR/2003/PR-owl-guide-20031209/wine"^^\iri [
+  imports -> "http://www.w3.org/TR/2003/PR-owl-guide-20031209/food"^^\iri,
+  label -> "Wine Ontology"^^\string
+].
+
+/* 
+      Derived from the DAML Wine ontology at 
+      http://ontolingua.stanford.edu/doc/chimaera/ontologies/wines.daml
+      Substantially modified.
+     */
+"http://www.w3.org/TR/2003/PR-owl-guide-20031209/food"^^\iri [imports -> "http://www.w3.org/TR/2003/PR-owl-guide-20031209/wine"^^\iri].
+
+
+
+//--- Schema information (TBox) ---
+
+BlandFish :: Fish.
+
+CheeseNutsDessert :: Dessert.
+
+ConsumableThing [|madeFromFruit {0..*} => (SweetFruit \or NonSweetFruit)|].
+
+DarkMeatFowl :: Fowl.
+
+Dessert :: EdibleThing.
+
+EatingGrape :: Grape.
+
+EdibleThing :: ConsumableThing.
+
+Fish :: Seafood.
+
+Fowl :: EdibleThing.
+
+Grape :: SweetFruit.
+
+Juice :: PotableLiquid [|madeFromFruit {1..*} => Thing|].
+
+LightMeatFowl :: Fowl.
+
+Meal :: ConsumableThing [|course {1..*} => (MealCourse, MealCourse)|].
+
+MealCourse :: ConsumableThing [|
+  hasFood {1..*} => EdibleThing,
+  hasDrink {1..*} => (Wine, PotableLiquid)
+|].
+
+Meat :: EdibleThing.
+
+NonBlandFish :: Fish.
+
+NonOysterShellfish :: Shellfish.
+
+NonRedMeat :: Meat.
+
+NonSpicyRedMeat :: RedMeat.
+
+NonSweetFruit :: EdibleThing.
+
+OtherTomatoBasedFood :: EdibleThing.
+
+OysterShellfish :: Shellfish.
+
+Pasta :: EdibleThing.
+
+PastaWithHeavyCreamSauce :: PastaWithWhiteSauce.
+
+PastaWithLightCreamSauce :: PastaWithWhiteSauce.
+
+PastaWithNonSpicyRedSauce :: PastaWithRedSauce.
+
+PastaWithRedSauce :: Pasta.
+
+PastaWithSpicyRedSauce :: PastaWithRedSauce.
+
+PastaWithWhiteSauce :: Pasta.
+
+PotableLiquid :: ConsumableThing.
+
+RedMeat :: Meat.
+
+Seafood :: EdibleThing.
+
+Shellfish :: Seafood.
+
+SpicyRedMeat :: RedMeat.
+
+SweetDessert :: Dessert.
+
+SweetFruit :: EdibleThing.
+
+Wine :: Wine.
+
+AlsatianWine :: Wine.
+
+AmericanWine :: Wine.
+
+Anjou :: Loire [|
+  hasSugar -> {
+      OffDry,
+      OffDry
+  },
+  hasColor -> {
+      Rose,
+      Rose
+  },
+  hasBody -> {
+      Light,
+      Light
+  },
+  hasFlavor -> {
+      Delicate,
+      Delicate
+  }
+|].
+
+Beaujolais :: Wine [|
+  madeFromGrape {0..1} => Thing,
+  hasSugar -> {
+      Dry,
+      Dry
+  },
+  hasColor -> {
+      Red,
+      Red
+  },
+  hasBody -> {
+      Light,
+      Light
+  },
+  madeFromGrape -> {
+      GamayGrape,
+      GamayGrape
+  },
+  hasFlavor -> {
+      Delicate,
+      Delicate
+  }
+|].
+
+Bordeaux :: Wine.
+
+Burgundy :: Wine [|
+  hasSugar -> {
+      Dry,
+      Dry
+  }
+|].
+
+CabernetFranc :: Wine [|
+  hasSugar -> {
+      Dry,
+      Dry
+  },
+  hasColor -> {
+      Red,
+      Red
+  },
+  hasBody -> {
+      Medium,
+      Medium
+  },
+  hasFlavor -> {
+      Moderate,
+      Moderate
+  }
+|].
+
+CabernetSauvignon :: Wine [|
+  hasSugar -> {
+      Dry,
+      Dry
+  },
+  hasColor -> {
+      Red,
+      Red
+  }
+|].
+
+CaliforniaWine :: Wine.
+
+Chardonnay :: Wine [|
+  hasColor -> {
+      White,
+      White
+  }
+|].
+
+CheninBlanc :: Wine [|
+  hasColor -> {
+      White,
+      White
+  },
+  hasFlavor -> {
+      Moderate,
+      Moderate
+  }
+|].
+
+Chianti :: ItalianWine [|
+  locatedIn -> {
+      ChiantiRegion,
+      ChiantiRegion
+  },
+  hasSugar -> {
+      Dry,
+      Dry
+  },
+  hasColor -> {
+      Red,
+      Red
+  },
+  madeFromGrape -> {
+      SangioveseGrape,
+      SangioveseGrape
+  },
+  hasFlavor -> {
+      Moderate,
+      Moderate
+  }
+|].
+
+CotesDOr :: RedBurgundy [|
+  hasFlavor -> {
+      Moderate,
+      Moderate
+  }
+|].
+
+DessertWine :: Wine.
+
+DryRedWine :: (DryWine \and RedWine).
+
+DryRiesling :: Riesling [|
+  hasColor -> {
+      White,
+      White
+  },
+  hasFlavor -> {
+      Delicate,
+      Delicate
+  }
+|].
+
+DryWhiteWine :: (DryWine \and WhiteWine).
+
+DryWine :: Wine.
+
+EarlyHarvest :: Wine.
+
+FrenchWine :: Wine.
+
+FullBodiedWine :: Wine.
+
+Gamay :: Wine.
+
+GermanWine :: Wine.
+
+IceWine :: (LateHarvest \and DessertWine).
+
+ItalianWine :: Wine.
+
+LateHarvest :: Wine [|
+  hasSugar -> {
+      Sweet,
+      Sweet
+  }
+|].
+
+Loire :: Wine.
+
+Margaux :: Medoc [|
+  madeFromGrape {0..1} => Thing,
+  madeFromGrape -> {
+      MerlotGrape,
+      MerlotGrape
+  },
+  hasFlavor -> {
+      Delicate,
+      Delicate
+  }
+|].
+
+Medoc :: Bordeaux [|
+  hasSugar -> {
+      Dry,
+      Dry
+  },
+  hasColor -> {
+      Red,
+      Red
+  }
+|].
+
+Meritage :: Wine [|
+  hasColor -> {
+      Red,
+      Red
+  }
+|].
+
+Merlot :: Wine [|
+  hasSugar -> {
+      Dry,
+      Dry
+  },
+  hasColor -> {
+      Red,
+      Red
+  }
+|].
+
+Meursault :: WhiteBurgundy [|
+  hasBody -> {
+      Full,
+      Full
+  }
+|].
+
+Muscadet :: Loire [|
+  madeFromGrape {0..1} => Thing,
+  hasSugar -> {
+      Dry,
+      Dry
+  },
+  hasBody -> {
+      Light,
+      Light
+  },
+  madeFromGrape -> {
+      PinotBlancGrape,
+      PinotBlancGrape
+  },
+  hasFlavor -> {
+      Delicate,
+      Delicate
+  }
+|].
+
+Pauillac :: Medoc [|
+  madeFromGrape {0..1} => Thing,
+  hasBody -> {
+      Full,
+      Full
+  },
+  madeFromGrape -> {
+      CabernetSauvignonGrape,
+      CabernetSauvignonGrape
+  },
+  hasFlavor -> {
+      Strong,
+      Strong
+  }
+|].
+
+PetiteSyrah :: Wine [|
+  hasSugar -> {
+      Dry,
+      Dry
+  },
+  hasColor -> {
+      Red,
+      Red
+  }
+|].
+
+PinotBlanc :: Wine [|
+  hasColor -> {
+      White,
+      White
+  }
+|].
+
+PinotNoir :: Wine [|
+  hasColor -> {
+      Red,
+      Red
+  }
+|].
+
+Port :: RedWine [|
+  locatedIn -> {
+      PortugalRegion,
+      PortugalRegion
+  },
+  hasSugar -> {
+      Sweet,
+      Sweet
+  },
+  hasBody -> {
+      Full,
+      Full
+  },
+  hasFlavor -> {
+      Strong,
+      Strong
+  }
+|].
+
+RedBordeaux :: (Bordeaux \and RedWine).
+
+RedBurgundy :: (Burgundy \and RedWine) [|
+  madeFromGrape {0..1} => Thing,
+  madeFromGrape -> {
+      PinotNoirGrape,
+      PinotNoirGrape
+  }
+|].
+
+RedTableWine :: TableWine.
+
+RedWine :: Wine.
+
+Region [|adjacentRegion {0..*} => Region|].
+
+Riesling :: Wine [|
+  hasColor -> {
+      White,
+      White
+  }
+|].
+
+RoseWine :: Wine.
+
+Sancerre :: Loire [|
+  madeFromGrape {0..1} => Thing,
+  hasSugar -> {
+      OffDry,
+      OffDry
+  },
+  hasBody -> {
+      Medium,
+      Medium
+  },
+  madeFromGrape -> {
+      SauvignonBlancGrape,
+      SauvignonBlancGrape
+  },
+  hasFlavor -> {
+      Delicate,
+      Delicate
+  }
+|].
+
+Sauternes :: (LateHarvest \and Bordeaux) [|
+  locatedIn -> {
+      SauterneRegion,
+      SauterneRegion
+  },
+  hasColor -> {
+      White,
+      White
+  },
+  hasBody -> {
+      Medium,
+      Medium
+  }
+|].
+
+SauvignonBlanc :: SemillonOrSauvignonBlanc.
+
+Semillon :: SemillonOrSauvignonBlanc.
+
+SemillonOrSauvignonBlanc :: Wine [|
+  hasColor -> {
+      White,
+      White
+  }
+|].
+
+StEmilion :: Bordeaux [|
+  madeFromGrape {0..1} => Thing,
+  hasColor -> {
+      Red,
+      Red
+  },
+  madeFromGrape -> {
+      CabernetSauvignonGrape,
+      CabernetSauvignonGrape
+  },
+  hasFlavor -> {
+      Strong,
+      Strong
+  }
+|].
+
+SweetRiesling :: (DessertWine \and Riesling) [|
+  hasBody -> {
+      Full,
+      Full
+  }
+|].
+
+SweetWine :: Wine.
+
+TableWine :: Wine.
+
+TexasWine :: Wine.
+
+Tours :: Loire [|
+  madeFromGrape {0..1} => Thing,
+  madeFromGrape -> {
+      CheninBlancGrape,
+      CheninBlancGrape
+  }
+|].
+
+Vintage [|hasVintageYear {1..1} => VintageYear|].
+
+VintageYear [|yearValue {0..*} => \long|].
+
+WhiteBordeaux :: (Bordeaux \and WhiteWine).
+
+WhiteBurgundy :: (Burgundy \and WhiteWine) [|
+  madeFromGrape {0..1} => Thing,
+  madeFromGrape -> {
+      ChardonnayGrape,
+      ChardonnayGrape
+  }
+|].
+
+WhiteLoire :: (Loire \and WhiteWine).
+
+WhiteNonSweetWine :: WhiteWine.
+
+WhiteTableWine :: TableWine.
+
+WhiteWine :: Wine.
+
+Wine :: PotableLiquid [|
+  hasSugar {1..1} => Thing,
+  hasMaker {1..1} => (Winery, Winery),
+  hasColor {1..1} => WineColor,
+  hasWineDescriptor {0..*} => WineDescriptor,
+  hasBody {1..1} => Thing,
+  madeFromGrape {1..*} => WineGrape,
+  hasFlavor {1..1} => Thing
+|].
+Wine [
+  label -> {
+      "vin"^^\string,
+      "wine"^^\string
+  }
+].
+
+WineBody :: WineTaste.
+
+WineColor :: WineDescriptor.
+
+/* Made WineDescriptor unionType of tastes and color */
+WineDescriptor :: (WineTaste \or WineColor).
+
+WineFlavor :: WineTaste.
+
+WineGrape :: Grape.
+
+WineSugar :: WineTaste.
+
+WineTaste :: WineDescriptor.
+
+Zinfandel :: Wine [|
+  hasSugar -> {
+      Dry,
+      Dry
+  },
+  hasColor -> {
+      Red,
+      Red
+  }
+|].
+
+
+
+//--- Property axioms ---
+
+?x[madeFromFruit->?y] :- ?x[madeFromGrape->?y].   // sub-property
+
+?x[adjacentRegion->?y] :- ?y[adjacentRegion->?x].   // symmetric property
+
+?x[hasWineDescriptor->?y] :- ?x[hasFlavor->?y].   // sub-property
+
+?x[hasWineDescriptor->?y] :- ?x[hasBody->?y].   // sub-property
+
+?x[hasWineDescriptor->?y] :- ?x[hasColor->?y].   // sub-property
+
+?x[hasWineDescriptor->?y] :- ?x[hasSugar->?y].   // sub-property
+
+?x[locatedIn->?y] :- ?x[locatedIn->?[locatedIn->?y]].   // transitive property
+
+?x[madeIntoWine->?y] :- ?y[madeFromGrape->?x].   // inverse property
+
+?x[producesWine->?y] :- ?y[hasMaker->?x].   // inverse property
+
+
+
+//--- Facts (ABox) ---
+
+Bananas : SweetFruit.
+
+BeefCurry : SpicyRedMeat.
+
+BlandFishCourse [].
+
+Cake : SweetDessert.
+
+Cheese : CheeseNutsDessert.
+
+CheeseNutsDessertCourse [].
+
+Chicken : LightMeatFowl.
+
+Clams : NonOysterShellfish.
+
+Crab : NonOysterShellfish.
+
+DarkMeatFowlCourse [].
+
+Delicate : Thing.
+
+DessertCourse [].
+
+Dry : Thing.
+
+Duck : DarkMeatFowl.
+
+FettucineAlfRedo : PastaWithHeavyCreamSauce.
+
+FishCourse [].
+
+Flounder : BlandFish.
+
+FraDiavolo : PastaWithSpicyRedSauce.
+
+Fruit [].
+
+FruitCourse [].
+
+Full : Thing.
+
+GarlickyRoast : SpicyRedMeat.
+
+Goose : DarkMeatFowl.
+
+Halibut : BlandFish.
+
+Light : Thing.
+
+LightMeatFowlCourse [].
+
+Lobster : NonOysterShellfish.
+
+Medium : Thing.
+
+MixedFruit : SweetFruit.
+
+Moderate : Thing.
+
+Mussels : NonOysterShellfish.
+
+NonBlandFishCourse [].
+
+NonConsumableThing [].
+
+NonOysterShellfishCourse [].
+
+NonRedMeatCourse [].
+
+NonSpicyRedMeatCourse [].
+
+NonSweetFruitCourse [].
+
+Nuts : CheeseNutsDessert.
+
+OffDry : Thing.
+
+OtherTomatoBasedFoodCourse [].
+
+OysterShellfishCourse [].
+
+Oysters : OysterShellfish.
+
+PastaWithHeavyCreamCourse [].
+
+PastaWithLightCreamCourse [].
+
+PastaWithNonSpicyRedSauceCourse [].
+
+PastaWithSpicyRedSauceCourse [].
+
+PastaWithWhiteClamSauce : PastaWithLightCreamSauce.
+
+Peaches : SweetFruit.
+
+Pie : SweetDessert.
+
+Pizza : OtherTomatoBasedFood.
+
+Pork : NonRedMeat.
+
+Red : Thing.
+
+RedMeatCourse [].
+
+RoastBeef : NonSpicyRedMeat.
+
+Rose : Thing.
+
+Scrod : BlandFish.
+
+SeafoodCourse [].
+
+ShellfishCourse [].
+
+SpaghettiWithTomatoSauce : PastaWithNonSpicyRedSauce.
+
+SpicyRedMeatCourse [].
+
+Steak : NonSpicyRedMeat.
+
+Strong : Thing.
+
+Sweet : Thing.
+
+SweetDessertCourse [].
+
+SweetFruitCourse [].
+
+Swordfish : NonBlandFish.
+
+ThompsonSeedless : EatingGrape.
+
+Tuna : NonBlandFish.
+
+Turkey : LightMeatFowl.
+
+Veal : NonSpicyRedMeat.
+
+White : Thing.
+
+AlsaceRegion : Region [locatedIn -> FrenchRegion].
+
+AnjouRegion : Region [locatedIn -> LoireRegion].
+
+ArroyoGrandeRegion : Region [locatedIn -> CaliforniaRegion].
+
+AustralianRegion : Region.
+
+Bancroft : Winery.
+
+BancroftChardonnay : Chardonnay [
+  locatedIn -> NapaRegion,
+  hasSugar -> Dry,
+  hasMaker -> Bancroft,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+BeaujolaisRegion : Region [locatedIn -> FrenchRegion].
+
+Beringer : Winery.
+
+BordeauxRegion : Region [locatedIn -> FrenchRegion].
+
+BourgogneRegion : Region [locatedIn -> FrenchRegion].
+
+CabernetFrancGrape : (WineGrape \and Thing).
+
+CabernetSauvignonGrape : (WineGrape \and Thing).
+
+CaliforniaRegion : Region [locatedIn -> USRegion].
+
+CentralCoastRegion : Region [locatedIn -> CaliforniaRegion].
+
+CentralTexasRegion : Region [locatedIn -> TexasRegion].
+
+ChardonnayGrape : WineGrape.
+
+ChateauChevalBlanc : Winery.
+
+ChateauChevalBlancStEmilion : StEmilion [hasMaker -> ChateauChevalBlanc].
+
+ChateauDYchem : Winery.
+
+ChateauDYchemSauterne : Sauternes [
+  hasMaker -> ChateauDYchem,
+  madeFromGrape -> {
+      SauvignonBlancGrape,
+      SemillonGrape
+  },
+  hasFlavor -> Strong
+].
+
+ChateauDeMeursault : Winery.
+
+ChateauDeMeursaultMeursault : Meursault [
+  hasMaker -> ChateauDeMeursault,
+  hasFlavor -> Moderate
+].
+
+ChateauLafiteRothschild : Winery.
+
+ChateauLafiteRothschildPauillac : Pauillac [hasMaker -> ChateauLafiteRothschild].
+
+ChateauMargaux : Margaux [hasMaker -> ChateauMargauxWinery].
+
+ChateauMargauxWinery : Winery.
+
+ChateauMorgon : Winery.
+
+ChateauMorgonBeaujolais : Beaujolais [hasMaker -> ChateauMorgon].
+
+CheninBlancGrape : (WineGrape \and Thing).
+
+ChiantiClassico : Chianti [
+  hasMaker -> McGuinnesso,
+  hasBody -> Medium
+].
+
+ChiantiRegion : Region [locatedIn -> ItalianRegion].
+
+ClosDeLaPoussie : Winery.
+
+ClosDeLaPoussieSancerre : Sancerre [hasMaker -> ClosDeLaPoussie].
+
+ClosDeVougeot : Winery.
+
+ClosDeVougeotCotesDOr : CotesDOr [hasMaker -> ClosDeVougeot].
+
+CongressSprings : Winery.
+
+CongressSpringsSemillon : Semillon [
+  hasSugar -> Dry,
+  hasMaker -> CongressSprings,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+Corbans : Winery.
+
+CorbansDryWhiteRiesling : Riesling [
+  locatedIn -> NewZealandRegion,
+  hasSugar -> OffDry,
+  hasMaker -> Corbans,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+CorbansPrivateBinSauvignonBlanc : SauvignonBlanc [
+  locatedIn -> NewZealandRegion,
+  hasSugar -> Dry,
+  hasMaker -> Corbans,
+  hasBody -> Full,
+  hasFlavor -> Strong
+].
+
+CorbansSauvignonBlanc : SauvignonBlanc [
+  locatedIn -> NewZealandRegion,
+  hasSugar -> Dry,
+  hasMaker -> Corbans,
+  hasBody -> Medium,
+  hasFlavor -> Strong
+].
+
+CortonMontrachet : Winery.
+
+CortonMontrachetWhiteBurgundy : WhiteBurgundy [
+  hasSugar -> Dry,
+  hasMaker -> CortonMontrachet,
+  hasBody -> Full,
+  hasFlavor -> Strong
+].
+
+CotesDOrRegion : Region [locatedIn -> BourgogneRegion].
+
+Cotturi : Winery.
+
+CotturiZinfandel : Zinfandel [
+  locatedIn -> SonomaRegion,
+  hasSugar -> Dry,
+  hasMaker -> Cotturi,
+  hasBody -> Full,
+  hasFlavor -> Strong
+].
+
+DAnjou : Winery.
+
+Delicate : (Thing \and WineFlavor).
+
+Dry : (WineSugar \and Thing).
+
+EdnaValleyRegion : Region [locatedIn -> CaliforniaRegion].
+
+Elyse : Winery.
+
+ElyseZinfandel : Zinfandel [
+  locatedIn -> NapaRegion,
+  hasSugar -> Dry,
+  hasMaker -> Elyse,
+  hasBody -> Full,
+  hasFlavor -> Moderate
+].
+
+Forman : Winery.
+
+FormanCabernetSauvignon : CabernetSauvignon [
+  locatedIn -> NapaRegion,
+  hasSugar -> Dry,
+  hasMaker -> Forman,
+  hasBody -> Medium,
+  hasFlavor -> Strong
+].
+
+FormanChardonnay : Chardonnay [
+  locatedIn -> NapaRegion,
+  hasSugar -> Dry,
+  hasMaker -> Forman,
+  hasBody -> Full,
+  hasFlavor -> Moderate
+].
+
+Foxen : Winery.
+
+FoxenCheninBlanc : CheninBlanc [
+  locatedIn -> SantaBarbaraRegion,
+  hasSugar -> Dry,
+  hasMaker -> Foxen,
+  hasBody -> Full,
+  hasFlavor -> Moderate
+].
+
+FrenchRegion : Region.
+
+Full : (Thing \and WineBody).
+
+GamayGrape : WineGrape.
+
+GaryFarrell : Winery.
+
+GaryFarrellMerlot : Merlot [
+  locatedIn -> SonomaRegion,
+  hasSugar -> Dry,
+  hasMaker -> GaryFarrell,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+GermanyRegion : Region.
+
+Handley : Winery.
+
+ItalianRegion : Region.
+
+KalinCellars : Winery.
+
+KalinCellarsSemillon : Semillon [
+  hasSugar -> Dry,
+  hasMaker -> KalinCellars,
+  hasBody -> Full,
+  hasFlavor -> Strong
+].
+
+KathrynKennedy : Winery.
+
+KathrynKennedyLateral : Meritage [
+  hasSugar -> Dry,
+  hasMaker -> KathrynKennedy,
+  hasBody -> Medium,
+  hasFlavor -> Delicate
+].
+
+LaneTanner : Winery.
+
+LaneTannerPinotNoir : PinotNoir [
+  locatedIn -> SantaBarbaraRegion,
+  hasSugar -> Dry,
+  hasMaker -> LaneTanner,
+  hasBody -> Light,
+  hasFlavor -> Delicate
+].
+
+Light : (Thing \and WineBody).
+
+LoireRegion : Region [locatedIn -> FrenchRegion].
+
+Longridge : Winery.
+
+LongridgeMerlot : Merlot [
+  locatedIn -> NewZealandRegion,
+  hasSugar -> Dry,
+  hasMaker -> Longridge,
+  hasBody -> Light,
+  hasFlavor -> Moderate
+].
+
+MalbecGrape : (WineGrape \and Thing).
+
+MargauxRegion : Region [locatedIn -> MedocRegion].
+
+Marietta : Winery.
+
+MariettaCabernetSauvignon : CabernetSauvignon [
+  locatedIn -> SonomaRegion,
+  hasSugar -> Dry,
+  hasMaker -> Marietta,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+MariettaOldVinesRed : RedTableWine [
+  locatedIn -> SonomaRegion,
+  hasSugar -> Dry,
+  hasMaker -> Marietta,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+MariettaPetiteSyrah : PetiteSyrah [
+  locatedIn -> SonomaRegion,
+  hasSugar -> Dry,
+  hasMaker -> Marietta,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+MariettaZinfandel : Zinfandel [
+  locatedIn -> SonomaRegion,
+  hasSugar -> Dry,
+  hasMaker -> Marietta,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+McGuinnesso : Winery.
+
+Medium : (Thing \and WineBody).
+
+MedocRegion : Region [locatedIn -> BordeauxRegion].
+
+MendocinoRegion : Region [
+  locatedIn -> CaliforniaRegion,
+  adjacentRegion -> SonomaRegion
+].
+
+MerlotGrape : (WineGrape \and Thing).
+
+MeursaultRegion : Region [locatedIn -> BourgogneRegion].
+
+Moderate : (Thing \and WineFlavor).
+
+MountEdenVineyard : Winery.
+
+MountEdenVineyardEdnaValleyChardonnay : Chardonnay [
+  locatedIn -> EdnaValleyRegion,
+  hasSugar -> Dry,
+  hasMaker -> MountEdenVineyard,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+MountEdenVineyardEstatePinotNoir : PinotNoir [
+  locatedIn -> EdnaValleyRegion,
+  hasSugar -> Dry,
+  hasMaker -> MountEdenVineyard,
+  hasBody -> Full,
+  hasFlavor -> Strong
+].
+
+Mountadam : Winery.
+
+MountadamChardonnay : Chardonnay [
+  locatedIn -> SouthAustraliaRegion,
+  hasSugar -> Dry,
+  hasMaker -> Mountadam,
+  hasBody -> Full,
+  hasFlavor -> Strong
+].
+
+MountadamPinotNoir : PinotNoir [
+  locatedIn -> SouthAustraliaRegion,
+  hasSugar -> Dry,
+  hasMaker -> Mountadam,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+MountadamRiesling : DryRiesling [
+  locatedIn -> SouthAustraliaRegion,
+  hasSugar -> Dry,
+  hasMaker -> Mountadam,
+  hasBody -> Medium,
+  hasFlavor -> Delicate
+].
+
+MuscadetRegion : Region [locatedIn -> LoireRegion].
+
+NapaRegion : Region [locatedIn -> CaliforniaRegion].
+
+NewZealandRegion : Region.
+
+OffDry : (WineSugar \and Thing).
+
+PageMillWinery : Winery.
+
+PageMillWineryCabernetSauvignon : CabernetSauvignon [
+  locatedIn -> NapaRegion,
+  hasSugar -> Dry,
+  hasMaker -> PageMillWinery,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+PauillacRegion : Region [locatedIn -> MedocRegion].
+
+PeterMccoy : Winery.
+
+PeterMccoyChardonnay : Chardonnay [
+  locatedIn -> SonomaRegion,
+  hasSugar -> Dry,
+  hasMaker -> PeterMccoy,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+PetiteSyrahGrape : WineGrape.
+
+PetiteVerdotGrape : (WineGrape \and Thing).
+
+PinotBlancGrape : (WineGrape \and Thing).
+
+PinotNoirGrape : WineGrape.
+
+PortugalRegion : Region.
+
+PulignyMontrachet : Winery.
+
+PulignyMontrachetWhiteBurgundy : WhiteBurgundy [
+  hasSugar -> Dry,
+  hasMaker -> PulignyMontrachet,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+Red : (Thing \and WineColor).
+
+RieslingGrape : WineGrape.
+
+Rose : (Thing \and WineColor).
+
+RoseDAnjou : Anjou [hasMaker -> DAnjou].
+
+SancerreRegion : Region [locatedIn -> LoireRegion].
+
+SangioveseGrape : WineGrape.
+
+SantaBarbaraRegion : Region [locatedIn -> CaliforniaRegion].
+
+SantaCruzMountainVineyard : Winery.
+
+SantaCruzMountainVineyardCabernetSauvignon : CabernetSauvignon [
+  locatedIn -> SantaCruzMountainsRegion,
+  hasSugar -> Dry,
+  hasMaker -> SantaCruzMountainVineyard,
+  hasBody -> Full,
+  hasFlavor -> Strong
+].
+
+SantaCruzMountainsRegion : Region [locatedIn -> CaliforniaRegion].
+
+SaucelitoCanyon : Winery.
+
+SaucelitoCanyonZinfandel : Zinfandel [
+  locatedIn -> ArroyoGrandeRegion,
+  hasSugar -> Dry,
+  hasMaker -> SaucelitoCanyon,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+SaucelitoCanyonZinfandel1998 : Zinfandel [
+  locatedIn -> ArroyoGrandeRegion,
+  hasSugar -> Dry,
+  hasMaker -> SaucelitoCanyon,
+  hasBody -> Medium,
+  hasVintageYear -> Year1998,
+  hasFlavor -> Moderate
+].
+
+SauterneRegion : Region [locatedIn -> BordeauxRegion].
+
+SauvignonBlancGrape : (WineGrape \and Thing).
+
+SchlossRothermel : Winery.
+
+SchlossRothermelTrochenbierenausleseRiesling : SweetRiesling [
+  locatedIn -> GermanyRegion,
+  hasSugar -> Sweet,
+  hasMaker -> SchlossRothermel,
+  hasBody -> Full,
+  hasFlavor -> Strong
+].
+
+SchlossVolrad : Winery.
+
+SchlossVolradTrochenbierenausleseRiesling : SweetRiesling [
+  locatedIn -> GermanyRegion,
+  hasSugar -> Sweet,
+  hasMaker -> SchlossVolrad,
+  hasBody -> Full,
+  hasFlavor -> Moderate
+].
+
+SeanThackrey : Winery.
+
+SeanThackreySiriusPetiteSyrah : PetiteSyrah [
+  locatedIn -> NapaRegion,
+  hasSugar -> Dry,
+  hasMaker -> SeanThackrey,
+  hasBody -> Full,
+  hasFlavor -> Strong
+].
+
+Selaks : Winery.
+
+SelaksIceWine : IceWine [
+  locatedIn -> NewZealandRegion,
+  hasMaker -> Selaks,
+  hasColor -> White,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+SelaksSauvignonBlanc : SauvignonBlanc [
+  locatedIn -> NewZealandRegion,
+  hasSugar -> Dry,
+  hasMaker -> Selaks,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+SemillonGrape : (WineGrape \and Thing).
+
+SevreEtMaine : Winery.
+
+SevreEtMaineMuscadet : Muscadet [hasMaker -> SevreEtMaine].
+
+SonomaRegion : Region [locatedIn -> CaliforniaRegion].
+
+SouthAustraliaRegion : Region [locatedIn -> AustralianRegion].
+
+StEmilionRegion : Region [locatedIn -> BordeauxRegion].
+
+StGenevieve : Winery.
+
+StGenevieveTexasWhite : WhiteWine [
+  locatedIn -> CentralTexasRegion,
+  hasSugar -> Dry,
+  hasMaker -> StGenevieve,
+  hasFlavor -> Moderate
+].
+
+Stonleigh : Winery.
+
+StonleighSauvignonBlanc : SauvignonBlanc [
+  locatedIn -> NewZealandRegion,
+  hasSugar -> Dry,
+  hasMaker -> Stonleigh,
+  hasBody -> Medium,
+  hasFlavor -> Delicate
+].
+
+Strong : (Thing \and WineFlavor).
+
+Sweet : (WineSugar \and Thing).
+
+Taylor : Winery.
+
+TaylorPort : Port [hasMaker -> Taylor].
+
+TexasRegion : Region [locatedIn -> USRegion].
+
+ToursRegion : Region [locatedIn -> LoireRegion].
+
+USRegion : Region.
+
+Ventana : Winery.
+
+VentanaCheninBlanc : CheninBlanc [
+  locatedIn -> CentralCoastRegion,
+  hasSugar -> OffDry,
+  hasMaker -> Ventana,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+White : (Thing \and WineColor).
+
+WhitehallLane : Winery.
+
+WhitehallLaneCabernetFranc : CabernetFranc [
+  locatedIn -> NapaRegion,
+  hasSugar -> Dry,
+  hasMaker -> WhitehallLane,
+  hasBody -> Medium,
+  hasFlavor -> Moderate
+].
+
+WhitehallLanePrimavera : DessertWine [
+  locatedIn -> NapaRegion,
+  hasSugar -> Sweet,
+  hasBody -> Light,
+  hasFlavor -> Delicate
+].
+
+Winery [].
+
+Year1998 : VintageYear [yearValue -> 1998].
+
+ZinfandelGrape : WineGrape.
+
+
+
+%tst1 :- 
+	?L= setof{?x|?x::Wine},
+	flora_decode_oid_as_atom_substitute_vars(?L,?LL)@\plg(flrdecode),
+	writeln(tst1 = ?LL)@\plg.
+
+?- setsemantics{subclassing=nonstrict}.
+%pretest :- %tst1.
+
+
+%test :- tell(temp)@\plg(),
+	%pretest,
+	told@\plg().

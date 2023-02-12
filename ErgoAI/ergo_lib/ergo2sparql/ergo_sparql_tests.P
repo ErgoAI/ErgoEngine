@@ -1,0 +1,273 @@
+/* File: ergo_lib/ergo2sparql/ergo_sparql_tests.P -- Prolog-SPARQL adaptor tests
+**
+** Author(s): Paul Fodor
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2016-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+:- import
+        sparqlOpen/4,
+        sparqlSelect/3,
+        sparqlSelectAll/3,
+        sparqlConstruct/3,
+        sparqlConstructAll/3,
+        sparqlAsk/2,
+        sparqlDescribe/3,
+        sparqlDescribeAll/3,
+        sparqlUpdate/2,
+        sparqlClose/1
+    from ergo_sparql.
+
+test_dbpedia_sparqlSelect :- 
+    write('DBPEDIA SPARQL sparqlOpen connectionID: '),
+    ConnectionId = 'DBPEDIAConnectionID',
+    sparqlOpen(ConnectionId, 'http://dbpedia.org/sparql', '', ''),
+    writeln(ConnectionId),
+    SelectQuery = 'SELECT * WHERE {?x ?r ?y} LIMIT 2',
+    write('DBPEDIA sparqlSelect results: '),
+    !,
+    (
+        (
+            sparqlSelect(ConnectionId, SelectQuery, OneResult),
+            writeln(OneResult),
+            fail
+        )
+    ; true
+    ).
+
+test_dbpedia_sparqlSelectAll :- 
+    write('DBPEDIA SPARQL sparqlOpen connectionID: '),
+    ConnectionId = 'DBPEDIAConnectionID',
+    sparqlOpen(ConnectionId, 'http://dbpedia.org/sparql', '', ''),
+    writeln(ConnectionId),
+    SelectQuery = 'SELECT * WHERE {?x ?r ?y} LIMIT 2',
+    write('DBPEDIA sparqlSelectAll results: '),
+    sparqlSelectAll(ConnectionId, SelectQuery, OutputArray),
+    writeln(OutputArray).
+
+test_sparqlOpen_exception :- 
+    write('SPARQL sparqlOpen connectionID: '),
+    ConnectionId = 'DBPEDIAConnectionID',
+    sparqlOpen(ConnectionId, 'http://acme', '', ''),
+    writeln(ConnectionId).
+
+test_dbpedia_sparqlSelect_exception :- 
+    write('DBPEDIA SPARQL sparqlOpen connectionID: '),
+    ConnectionId = 'DBPEDIAConnectionID',
+    sparqlOpen(ConnectionId, 'http://dbpedia.org/sparql', '', ''),
+    writeln(ConnectionId),
+    SelectQuery = 'This is not a SPARQL query',
+    write('DBPEDIA sparqlSelect results: '),
+    !,
+    (
+        (
+            sparqlSelect(ConnectionId, SelectQuery, OneResult),
+            writeln(OneResult),
+            fail
+        )
+    ; true
+    ).
+
+test_dbpedia_sparqlSelect_exception_noconnection :- 
+    write('Exception noConnection: '),
+    ConnectionId = 'noConnection',
+    SelectQuery = 'SELECT * WHERE {?x ?r ?y} LIMIT 2',
+    !,
+    (
+        (
+            sparqlSelect(ConnectionId, SelectQuery, OneResult),
+            writeln(OneResult),
+            fail
+        )
+    ; true
+    ).
+
+
+test_dbpedia_sparqlConstruct :- 
+    write('DBPEDIA SPARQL sparqlOpen connectionID: '),
+    ConnectionId = 'DBPEDIAConnectionID',
+    sparqlOpen(ConnectionId, 'http://dbpedia.org/sparql', '', ''),
+    writeln(ConnectionId),
+    ConstructQuery = 'CONSTRUCT { <http://example3.org/person> ?r ?y } WHERE {?x ?r ?y} LIMIT 2',
+    write('DBPEDIA CONSTRUCT sparqlConstruct results: '),
+    !,
+    (
+        (
+            sparqlConstruct(ConnectionId, ConstructQuery, OneResult),
+            writeln(OneResult),
+            fail
+        )
+    ; true
+    ).
+
+test_dbpedia_sparqlConstruct_exception :- 
+    write('DBPEDIA SPARQL sparqlOpen connectionID: '),
+    ConnectionId = 'DBPEDIAConnectionID',
+    sparqlOpen(ConnectionId, 'http://dbpedia.org/sparql', '', ''),
+    writeln(ConnectionId),
+    ConstructQuery = 'This is not a SPARQL CONSTRUCT',
+    write('DBPEDIA CONSTRUCT sparqlConstruct results: '),
+    !,
+    (
+        (
+            sparqlConstruct(ConnectionId, ConstructQuery, OneResult),
+            writeln(OneResult),
+            fail
+        )
+    ; true
+    ).
+
+test_dbpedia_sparqlAsk :- 
+    write('DBPEDIA SPARQL sparqlOpen connectionID: '),
+    ConnectionId = 'DBPEDIAConnectionID',
+    sparqlOpen(ConnectionId, 'http://dbpedia.org/sparql', '', ''),
+    writeln(ConnectionId),
+    AskQuery = 'ASK {?x ?r ?y}',
+    write('DBPEDIA ASK sparqlAsk results: '),
+    !,
+    sparqlAsk(ConnectionId, AskQuery),
+    writeln(true).
+
+test_dbpedia_sparqlAsk_exception :- 
+    write('DBPEDIA SPARQL sparqlOpen connectionID: '),
+    ConnectionId = 'DBPEDIAConnectionID',
+    sparqlOpen(ConnectionId, 'http://dbpedia.org/sparql', '', ''),
+    writeln(ConnectionId),
+    AskQuery = 'This is not a SPARQL ASK',
+    write('DBPEDIA ASK sparqlAsk results: '),
+    !,
+    sparqlAsk(ConnectionId, AskQuery),
+    writeln(true).
+
+test_dbpedia_sparqlDescribe :- 
+    write('DBPEDIA SPARQL sparqlOpen connectionID: '),
+    ConnectionId = 'DBPEDIAConnectionID',
+    sparqlOpen(ConnectionId, 'http://dbpedia.org/sparql', '', ''),
+    writeln(ConnectionId),
+    DescribeQuery = 'DESCRIBE ?y WHERE {?x ?r ?y} LIMIT 1',
+    write('DBPEDIA DESCRIBE sparqlDescribe results: '),
+    !,
+    (
+        (
+            sparqlDescribe(ConnectionId, DescribeQuery, OneResult),
+            writeln(OneResult),
+            fail
+        )
+    ; true
+    ).
+
+test_dbpedia_sparqlDescribe_exception :- 
+    write('DBPEDIA SPARQL sparqlOpen connectionID: '),
+    ConnectionId = 'DBPEDIAConnectionID',
+    sparqlOpen(ConnectionId, 'http://dbpedia.org/sparql', '', ''),
+    writeln(ConnectionId),
+    DescribeQuery = 'This is not a SPARQL DESCRIBE',
+    write('DBPEDIA DESCRIBE sparqlDescribe results: '),
+    !,
+    (
+        (
+            sparqlDescribe(ConnectionId, DescribeQuery, OneResult),
+            writeln(OneResult),
+            fail
+        )
+    ; true
+    ).
+
+test_CoherentKnowledge_sparqlSelect :- 
+    write('CoherentKnowledge SPARQL sparqlOpen connectionID: '),
+    ConnectionId = 'CKConnectionID',
+    sparqlOpen(ConnectionId, 'http://54.174.13.248:3030/ds', 'coherent', 'atlantic'),
+    writeln(ConnectionId),
+    SelectQuery = 'SELECT * WHERE {?x ?r ?y} LIMIT 2',
+    write('CoherentKnowledge sparqlSelect results: '),
+    !,
+    (
+        (
+            sparqlSelect(ConnectionId, SelectQuery, OneResult),
+            writeln(OneResult),
+            fail
+        )
+    ; true
+    ).
+
+test_CoherentKnowledge_sparqlUpdate :- 
+    write('CoherentKnowledge SPARQL sparqlOpen connectionID: '),
+    ConnectionId = 'CKConnectionID',
+    sparqlOpen(ConnectionId, 'http://54.174.13.248:3030/ds', 'coherent', 'atlantic'),
+    writeln(ConnectionId),
+    InsertQuery = 'PREFIX dc: <http://purl.org/dc/elements/1.1/> INSERT DATA { <http://example/paul> dc:title \"A new book\" ; dc:creator   \"A.N.Other\" . }',
+    write('CoherentKnowledge INSERT sparqlUpdate results: '),
+    sparqlUpdate(ConnectionId, InsertQuery),
+    %%%%
+    SelectQuery = 'SELECT (COUNT(*) AS ?no) { ?s ?p ?o }',
+    write('CoherentKnowledge sparqlSelectAll count results: '),
+    sparqlSelectAll(ConnectionId, SelectQuery, Count),
+    writeln(Count),
+    %%%%
+    DeleteQuery = 'PREFIX dc: <http://purl.org/dc/elements/1.1/> DELETE DATA { <http://example/paul> dc:title \"A new book\" ; dc:creator   \"A.N.Other\" . }',
+    write('CoherentKnowledge DELETE sparqlUpdate results: '),
+    sparqlUpdate(ConnectionId, DeleteQuery),
+    %%%%
+    write('CoherentKnowledge sparqlSelectAll count results: '),
+    sparqlSelectAll(ConnectionId, SelectQuery, Count2),
+    writeln(Count2).
+
+test_CoherentKnowledge_sparqlUpdate_exception :- 
+    write('CoherentKnowledge SPARQL sparqlOpen connectionID: '),
+    ConnectionId = 'CKConnectionID',
+    sparqlOpen(ConnectionId, 'http://54.174.13.248:3030/ds', 'coherent', 'atlantic'),
+    writeln(ConnectionId),
+    InsertQuery = 'This is not a SPARQL INSERT',
+    write('CoherentKnowledge INSERT sparqlUpdate results: '),
+    sparqlUpdate(ConnectionId, InsertQuery),
+    %%%%
+    SelectQuery = 'SELECT (COUNT(*) AS ?no) { ?s ?p ?o }',
+    write('CoherentKnowledge sparqlSelectAll count results: '),
+    sparqlSelectAll(ConnectionId, SelectQuery, Count),
+    writeln(Count).
+
+test_dbpedia_sparqlClose :- 
+    write('SPARQL sparqlClose connectionID: '),
+    ConnectionId = 'DBPEDIAConnectionID',
+    write(ConnectionId),
+    sparqlClose(ConnectionId),
+    writeln(' Done!').
+
+test_CoherentKnowledge_sparqlClose :- 
+    write('SPARQL sparqlClose connectionID: '),
+    ConnectionId = 'CKConnectionID',
+    write(ConnectionId),
+    sparqlClose(ConnectionId),
+    writeln(' Done!').
+
+/* Tests:
+test_dbpedia_sparqlSelect.
+test_dbpedia_sparqlSelectAll.
+test_sparqlOpen_exception.
+test_dbpedia_sparqlSelect_exception.
+test_dbpedia_sparqlSelect_exception_noconnection.
+test_dbpedia_sparqlConstruct.
+test_dbpedia_sparqlConstruct_exception.
+test_dbpedia_sparqlAsk.
+test_dbpedia_sparqlAsk_exception.
+test_dbpedia_sparqlDescribe.
+test_dbpedia_sparqlDescribe_exception.
+test_CoherentKnowledge_sparqlSelect.
+test_CoherentKnowledge_sparqlUpdate.
+test_CoherentKnowledge_sparqlUpdate_exception.
+*/

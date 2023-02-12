@@ -1,0 +1,101 @@
+
+:- setsemantics{tabling=passive}.
+:- symbol_context{%p(?)@?}.
+
+?- [callReified_foo>>foo, callReified_foo2>>foo2].
+
+a(a).
+p(?Y) :- a(?Y), caller{?C}, writeln(caller=?C)@\plg().
+
+%p(?Y) :- a(?Y), caller{?C}, writeln('%caller'=?C)@\plg().
+
+pp(a) :- caller{?X},
+	\if \isvar(?X) \then ?X = '*a variable*',
+        (write(caller=?X), write(' '))@\plg().
+
+c[b->?_Y] :- caller{?X}, write(caller1=?X)@\plg().
+
+?- insertrule{(a[b->?Y] :- a(?Y), caller{?X}, write(caller=?X)@\plg())}.
+
+?- ?Z = ${b[b->?_Y] :- caller{?X}, write(caller1=?X)@\plg()},
+	insert{?Z}.
+?- ?Z = ${(b[b->?Y] :- caller{?X}, (write(caller2=?X), write(' '))@\plg(), b[b->?Y]@main)@foo},
+	insert{?Z}.
+
+%test1 :- write('test1: ')@\plg(),
+	  ?X = ${p(?_Y)},
+	  f(?X)@foo,
+	  //\abolishtables.
+	  !,
+	  abolish_all_tables@\plg.
+%test2 :- write('test2: ')@\plg(),
+	  ?X ~ p(?_Y),
+	  f(?X)@foo,
+	  //\abolishtables.
+	  !,
+	  abolish_all_tables@\plg.
+
+%test3 :- write('test3: ')@\plg(),
+	  ?X = ${%p(?_Y)},
+	  f(?X)@foo,
+	  //\abolishtables.
+	  !,
+	  abolish_all_tables@\plg.
+%test4 :- write('test4: ')@\plg(),
+	  ?X ~ %p(?_Y),
+	  f(?X)@foo,
+	  //\abolishtables.
+	  !,
+	  abolish_all_tables@\plg.
+
+%test5 :- write('test5: ')@\plg(),
+	  ?X ~ pp(a), 
+	  qq(?X)@foo, qq(?Y)@foo2,
+	  ?X ~ ?Y,
+	  writeln(' done')@\plg(),
+	  //\abolishtables.
+	  !,
+	  abolish_all_tables@\plg.
+
+%test6 :- write('test6: ')@\plg(),
+	  a[b->?X]@foo,
+	  (flora_write_goal(?X)@\plg(flrdecode), write(' '))@\plg(),
+	  a[b->?Y], (write(' '), writeln(?Y))@\plg(),
+	  //\abolishtables.
+	  !,
+	  abolish_all_tables@\plg.
+
+%test7 :- write('test7: ')@\plg(),
+	 ?X ~ a[b-> ${ppp(a)@foo}]@foo, ?X,  writeln(' done')@\plg(),
+	 //\abolishtables.
+	  !,
+	  abolish_all_tables@\plg.
+
+// should be: caller2 = main caller1 = foo
+%test8 :- write('test8: ')@\plg(),
+	  b[b->?_X]@foo,
+	  writeln(' done')@\plg(),
+	  //\abolishtables.
+	  !,
+	  abolish_all_tables@\plg.
+
+// should be: caller2 = main caller1 = foo
+%test9 :- write('test9: ')@\plg(),
+	  c[b->?_X]@foo,
+	  writeln(' done')@\plg(),
+	  //\abolishtables.
+	  !,
+	  abolish_all_tables@\plg.
+
+
+%pretest :- %test1, %test2 \and %test3 \and %test4,
+	    %test5, %test6, %test7, %test8, %test9.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+
+

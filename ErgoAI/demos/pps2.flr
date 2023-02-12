@@ -1,0 +1,143 @@
+// pps2.flr -- a parts production system
+
+/*
+  This is like pps.flr, but randomly adds/deletes tabled facts.
+  Used to stress-test the update/delete predicates and their
+  interaction with tabling.
+*/
+
+/*
+a=b.
+c=b.
+f=h.
+g=h.
+a[h->d1].
+b[f->d2].
+c[g->d3].
+aa=bb.
+cc=bb.
+ff=hh.
+gg=hh.
+aa[hh->dd1].
+bb[ff->dd2].
+cc[gg->dd3].
+*/
+
+a:=:a.
+
+// Rules
+
+?O[?M(?T) -> ?Q] :-
+	?T:stage1, ?S \is ?T - 1, apply(?O,?M):edbscalar,
+	?O[?M(?S) -> ?Q], \naf ?O.change(?S,?M)[].
+
+?O[?M(?T) -> ?Q] :-
+	?T:stage1, ?S \is ?T - 1, apply(?O,?M):edbscalar,
+	?O[change(?S,?M) ->  ?Q].
+
+?O[?M(?T)->?Q] :-
+	?T:stage1, ?S \is ?T - 1, apply(?O,?M):edbmultivalued,
+	?O[?M(?S)->?Q], \naf pps_delete(?O,?M,?Q,?S).
+
+?O[?M(?T)->?Q] :-
+	?T:stage1, ?S \is ?T - 1, apply(?O,?M):edbmultivalued,
+	pps_insert(?O,?M,?Q,?S).
+
+apply(pps,produces):edbmultivalued.
+apply(?P,hasConfig):edbscalar :- pps[produces(?S)->?P], ?S:state.
+
+?O[change(?S,hasConfig)  ->  newConfig(?O,?T)] :-
+	change(?O,?S,hasConfig), ?S:stage4, ?T \is ?S + 1.
+
+pps_insert(pps,produces,?P,?S) :- start(?P,?S), ?S:stage4.
+
+pps_delete(pps,produces,?P,?S) :- stop(?P,?S), ?S:stage4.
+
+stop(?P,?S) :- ?P.hasConfig(?S)[needsPart->?Q], stop(?Q,?S), ?S:stage4.
+
+change(?O,?S,hasConfig) :- addTo(?O,?_P,?S), ?S:stage4.
+change(?O,?S,hasConfig) :- removeFrom(?O,?_P,?S), ?S:stage4.
+
+newConfig(?O,?T)[needsPart->?P] :-
+	change(?O,?S,hasConfig), ?T \is ?S + 1,
+	?O.hasConfig(?S)[needsPart->?P], \naf removeFrom(?O,?P,?S),
+	?S:stage4.
+
+newConfig(?O,?T)[needsPart->?P] :-
+	change(?O,?S,hasConfig), addTo(?O,?P,?S), ?S:stage4, ?T \is ?S + 1.
+
+stage1::state[|ready_edb -> true|].
+stage2::state[|ready_idb -> true|].
+stage3::state.
+stage4::state[|ready_changes -> true|].
+?S:stage2 :- ?S.ready_edb[].
+?S:stage3 :- ?S.ready_idb[].
+?S:stage4 :- ?S:stage3, ?S.ready_user[].
+?T:stage1 :- ?S.ready_changes[], ?T \is ?S + 1.
+
+// Facts
+
+0:stage1.
+
+pps[produces(0)-> {golfC,golfCL,passatC,
+	            passatCL,motor14,motor18,
+	            wheel145,part1,part2,part3}].
+
+golfC[hasConfig(0)->newConfig(golfC,0)].
+golfCL[hasConfig(0)->newConfig(golfCL,0)].
+passatC[hasConfig(0)->newConfig(passatC,0)].
+passatCL[hasConfig(0)->newConfig(passatCL,0)].
+motor14[hasConfig(0)->newConfig(motor14,0)].
+
+newConfig(golfC,0)[needsPart->{motor14,wheel145}].
+newConfig(golfCL,0)[needsPart->{motor18,wheel145}].
+newConfig(passatC,0)[needsPart->{motor14,wheel145}].
+newConfig(passatCL,0)[needsPart->{motor18,wheel145}].
+newConfig(motor14,0)[needsPart->{part1,part2,part3}].
+
+removeFrom(passatC,motor14,0).
+addTo(passatC,motor18,0).
+start(wheel155,0).
+//0.ready_user[].
+0[ready_user->true].
+stop(part1,1).
+removeFrom(golfCL,wheel145,1).
+addTo(golfCL,wheel155,1).
+//1.ready_user[].
+1[ready_user->true].
+
+// Queries
+
+p1(?S,ctrl_produces(?P)) :- pps[produces(?S)->?P].
+p1(?P,ctrl_stop_in(?S)) :- stop (?P,?S).
+p1(?O,ctrl_hascfg(?T,?Q)) :- ?O[hasConfig(?T)->?Q].
+p1(?O,ctrl_change(?S)) :- change(?O,?S,hasConfig).
+// ttt2
+p1(?P,ctrl_needspart(?S,?Q)) :- ?P.hasConfig(?S)[needsPart->?Q].
+
+%query :-
+	(p1(?_X,?_Y),
+	delete{?C[hasConfig(?_)->?_],pps[produces(?S)->?P1], ?_(?_,?C1)[needsPart->?P]},
+	insert{addTo(?C,?P,0),addTo(?C1,?P1,?S)},
+	 refresh{pps[produces(?_)->?_],p1(?_,?_), ?_[needsPart->?_],change(?_,?_,?_)},
+	 fail
+        ;
+	%write_answers
+        ).
+%write_answers :- 
+	p1(?X,?Y),
+	%writeln(p1(?X,?Y))@\io,
+	flora_increment_counter(ans_count,1,?_,?_)@\plg(flrporting),
+	fail.
+%write_answers :- 
+	write('Total number of answers: ')@\io,
+	flora_get_counter(ans_count,?C)@\plg(flrporting),
+	writeln(?C)@\io,
+	flora_set_counter(ans_count,0)@\plg(flrporting).
+
+?- flora_set_counter(ans_count,0)@\plg(flrporting).
+?- %query.
+
+
+
+

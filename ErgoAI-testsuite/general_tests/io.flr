@@ -1,0 +1,42 @@
+
+%tst1 :- write('test1: ')@\plg,
+	?x = f(?y)(a,?z),
+	fmt_write_string(?s,'?x=%S, ?y=%S, ?z=%S',f3(?x,?y,?z))@\io,
+	fmt_write_string(?ys,'%S',f(?y))@\io,
+	fmt_write_string(?zs,'%S',f(?z))@\io,
+	atom_codes(?s,?sc)@\plg,
+	atom_codes(?ys,?ysc)@\plg, ?ysc=[0'?,0'_,0'h|?],
+	atom_codes(?zs,?zsc)@\plg, ?zsc=[0'?,0'_,0'h|?],
+	list_difference_eq(?ysc,?sc,?sc2)@\plg(lists),
+	list_difference_eq(?ysc,?sc2,?sc3)@\plg(lists),  // ?y occurs twice in ?s
+	list_difference_eq(?zsc,?sc3,?sc4)@\plg(lists),
+	list_difference_eq(?zsc,?sc4,?sc5)@\plg(lists),  // ?z occurs twice in ?s
+	writeln(ok)@\plg.
+
+%tst2 :- write('test2: ')@\plg,
+	fmt_write_string(?s,'%S',f1(f(?x)(b,c)))@\io,
+	fmt_write_string(?s2,'%S',f1(?x))@\io,
+	atom_codes(?s2,?s2c)@\plg, ?s2c = [0'?,0'_,0'h|?],
+	list_difference_eq(?s2c,?s,?)@\plg(lists),
+	writeln(ok)@\plg.
+
+%tst3 :- write('test3: ')@\plg,
+	fmt_write_string(?s,'%S',f1(f(?x)(b,c)))@\io,
+	fmt_write_string(?s2,'%S',f1(?x))@\io,
+	atom_codes(?s2,?s2c)@\plg, ?s2c = [0'?,0'_,0'h|?],
+	list_difference_eq(?s2c,?s,?)@\plg(lists),
+	writeln(ok)@\plg.
+
+%tst4 :- write('test4: ')@\plg,
+	fmt_write_string(?s,'%S,%S,%S',f1(1.0,0.0,2.0))@\io,
+	writeln(?s)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4.
+
+%test :- tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	\abolishtables,
+	%pretest,
+	told@\plg.

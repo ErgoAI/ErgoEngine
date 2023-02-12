@@ -1,0 +1,117 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-CytokinesisIsTheSeparationOfTheCytoplasmIntoTwo (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CoreCycLImplementationMt, CoreCycLMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(UniversalVocabularyImplementationMt, CoreCycLImplementationMt)).
+istAsserted(UniversalVocabularyMt, genlMt(UniversalVocabularyMt, UniversalVocabularyImplementationMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genls('Separation-Complete-ObjectDestroyed', 'Separation-Complete')).
+istAsserted(UniversalVocabularyMt, resultGenl(SeparationOfStuffTypeIntoNEqualPortionsFn, 'Separation-Complete-ObjectDestroyed')).
+istAsserted(BaseKB, termOfUnit(SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2), SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2))).
+istAsserted(UniversalVocabularyMt, genls(Cytokinesis, SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2))).
+istAsserted(UniversalVocabularyMt, 'functionCorrespondingPredicate-Canonical'(SeparationOfStuffTypeIntoNEqualPortionsFn, separationOfStuffTypeIntoNEqualPortions, 1)).
+istAsserted(BaseKB, termOfUnit(SeparationOfStuffTypeIntoNEqualPortionsFn(Cytosol, 2), SeparationOfStuffTypeIntoNEqualPortionsFn(Cytosol, 2))).
+istAsserted(MicrobiologyMt, genls(SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2), SeparationOfStuffTypeIntoNEqualPortionsFn(Cytosol, 2))).
+
+// Implicit Background Rules
+forwardSentence(genls(?NAT, ?COL)) :- removalSentence(resultGenl(?FUNCTION, ?COL)), removalSentence(natFunction(?NAT, ?FUNCTION)).
+forwardSentence(?PRED(?NART, ?ARG1, ?ARG2)) :- naf impPred(?PRED), removalSentence('functionCorrespondingPredicate-Canonical'(?FUNC, ?PRED, 1)), removalSentence(termOfUnit(?NART, ?FUNC(?ARG1, ?ARG2))).
+forwardSentence(relationAllExistsCount(outputsCreated, ?SEPARATION, ?STUFF, ?N)) :- removalSentence(separationOfStuffTypeIntoNEqualPortions(?SEPARATION, ?STUFF, ?N)).
+
+// Explicit Background Facts
+istAsserted(MicrobiologyMt, relationAllExistsCount(separatedIntoPortions, Cytokinesis, PartTypeEntirePortionFn(Cell, Cytoplasm), 1)).
+
+// Explicit Background Rules
+backwardSentence(relationInstanceExistsCount(?RELATION, ?INSTANCE, ?TYPE2, ?NUM)) :- mtVisible(BaseKB), naf backchainForbidden(relationInstanceExistsCount), relationAllExistsCount(?RELATION, ?TYPE1, ?TYPE2, ?NUM), isa(?INSTANCE, ?TYPE1).
+backwardSentence(not(isa(?INSTANCE, ?TYPE1))) :- mtVisible(BaseKB), naf backchainForbidden(isa), relationAllExistsCount(?RELATION, ?TYPE1, ?TYPE2, ?NUM), not(relationInstanceExistsCount(?RELATION, ?INSTANCE, ?TYPE2, ?NUM)).
+backwardSentence(not(relationAllExistsCount(?RELATION, ?TYPE1, ?TYPE2, ?NUM))) :- mtVisible(BaseKB), naf backchainForbidden(relationAllExistsCount), isa(?INSTANCE, ?TYPE1), not(relationInstanceExistsCount(?RELATION, ?INSTANCE, ?TYPE2, ?NUM)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260477', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260477', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cytokinesis-260478', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260477', MtTimeDimFn(Now)), isa('HYP-Cytokinesis-260478', Cytokinesis)).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260477')).
+//REMOVED TITLE('KBQ  : $CPTTest-CytokinesisIsTheSeparationOfTheCytoplasmIntoTwo 0').
+%pretest :- isa('HYP-Cytokinesis-260478', 'Separation-Complete'), relationInstanceExistsCount(outputsCreated, 'HYP-Cytokinesis-260478', Cytoplasm, 2), relationInstanceExistsCount(separatedIntoPortions, 'HYP-Cytokinesis-260478', PartTypeEntirePortionFn(Cell, Cytoplasm), 1), %write_results('SUCCESS  : $CPTTest-CytokinesisIsTheSeparationOfTheCytoplasmIntoTwo 0').
+
+// Debugging
+proof(5551, 0) :- isa('HYP-Cytokinesis-260478', 'Separation-Complete').
+proof(5551, 1) :- relationAllExistsCount(outputsCreated, SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2), Cytoplasm, 2).
+proof(5551, 2) :- relationAllExistsCount(outputsCreated, SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2), Cytoplasm, 2).
+proof(5551, 3) :- isa('HYP-Cytokinesis-260478', SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2)).
+proof(5551, 4) :- isa('HYP-Cytokinesis-260478', SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2)).
+proof(5551, 5) :- isa('HYP-Cytokinesis-260478', SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2)), relationAllExistsCount(outputsCreated, SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2), Cytoplasm, 2).
+proof(5551, 6) :- relationInstanceExistsCount(outputsCreated, 'HYP-Cytokinesis-260478', Cytoplasm, 2).
+proof(5551, 7) :- relationAllExistsCount(separatedIntoPortions, Cytokinesis, PartTypeEntirePortionFn(Cell, Cytoplasm), 1).
+proof(5551, 8) :- relationAllExistsCount(separatedIntoPortions, Cytokinesis, PartTypeEntirePortionFn(Cell, Cytoplasm), 1).
+proof(5551, 9) :- isa('HYP-Cytokinesis-260478', Cytokinesis).
+proof(5551, 10) :- isa('HYP-Cytokinesis-260478', Cytokinesis).
+proof(5551, 11) :- isa('HYP-Cytokinesis-260478', Cytokinesis), relationAllExistsCount(separatedIntoPortions, Cytokinesis, PartTypeEntirePortionFn(Cell, Cytoplasm), 1).
+proof(5551, 12) :- relationInstanceExistsCount(separatedIntoPortions, 'HYP-Cytokinesis-260478', PartTypeEntirePortionFn(Cell, Cytoplasm), 1).
+proof(5551, 13) :- isa('HYP-Cytokinesis-260478', 'Separation-Complete'), relationInstanceExistsCount(outputsCreated, 'HYP-Cytokinesis-260478', Cytoplasm, 2), relationInstanceExistsCount(separatedIntoPortions, 'HYP-Cytokinesis-260478', PartTypeEntirePortionFn(Cell, Cytoplasm), 1).
+
+proof(5551, 1000) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(5551, 1001) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(5551, 1002) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(5551, 1003) :- separationOfStuffTypeIntoNEqualPortions(SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2), Cytoplasm, 2).
+proof(5551, 1004) :- genls(SeparationOfStuffTypeIntoNEqualPortionsFn(Cytosol, 2), 'Separation-Complete-ObjectDestroyed').
+proof(5551, 1005) :- relationAllExistsCount(outputsCreated, SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2), Cytoplasm, 2).
+
+proof(5551, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-260477', 1, genlMt).
+proof(5551, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-260477', 2, genlMt).
+proof(5551, 2002) :- admittedArgument(SecondFn(33, MinuteFn(47, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(5551, 2003) :- admittedArgument(SecondFn(33, MinuteFn(47, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(5551, 2004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260477'), CoreCycLMt).
+proof(5551, 2005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260477'), UniversalVocabularyMt).
+proof(5551, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260477'), BaseKB).
+proof(5551, 2007) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260477'), MicrobiologyMt).
+proof(5551, 2008) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260477'), MtSpace('Hypothesis-HypotheticalContext-260477', MtTimeDimFn(Now))).
+proof(5551, 2009) :- isa('HYP-Cytokinesis-260478', 'Separation-Complete').
+proof(5551, 2010) :- isa('HYP-Cytokinesis-260478', Cytokinesis).
+proof(5551, 2011) :- isa('HYP-Cytokinesis-260478', SeparationOfStuffTypeIntoNEqualPortionsFn(Cytoplasm, 2)). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

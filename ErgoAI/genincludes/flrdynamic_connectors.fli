@@ -1,0 +1,184 @@
+/*******************************************************************************
+  file: genincludes/flrdynamic_connectors.fli - commands asserting rules that
+				       		dynamically connect to various
+                                                modularized predicates
+  Author(s): Michael Kifer
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 2012-2018;
+       and Vulcan, Inc., 2012-2014.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+*******************************************************************************/
+
+
+#include "flora_wspredicates.flh"
+
+
+
+%% FL_FORCED_DEFEASIBILITY_UNION/4. Status: FL_DEFEASIBLE/FL_STRICT
+?- \+clause(FL_FORCED_DEFEASIBILITY_UNION(_,_,'FLORA_THIS_MODULE_NAME',_),_),
+    assert((
+    	    FL_FORCED_DEFEASIBILITY_UNION(Id,FileName,'FLORA_THIS_MODULE_NAME',Status)
+    	    :-
+	       	    FL_FORCED_DEFEASIBILITY(Id,FileName,Status)
+	  )).
+
+/*
+   WRAP_DIFFOBJEQL_AUX/3 rule must be loaded exactly once. This is why we
+   are checking clause(WRAP_DIFFOBJEQL_AUX(_,_,_),_). Reloading this rule
+   is not possible when equality is on, since WRAP_DIFFOBJEQL_AUX/3 is
+   essentially in the body of every rule (if unfolded).
+*/
+:- import FLLIBDELAYEDLITERAL/4 from usermod.
+?-  ( clause(WRAP_DIFFOBJEQL_AUX(_,_,_),_) -> true
+    ;
+      assert((
+	      WRAP_DIFFOBJEQL_AUX(X,Y,Caller) :-
+	        (
+	          X = Y
+		/*
+		; %% this delays WRAP_DIFFOBJEQL until X or Y is bound
+		  FLLIBDELAYEDLITERAL(WRAP_DIFFOBJEQL,
+		                      NULL,NULL,
+		                      [X,Y,WRAP_DIFFOBJEQL(X,Y,Caller)])
+	        */
+	        %% ;  when((nonvar(X); nonvar(Y)), WRAP_DIFFOBJEQL(X,Y,Caller))
+	        ; WRAP_DIFFOBJEQL(X,Y,Caller)
+	        )
+		/*
+		  %%Using WRAP_OBJEQL/3 does not work here because when
+   		  %%reloading the trailer XSB complains that WRAP_OBJEQL/3 is
+   		  %%still being used (by WRAP_DIFFOBJEQL_AUX/3.
+
+		  WRAP_OBJEQL(X,Y,Caller)
+	        */
+            ))
+    ).
+
+
+
+%% --------- Hook up rules for explaining inheritance
+%% ----------- Inheritance of data atoms
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_IMVD)(_,_,_,_),_),_),
+    assert((
+	    FL_INHER_REASON(FLBodyPREFIX(WRAP_IMVD)(C,M,V,_),
+	                   [FLBodyPREFIX(WRAP_IMVD)(Super,M,V,FL_CONTEXT(Caller,Id1,Id2)),
+			    FLBodyPREFIX(WRAP_SUB)(C,Super,_)]) :-
+	        FL_INHER_REASON_IMVD(C,Super,M,V,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_IMVDDEF)(_,_,_),_),_),
+    assert((
+	    FL_INHER_REASON(FLBodyPREFIX(WRAP_IMVDDEF)(C,M,_),
+	                   [FLBodyPREFIX(WRAP_IMVDDEF)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+			    FLBodyPREFIX(WRAP_SUB)(C,Super,_)]) :-
+	        FL_INHER_REASON_IMVDDEF(C,Super,M,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_MVD)(_,_,_,_),_),_),
+    assert((
+	    FL_INHER_REASON(FLBodyPREFIX(WRAP_MVD)(O,M,V,_),
+	                   [FLBodyPREFIX(WRAP_IMVD)(Super,M,V,FL_CONTEXT(Caller,Id1,Id2)),
+			     FLBodyPREFIX(WRAP_ISA)(O,Super,_)]) :-
+	        FL_INHER_REASON_MVD(O,Super,M,V,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_MVDDEF)(_,_,_),_),_),
+    assert((
+	    FL_INHER_REASON(FLBodyPREFIX(WRAP_MVDDEF)(O,M,_),
+	                   [FLBodyPREFIX(WRAP_IMVDDEF)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+			    FLBodyPREFIX(WRAP_ISA)(O,Super,_)]) :-
+	        FL_INHER_REASON_MVDDEF(O,Super,M,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_METH)(_,_,_),_),_),
+    assert((
+	    FL_INHER_REASON(FLBodyPREFIX(WRAP_METH)(O,M,_),
+	                   [FLBodyPREFIX(WRAP_IMETH)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+			    FLBodyPREFIX(WRAP_ISA)(O,Super,_)]) :-
+	        FL_INHER_REASON_METH(O,Super,M,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_IMETH)(_,_,_),_),_),
+    assert((
+	    FL_INHER_REASON(FLBodyPREFIX(WRAP_IMETH)(C,M,_),
+	                   [FLBodyPREFIX(WRAP_IMETH)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+			    FLBodyPREFIX(WRAP_SUB)(C,Super,_)]) :-
+	        FL_INHER_REASON_IMETH(C,Super,M,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+
+/*
+%%------------------------ Signatures are treated using \bgaxiom/3, NOT HERE
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_IMVDSIG)(_,_,_,_),_),_),
+    assert((
+	    FL_INHER_REASON(FLBodyPREFIX(WRAP_IMVDSIG)(C,M,R,_),
+	                   [FLBodyPREFIX(WRAP_IMVDSIG)(Super,M,R,FL_CONTEXT(Caller,Id1,Id2)),
+			    FLBodyPREFIX(WRAP_SUB)(C,Super,_)]) :-
+	        FL_INHER_REASON_IMVDSIG(C,Super,M,R,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_IMVDSIGDEF)(_,_,_),_),_),
+    assert((
+	   FL_INHER_REASON(FLBodyPREFIX(WRAP_IMVDSIGDEF)(C,M,_),
+	                   [FLBodyPREFIX(WRAP_IMVDSIGDEF)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+			    FLBodyPREFIX(WRAP_SUB)(C,Super,_)]) :-
+	        FL_INHER_REASON_IMVDSIGDEF(C,Super,M,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_MVDSIG)(_,_,_,_),_),_),
+    assert((
+	    FL_INHER_REASON(FLBodyPREFIX(WRAP_MVDSIG)(O,M,R,_),
+	                   [FLBodyPREFIX(WRAP_IMVDSIG)(Super,M,R,FL_CONTEXT(Caller,Id1,Id2)),
+			     FLBodyPREFIX(WRAP_ISA)(O,Super,_)]) :-
+	        FL_INHER_REASON_MVDSIG(O,Super,M,R,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_MVDSIGDEF)(_,_,_),_),_),
+    assert((
+	    FL_INHER_REASON(FLBodyPREFIX(WRAP_MVDSIGDEF)(O,M,_),
+	                   [FLBodyPREFIX(WRAP_IMVDSIGDEF)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+			    FLBodyPREFIX(WRAP_ISA)(O,Super,_)]) :-
+	        FL_INHER_REASON_MVDSIGDEF(O,Super,M,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_BOOLSIG)(_,_,_),_),_),
+    assert((
+	    FL_INHER_REASON(FLBodyPREFIX(WRAP_BOOLSIG)(O,M,_),
+	                   [FLBodyPREFIX(WRAP_IBOOLSIG)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+			    FLBodyPREFIX(WRAP_ISA)(O,Super,_)]) :-
+	        FL_INHER_REASON_BOOLSIG(O,Super,M,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_IBOOLSIG)(_,_,_),_),_),
+    assert((
+	    FL_INHER_REASON(FLBodyPREFIX(WRAP_IBOOLSIG)(C,M,_),
+	                   [FLBodyPREFIX(WRAP_IBOOLSIG)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+			    FLBodyPREFIX(WRAP_SUB)(C,Super,_)]) :-
+	        FL_INHER_REASON_IBOOLSIG(C,Super,M,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_TRANSIG)(_,_,_),_),_),
+    assert((
+	    FL_INHER_REASON(FLBodyPREFIX(WRAP_TRANSIG)(O,M,_),
+	                   [FLBodyPREFIX(WRAP_ITRANSIG)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+			    FLBodyPREFIX(WRAP_ISA)(O,Super,_)]) :-
+	        FL_INHER_REASON_TRANSIG(O,Super,M,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+?- \+clause(FL_INHER_REASON(FLBodyPREFIX(WRAP_ITRANSIG)(_,_,_),_),_),
+    assert((
+	    FL_INHER_REASON(FLBodyPREFIX(WRAP_ITRANSIG)(C,M,_),
+	                   [FLBodyPREFIX(WRAP_ITRANSIG)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+			    FLBodyPREFIX(WRAP_SUB)(C,Super,_)]) :-
+	        FL_INHER_REASON_ITRANSIG(C,Super,M,FL_CONTEXT(Caller,Id1,Id2))
+         )).
+*/
+
+
+%% --------- Hook up background axioms
+?- \+clause(FL_BGAXIOM(_,_,_),FL_BGAXIOM_MODULARIZED(_,_,_)),
+   assert((
+	   FL_BGAXIOM(Head,Body,Comment) :-
+	           FL_BGAXIOM_MODULARIZED(Head,Body,Comment)
+         )).
+

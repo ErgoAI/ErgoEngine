@@ -1,0 +1,27 @@
+
+?- [interaction_m1>>m1],
+	[interaction_m2>>m2],
+	[interaction_m3>>m3].
+
+%tst1 :- trans1(?X)@m1, writeln(test1=?X)@\plg, \false.
+%tst1 :- !.
+%tst2 :- trans2(?X)@m1, writeln(test2=?X)@\plg, \false.
+%tst2 :- !.
+
+%tst3 :- %upd@m1,
+	 trans1(?X)@m1, writeln(test3=?X)@\plg, \false.
+%tst3 :- !.
+%tst4 :- trans2(?X)@m1, writeln(test4=?X)@\plg, \false.
+%tst4 :- !.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %del@m1.
+
+%test :- tell(temp)@\plg(),
+	writeln('Note: when configured with -P, the only answers will be "a", no b')@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	!,
+	\abolishtables,
+	%pretest,
+	told@\plg.

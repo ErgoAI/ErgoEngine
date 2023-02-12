@@ -1,0 +1,58 @@
+
+?- setsemantics{equality=basic}@foo.
+?- insert{%f, %g@foo, %p(abc), %q(def)@foo, %f(a)@ \@}.
+
+%r(\@) :- %f(a).
+
+// Tests where X@foo, X@ \@, or X@Y occur at the top level
+%tst1 :- %f, %g@foo, %f(?X)@ \@, %r(\@), writeln(tst1=?X+ \@)@\plg.
+
+%tst2 :- ?X = q(?Z), %?X@foo, ?Y=g, %?Y@foo, writeln(tst2=?Z)@\plg.
+%tst3 :- ?X = q(?Z), ?M=foo, %?X@?M, ?Y=g, %?Y@?M, writeln(tst3=?Z)@\plg.
+
+%tst4 :- ?X= p(?Z), ?Y=f, %?X@ \@, %?Y@ \@, writeln(tst4=?Z)@\plg.
+%tst5 :- ?X= p(?Z), ?Y=f, ?M= \@, %?X@?M, %?Y@?M, writeln(tst5=?Z)@\plg.
+
+
+?- insert{%pr(${%a@foo}), %pr(${%a(b)@foo}), %pr(${%c@ \@}), %pr(${%e(f)@ \@})}.
+
+%tst6 :- %pr(?X), (?X ~ %?Y@foo; ?X ~ %?Y@ \@),
+	write('tst6=')@\plg,
+	flora_write_goal(?X)@\plg(flrdecode), nl@\plg,
+	\false.
+%tst6 :- \true.
+
+
+// Tests where X@foo, X@ \@, or X@Y occur in the argument position
+%tst7 :- %pr(${%a@foo}), %pr(${%a(b)@foo}), %pr(${%c@ \@}), %pr(${%e(f)@ \@}),
+	writeln(tst7=done)@\plg.
+
+%tst8 :- ?X=a, ?Y=foo, %pr(${%?X@foo}), %pr(${%?X@?Y}), %pr(${%a@?Y}),
+	writeln(tst8=done)@\plg.
+
+%tst9 :- ?X=a(b), ?Y=foo, %pr(${%?X@foo}), %pr(${%?X@?Y}), %pr(${%a@?Y}),
+	writeln(tst9=done)@\plg.
+
+%tst10 :- ?X=c, ?Y= \@,  %pr(${%?X@ \@}), %pr(${%?X@?Y}), %pr(${%c@?Y}),
+	writeln(tst10=done)@\plg.
+
+%tst11 :- ?X= e(f), ?Y= \@,  %pr(${%?X@ \@}), %pr(${%?X@?Y}), %pr(${%c@?Y}),
+	writeln(tst11=done)@\plg.
+
+// Tests X@Y where X is bound to a hilog predicate or F-logic molecule
+%tst12 :- ?X~ %f(?XX), ?Y= ${%q(?YY)@foo}, %?X@foo, %?Y@bar, ?Z= ${%f}, %?Z@ \@,
+	?ZZ~ %f, %?ZZ@foo,
+	(write('test12: '), write(xx=?XX), writeln(yy=?YY))@\plg.
+
+%tst13 :- %?X@?_M ~ %a@foo, %pr(${%?X@bar}), ?Y= ${%a(b)@foo}, %pr(${%?Y@bar}), %pr(${%?Y@ \@}),
+	 writeln(tst13=done)@\plg.
+
+%test :- tell(temp)@\plg, 
+	%tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8,
+        %tst9, %tst10, %tst11, %tst12, %tst13,
+	Method[mustDefine(on)]@\sys,
+	%tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8,
+        %tst9, %tst10, %tst11,
+	told@\plg.
+
+

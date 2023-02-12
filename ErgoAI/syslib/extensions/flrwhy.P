@@ -1,0 +1,62 @@
+/* File:      extensions/flrwhy.P  -- the justification primitive
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2014-2016.
+**
+*/
+
+%% Included from flrtruthvalue.P
+
+:- import is_flora_callable_literal/1 from flrwrapper.
+:- import flora_configuration/2 from flrregistry.
+:- import fjJustificationTree/2 from usermod.
+:- import flora_abort/2 from flrporting.
+
+
+:- flora_configuration(uimode,studio),
+	ensure_loaded('fidji-cks').
+
+'\\flora_explain_answer'(_G) :-
+	\+ flora_configuration(uimode,studio),
+	!,
+	flora_abort('answer explanations are available only in the studio mode',
+		    FLORA_ABORT_NOTRACE).
+'\\flora_explain_answer'(G) :-
+	%%explainable_goal(G),
+	\+(\+(G)),
+        %% explain true answers
+	fjJustificationTree(G,w),
+	!.
+'\\flora_explain_answer'(G) :-
+	%%explainable_goal(G),
+        %% explain false answers
+	fjJustificationTree(G,m).
+
+/*
+explainable_goal(G) :-
+        is_flora_callable_literal(G),
+        !.
+explainable_goal(G) :-
+        (G = (G1,G2) ; G = (G1 ; G2)),
+        is_flora_callable_literal(G1),
+        is_flora_callable_literal(G2).
+*/
+
+
+/*
+    HOW TO TEST JUSTIFIER FROM THE TERMINAL
+    ?- ['ergo_syslib/fidji-cks'].
+    // Load file, eg,
+    ?- demo{family_rel}.
+    // Then:
+    ?- ?_Parent= ${brother(franz,heinz)@main}, %justificationTreeFunction(?Child,w(?_Parent,null,\true,null,null,[]),null)@\fidji.
+
+    Result: explains why the answer brother(franz,heinz) holds
+    ?Child = w(${%male(heinz)@main},null,\true,16,null,[w - ${%male(heinz)@main}])
+    ?Child = w(${parent(franz,wilhelm)@main},null,\true,16,null,[w - ${parent(franz,wilhelm)@main}])
+    ?Child = w(${parent(heinz,wilhelm)@main},null,\true,16,null,[w - ${parent(heinz,wilhelm)@main}])
+*/
+

@@ -1,0 +1,123 @@
+
+
+:- iriprefix{ex='http://vulcan.com/2008/flora#'}.
+:- iriprefix{swrlb = "http://www.w3.org/2003/11/swrlb#"}.
+
+:- symbol_context{
+        %ex#www/0, %ex#cccc/0, ex#aaa/1, ex#aaa/0,
+        %swrlb#mod(?)@?, %swrlb#_mod(?)@?,
+        swrlb#add/0
+    }.
+
+?- newmodule{foo}.
+//?- tt[%ex#cccc]@foo.
+//?- tt[%ex#cccc].
+tt[%ex#cccc(aaa)].
+tt[%ex#cccc] :- \true.
+
+?- insert{tt[%ex#cccc]}.
+
+?- insert{tt[%ex#aaa(kkk)]@foo}.
+?- insert{tt[%ex#cccc]@foo}.
+%ex#www(1).
+rrr[%ex#www].
+
+C[%ex#aaa(b)].
+C[ex#aaa(b)].
+%ex#pppp(?Y)(?X):-?X[%ex#aaa(?Y)].
+%ex#rrrr(?Y)(?X):-?X[%ex#aaa(?Y)]@foo.
+
+%ex#aaaaa(aa)(bb,cc).
+bbbbbb[%ex#ccccc(ooo)(pppp)].
+
+// the next group are just to make sure they compile.
+// mod is an infix operator, and it does not compose right with the # operator.
+// so we modify arrange_arguments to make sure the mis-composition is corrected.
+// Also, tests that builtin identifier works right with %...#...
+swrlb#mod(?output):- foo(?output).
+swrlb#_mod(?output):- foo(?output).
+%swrlb#mod(?output):- foo(?output).
+%swrlb#_mod(?output):- foo(?output).
+
+
+%tst1 :- write(tst1)@\plg, write(' ')@\plg,
+	 ?L= collectset{?Z| ?X[%ex#aaa(?Y)], ?Z=(?X,?Y)},
+	 writeln(?L)@\plg.
+%tst2 :- write(tst2)@\plg, write(' ')@\plg,
+	 ?L = collectset{?Z| %ex#pppp(?y)(?x), ?Z= (?x,?y)},
+	 writeln(?L)@\plg.
+%tst3 :- write(tst3)@\plg, write(' ')@\plg,
+	?L = setof{?Z| %ex#rrrr(?y)(?x), ?Z=(?x,?y)},
+	 writeln(?L)@\plg.
+%tst4 :- write(tst4)@\plg,
+	 \if tt[%ex#cccc]@foo \then writeln(' ok')@\plg
+         \else writeln(' bummer')@\plg.
+%tst5 :- write(tst5)@\plg, write(' ')@\plg,
+	 ?L = setof{?X| rrr[%?X]},
+	 writeln(?L)@\plg.
+%tst6 :- write(tst6)@\plg,
+	 \if rrr[%ex#www] \then writeln(' ok')@\plg
+         \else writeln(' bummer')@\plg.
+%tst7 :- write(tst7)@\plg,
+	 write(' ')@\plg,
+	 ?L = setof{?X|tt[%?X]},
+	 flora_write_oid(?L)@\plg(flrdecode),
+	 nl@\plg.
+
+%tst8 :- write(tst8)@\plg,
+	 \if %ex#aaaaa(aa)(bb,cc) \then writeln(' ok')@\plg
+         \else writeln(' bummer')@\plg.
+%tst9 :- write(tst9)@\plg,
+	 \if bbbbbb[%ex#ccccc(ooo)(pppp)] \then writeln(' ok')@\plg
+         \else writeln(' bummer')@\plg.
+
+%tst10 :- write(tst10)@\plg,
+	  insert{mary[salary->15]},
+	  mary.salary@main=?X,
+	  insert{ppp(?X),%qqq(?X)},
+	  \if (ppp(mary.salary@main), %qqq(mary.salary@main))
+          \then writeln(' ok')@\plg
+          \else writeln(' bummer')@\plg.
+
+%aabcde.
+%fdegh.
+%qprs :- %fdegh@main.
+
+%tst11 :- write(tst11)@\plg,
+	  insert{%pqwer :- %fdegh},
+	  \if (%aabcde,%qprs,%pqwer)
+          \then writeln(' ok')@\plg
+          \else writeln(' bummer')@\plg.
+
+%"foo"^^bar.
+"foo"^^bar.
+%"http://www.w3.org/2003/11/swrlb#add"^^\iri :- %"foo"^^bar.
+"http://www.w3.org/2003/11/swrlb#add"^^\iri :- "foo"^^bar.
+
+%tst12 :- write(tst12)@\plg,
+	// this insert is just to test the compiler
+	insert{%"foo"^^bar,"foo"^^bar},
+	insertrule{(%"http://www.w3.org/2003/11/swrlb#add"^^\iri :- %"foo"^^bar),
+	("http://www.w3.org/2003/11/swrlb#add"^^\iri :- "foo"^^bar)},
+	\if (%"http://www.w3.org/2003/11/swrlb#add"^^\iri,
+	    "http://www.w3.org/2003/11/swrlb#add"^^\iri,
+	    %"http://www.w3.org/2003/11/swrlb#add"^^\iri,
+	    "http://www.w3.org/2003/11/swrlb#add"^^\iri)
+        \then writeln(' ok')@\plg
+        \else writeln(' bummer')@\plg.
+
+
+
+
+%pretest :- %tst1, %tst2 \and %tst3 \and %tst4,
+	    %tst5, %tst6, %tst7, %tst8, %tst9,
+	    %tst10, %tst11, %tst12.
+
+%test :-
+	tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

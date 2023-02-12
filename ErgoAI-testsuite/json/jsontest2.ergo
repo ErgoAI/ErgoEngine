@@ -1,0 +1,64 @@
+#include "standard.h"
+
+:- symbol_context{
+                    object2json/1,
+                    object2json/3
+                 }.
+
+%tst1 :- write('test1 = ')@\plg,
+        newmodule{foo},
+        string('{"aaa":1, "bbb":{"ccc":[1,2,{"111":3,"ppp":4}], "ddd":"ppp"}}')[parse2memory(foo)]@\json, ?L=setof{?P|?P=${?[?->?]@foo}, ?P},
+        setdisplaymode{default},
+        writeln(?L)@\io.
+%tst2 :- write('test2 = ')@\plg,
+         insert{{a,b}:{c,d}, {c,d}::{e,f}, {e,f}::{h,k}, h[|www->1|],k[|ppp->kk|]},
+         a[object2json -> ?Json]@\json,
+         writeln(?Json)@\plg.
+%tst3 :- a[object2json-> ?Json]@\json, string(?Json)[parse->pretty(?Res)]@\json,
+        write('test3=')@\io, writeln(?Res)@\io.
+%tst4 :- c[object2json -> ?Json]@\json,
+         writeln(test4=?Json)@\plg.
+%tst5 :- insert{{a,b}:{c,d}, {c,d}::{e,f}, {e,f}::{h,k}, h[|www->1|],k[|ppp->kk, eee(123)->kkk|]},
+        a[object2json -> ?Json]@\json, string(?Json)[parse->pretty(?Res)]@\json,
+        write('test5=')@\io, writeln(?Res)@\io.
+%tst6 :- a[object2json(isatomic{?},isnumber{?},null) -> ?Json]@\json, string(?Json)[parse->pretty(?Res)]@\json,
+        write('test6=')@\io, writeln(?Res)@\io.
+
+%tst7 :- string(a.object2json(isatomic{?},isnumber{?},null))[parse->pretty(?Res)]@\json,
+        write('test7=')@\io, writeln(?Res)@\io.
+
+%tst8 :- p(o)(${aaa},b,?L,[pp(iii),2,3,?L])[term2json -> ?X]@\json,
+        writeln(test8=?X)@\plg.
+
+%tst9 :- demo{+family_obj},
+        kati[object2json -> ?Json]@\json,
+        writeln(test9=?Json)@\plg.
+%tst10 :- set_option(duplicate_keys=true)@\json,
+        kati[object2json -> ?Json]@\json, string(?Json)[parse->pretty(?Res)]@\json,
+        write('test10=')@\io, writeln(?Res)@\io.
+%tst11 :- string(kati.object2json)[parse->pretty(?Res)]@\json,
+        write('test11=')@\io, writeln(?Res)@\io.
+
+%tst12 :- demo{family_obj>>moo},
+          string(kati.object2json(moo))[parse->pretty(?Res)]@\json,
+          write('test12=')@\io, writeln(?Res)@\io.
+
+%tst13 :- writeln('test13: below')@\plg,
+        string('{"aaa":1, "bbb":{"ccc":[1,2,{"111":3,"ppp":4}], "ddd":"ppp"}}')[parse2file('foo.ergo')]@\json.
+
+
+%pretest :-
+        %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9,
+        %tst10, %tst11, %tst12, %tst13.
+
+%test :-
+        tell(temp)@\plg,
+        %pretest,
+        told@\plg,
+	open(file('foo.ergo')@\plg,read,?Port3)@\plg,
+	open(file(temp)@\plg,append,?Port0)@\plg,
+	copyIOport(?Port3,?Port0)@\plg(file_io),
+	close(?Port3)@\plg,
+        close(?Port0)@\plg,
+        File[unlink('foo.ergo')]@\io.
+

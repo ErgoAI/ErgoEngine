@@ -1,0 +1,72 @@
+
+//  ===========================================================================
+//  SOME SIMPLE EXAMPLES SHOWING SEVERAL F-LOGIC FEATURES 
+//  ===========================================================================
+
+:- ignore_depchk{%e(?_,?_)}.
+
+%times_flies_like_an_arrow.	      // a 0-ary PREDICATE (proposition)
+fruit_flies_like_an_apple[].	      // an OBJECT with empty specification []
+
+%e(a,b). %e(b,a). %e(b,c).	      // a binary PREDICATE (graph)
+
+tc(?X,?Y) :- %e(?X,?Y).		      // a RULE and ...
+tc(?X,?Y) :- tc(?X,?Z), tc(?Z,?Y).	      // ... a (doubly) RECURSIVE RULE
+
+john:employee.			      // INSTANCE : CLASS 
+employee::person.		      // SUBCLASS :: SUPERCLASS
+
+person[age{1..1}=>integer, kids=>person].  // optional SIGNATURE information
+
+mary:employee[			      // a more complex MOLECULE involving
+	age->29,		      // ... a SINGLE-VALUED method
+	kids -> {tim,leo},	      // ... a MULTI-VALUED method
+	salary(1998) -> a_lot	      // ... a PARAMETERIZED method
+].
+
+tim[hobbies -> {stamps, snowboard}].  // somebody's hobbies
+
+snowboard:dangerous_hobby.	      // isn't it??
+
+?_X[self->?_X].			      // defines self
+
+
+person[|believes_in ->		          // INHERITABLE method
+          {something, something_else}|].  // of CLASS person
+
+person[instances -> {?X}] :- ?X:person. // NON-INHERITABLE method of person
+
+
+//  ===========================================================================
+//  now ask some QUERIES here (or INTERACTIVELY from the FLORA SHELL)
+//  ===========================================================================
+
+?- %times_flies_like_an_arrow.	// ==> `yes'
+
+?- fruit_flies_like_an_apple[].	// ==> `yes'
+
+?- tc(?X,?Y).			// computes the transitive closure of e(_,_)
+
+?- ?X:person.			// What persons are there? (mary, john)
+
+
+?-  writeln('Bombs out in this query!!!!')@\plg,
+    person[instances -> {?X}].  // ... same Q, but asked differently (see above)
+
+?- ?X[believes_in -> {?Y}].	// Who believes in what?
+
+?- ?X.kids[			       // Who has a kid
+       self -> ?K,		
+       hobbies -> {?H:dangerous_hobby} // ... who has a dangerous hobby
+]. 
+
+
+
+// Bombs out on this one due to mary[].
+?- nl@\plg, write('mary[] ??')@\plg, mary[].
+
+?- nl@\plg, write('mary.kids[] ??')@\plg, mary.kids[].
+
+?- nl@\plg, write('On ')@\plg, shell(date)@\plg, 
+       writeln('FLORA thanks you for trying it!')@\plg.
+

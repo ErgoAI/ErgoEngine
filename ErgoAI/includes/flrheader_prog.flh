@@ -1,0 +1,47 @@
+/************************************************************************
+  file: includes/flrheader_prog.flh
+
+  Author(s): Michael Kifer
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018,
+       Coherent Knowledge, 2016.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+************************************************************************/
+
+
+/*
+  NOTE:
+  This file is automatically included by the FLORA-2 compiler in all
+  LOADED and ADDED files, BUT NOT in trailers/patch.
+*/
+
+
+#mode standard Prolog
+
+#include "flora_terms.flh"
+
+/*
+   Reset the current directory to the base directory at the time of the startup.
+   This was the default behavior in XSB and then was changed on Nov 30, 2016.
+*/
+%%:- import flora_configuration/2 from flrregistry.
+:-(import(from(/(flora_configuration,2),flrregistry))).
+
+%%:- import path_sysop/2 from file_io.
+:-(import(from(/(path_sysop,2),file_io))).
+
+?-(','(flora_configuration(cwd,D), path_sysop(chdir,D))).
+
+

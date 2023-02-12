@@ -1,0 +1,328 @@
+/* File:      flrexport.P
+**
+** Author(s): Vishal Chowdhary, Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**      Coherent Knowledge Systems, 2016-2018.
+** 
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+
+
+%% to prevent error checking in case on uninitialized/ undefined calls.
+:- dynamic flora_undefinedness_export_registry/2.
+
+:- export
+	flora_reset_export_registries/1,
+	FLLIBEXPORT/1,
+	flora_add_undef_export_call/2,
+	flora_remove_undef_export_call/1,
+	flora_bind_to_export_registry/3,
+	flora_check_export_registry/3,
+	flora_check_export_registry/4,
+	flora_check_export_registry_internal/4.
+
+:- import 
+	flora_retractall_substitute/1
+   from flrutils.
+
+:- import 
+	flora_error_notexported/1, 
+	flora_error_invalid_export/1
+   from flrundefined.
+
+:- import 
+	convert_to_body_literal/2, 
+	convert_to_signature/3,
+	convert_to_value_atom/3,
+	get_canonical_form/2 
+   from flrcanon.
+
+:- import
+        flora_decode_predicate/6,
+        negate_predicate/2
+   from flrwrapper.
+
+:- import flora_export_registry/4 from flrregistry.
+
+:- dynamic no_predicates_exported_module_cache/2.
+
+%% to extract the individual terms from FLEXPORT code.
+is_flexport(FLEXPORT(UpdTag, ExportingModule, ListOfModulesExportedTo, Term),UpdTag, ExportingModule, ListOfModulesExportedTo, Term).
+is_flexport(FLEXPORT(DynamicModule, UpdTag, ExportingModule, ListOfModulesExportedTo, Term),DynamicModule, UpdTag, ExportingModule, ListOfModulesExportedTo, Term).
+
+is_fllibmodlit(FLLIBMODLIT(_,_,_,_)).
+
+/****************************************************************************
+  flora_reset_export_registries(+ModuleName)
+****************************************************************************/
+flora_reset_export_registries(Module) :-
+	retractall(no_predicates_exported_module_cache(_,_)),
+	retractall(flora_export_registry(Module,_,_,_)).
+
+
+/****************************************************************************
+  FLLIBEXPORT(+ExportedPredicatesList)
+  Each of the terms in the List are themselves lists. Thus they
+  need to be processed recursively.
+****************************************************************************/
+FLLIBEXPORT([H|T]) :-
+	(
+	  ( is_flexport(H,UpdTag, ExportingModule, ListOfModulesExportedTo, Term), !
+	  ;
+	    is_flexport(H, WS, UpdTag, ExportingModule, ListOfModulesExportedTo, Term)
+	  ),
+	  FLLIBEXPORT(WS,UpdTag, ExportingModule, ListOfModulesExportedTo, Term)
+	;
+	  %% could be a list within itself.
+	  FLLIBEXPORT(H)	
+	),
+	FLLIBEXPORT(T).
+
+FLLIBEXPORT([]) :-
+	flora_retractall_substitute(no_predicates_exported_module_cache(_,_)),
+	!.
+
+
+/****************************************************************************
+  FLLIBEXPORT(+WorkSpace,+Updatable,+ExportingModule,+ListOfModulesExportedTo,+Functor)
+****************************************************************************/
+FLLIBEXPORT(WS,UpdateTag,ExportingModule,[],Term) :-
+	%% flora_assert_into_export_registry may fail. In that case,
+	%% FLLIBEXPORT succeeds by the first clause of fllibexport_internal
+        flora_assert_into_export_registry(WS,ExportingModule,_ModuleExportedTo,
+                                          UpdateTag,Term),
+        !.
+
+FLLIBEXPORT(WS,UpdateTag,ExportingModule,ListOfModulesExportedTo,Term) :-
+	fllibexport_internal(ListOfModulesExportedTo,WS,UpdateTag,
+                             ExportingModule,Term).
+
+fllibexport_internal([],_WS,_UpdateTag,_ExportingModule,_Term) :- !.
+fllibexport_internal([T|L],WS,UpdateTag,ExportingModule,Term) :-
+	flora_assert_into_export_registry(WS,ExportingModule,T,UpdateTag,Term),
+        !,
+	fllibexport_internal(L,WS,UpdateTag,ExportingModule,Term).
+
+
+/****************************************************************************
+  flora_assert_into_export_registry/5
+  flora_assert_into_export_registry(+DynamicModulename,+ExportingModule,+ModuleExportedTo,+UpdateTag,+Term)
+  DynamicModulename: used only in executable instructions like this:
+     ?- (export abc(?)>>foo)@bar.
+     Here DynamicModulename = bar.
+  The predicate that asserts the exported term, along with the module name(s) 
+  it is exported too, to the registry.
+****************************************************************************/
+flora_assert_into_export_registry(DynamicModulename,ExportingModule,ModuleExportedTo,UpdateTag,Term) :-
+	!,
+	( var(DynamicModulename) ->	
+	    ( is_fllibmodlit(Term) ->
+		%% need to check whether it is FLLIBMODLIT
+		%% error!! Since it should have been initialized before.
+		flora_error_invalid_export(Term)
+	    ;
+		( flora_export_registry(ExportingModule, ModuleExportedTo, UpdateTag, Term) -> true
+		;
+		    asserta(flora_export_registry(ExportingModule, ModuleExportedTo, UpdateTag, Term)),
+		    negate_predicate(Term,NegTerm),
+		    asserta(flora_export_registry(ExportingModule, ModuleExportedTo, UpdateTag, NegTerm)),
+		    
+		    convert_to_signature(Term,inheritable,SigTerm),
+		    asserta(flora_export_registry(ExportingModule, ModuleExportedTo, UpdateTag, SigTerm)),
+		    convert_to_signature(Term,noninheritable,SigTerm2),
+		    asserta(flora_export_registry(ExportingModule, ModuleExportedTo, UpdateTag, SigTerm2)),
+		    convert_to_value_atom(Term,inheritable,SigTerm3),
+		    asserta(flora_export_registry(ExportingModule, ModuleExportedTo, UpdateTag, SigTerm3))
+		)
+	    )
+	;
+	    ( is_fllibmodlit(Term) ->
+		%% to convert it into canonical form, if Term is libmodlit
+		get_canonical_form(Term,FLCANON(_,_,_,TermCode,_)),
+		( flora_export_registry(DynamicModulename, ModuleExportedTo, UpdateTag, TermCode), !
+		;
+		  asserta(flora_export_registry(DynamicModulename, ModuleExportedTo, UpdateTag, TermCode))
+		)
+	    ;
+	      ( flora_export_registry(DynamicModulename, ModuleExportedTo, UpdateTag, Term) -> true
+	      ;
+		asserta(flora_export_registry(DynamicModulename, ModuleExportedTo, UpdateTag, Term))
+	      )
+	    )
+	).
+
+
+/****************************************************************************
+  flora_check_export_registry_internal(+CallerMod,+ModBeingCalled,+Term,+UpdateTag)
+	
+	CallerMod = The module name of the predicate that is calling the 
+		     predicate from the external module (ModBeingCalled).
+	
+	Term = The representation of the predicate is of the form:	
+			FLORA_WORKSPACE(CallerMod,FunctorType)Term
+	       where Term = (...)
+	
+	UpdateTag = UPDATABLE/ READABLE.
+
+	It is invoked by the flora_check_export_registry predicates.
+****************************************************************************/
+flora_check_export_registry_internal(CallerMod,ModBeingCalled,Term,UpdateTag) :-
+	( %% If external module = current module - let the call pass through.
+	  CallerMod == ModBeingCalled -> true
+	;
+	  flora_no_predicates_exported(ModBeingCalled) -> true
+	;
+	  %% check if it unifies without any transformations...
+	  flora_export_registry(ModBeingCalled,CallerMod,UpdateTag,Term) -> true
+	;
+	    %% transformations mvd -> d_mvd types.
+	    convert_to_body_literal(Term,ExptTerm) ->
+	    %% check the export registry.
+	    flora_export_registry(ModBeingCalled,CallerMod,UpdateTag,ExptTerm)
+	).
+
+
+/****************************************************************************
+  flora_no_predicates_exported(Module)
+  
+  If no predicates are exported by a module, then it basically means that it
+  does not require any encapsulation. All its predicates are accessible to 
+  all the other modules.
+  If any predicates are exported it will fail, else it will succeed.
+****************************************************************************/
+flora_no_predicates_exported(Module) :-
+	(nonvar(Module), no_predicates_exported_module_cache(Module,Flag)
+	-> Flag
+	; flora_export_registry(Module,_ExtMod,_UpdTag,_Term) ->
+	    assert(no_predicates_exported_module_cache(Module,false)),
+	    fail
+	; asserta(no_predicates_exported_module_cache(Module,true))
+	).
+
+
+/****************************************************************************
+  flora_check_export_registry/4
+  flora_check_export_registry(+CallerMod,+ModBeingCalled,+Term,+UpdateTag)
+  Called by the flrdb, insert delete, predicates with the Updatable tag.
+  If suceeds, update is allowed.
+  flora_check_export_registry/4 should normally succede - unlike /3.
+****************************************************************************/
+flora_check_export_registry(CallerMod,ModBeingCalled,Term,UpdateTag) :-
+	\+ (\+flora_check_export_registry_internal(CallerMod,ModBeingCalled,Term,UpdateTag)),
+	!.
+%% check if call is protected from undefinedness checking (when module
+%% name was unbound)
+flora_check_export_registry(_CallerMod,_ModBeingCalled,Term,_UpdateTag) :-
+	flora_export_undef_check_protected(Term),
+	!,
+	fail.
+flora_check_export_registry(_CallerMod,_ModBeingCalled,Term,_UpdateTag) :-
+        flora_decode_predicate(Term,_Type,_Mod,_Prefx,_Wrap, [PredName|Args]),
+        always_exported_hidden_system_pred(PredName,Args),
+        !.
+
+%%error handling.
+flora_check_export_registry(_CallerMod,_ModBeingCalled,Term,_UpdateTag) :-
+	flora_error_notexported(Term).
+
+/******************************************************************************
+**  flora_check_export_registry/3
+** Called from genincludes/flrexportcheck.fli
+** basic idea: if the check succeeds (the predicate is exported),
+** the call to flora_check_export_registry/3 is failed, so NO error is issued.
+** Control then proceeds to check other rules for the predicate.
+** flora_check_export_registry/3 must fail unlike flora_check_export_registry/4
+******************************************************************************/
+flora_check_export_registry(CallerMod,ModBeingCalled,Term) :-
+	flora_check_export_registry_internal(CallerMod,ModBeingCalled,Term,_UpdateTag),
+	!,
+	fail.
+
+%% check if call is protected from undefinedness checking (when module
+%% name was unbound)
+%% flora_check_export_registry/3
+flora_check_export_registry(_FWContext,_ModBeingCalled,Term) :-
+	flora_export_undef_check_protected(Term),
+	!,
+	fail.
+flora_check_export_registry(_CallerMod,_ModBeingCalled,Term) :-
+        flora_decode_predicate(Term,_Type,_Mod,_Prefx,_Wrap,[PredName|Args]),
+        always_exported_hidden_system_pred(PredName,Args),
+        !,
+        fail.
+flora_check_export_registry(_FWContext,_ModBeingCalled,Term) :-
+	flora_error_notexported(Term).
+
+
+/****************************************************************************
+  flora_add_undef_export_call(+Predicate,+Id)
+  Predicate is the call to be recorded as temporarily protected
+            from the undefinedness check.
+  Id is a unique Id that is used to delete the call from the registry.
+****************************************************************************/
+flora_add_undef_export_call(Predicate,Id) :-
+	asserta(flora_undefinedness_export_registry(Predicate,Id)).
+
+
+/****************************************************************************
+  flora_remove_undef_export_call(+Id)
+****************************************************************************/
+flora_remove_undef_export_call(Id) :-
+	flora_retractall_substitute(flora_undefinedness_export_registry(_,Id)).
+
+
+%% Tell if call is protected
+flora_export_undef_check_protected(Predicate) :-
+	( flora_undefinedness_export_registry(Predicate,_Id) -> true
+	; %% transformations mvd -> d_mvd types.
+	  convert_to_body_literal(Predicate,PredicateTerm) ->
+	  %% check the undefindness registry.
+	  flora_undefinedness_export_registry(PredicateTerm,_Id)
+	).
+
+
+/*****************************************************************************
+  flora_bind_to_export_registry(+CallerMod,+CalledMod,+Call)
+
+  Binds Call to what is in the registry for CalledMod module.
+  If CalledMod exports everything then return true. Otherwise,
+  bind to the calls in the registry.
+  This is used to prevent CallerMod from calling methods/predicates
+  in an encapsulated module with method/pred name unbound.
+  Note: we don't see such general calls as an error.
+        Instead, CallerMod is just restricted to the exported methods only.
+*****************************************************************************/
+%% These tables slow down
+%% Also: tabling this implies that flora_export_registry must be incr_asserted
+%%:- table flora_check_export_registry_internal/4 as (variant,opaque).
+%%:- table flora_bind_to_export_registry/3 as (variant,opaque).
+flora_bind_to_export_registry(CallerMod,CalledMod,Call) :-
+	(CallerMod == CalledMod -> true
+	; flora_no_predicates_exported(CalledMod) -> true
+	; flora_export_registry(CalledMod,CallerMod,_,Call)
+	).
+
+
+always_exported_hidden_system_pred('\\opaqueJustification',[_,_,_]).
+always_exported_hidden_system_pred('\\trivialJustification',[_,_,_]).

@@ -1,0 +1,1216 @@
+:- use_rule_structure_db.
+
+:- symbol_context{
+        %print_basic_info/0, %print/0, %print_basic_info/1,
+        %print_admission/1, support/0, %print_advisor/3,
+        print_ta_info/0, print_short_ta_info/0, %noadvisor/1,
+        print_basic_info/0, printfull/2, ms/0, phd/0, onleave/0, parttime/0,
+        onleave/1, parttime/1, source/0,
+        is_instructor/2, print_graduation_info/0, print_basic_with_support/1,
+        print_ta_info/1, print_medium_ta_info/0, is_instructor/1
+   }.
+
+#include "flora_terms.flh"
+#include "modules.flh"
+
+#define SUBFIELDOFFSET  6
+#define NUMBER_OF_CRSCODES_PER_LINE 7
+
+:- symbol_context{abort(?)@?, abort(?,?)@?}.
+
+// Queries
+#define QUERY_TAsAndInstructors(S,Sem) \
+    	    	    	    	( \
+              	      	      	  (S.support(Sem)[type->ta], \
+			              \naf S:onleave(Sem), \
+			              \naf S:parttime(Sem), \
+				          S:student(Sem))@PPLMODULE \
+			           ; S[is_assigned(Sem)] \
+			        )
+
+#define QUERY_TAs(S,Sem)    	( \
+    	    	    	    	  ((S.support(Sem)[type->ta], \
+			              \naf S:onleave(Sem), \
+			              \naf S:parttime(Sem), \
+					   S:student(Sem))@PPLMODULE \
+			            ; S[is_assigned(Sem)] \
+			          ), \
+			          S[\naf is_instructor(Sem)] \
+			        )
+
+#define QUERY_TA_appointments(S,Sem)    	( \
+    	    	    	    	  ((S.support(Sem)[type->ta], \
+			              \naf S:onleave(Sem), \
+			              \naf S:parttime(Sem), \
+					   S:student(Sem))@PPLMODULE \
+			            ; (S[is_assigned(Sem)], \
+				      S[taught->?_[\naf noappointment]]@PPLMODULE) \
+			          ), \
+			          S[\naf is_instructor(Sem)] \
+			        )
+
+#define SORT_on_NAME(Stud)      sortSpec(${Stud[last-> ?___L___, \
+	                                      first->?___F___]@PPLMODULE}, \
+                                         Stud,f(?___L___,?___F___))
+
+// Student came or switched status in this semester (but not to onleave)
+#define QUERY_New_Student(S,Sem)  \
+                S[joined->Sem \
+                   ; status->?[since->Sem,type->?_T\=onleave]]@PPLMODULE
+
+// Student joined in this semester
+#define QUERY_Fresh_Student(S,Sem)   S[joined->Sem]@PPLMODULE
+
+// Student who is not new in the given semester
+#define QUERY_Old_Student(S,Sem)  \
+			S[\naf joined->Sem, \
+			  \naf status->?_[since->Sem]]@PPLMODULE
+
+#define QUERY_Contractual_Tuition_Roster(S,Sem)  \
+			(S:student(Sem), \
+			 S.support(Sem)[type->ta, \naf temporary; \
+					 type->ra, \naf temporary; \
+					 type->ga, \naf temporary; \
+					 type->tuition, \naf temporary] \
+			)@PPLMODULE
+
+#define QUERY_Temporary_Tuition_Roster(S,Sem)  \
+			(S:student(Sem), \
+			 S.support(Sem)[type->ta, temporary; \
+					 type->ra, temporary; \
+					 type->ga, temporary; \
+					 type->tuition, temporary] \
+			)@PPLMODULE
+
+#define QUERY_Tuition_Roster(S,Sem)  \
+			(S:student(Sem), \
+			 S.support(Sem)[type->ta; \
+					 type->ra; \
+					 type->ga; \
+					 type->tuition] \
+			)@PPLMODULE
+
+
+/*********************************************************************
+**      Include constraints
+*********************************************************************/
+
+#include "constraints.flr"
+
+
+/*********************************************************************
+**      Some utilities
+*********************************************************************/
+
+
+%print_date_list([]) :- nl@\plg().
+%print_date_list([?D|?Rest]) :-
+	?D[%print]@TEMPORAL,
+	(?Rest==[], ! ; isvar{?Rest}, ! ; write(', ')@\plg()),
+	%print_date_list(?Rest).
+
+
+// Checks if an functional molecule with STATICALLY
+// specified module is defined and has a non-empty value
+%nonempty(?Form) :- ?Form, ?Form ~ ?_Obj[?_Attr->?Val]@?_Mod, ?Val \== ''.
+
+%indent(0) :- !.
+%indent(1) :- !, write('        ')@\plg().
+%indent(?N) :- ?N>1, write('  ')@\plg(), ?N1 \is ?N-1, %indent(?N1).
+
+
+%print_plain_list([]) :- !.
+%print_plain_list([?H|?Rest]) :-
+	write(?H)@\io,
+	(?Rest==[], ! ; write(', ')@\plg()),
+	%print_plain_list(?Rest).
+
+
+
+// Code to handle examinations 
+#include "examinations.flr"
+
+
+/******************************************************************
+**     Basic info about a student: First/Last/Email
+******************************************************************/
+?Stud[%print_basic_info] :-
+	?Stud[%print_basic_info(yes)]. // print with email address
+
+?Stud[%print_basic_info(?EmailToo)] :-
+	?Stud:student@PPLMODULE,
+	\if ?Stud[last-> ?L, first-> ?F]@PPLMODULE
+        \then
+           format('~w, ~w', [?L,?F])@\plg(format)
+        \else
+           abort('Missing or invalid student name')@\sys,
+	
+	\if (?EmailToo == yes, ?Stud[email->?E]@PPLMODULE)
+        \then format(' <~w>',[?E])@\plg(format),
+	nl@\plg().
+
+
+/******************************************************************
+**     When joined the program and graduated
+******************************************************************/
+
+?Stud[%print_joined(?Indent)] :-
+	?Stud:student@PPLMODULE,
+	%indent(?Indent),
+	write('Joined:   ')@\plg(),
+	\if ?Stud[joined -> ?Sem]@PPLMODULE
+	\then ?Sem[%println]@TEMPORAL
+	\else
+            abort('Missing info on when student joined the program')@\sys.
+
+?Stud[%print_graduated(?Indent)] :-
+	?Stud:student@PPLMODULE,
+	\if (?Stud.graduated[date->?Date]@PPLMODULE, ?Date[isValid]@TEMPORAL)
+	\then (
+	    %indent(?Indent),
+	    write('Graduation: ')@\plg(),
+	    ?Date[%print]@TEMPORAL,
+	    \if (?Stud.graduated[remarks->?Rem]@PPLMODULE, ?Rem \= '')
+	    \then (
+	        write(' ['), write(?Rem), write(']')
+	    )@\plg(),
+	    nl@\plg()
+	).
+
+
+/********************************************************************
+**     Print advisor information
+********************************************************************/
+
+?Stud[%print_advisor(?Sem,?Indent,?OutputType)] :-
+        ?Stud:student[advisor(?Sem) ->-> ?AL ]@PPLMODULE,
+	\if ?AL == [noadvisor]
+	\then (
+	    %indent(?Indent),
+	    write('Advisor:  none')@\plg()
+	) \else (
+	    %indent(?Indent),
+	    write('Advisor:  ')@\plg(),
+	    sort(?AL,?SortedAL)@\plg(),
+	    %print_instructor_list(?SortedAL,?OutputType)
+	),
+	nl@\plg().
+
+?Stud[%print_advisor(?Sem,?Indent)] :- ?Stud[%print_advisor(?Sem,?Indent,full)].
+
+// OutputType can be name/id/full
+%print_instructor_list([],?_) :- !.
+%print_instructor_list([?InstrId|?R],?OutputType) :-
+	?InstrId[%printinstructor(?OutputType)],
+	(?R == [], ! ; write(', ')@\plg()),
+	%print_instructor_list(?R,?OutputType).
+
+// Prints instructor information in the format that depends on
+// OutputType (= id,name,full)
+?InstrId[%printinstructor(?OutputType)] :-
+	\if ?InstrId.name[]@PPLMODULE
+        \then (
+           \if ?OutputType==id
+           \then
+	       write(?InstrId)@\io
+	   \else (
+	       \if ?OutputType==name
+	       \then
+		   write(?InstrId.name@PPLMODULE)@\io
+               \else  // Full output
+		   format('~w/~w',
+		          [?InstrId,?InstrId.name@PPLMODULE])@\plg(format)
+	   )
+        ) \else
+           abort(('No such instructor: ', ?InstrId))@\sys,
+
+	\if (?OutputType==full, ?InstrId[department -> ?D]@PPLMODULE, ?D \== cse)
+        \then format(' (~w)', [?D])@\plg(format).
+
+/********************************************************************
+**     Print support information
+********************************************************************/
+?Stud[%print_support(?Sem,?Indent)] :-
+	?Stud:student@PPLMODULE,
+	%indent(?Indent), write('Support:  ')@\plg(),
+	?Stud[support(?Sem)->->?SuppList]@PPLMODULE,
+	%print_support_list(0,?SuppList).
+
+%print_support_list(0,[]) :- !, writeln(none)@\plg().
+%print_support_list(?_,[]) :- nl@\plg().
+%print_support_list(?RecNum,[?Sup|?SupList]) :-
+	\unless ?Sup[is_invalid] \do (
+	    \if ?RecNum > 0 \then (nl@\plg(), %indent(SUBFIELDOFFSET)),
+	    ?Sup[%print]
+	),
+	?RecNum1 \is ?RecNum+1,
+	%print_support_list(?RecNum1,?SupList).
+
+?Support[is_invalid] :-
+	?Support:support@PPLMODULE,
+	(
+	    ?Support[type->tuition, limit->0]@PPLMODULE
+	;
+	    ?Support[amount->0]@PPLMODULE
+	).
+
+// Print support item
+?Support[%print] :-
+	?Support:support@PPLMODULE,
+	\if ?Support[type->?T]@PPLMODULE
+        \then (
+	       support_name(?T,?Support,?Name),
+	       write(?Name)@\plg(),
+	       !,
+	       \if ?Support[amount->?Amt]@PPLMODULE
+	       \then (
+	          write('($'), write(?Amt), write(')')
+	       )@\plg(),
+	       \if ?Support[temporary]@PPLMODULE
+	       \then  write('/temp')@\plg(),
+	       ?Support[load->?Load]@PPLMODULE,
+	       \if ?Load < 1
+	       \then format('/~w', [?Load])@\plg(format),
+	       write(' ')@\plg(),
+	       \if ?Support[source->?Source]@PPLMODULE
+	       \then (
+	          %printableSupportSource(?Source,?PrintableSource),
+		  format(' [~w]', [?PrintableSource])@\plg(format)
+	       ),
+	       \if %nonempty(${?Support[remarks->?C]@PPLMODULE})
+	       \then format(' (~w)', [?C])@\plg(format),
+
+	       \if (?Support[since->?Since]@PPLMODULE, ?Since[isValid]@TEMPORAL)
+	       \then (write(' from ')@\plg(), ?Since[%print]@TEMPORAL),
+	       \if (?Support[until->?Until]@PPLMODULE, ?Until[isValid]@TEMPORAL)
+	       \then (write(' till ')@\plg(), ?Until[%print]@TEMPORAL)
+        ).
+
+/********************************************************************
+**    Print status information
+********************************************************************/
+?Stud[%print_status(?Sem,?Indent)] :-
+	?Stud:student@PPLMODULE,
+	%indent(?Indent),
+	write('Status:   ')@\plg(),
+	\if ?Stud[status(?Sem) -> ?Stat]@PPLMODULE
+        \then (
+	       ?T = collectset{?ST | ?Stat[type -> ?ST]@PPLMODULE},
+	       \if ?T \= []
+	       \then (
+		      %status_name(?T,?N),
+		      write(?N)@\plg(),
+		      \if (?Stat[since ->?Sem2]@PPLMODULE, ?Sem2[isValid]@TEMPORAL)
+		      \then (
+		           write(' from ')@\plg(),
+			   ?Sem2[%print]@TEMPORAL
+		      ),
+		      \if (?Stat[until ->?Sem3]@PPLMODULE, ?Sem3[isValid]@TEMPORAL)
+		      \then (
+		           write(' till ')@\plg(),
+			   ?Sem3[%print]@TEMPORAL
+		      ),
+		      ?Stud[%print_old_status(?Sem)],
+		      nl@\plg()
+	      ) \else \if ?Stud[has_graduated(?Sem)]
+	      \then(
+	          writeln('Graduated')@\plg()
+	      ) \else (
+		  writeln('**UNKNOWN**')@\plg(),
+	          warning(('Cannot determine status for student: ',
+		           ?Stud.last@PPLMODULE,
+			   ' in ', ?Sem))@\sys
+	      )
+	) \else \if ?Stud[has_graduated(?Sem)]
+        \then(
+	    writeln('Graduated')@\plg()
+	) \else (
+	    writeln(' **UNKNOWN**')@\plg(),
+            warning(('Cannot determine status for student: ',
+	             ?Stud.last@PPLMODULE,
+		     ' in ', ?Sem))@\sys
+	).
+
+?Stud[%print_short_status(?Sem,?Indent)] :-
+	?Stud:student@PPLMODULE,
+	%indent(?Indent),
+	write('Status:   ')@\plg(),
+	?T = collectset{?ST | ?Stud[status(?Sem) -> ?_[type -> ?ST]]@PPLMODULE},
+	\if ?T \= []
+        \then (
+	   %status_name(?T,?N),
+	   write(?N)@\plg(),
+	   \if ?Stat[type->parttime]@PPLMODULE \then write('[part time]')@\plg(),
+	   \if ?Stat[type->onleave]@PPLMODULE \then write('[on leave]')@\plg(),
+	   \if %has_contractual_support(?Stud)
+           \then writeln(' (admitted w/support)')@\plg()
+           \else writeln(' (waiting list)')@\plg()
+	) \else (
+	   ?Stud[last->?Last]@PPLMODULE,
+	   abort('Missing status for student: ', ?Last)@\sys
+        ).
+
+?Stud[%print_old_status(?Sem)] :-
+	?L = collectset{?TypeListPair |
+               ?LL=collectset{
+                    ?Pair[?Stat] |
+                        ?Stud[status->?Stat[type->?T,until->?Sem1]]@PPLMODULE,
+			?Sem1[before ->?Sem, isValid]@TEMPORAL, ?Pair=?Sem1-?T},
+	       %convertPairlist(?LL, ?TypeListPair)
+		      },
+        keysort(?L,?SortedL)@\plg(),
+	\if ?SortedL \== []
+        \then (
+	    nl@\plg(),
+	    %indent(SUBFIELDOFFSET),
+	    write('(was: ')@\plg(),
+	    %print_old_status_list(?SortedL,?Stud),
+	    write(')')@\plg()
+	).
+
+%print_old_status_list([],?_) :- !.
+%print_old_status_list([?Sem-?T|?Rest],?Stud) :-
+	\if ?Sem:semester@TEMPORAL
+        \then \true
+        \else
+	  abort((?Stud.last@PPLMODULE, ', ', ?Stud.first@PPLMODULE, ': ', ?Sem,
+	         ': Invalid semester in status'))@\sys,
+	%status_name(?T,?Status),
+	format('~w until ', [?Status])@\plg(format),
+	?Sem[%print]@TEMPORAL,
+	\if ?Rest \== []
+        \then write('; ')@\plg(),
+	%print_old_status_list(?Rest,?Stud).
+
+// convert [a-b1,a-b2,...] to a-[b1,b2,...]
+%convertPairlist([],[]) :- !.
+%convertPairlist([?_F-?_B|?Rest], ?_F-[?_B|?Rest1]) :-
+	%stripPairlist(?Rest,?Rest1).
+%stripPairlist([],[]) :- !.
+%stripPairlist([?_F-?_B|?Rest],[?_B|?Rest1]) :-
+	%stripPairlist(?Rest,?Rest1).
+
+
+/********************************************************************
+**    Print academic information about a student
+**   Primarily geared for PhD students
+********************************************************************/
+
+// Print admission info & remarks
+?Stud[%printadm(?Sem)] :-
+	?Stud[%printfull(?Sem,[print_admission,print_remarks])].
+
+?Stud[%printfull(?Sem,?Options)] :-
+	?Stud:student@PPLMODULE,
+	?Stud[%print_basic_info,
+	     %print_joined(1),
+	     %print_graduated(1),
+	     %print_advisor(?Sem,1),
+	     // Need to change so it would sort support chronologically
+	     %print_support(anysemester,1),
+	     %print_status(?Sem,1)
+	 ],
+	 ?Stud[quals -> ?Qual]@PPLMODULE,
+	 ?Stud[rpe -> ?Rpe]@PPLMODULE,
+	 ?Stud[prelim -> ?Prelim]@PPLMODULE,
+	 ?Stud[defense -> ?Defense]@PPLMODULE,
+	\if (?Stud.status(?Sem)[type -> phd]@PPLMODULE ; ?Qual.passing_date[])
+        \then (
+	       %indent(1), write('Quals:    ')@\plg(),
+	       ?Qual[%print(SUBFIELDOFFSET)]
+	),
+	\if (?Stud.status(?Sem)[type -> phd]@PPLMODULE ; ?Rpe.passing_date[])
+        \then (
+	       %indent(1), write('RPE:      ')@\plg(),
+	       ?Rpe[%print(SUBFIELDOFFSET)]
+	),
+	\if (?Stud.status(?Sem)[type -> phd]@PPLMODULE ; ?Prelim.passing_date[])
+        \then (
+	       %indent(1), write('Prelim:   ')@\plg(),
+	       ?Prelim[%print(SUBFIELDOFFSET)]
+	),
+	\if (?Stud.status(?Sem)[type -> phd]@PPLMODULE ; ?Defense.passing_date[])
+        \then (
+	       %indent(1), write('Defense:  ')@\plg(),
+	       ?Defense[%print(SUBFIELDOFFSET)]
+	),
+	%print_options(?Stud,?Options),
+	\if ?Stud[domestic]@PPLMODULE \then (
+	       %indent(1), writeln('Domestic')@\plg()
+	),
+	\if ?Stud[female]@PPLMODULE \then (
+	       %indent(1), writeln('Female')@\plg()
+	),
+	\if ?Stud[minority]@PPLMODULE \then (
+	       %indent(1), writeln('Minority')@\plg()
+	),
+	nl@\plg().
+
+// All options must be unary procedural methods that 
+// take indentation as argument
+%print_options(?_Stud,[]) :- !.
+%print_options(?Stud,[?Opt|?Rest]) :-
+	?Stud[%?Opt(1)],
+	%print_options(?Stud,?Rest).
+
+/********************************************************************
+**   Basic info plus support
+********************************************************************/
+?S[%print_basic_with_support(?Sem)] :-
+	?S[%print_basic_info],
+	?S[%print_status(?Sem,1)],
+	?S[%print_support(?Sem,1)],
+	nl@\plg().
+
+
+/********************************************************************
+**   Admission info
+********************************************************************/
+
+?Stud[%print_admission(?Indent)] :-
+	\if %nonempty(${?Stud[admission_info -> ?Info]@PPLMODULE})
+        \then (
+	   %indent(?Indent),
+	   writeln('Admission info:')@\plg(),
+	   ?Indent2 \is ?Indent+5,
+	   %indent(?Indent2),
+	   writeln(?Info)@\plg()
+	).
+/********************************************************************
+**   Remarks
+********************************************************************/
+?Stud[%print_remarks(?Indent)] :-
+	\if %nonempty(${?Stud[remarks->?Remark]@PPLMODULE})
+        \then (
+	       %indent(?Indent),
+	       format('Remarks:  ~w~n', [?Remark])@\plg(format)
+	).
+
+
+/**********************************************************************
+**     Print TA info about a student
+**     This includes courses taught, courses that can teach, remarks
+**********************************************************************/
+
+?S[%print_ta_info(?Sem)] :- 
+	?S[%print_basic_info],
+	%indent(1),
+	write('ASSIGNMENT:  ')@\plg(),
+	\if ?S[is_assigned(?Sem)]
+        \then ?S[%print_assigned_courses(?Sem)]
+	\else writeln(none)@\plg(),
+	?S[%print_joined(1)],
+	?S[%print_status(?Sem,1)],
+	?S[%print_advisor(?Sem,1)],
+	%indent(1),
+	write('TA status: ')@\plg(),
+	\if (?S[ta_waitlist->?Sem(?Type)]@PPLMODULE
+            ; ?S[support(?Sem)->?_[type->ta, temporary]]@PPLMODULE,
+	      ?Type=noncommittal)
+        \then
+	   format('Waiting list (~w)~n', [?Type])@\plg(format)
+        \else
+	   writeln('Admitted with TA support')@\plg(),
+
+	?S[%print_courses_taught(1)],
+	?S[ta_eligibility->->?Eligibility]@PPLMODULE,
+	%indent(1),
+	fmt_write('TA eligibility info:  %S\n', args(?Eligibility))@\io,
+	?S[%print_canteach(1)],
+	\if %nonempty(${?S[remarks->?Remark]@PPLMODULE})
+        \then (
+	       %indent(1),
+	       format('Remarks:  ~w~n', [?Remark])@\plg(format)
+        ),
+	nl@\plg().
+
+?S[is_assigned(?Sem)] :-
+	?S[taught->?_[semester->?Sem]]@PPLMODULE.
+?S[is_assigned(?Sem)->?Crs] :-
+	?S[taught->?_[course->?Crs, semester->?Sem]]@PPLMODULE.
+
+// Underassigned student is one who is not assigned
+// or whose assigned load is less than the TA support
+?S[is_underassigned(?Sem)] :-
+	?S.support(?Sem)[type->ta,load->?SLoad]@PPLMODULE,
+	?TLoad = sum{?TL|?S.taught[semester->?Sem,load->?TL,\naf lecturer]@PPLMODULE},
+	?Discrepancy \is abs(?SLoad - ?TLoad),
+	?Discrepancy > 0.1.
+?S[is_underassigned(?Sem)] :-
+	?S.support(?Sem)[type->ta]@PPLMODULE,
+	!,
+	?S[\naf is_assigned(?Sem)].
+
+?S[%print_load(?Sem)] :-
+	?S[ta_load(?Sem)->?Load],
+	fmt_write('LOAD: %.3S\n', ?Load)@\io,
+	!.
+
+?S[ta_load(?Sem)->?Load] :-
+	( ?AssignedLoad=sum{?L| ?S[taught->?_[semester->?Sem, load->?L]]@PPLMODULE}
+        ; ?AssignedLoad=0
+        ),
+	\if ?S.support(?Sem)[type->ta, load->?AppointmentLoad]@PPLMODULE
+        \then ?Load = ?AppointmentLoad
+	\else ?Load = ?AssignedLoad.
+
+?S[%print_short_ta_info(?Sem)] :-
+	?S[%print_basic_info],
+	?S[%print_load(?Sem)],
+	write('ASSIGNMENT:  ')@\plg(),
+	\if ?S[is_assigned(?Sem)]
+        \then ?S[%print_assigned_courses(?Sem)]
+	\else writeln(none)@\plg(),
+	//?S[%print_short_status(?Sem,0)],
+	nl@\plg().
+
+?S[%print_medium_ta_info(?Sem)] :-
+	?S[%print_basic_info],
+	%indent(1),
+	?S[%print_load(?Sem)],
+	?S[%print_joined(1)],
+	?S[%print_status(?Sem,1)],
+	?S[%print_advisor(?Sem,1)],
+	%indent(1),
+	write('TA status: ')@\plg(),
+	\if (?S[ta_waitlist->?Sem(?Type)]@PPLMODULE
+            ; ?S[support(?Sem)->?_[type->ta, temporary]]@PPLMODULE,
+	      ?Type=noncommittal)
+        \then
+	   format('Waiting list (~w)~n', [?Type])@\plg(format)
+        \else
+	   writeln('Admitted with TA support')@\plg(),
+	nl@\plg().
+
+?Stud[%print_assigned_courses(?Sem)] :-
+	?CL = collectset{?O| ?Stud[taught->?Taught[semester->?Sem]]@PPLMODULE,
+	    	    	   ?O=?Taught-?Sem},
+	%print_assigned_course_list(?CL),
+	nl@\plg().
+
+%print_assigned_course_list([]) :- !.
+// Offending clause!
+// Sometimes XSB crashes when compiling this program
+// In this case: comment out the tail after aaa/2 and uncomment aaa/2
+%print_assigned_course_list([?Taught-?Sem|?Rest]) :-
+	?Taught[course->?Crs]@PPLMODULE,
+	write(?Crs)@\io,
+	\if ?Crs[getOffering(?Sem) -> ?Offering]@COURSES
+        \then (
+	   write(' (')@\plg(),
+	   %print_course_instructors(?Offering,full)@COURSES,
+	   write(')')@\plg()
+	),
+	\if (?Taught=?_(?Stud), ?Stud[is_instructor(?Crs,?Sem)])
+        \then write(' / As lecturer')@\plg(),
+	\if %nonempty(${?Taught[remarks->?R]@PPLMODULE})
+        \then format(' [~w]', [?R])@\plg(format),
+	\if (?Taught[load->?Load]@PPLMODULE, ?Load < 1)
+        \then format(' -- ~w', [?Load])@\plg(format),
+	\if ?Rest \== []
+        \then write(';  ')@\plg(),
+	%print_assigned_course_list(?Rest).
+
+
+?S[%print_canteach(?Indent)] :-
+	%indent(?Indent),
+	writeln('Can teach:')@\plg(),
+	\unless ?S[canteach->?L]@PPLMODULE \do ?L=[],
+	?Indent2 \is ?Indent+2,
+	(?L==[], !
+        ; 
+	  conset(canteachCount,0)@\plg(gensym),
+	  %print_canteach_list(?Indent2,?L)
+        ).
+
+
+// This does not require a semester arg: print all courses the student can teach
+%print_canteach_list(?_Indent,[]) :-
+	conset(canteachCount,0)@\plg(gensym),
+	nl@\plg().
+%print_canteach_list(?Indent,[?L|?Rest]) :-
+	conget(canteachCount,?Count)@\plg(gensym),
+	\if ?Count==0
+        \then %indent(?Indent),
+	?Count1 \is ?Count+1,
+	write(?L)@\io,
+	\if ?Rest \== [] \then write(',')@\plg(),
+	\if (?Count1 >= NUMBER_OF_CRSCODES_PER_LINE, ?Rest \== [])
+        \then ( nl@\plg(), conset(canteachCount,0)@\plg(gensym) )
+        \else conset(canteachCount,?Count1)@\plg(gensym),
+	%print_canteach_list(?Indent,?Rest).
+
+
+
+
+// This does not require a semester arg: print all courses known to have been
+// taught (TAed) by the student
+?S[%print_courses_taught(?Indent)] :-
+	%indent(?Indent),
+	writeln('Courses taught:')@\plg(),
+	?Indent2 \is ?Indent+2,
+	?CL = collectset{?V | ?S[taught->?C[semester->?Sem]]@PPLMODULE, ?V=?Sem-?C},
+	keysort(?CL,?SortedCL)@\plg(),
+	%print_courses_taught_list(?Indent2,?SortedCL).
+
+%print_courses_taught_list(?_Indent,[]) :- !.
+%print_courses_taught_list(?Indent,[?_Sem-?C|?Rest]) :-
+	?C[course->?Code,semester->?Sem,grade->?G]@PPLMODULE,
+	\unless %nonempty(${?C[remarks->?R]@PPLMODULE})
+        \do ?R = '',
+	%indent(?Indent),
+	format('~w, ', [?Code])@\plg(format),
+	?Sem[%print]@TEMPORAL,
+	%ta_grade(?G,?PrintableG),
+	format(', ~w', [?PrintableG])@\plg(format),
+	\if ?R \== ''
+        \then
+           format(' [~w]', [?R])@\plg(format),
+	\if ?Code[getOffering(?Sem)->?Offering]@COURSES
+        \then (
+	   write(' (')@\plg(),
+	   %print_course_instructors(?Offering,id)@COURSES,
+	   write(')')@\plg()
+        ),
+	\if (?C[load->?Load]@PPLMODULE, ?Load < 1)
+        \then format(' -- ~w', [?Load])@\plg(format),
+	nl@\plg(),
+	%print_courses_taught_list(?Indent,?Rest).
+
+?Stud[is_instructor(?Crs,?Sem)] :-
+	?Stud:student[taught->?_[course->?Crs,semester->?Sem,lecturer]]@PPLMODULE.
+?Stud[is_instructor(?Sem)] :-
+	?Stud[is_instructor(?_Crs,?Sem)].
+
+// We only look at the current status
+%has_contractual_support(?Stud) :-
+	?Stud[support->?Support]@PPLMODULE,
+	?Support[type->ta; type->ra; type->ga]@PPLMODULE.
+
+
+/********************************************************************
+**         Some miscellanea: translates from internal
+**                           representation to printable one
+********************************************************************/
+
+support_name(ta, ?_Supp, 'TA') :- !.
+support_name(ra, ?_Supp, 'RA') :- !.
+support_name(ga, ?_Supp, 'GA') :- !.
+support_name(tuition, ?_Supp, 'Tuition') :- !.
+support_name(fellowship, ?Supp, ?Name) :- !,
+	?Supp[code->?FCode]@PPLMODULE, fellowship_name(?FCode,?Name).
+support_name(self, ?_Supp, 'Self-supported') :- !.
+support_name(instructor, ?_Supp, 'Instructor') :- !.
+support_name(lecturer, ?_Supp, 'Lecturer') :- !.
+support_name(?_, ?_Supp, 'Other') :- !.
+
+// if these facts are made into database facts instead of rules, then
+// FLORA can't find them. It was traced to an XSB bug, but it isn't clear
+// if the reported bug is the only thing.
+fellowship_name(uf,'University Fellowship') :- !.
+fellowship_name(pf,'Presidential Fellowship') :- !.
+fellowship_name(pfs,'Presidential Fellowship for Sciences') :- !.
+fellowship_name(gcf,'Graduate Council Fellowship') :- !.
+fellowship_name(turner,'Turner Fellowship') :- !.
+fellowship_name(fulbright,'Fulbright Fellowship') :- !.
+fellowship_name(ces,'CES Fellowship') :- !.
+fellowship_name(ericson,'Ericson Fellowship') :- !.
+fellowship_name(catacosinos,'Catacosinos Fellowship') :- !.
+fellowship_name(renaissance,'Renaissance Fellowship') :- !.
+fellowship_name(pieper,'Pieper Fellowship') :- !.
+fellowship_name(chair,'Chair''s Fellowship') :- !.
+
+
+%status_name(phd,'Ph.D.') :- !.
+%status_name(ms,'M.S.') :- !.
+%status_name('5yr','5 Year') :- !.
+%status_name(onleave,'On leave') :- !.
+%status_name(parttime,'Part time') :- !.
+%status_name([?T],?Name) :- %status_name(?T,?Name), !.
+%status_name([?T|?Rest],?Name) :-
+	%status_name(?T,?N1),
+	\if ?Rest = []
+        \then ?Name = ?N1
+        \else (
+	   %status_name(?Rest,?RestName),
+	   flora_concat_atoms([?N1, ', ', ?RestName], ?Name)@\plg(flrporting)
+        ).
+%status_name(?S,?_) :- abort(('Invalid status type, ', ?S))@\sys.
+
+%ta_grade(?G,?_) :-
+	\+ number(?G)@\plg(), !, abort(('Invalid grade: ', ?G))@\sys.
+%ta_grade(?G,?Text) :- ?G < 0.01, !, ?Text = 'none'.
+%ta_grade(?G,?Text) :- ?G < 1.6, !, ?Text = 'Unsatisfactory'.
+%ta_grade(?G,?Text) :- ?G < 2, !, ?Text = 'Worse than marginal'.
+%ta_grade(?G,?Text) :- ?G < 2.3, !, ?Text = 'Marginal'.
+%ta_grade(?G,?Text) :- ?G < 2.7, !, ?Text = 'Slightly above marginal'.
+%ta_grade(?G,?Text) :- ?G < 3, !, ?Text = 'Needs much improvement'.
+%ta_grade(?G,?Text) :- ?G < 3.3, !, ?Text = 'Needs improvement'.
+%ta_grade(?G,?Text) :- ?G < 3.7, !, ?Text = 'Still needs improvement'.
+%ta_grade(?G,?Text) :- ?G < 4, !, ?Text = 'Almost Good'.
+%ta_grade(?G,?Text) :- ?G < 4.3, !, ?Text = 'Good'.
+%ta_grade(?G,?Text) :- ?G < 4.7, !, ?Text = 'Very Good'.
+%ta_grade(?G,?Text) :- ?G < 5, !, ?Text = 'Almost Excellent'.
+%ta_grade(?G,?Text) :- ?G < 5.3, !, ?Text = 'Excellent'.
+%ta_grade(?G,?Text) :- ?G < 5.7, !, ?Text = 'Exceptional'.
+%ta_grade(?G,?Text) :- ?G < 5.99, ?Text = 'Almost Best TA Award quality'.
+%ta_grade(?G,?Text) :- ?G >= 5.99, ?Text = 'Best TA Award quality'.
+
+/********************************************************************
+**      Reports          
+********************************************************************/
+
+// List, second arg, must have elements of the form Key-Oid
+%printlist(?_PrintMethod,[]) :- \true.
+%printlist(?PrintMethod,[?_Key-?O | ?Rest]) :-
+	?O[%?PrintMethod],
+	%printlist(?PrintMethod,?Rest).
+
+// Sorted report main entry. Takes a sort spec and a filtering query as args
+//
+// SortSpec specifies the field on which to sort
+// If is of the form sortSpec(Molecule,Oid,KeyValue).
+// It should be made so that Molecule and KeyValue are connected.
+// KeyValue is the value on which sort is done.
+// For instance, sortSpec(${?S[last->?_L]@PPLMODULE},?S,?_L) sorts on the last name.
+// sortSpec((${?S[advisor(?Sem)->?_A]},?_A[name->?_N])@PPLMODULE,?S,?_N) sorts on
+// advisor First/Last name and
+// sortSpec(${?S[advisor(?Sem)->?_A]@PPLMODULE},?S,?_A) sorts on advisors
+// email address.
+//
+// QuerySpec is of the form querySpec(Oid,Query), 
+// where Oid is some Oid that occurs in Query
+/*
+%printquery(%?PrintMethod,?_,?_) :- 
+	!,
+	abort(('%', ?PrintMethod, ': printquery''s print method should not begin with a %'))@\sys.
+*/
+%printquery(?PrintMethod,?SortSpec,?QuerySpec) :-
+	?L = collectset{?Var | // Bind Query/SortSpec to the same oid
+			     ?SortSpec = sortSpec(?Path,?O,?Val),
+			     ?QuerySpec = querySpec(?O,?Query),
+			     ?Query,
+			     ?Path,
+			     ?Var = ?Val-?O
+		      },
+	keysort(?L,?SortedL)@\plg(),
+	%printlist(?PrintMethod,?SortedL),
+	length(?SortedL,?Count)@\plg(basics),
+	format('~nTotal count: ~w~n', [?Count])@\plg(format).
+
+
+/********************************************************************
+**   List students in the current semester
+********************************************************************/
+
+// Print all people sorted on advisor in the semester
+?C[%printallADV(?Sem)] :-
+	%printquery(printfull(?Sem,[print_remarks]),
+		    sortSpec(${?S[advisor(?Sem)->?_A]@PPLMODULE},?S,?_A),
+		    querySpec(?S, ${(?S:?C(?Sem),?S:student(?Sem))@PPLMODULE})).
+	
+
+/********************************************************************
+**             Domestic
+********************************************************************/
+?C[%printDomesticFull(?Sem)] :-
+	%printquery(printfull(?Sem,[print_admission,print_remarks]),
+		    SORT_on_NAME(?S),
+		    querySpec(?S, ${?S:?C(?Sem)[domestic]@PPLMODULE})).
+
+/********************************************************************
+**        Students with conditions on passing an exam
+********************************************************************/
+?C[%printExamConditions(?Sem,?Match)] :-
+	%printquery(printfull(?Sem,[]),
+		    SORT_on_NAME(?S),
+		    querySpec(?S, ${(?S:?C(?Sem)[?_->?_[conditions->?Cond]]@PPLMODULE,
+		                   flora_match_substring(?Match,?Cond,?_)@\plg(flrporting)
+		                  )})).
+
+
+/***********************************************************************
+**        Delinquent instructors (who failed to submit TA eval sheets)
+***********************************************************************/
+
+// Print to stdout
+%printDelinquentInstructors(?Sem) :-
+	(
+	   ?InstrStudList = collectset{
+              ?InstrStuds| ?Crs[offerings->?_[semester->?Sem,instructors->?Instr]
+			      ]@COURSES,
+			   ?Studs=collectset{?S|
+			       ?S[taught->?_[course->?Crs,semester->?Sem,grade->0,
+			                    \naf lecturer]
+				]@PPLMODULE
+			     },
+			   ?Studs \= [],
+		           ?InstrStuds = ?Instr-?Studs
+		       },
+           %print_delinquent_instructor_list(?InstrStudList)
+       ).
+
+%print_delinquent_instructor_list([]) :- !.
+%print_delinquent_instructor_list([?InstrStud|?Rest]) :-
+	%print_delinquent_instructor(?InstrStud),
+	%print_delinquent_instructor_list(?Rest).
+
+%print_delinquent_instructor(?Instr-?Studs) :- 
+	?Instr[%printinstructor(full)],
+	nl@\plg(),
+	%print_student_list(print_basic_info,4,?Studs).
+
+%print_student_list(?_PrintMethod,?_Indent,[]) :- !.
+%print_student_list(?PrintMethod,?Indent,[?S|?Rest]) :-
+	%indent(?Indent),
+	?S[%?PrintMethod],
+	%print_student_list(?PrintMethod,?Indent,?Rest).
+
+
+
+
+/********************************************************************
+**    List students in a particular semester
+********************************************************************/
+?C[%printallLN(?Sem)] :-
+	%printquery(printfull(?Sem,[]),
+		    SORT_on_NAME(?S),
+		    querySpec(?S, ${?S:?C(?Sem)@PPLMODULE})).
+?C[%printallLNfull(?Sem)] :-
+	%printquery(printfull(?Sem,[print_admission,print_remarks]),
+		    SORT_on_NAME(?S),
+		    querySpec(?S, ${?S:?C(?Sem)@PPLMODULE})).
+
+// Print full info on new students in a given semester
+// (i.e., joined or switched programs)
+?C[%printnewLNfull(?Sem)] :-
+	%printquery(printfull(?Sem,[print_admission,print_remarks]),
+		    SORT_on_NAME(?S),
+		    querySpec(?S, ${QUERY_New_Student(?S:?C(?Sem),?Sem)})).
+
+// Print only new people sorted on last name in a given semester
+?C[%printnewLN(?Sem)] :-
+	%printquery(printfull(?Sem,[]),
+		    SORT_on_NAME(?S),
+		    querySpec(?S, ${QUERY_New_Student(?S:?C(?Sem),?Sem)})).
+
+// Print full info on fresh students (who joined in a given semester)
+?C[%printfreshLNfull(?Sem)] :-
+	%printquery(printfull(?Sem,[print_admission,print_remarks]),
+		    SORT_on_NAME(?S),
+		    querySpec(?S, ${QUERY_Fresh_Student(?S:?C(?Sem),?Sem)})).
+
+// Print only new people sorted on last name in a given semester
+?C[%printoldLN(?Sem)] :-
+	%printquery(printfull(?Sem,[]),
+		    SORT_on_NAME(?S),
+		    querySpec(?S, ${QUERY_Old_Student(?S:?C(?Sem),?Sem)})).
+
+/*************************************************************************
+**                Students without advisor 
+*************************************************************************/
+?C[%noadvisor(?Sem)] :-
+	%printquery(printfull(?Sem,[print_admission,print_remarks]),
+		    SORT_on_NAME(?S),
+		    querySpec(?S, ${(?S:?C(?Sem)[advisor(?Sem)->->?AL]@PPLMODULE,
+		                    ?AL==[noadvisor])})).
+
+?C[%noadvisorOverdue(?Sem)] :-
+	%printquery(printfull(?Sem,[print_admission,print_remarks]),
+		    SORT_on_NAME(?S),
+		    querySpec(?S, ${(?S:?C(?Sem)[advisor(?Sem)->->?AL,
+		                             joined->?Joined]@PPLMODULE,
+		                    ?AL==[noadvisor],
+				    \if ?C==phd \then
+				       ?Joined[before->?Sem]@TEMPORAL,
+				    \if ?C==ms \then
+				       ?Sem[next->?_Nxt[after->?Joined]]@TEMPORAL
+				)})).
+
+
+/********************************************************************
+**    TA maintenance
+********************************************************************/
+
+// List all TAs (includes those with support=TA and those on the waitlist 
+// for whom teaching assignments have been made), excluding instructors
+?C[%print_ta_list_full(?Sem)] :-
+	?C[%print_ta_list_internal(?Sem,print_ta_info)].
+
+// List of TAs who came less than 1 year ago
+?C[%print_new_ta_list_full(?Sem)] :-
+	?C[%print_new_ta_list_internal(?Sem,print_ta_info)].
+
+// List of TAs who came more than 1 year ago
+?C[%print_old_ta_list_full(?Sem)] :-
+	?C[%print_old_ta_list_internal(?Sem,print_ta_info)].
+
+
+// List TAs, instructors, and those already assigned
+?C[%print_ta_and_instructor_list_full(?Sem)] :-
+	?C[%print_ta_and_instructor_list_internal(?Sem,print_ta_info)].
+
+// Print the list of TAs with short info per TA
+?C[%print_ta_list_basic(?Sem)] :-
+	?C[%print_ta_list_internal(?Sem,print_short_ta_info)].
+
+// Print the list of TAs suitable for appointment roster
+?C[%print_ta_appointments(?Sem)] :-
+	?C[%print_ta_appointments_internal(?Sem,print_medium_ta_info)],
+	%check_support_and_status_consistency(?Sem).
+
+
+// Print the list of TAs with short info per TA
+?C[%print_ta_and_instructor_list_basic(?Sem)] :-
+	?C[%print_ta_and_instructor_list_internal(?Sem,print_short_ta_info)].
+
+
+?C[%print_ta_list_internal(?Sem,?PrintMethod)] :-
+	 %printquery(?PrintMethod(?Sem),
+		     SORT_on_NAME(?S),
+		     querySpec(?S, ${(?S:?C(?Sem)@PPLMODULE, QUERY_TAs(?S,?Sem))})
+		    ),
+	 (?TotalLoad = sum{?Ld | ?_Stud[ta_load(?Sem)->?Ld],
+			       ?_Stud[\naf exist(?Crs)^is_instructor(?Crs,?Sem)] }
+	  ; \true
+	 ),
+	 \if isvar{?TotalLoad} \then ?TotalLoad = '??',
+	 fmt_write('Total full time equivalent:  %.5S\n',
+		    arg(?TotalLoad))@\io.
+
+?C[%print_ta_and_instructor_list_internal(?Sem,?PrintMethod)] :-
+	   %printquery(?PrintMethod(?Sem),
+			 SORT_on_NAME(?S),
+			 querySpec(?S,
+			           ${(?S:?C(?Sem)@PPLMODULE,
+				    QUERY_TAsAndInstructors(?S,?Sem))})
+			),
+	     (?TotalLoad = sum{?Ld|?_Stud:?C(?Sem)[taught->
+	                                  ?_[semester->?Sem,load->?Ld]]@PPLMODULE}
+              ; \true
+	     ),
+	     \if isvar{?TotalLoad} \then ?TotalLoad = '??',
+	     fmt_write('Total full time equivalent:  %.5S\n',
+	                arg(?TotalLoad))@\io.
+
+?C[%print_new_ta_list_internal(?Sem,?PrintMethod)] :-
+	     %printquery(?PrintMethod(?Sem),
+			 SORT_on_NAME(?S),
+			 querySpec(?S, ${(?S:?C(?Sem)@PPLMODULE, QUERY_TAs(?S,?Sem),
+			               ?S[joined->?SemJoined]@PPLMODULE,
+				       //?Sem[minus(3)->?SemLastYear]@TEMPORAL,
+				       ?SemJoined[sameOrAfter->?Sem]@TEMPORAL
+			               )}
+				   )
+			).
+
+?C[%print_old_ta_list_internal(?Sem,?PrintMethod)] :-
+	     %printquery(?PrintMethod(?Sem),
+			 SORT_on_NAME(?S),
+			 querySpec(?S, ${(?S:?C(?Sem)@PPLMODULE, QUERY_TAs(?S,?Sem),
+			               ?S[joined->?SemJoined]@PPLMODULE,
+				       ?Sem[minus1(3)->?SemLastYear]@TEMPORAL,
+				       ?SemJoined[before->?SemLastYear]@TEMPORAL
+			               )}
+				   )
+			).
+
+?C[%print_ta_appointments_internal(?Sem,?PrintMethod)] :-
+	     %printquery(?PrintMethod(?Sem),
+			 SORT_on_NAME(?S),
+			 querySpec(?S, ${(?S:?C(?Sem)@PPLMODULE, QUERY_TA_appointments(?S,?Sem))})
+			),
+             (?TotalLoad = sum{?Ld | ?_Stud[ta_load(?Sem)->?Ld],
+				   ?_Stud[\naf exist(?Crs)^is_instructor(?Crs,?Sem)] }
+	      ; \true
+	     ),
+	     \if isvar{?TotalLoad} \then ?TotalLoad = '??',
+	     fmt_write('Total full time equivalent:  %.5S\n',
+	                arg(?TotalLoad))@\io.
+
+
+//  TA waiting list
+?C[%print_ta_waitlist(?Sem)] :-
+	%printquery(print_ta_info(?Sem),
+		    SORT_on_NAME(?S),
+		    querySpec(?S, ${?S:?C(?Sem)[ta_waitlist->?Sem(?_)]@PPLMODULE})).
+
+
+//   Courses and their TAs
+%print_ta_assignments(?Semester) :-
+	deleteall{ta_counts(?_,?_)},
+	insert{ta_counts(undergraduate,0)},
+	insert{ta_counts(graduate,0)},
+	!,
+	?CrsL =
+            collectset{?C| ?C:course[offerings->?_[semester->?Semester]]@COURSES},
+	?GradNeed = sum{?GN| ?_[offerings->?_[semester->?Semester,
+	    	    	    	    	   need_grad->?GN]]@COURSES},
+	?UGNeed = sum{?UN| ?_[offerings->?_[semester->?Semester,
+	    	    	    	    	 need_ug->?UN]]@COURSES},
+	sort(?CrsL,?SortedCL)@\plg(),
+	length(?SortedCL,?CrsTotal)@\plg(basics),
+	%print_ta_assignments_internal(?Semester,?SortedCL),
+	format('~nTotal: ~w courses~n', [?CrsTotal])@\plg(format),
+	ta_counts(graduate,?GradTotal),
+	fmt_write('       %.5S assigned graduate TAs\n',
+	           arg(?GradTotal))@\io,
+	ta_counts(undergraduate,?UGTotal),
+	fmt_write('       %.5S assigned undergraduate TAs\n',
+	           arg(?UGTotal))@\io,
+	fmt_write('\nNeed:  %.5S Grad TAs\n', arg(?GradNeed))@\io,
+	fmt_write('       %.5S UG TAs\n', arg(?UGNeed))@\io,
+	%check_ta_assignment_and_support_consistency(?Semester),
+	%check_course_ta_assignment_consistency(?Semester),
+	%check_assigned_courses_offered(?Semester).
+
+%print_ta_deficit :-
+	?L = collectset{?Course| ta_deficit(?Course,?_,?_,?_)@COURSES},
+	sort(?L,?SL)@\plg(),
+	%print_deficit_from_list(?SL),
+	!.
+%print_deficit_from_list([]) :- !, deleteall{ta_deficit(?_,?_,?_,?_)}.
+%print_deficit_from_list([?C|?Rest]) :-
+	ta_deficit(?C,?Offering,?GDeficit,?UGDeficit)@COURSES,
+	?C[%printHeader(?Offering.name)]@COURSES,
+	\if ?GDeficit > 0.1
+        \then fmt_write('    Grad deficit: %.3S\n', arg(?GDeficit))@\io,
+	\if ?UGDeficit > 0.1
+        \then fmt_write('    UG deficit: %.3S\n', arg(?UGDeficit))@\io,
+	nl@\plg(),
+	%print_deficit_from_list(?Rest).
+
+
+%print_ta_assignments_internal(?_,[]) :- nl@\plg(), !.
+%print_ta_assignments_internal(?Semester,[?Crs|?Rest]) :-
+	?Crs[getOffering(?Semester)->?Offering[name->?OfferingName]]@COURSES,
+	?Crs[%printHeader(?OfferingName), %printOffering(?Offering)]@COURSES,
+	%print_ta_assignments_internal(?Semester,?Rest).
+
+
+// Emails of all students who were offered TA positions
+// Used to solicit their teaching preferences
+%print_ta_emails(?Sem) :-
+	     ?Emails =
+		 collectset{?E| ?S:student(?Sem)@PPLMODULE,
+	     	     	       ?S[support->?_[type->ta, since->?From, until->?To],
+			         email->?E]@PPLMODULE,
+			       ?Sem[between->[?From,?To]]@TEMPORAL
+			   },
+	      %print_plain_list(?Emails).
+
+// Emails of new students who were offered TA positions
+// Used to solicit their teaching preferences
+%print_new_ta_emails(?Sem) :-
+	     ?Emails =
+		 collectset{?E| QUERY_New_Student(?S:student(?Sem),?Sem),
+	     	     	       ?S[support->?_[type->ta, since->?From, until->?To],
+			         email->?E]@PPLMODULE,
+			       ?Sem[between->[?From,?To]]@TEMPORAL
+			   },
+	      %print_plain_list(?Emails).
+	     
+
+
+// Print support for those who held a fellowship
+// in a given semester (Sem) of the type specified in Fellowships
+%currentFellowships(?Sem,?Fellowships) :-
+	%printquery(print_basic_with_support(?Sem),
+		    SORT_on_NAME(?S),
+		    querySpec(?S, ${(?S:student(?Sem)[
+		                    support -> ?_F[type  -> fellowship,
+						   code  -> ?Code,
+						   since -> ?From,
+						   until -> ?Until]
+				   ]@PPLMODULE,
+				  ?Sem[sameOrAfter -> ?From,
+				      sameOrBefore-> ?Until]@TEMPORAL,
+				  member(?Code,?Fellowships)@\plg(basics)
+				  )}
+			      )).
+
+
+// People who did not pass the RPE and are about 1 year since the quals
+%print_delinquent_RPE(?Sem) :-
+	%printquery(printfull(?Sem,[print_admission,print_remarks]),
+	    	    SORT_on_NAME(?S),
+		    querySpec(?S, ${(?S:phd(?Sem)[
+					quals ->?_[passed -> ?QualsDate],
+					rpe   ->?_[passed -> futuredate]
+				    ]@PPLMODULE,
+				  ?QualsDate[inSemester->?Type(?Year)]@TEMPORAL,
+				  ?Year1 \is ?Year + 1,
+				  ?Sem[sameOrAfter-> ?Type(?Year1)]@TEMPORAL,
+				  \naf ?S:onleave(?Sem)@PPLMODULE
+			          )
+			          \or
+			          (?S:phd(?Sem)[joined->?Joined]@PPLMODULE,
+				   \naf ?S:onleave(?Sem)@PPLMODULE,
+				   \naf (?S.rpe.passed@PPLMODULE)[isValid]@TEMPORAL,
+				   ?Joined.next.next.next[sameOrBefore->?Sem]@TEMPORAL,
+				   \naf (?S.rpe.proposal@PPLMODULE)[isValid]@TEMPORAL
+			          )
+			        }
+			      )).
+
+
+
+// People who did not pass the Prelim and are about 2 years since the RPE
+%print_late_prelim(?Sem) :-
+	%printquery(printfull(?Sem,[print_admission,print_remarks]),
+	    	    SORT_on_NAME(?S),
+		    querySpec(?S, ${(?S:student(?Sem)[
+					rpe      ->?_[passed -> ?RPEDate],
+					prelim   ->?_[passed -> futuredate]
+				    ]@PPLMODULE,
+				  ?RPEDate[inSemester->?Type(?Year)]@TEMPORAL,
+				  ?Year1 \is ?Year + 2,
+				  ?Sem[after-> ?Type(?Year1)]@TEMPORAL
+			         )}
+			      )).
+
+
+
+/*****************************************************************************
+  Graduation
+*****************************************************************************/
+
+// ?Stud[has_graduated] :-
+// 	?Stud.graduated[date->?Date]@PPLMODULE, ?Date[isValid]@TEMPORAL.
+?Stud[has_graduated(?Sem)] :-
+	?Stud[graduation_semester->?GradSem]@PPLMODULE,
+	?GradSem[before ->?Sem]@TEMPORAL.
+
+?Stud[%print_graduation_info] :-
+	?Stud[graduation_semester->?GradSem]@PPLMODULE,
+	?Stud[%print_basic_info],
+	?Stud[%print_joined(1)],
+	?Stud[%print_graduated(1)],
+	?Stud[%print_advisor(?GradSem,1)],
+	?Stud[%print_status(?GradSem,1)],
+	\if ?Stud[domestic]@PPLMODULE \then (
+	       %indent(1), writeln('Domestic')@\plg()
+	),
+	\if ?Stud[female]@PPLMODULE \then (
+	       %indent(1), writeln('Female')@\plg()
+	),
+	\if ?Stud[minority]@PPLMODULE \then (
+	       %indent(1), writeln('Minority')@\plg()
+	).
+
+?StudType[%print_graduation_list(?FromSem,?ToSem)] :-
+	%printquery(print_graduation_info,
+	            SORT_on_NAME(?S),
+		    querySpec(?S, ${(?S[graduation_semester->?GradSem]@PPLMODULE,
+	                            ?GradSem[between->[?FromSem,?ToSem]]@TEMPORAL,
+			            ?S:?StudType(?GradSem)@PPLMODULE)}
+			     )
+	           ).
+
+
+/*******************************************************************************
+*** Include tuition policies
+*******************************************************************************/
+
+#include "tuition.flr"
+#include "admin_reports.flr"

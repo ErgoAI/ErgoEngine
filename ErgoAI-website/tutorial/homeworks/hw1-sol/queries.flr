@@ -1,0 +1,56 @@
+// This exercise was designed to maximaze the use of modules.  There
+// is no reason to create som many modules under normal circumstances.
+// Exessive use of modules complicates queries, as can be seen from
+// the queries below.
+
+// load modules
+?- [employee >> employees],
+	[division >> divisions],
+	[company >> companies],
+	[project >> projects].
+
+// ?- Method[%mustDefine(on)]@\sys.
+
+//  Queries
+
+
+// Projects that have employees who work for company divisions
+// that are different from the project's division.
+?- ?:project[name->?P,
+	     participants-> ?_E[division->?_EDiv]@employees,
+	     division->?_PDiv]@projects,
+   ?_EDiv != ?_PDiv.
+
+// The names of all divisions that have the lowest average
+// salary per employee among all the divisions of the same company
+?- ?Div:division[name->?_N]@divisions,
+   avg{?_Sal| ?_Sal = (?Div.employees@divisions).salary@employees}
+   = 
+   min{?_AvgSal|
+	  ?_AvgSal = avg{?_Sal[?_Div1]|
+	                  ?:company[divisions->{?Div,?_Div1}]@companies,
+	                  ?_Sal= (?_Div1.employees@divisions).salary@employees}
+      }.
+
+
+// Type checking constraints
+// We deliberately set the data so as to violate some typing constraints
+type_error(?O,?M,?V) :-
+	// value of wrong type
+	(?O[?M->?V], ?O[?M=>?D])@?_Mod, \naf ?V:?D@?_Mod2
+        ;
+	// value exists, but type doesn't
+	(?O[?M->?V], \naf ?O[?M=>?D])@?_Mod.
+
+// ?- type_error(?O,?M,?V).
+
+// Type checking using the _typecheck module
+// ?- Type[%check(?[?=>?]@?, ?Violations)]@_typecheck.
+/* Answers:
+   ?Violations = (${bob[projects -> f1]@employees}, ${bob[projects => project]@employees})
+
+   ?Violations = (${d1[employees -> mary]@employees}, ${d1[employees => employee]@employees})
+
+   ?Violations = (${john[division -> d3]@employees}, ${john[division => division]@employees})
+
+*/

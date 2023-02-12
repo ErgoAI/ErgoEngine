@@ -1,0 +1,639 @@
+/* File:    extensions/flrutil_extensions.P -- additional utilities. Notably,
+**                                             support for ErgoText
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2015-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+
+#define TEXTGEN_CONTEXT  ergo_writing_textgen_template
+
+%%#define DEBUG_TEMPLATES
+
+
+:- import
+	parsing_error/3,
+        is_ergotext_word_connector/1,
+        is_prefixed_with_ergotext_word_connector/2,
+	flora_get_flatom_name/4,
+	flora_set_parser_context/1,
+	flora_clear_parser_context/1
+   from flrparser.
+:- import
+	is_fllogicquantifier/6,
+	is_fldelayquant/5,
+	is_flaggregate/6,
+	is_fldescriptor/4,
+	is_flneg/3,
+	is_fltransactionalvariable/3
+   from flrcompiler.
+:- import
+	flora_begin_file/1
+   from flrlexer.
+:- import
+	flora_get_template_srcfile/2,
+	flora_set_template/2
+   from flrregistry.
+
+:- import
+	del_attr/2
+   from machine.
+
+:- import compile_reifyop/4 from flrcompiler.
+:- import flora_write_struct/3 from flrcoder.
+
+:- export
+	template_source_file_name/2,
+	flora_load_ergotext_template/2,
+	flora_load_textgen_template/2,
+	flora_make_ergotext_template/3.
+:- export util_compile_ergotext_template_stdin/2.
+
+%% if called with a variable argument, return the current template
+flora_load_ergotext_template(TemplateName,Module) :-
+	var(TemplateName),
+	!,
+	template_source_file_name(Module,TemplateName).
+
+flora_load_ergotext_template(TemplateName,Module) :-
+	(flora_make_ergotext_template(TemplateName,CompiledTempl,Status) ->
+	    print_warnings(Status),
+	    (memberchk(error(EN),Status), EN > 0 ->
+		print_errors(Status),
+		flora_abort(['[',TemplateName,'.',ERGO_NLTEMPLATE_EXT,
+			     '] <Loader> errors found while compiling the template file'],
+			    FLORA_ABORT_NOTRACE)
+	    ; consult(CompiledTempl),
+		flora_set_template(Module,TemplateName)
+	    )
+	; flora_abort([ERROR_NL_TEMPLATE_NOT_FOUND,': ',TemplateName],FLORA_ABORT_NOTRACE)
+	).
+%% flora_make_ergotext_template(+InputFile,-OutFile,-Status)
+%%
+%% OutputFile contains the compiled template. If it is newer than
+%% input then just returns the compiled template file name. Otherwise,
+%% compiles the template first.
+flora_make_ergotext_template(InputFile,OutFile,StatusList) :-
+	flora_check_filename(InputFile,File1),
+	(flora_locate_file(File1,ERGO_NLTEMPLATE_EXT,ErgoTextFile) -> true
+	; flrfilename_error(File1,ERGO_NLTEMPLATE_EXT) -> fail
+	),
+	util_ergotext_filename(ErgoTextFile,OutFile),
+	util_textgen_filename(ErgoTextFile,GenOutFile),
+	(util_file_newerthan(OutFile,ErgoTextFile),
+	    user_patch_file(UsrPatchFile),
+	    util_file_newerthan(OutFile,UsrPatchFile)
+	->
+#ifdef DEBUG_TEMPLATES
+	    flora_current_out_nl,
+	    flora_current_out_line('+++ The compiled template file is up-to-date.'),
+#endif
+	    StatusList = NO_ERRORS
+	;
+	    seeing(PreInFile),
+	    util_compile_ergotext_template(ErgoTextFile,ParserList,StatusList1),
+	    see(PreInFile),
+	    %% don't print error/warnings here
+	    %%print_warnings(StatusList),
+	    %%print_errors(StatusList),
+	    (memberchk(error(EN),StatusList1), EN == 0 ->
+		check_templates_for_ambiguity(ParserList,AmbigStatus),
+		(AmbigStatus == NO_ERRORS ->
+		    write_out_template_list(OutFile,ParserList),
+		    write_out_textgen_template_list(GenOutFile,ParserList),
+		    StatusList = StatusList1
+		;
+		    StatusList2 = [FLORA_EOF,error(1),
+				   lexer(NO_ERRORS),composer(NO_ERRORS),
+				   parser(AmbigStatus)],
+		    merge_status_lists(StatusList1,StatusList2,StatusList)
+		)
+	    ; StatusList = StatusList1
+	    )
+	).
+
+util_compile_ergotext_template(ErgoTextFile,ParserList,StatusList) :-
+	soft_reset_modules_for_file(ErgoTextFile),
+	flora_set_xpp_options_for_read,
+	xpp_process_file(ErgoTextFile,XPP_process,IOportFromProc),
+	%% ensure token numbers are reported as variables by the composer
+	flora_set_composer_context(CONTEXT_COMPOSER_OMITTING_INDEX),
+	flora_set_parser_context(CONTEXT_PARSER_NL_TEMPLATES),
+	see(IOportFromProc),
+	util_read_then_parse_file(ParserList,StatusList),
+	flora_clear_compilation_permaoptions,
+	!,
+	%% Wait so as to not leave zombies.
+	check_xpp_process_status(ErgoTextFile,XPP_process,close_on_error),
+	seen,
+	flora_clear_xpp_options,
+	flora_clear_parser_context(CONTEXT_PARSER_NL_TEMPLATES),
+	flora_clear_composer_context(CONTEXT_COMPOSER_OMITTING_INDEX).
+
+/*
+    This is used in fidji-cks.P in order to process ergotext files in the editor
+*/
+util_compile_ergotext_template_stdin(ParserList,StatusList) :-
+	%% ensure token numbers are reported as variables by the composer
+	flora_set_composer_context(CONTEXT_COMPOSER_OMITTING_INDEX),
+	flora_set_parser_context(CONTEXT_PARSER_NL_TEMPLATES),
+	util_read_then_parse_file(ParserList,StatusList1),
+	flora_clear_compilation_permaoptions,
+	!,
+	flora_clear_parser_context(CONTEXT_PARSER_NL_TEMPLATES),
+	flora_clear_composer_context(CONTEXT_COMPOSER_OMITTING_INDEX),
+        (memberchk(error(EN),StatusList1), EN == 0 ->
+            check_templates_for_ambiguity(ParserList,AmbigStatus),
+            (AmbigStatus == NO_ERRORS ->
+                StatusList = StatusList1
+            ;
+                StatusList2 = [FLORA_EOF,error(1),
+                               lexer(NO_ERRORS),composer(NO_ERRORS),
+                               parser(AmbigStatus)],
+                merge_status_lists(StatusList1,StatusList2,StatusList)
+            )
+        ; StatusList = StatusList1
+        ).
+
+util_ergotext_filename(File,ErgoTextFile) :-
+	parse_filename(File,Dir,Base,_Ext),
+	flora_slash(S),
+	flora_concat_atoms([Dir,FLORA_HIDDEN_DIR,S],HiddenDir),
+	%% create aux dir, if needed
+	( flora_file_op(exists,HiddenDir) -> true
+	; flora_file_op(mkdir,HiddenDir) -> true
+	;
+	    flora_abort(['cannot create the ',FLSYSTEM,
+			 ' auxiliary folder for storing compiled files: ',
+			 HiddenDir, '. Aborting.'],
+			FLORA_ABORT_NOTRACE)
+	),
+	flora_concat_atoms([HiddenDir,
+			    Base,'_',ERGO_NLTEMPLATE_EXT,
+			    '.',FLORA_HIDDEN_PROLOG_EXT],
+			   ErgoTextFile).
+
+flora_load_textgen_template(FlrFile,Mod) :-
+	util_textgen_filename(FlrFile,ErgoTextGenFile),
+	((flora_locate_file(ErgoTextGenFile,FLORA_HIDDEN_PROLOG_EXT,FullErgoTextGenFile) -> true
+         ; flrfilename_error(ErgoTextGenFile,FLORA_HIDDEN_PROLOG_EXT) -> fail
+         ),
+	 parse_filename(FullErgoTextGenFile,Dir,Base,_),
+         url_encode(Mod,Mod_enc),
+	 flora_concat_atoms([Dir,Base,'_',Mod_enc,'.',PROLOG_OBJFILE_EXT],FullErgoTextGenWSXWAMFile),
+	 flora_concat_atoms([Dir,Base,'.',PROLOG_OBJFILE_EXT],FullErgoTextGenMainXWAMFile),
+	 (util_file_newerthan(FullErgoTextGenFile,FullErgoTextGenWSXWAMFile) ->
+	    flora_set_xpp_options_for_prolog_compile(Mod),
+	    compile(FullErgoTextGenFile),
+	    flora_clear_xpp_options,
+	    util_rename_file(FullErgoTextGenMainXWAMFile,FullErgoTextGenWSXWAMFile)
+	 ; true
+	 ),
+	 consult(FullErgoTextGenWSXWAMFile)
+	-> true
+	; flora_abort([ERROR_TEXTGEN_LOAD_FAILED,': ',ErgoTextGenFile],FLORA_ABORT_NOTRACE)
+	).
+
+util_textgen_filename(File,ErgoTextGenFile) :-
+	parse_filename(File,Dir,Base,_Ext),
+	flora_slash(S),
+	flora_concat_atoms([Dir,FLORA_HIDDEN_DIR,S],HiddenDir),
+	%% create aux dir, if needed
+	( flora_file_op(exists,HiddenDir) -> true
+	; flora_file_op(mkdir,HiddenDir) -> true
+	;
+	    flora_abort(['cannot create the ',FLSYSTEM,
+			 ' auxiliary folder for storing compiled files: ',
+			 HiddenDir, '. Aborting.'],
+			FLORA_ABORT_NOTRACE)
+	),
+	flora_concat_atoms([HiddenDir,
+			    Base,'_',textgen,
+			    '.',FLORA_HIDDEN_PROLOG_EXT],
+			   ErgoTextGenFile).
+
+check_templates_for_ambiguity(ParserList,Status) :-
+	flatten(ParserList,FlatList),
+	extract_template_phrases(FlatList,SentList),
+	check_phrases_for_ambiguity(SentList,Status1-Tail),
+	Tail = [],
+	remove_duplicate_errors(Status1,Status).
+check_phrases_for_ambiguity([],T-T) :- !.
+check_phrases_for_ambiguity([H|SentList],Head - T) :-
+	(find_ambiguous_pair(H,SentList,N,M) ->
+	    flora_token_index_to_line(N,NLine),
+	    flora_token_index_to_line(M,MLine),
+	    parsing_error(N,
+			  ['ambiguity among templates on lines ', NLine, ' and ', MLine,
+			   ': overlapping contexts and non-disjoint phrases'],
+			  [Error]),
+	    Head = [NLine+MLine+Error|Tail]
+	; Head = Tail
+	),
+	check_phrases_for_ambiguity(SentList,Tail-T).
+extract_template_phrases([],[]) :- !.
+extract_template_phrases([template(L,S,_,_,Idx)|ParserList], [(L,S2,Idx)|SentList]) :-
+	!,
+	my_copy_term(S,_,S2),
+	extract_template_phrases(ParserList,SentList).
+extract_template_phrases([_|ParserList], SentList) :-
+	extract_template_phrases(ParserList,SentList).
+
+my_copy_term(Var,_NameVarPairs,_) :-
+	var(Var),
+	!.
+my_copy_term(Term,_NameVarPairs,Term) :-
+	atomic(Term),
+	!.
+my_copy_term(Term,NameVarPairs,Var) :-
+	is_flvariable(Term,Name,_),
+	!,
+	memberchk(Name=Var,NameVarPairs).
+my_copy_term(Term,NameVarPairs,NewTerm) :-
+	is_list(Term),
+	my_copy_list(Term,NameVarPairs,NewTerm).
+my_copy_term(Term,NameVarPairs,NewTerm) :-
+	!,
+	Term =.. [F|Args],
+	my_copy_list(Args,NameVarPairs,NewArgs),
+	NewTerm =.. [F|NewArgs].
+
+my_copy_list([],_NameVarPairs,[]) :- !.
+my_copy_list([Arg|Args],NameVarPairs,[NewArg|NewArgs]) :-
+	my_copy_term(Arg,NameVarPairs,NewArg),
+	my_copy_list(Args,NameVarPairs,NewArgs).
+
+find_ambiguous_pair(_,[],_,_) :- !, fail.
+find_ambiguous_pair((Context,Sentence,N),[(Context,Sentence,M)|_],N,M) :- !.
+find_ambiguous_pair((Context,Sentence,N),[_|Rest],N,M) :-
+	find_ambiguous_pair((Context,Sentence,N),Rest,N,M).
+
+remove_duplicate_errors([],[]) :- !.
+remove_duplicate_errors([N+M+_,N+M+H2|Tail],Result) :-
+	!,
+	remove_duplicate_errors([N+M+H2|Tail],Result).
+remove_duplicate_errors([_+_+H|Tail],[H|Result]) :-
+	remove_duplicate_errors(Tail,Result).
+
+
+%% uses write_out_template_list/1 to write to a file
+write_out_template_list(File,List) :-
+	telling(OutFile),
+	tell(File),
+	write(':- export template/4.'),
+	nl, nl,
+	write_out_template_list(List),
+	told,
+	tell(OutFile).
+
+%% write_out_template_list/1
+write_out_template_list([]) :- !.
+write_out_template_list([''|T]) :-
+	!,
+	write_out_template_list(T).
+write_out_template_list([H|T]) :-
+	is_list(H),
+	!,
+	write_out_template_list(H),
+	write_out_template_list(T).
+write_out_template_list([H|T]) :-
+	write_one_template(H),
+	write_out_template_list(T).
+
+write_one_template(H) :-
+	H =.. [_|Args],
+	Args = [Type,Sent,Formula,ProtectedVars,_Idx],
+	write(template), put(CH_LPAREN),
+	write(Type), put(CH_COMMA),
+	IdxVar = _,  %% new variable used in zapping the index
+	write_template_term(Sent,keepindex,[],IdxVar), put(CH_COMMA),
+	write_template_term(Formula,zapindex,ProtectedVars,IdxVar),
+	put(CH_COMMA), writeq(IdxVar),
+	put(CH_RPAREN),
+	write('.\n').
+
+%% write out textgen templates
+write_out_textgen_template_list(File,List) :-
+	telling(OutFile),
+	tell(File),
+	write(':- compiler_options([xpp_on]).'),
+	nl,
+	write('#include "flrheader.flh"'),
+	nl, nl,
+	flora_set_compilation_context(CONTEXT_COMPILER_BODY([])),
+	flora_set_counter(TEXTGEN_CONTEXT,1),
+	write_out_textgen_template_list(List),
+	flora_set_counter(TEXTGEN_CONTEXT,0),
+	flora_clear_compilation_context(CONTEXT_COMPILER_BODY(_)),
+	told,
+	tell(OutFile).
+
+%% write_out_textgen_template_list/1
+write_out_textgen_template_list([]) :- !.
+write_out_textgen_template_list([''|T]) :-
+	!,
+	write_out_textgen_template_list(T).
+write_out_textgen_template_list([H|T]) :-
+	is_list(H),
+	!,
+	write_out_textgen_template_list(H),
+	write_out_textgen_template_list(T).
+write_out_textgen_template_list([H|T]) :-
+	write_one_textgen_template(H),
+	!,
+	write_out_textgen_template_list(T).
+
+write_one_textgen_template(H) :-
+	H =.. [_|Args],
+	Args = [Type,Sent,Formula,_ProtectedVars,_Idx],
+	%% only body - templates (including headbody) are used for text
+	%% generation
+	(Type == body ->
+            write('?-('),
+	    write(FL_ERGOTXT_TEXTGEN_INSERT),
+	    put(CH_LPAREN),
+	    compile_reifyop(Formula,FormulaCode,_OidCode,__Stat1),
+	    flora_write_struct(FormulaCode,CODER_BODY_CONTEXT,__Stat2),
+	    put(CH_COMMA),
+	    write_template_term(Sent,keepindex,[],_IdxVar),
+	    put(CH_COMMA),
+	    put(CH_UNDERSCORE),
+	    put(CH_RPAREN),
+	    write(').\n')
+	; true
+	).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+write_template_term(X,_,_,_Idx) :-
+	var(X),
+	!,
+	writeq(X).
+write_template_term(X,_,_,_) :-
+	atomic(X),
+	!,
+	writeq(X).
+write_template_term(X,IndexAction,_,IdxVar) :-
+	flora_get_flatom_name(X,_,_,Index),
+	!,
+	del_attr(Index,FLTOKENIDX),
+	(IndexAction == zapindex, var(Index) -> Index = IdxVar
+	; true
+	),
+	writeq(X).
+write_template_term(X,zapindex,ProtectedVars,IdxVar) :-
+	(is_fldescriptor(X,_Descr,_Type,Index) -> true
+	; is_flneg(X,_Body,Index)
+	),
+	var(Index),
+	get_attr(Index,FLTOKENIDX,_),
+	!,
+	del_attr(Index,FLTOKENIDX),
+	Index = IdxVar,
+	write_template_term(X,zapindex,ProtectedVars,IdxVar).
+write_template_term(X,zapindex,ProtectedVars,IdxVar) :-
+	(is_fllogicquantifier(X,_,QuantVars,_VarsCode,Form,Index) -> true
+	; is_fldelayquant(X,_,_,Form,Index), QuantVars = []
+	),
+	var(Index),
+	get_attr(Index,FLTOKENIDX,_),
+	!,
+	del_attr(Index,FLTOKENIDX),
+	Index = IdxVar,
+	%%flrcompiler:collect_flvars(Form,AddlProtectedVars),
+	varnames2flvars(QuantVars,AddlProtectedVars),
+	append(AddlProtectedVars,ProtectedVars,ProtectedVarsAll),
+	write_template_term(X,zapindex,ProtectedVarsAll,IdxVar).
+write_template_term(X,zapindex,ProtectedVars,IdxVar) :-
+	is_flaggregate(X,_,AggV,_GV,_,_Form),
+	is_flvariable(AggV,_AggName,Index),
+	get_attr(Index,FLTOKENIDX,_TokenNum),
+	!,
+	del_attr(Index,FLTOKENIDX),
+	Index = IdxVar,
+	ProtectedVarsAll = [AggV|ProtectedVars],
+	write_template_term(X,zapindex,ProtectedVarsAll,IdxVar).
+write_template_term(X,_IndexAction,ProtectedVars,IdxVar) :-
+	is_flvariable(X,Name,Index),
+	!,
+	del_attr(Index,FLTOKENIDX),
+	(Name == FL_ANON_VAR -> writeq(X)
+	; copy_term(X,XX), memberchk(XX,ProtectedVars) ->
+	    Index = IdxVar,
+	    writeq(X)
+	; fmt_write('__%s',arg(Name))
+	).
+write_template_term(X,_,ProtectedVars,IdxVar) :-
+	is_fltransactionalvariable(X,Name,Index),
+	!,
+	del_attr(Index,FLTOKENIDX),
+	(Name == FL_ANON_VAR -> writeq(X)
+	; copy_term(X,XX), memberchk(XX,ProtectedVars) ->
+	    Index = IdxVar,
+	    writeq(X)
+        ; fmt_write('__%s',arg(Name))
+	).
+write_template_term(X,IndexAction,ProtectedVars,IdxVar) :-
+        %% postponed attempt to mark spaces in templates.
+        %% See extensions/flrcomposertext.P for detailed comment
+        fail,
+	flora_get_counter(TEXTGEN_CONTEXT,1),
+        is_prefixed_with_ergotext_word_connector(X,Rest),
+        !,
+        write_template_term(Rest,IndexAction,ProtectedVars,IdxVar).
+write_template_term(X,IndexAction,ProtectedVars,IdxVar) :-
+	is_list(X),
+	!,
+	put(CH_LBRACKET),
+	write_template_list(X,IndexAction,ProtectedVars,IdxVar),
+	put(CH_RBRACKET).
+write_template_term(X,IndexAction,ProtectedVars,IdxVar) :-
+	compound(X),
+	!,
+	X =.. [F|Args],
+        %% write ,(x,y) as (x,y)
+	(F == FL_COMMA ->true
+	; writeq(F)
+	),
+	put(CH_LPAREN),
+	write_template_list(Args,IndexAction,ProtectedVars,IdxVar),
+	put(CH_RPAREN).
+
+write_template_list([],_,_,_) :- !.
+write_template_list([A|Args],IndexAction,ProtectedVars,IdxVar) :-
+        %% postponed attempt to mark spaces in templates.
+        %% See extensions/flrcomposertext.P for detailed comment
+        fail,
+	flora_get_counter(TEXTGEN_CONTEXT,1),
+	is_ergotext_word_connector(A),
+        !,
+        write_template_list(Args,IndexAction,ProtectedVars,IdxVar).
+write_template_list([A|Args],IndexAction,ProtectedVars,IdxVar) :-
+	write_template_term(A,IndexAction,ProtectedVars,IdxVar),
+	(Args == [] -> true
+	; put(CH_COMMA),
+	    write_template_list(Args,IndexAction,ProtectedVars,IdxVar)
+	).
+
+
+%% used for ErgoText templates
+%% here we don't want to reset the lexer and the parser,
+%% since we are returning to the main file after the template is finished.
+:- export soft_reset_modules_for_file/1.
+soft_reset_modules_for_file(FullFileName) :-
+	flora_begin_file(FullFileName),
+	(retract(util_stop_merging(true)) ; true),
+	!.
+
+%% takes the template module and returns the template source filename
+template_source_file_name(Module,TemplFile) :-
+	flora_get_template_srcfile(Module,SrcFile),
+	flora_get_substring(SrcFile,0,-1,TemplFile).
+
+varnames2flvars([],[]) :- !.
+varnames2flvars([N|Rest],[V|VRest]) :-
+	is_flvariable(V,N,_),
+	varnames2flvars(Rest,VRest).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% verifying crypto hashes
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+#include "builtin.h"
+%% MD5  1
+%% SHA1 2
+
+#define HASHTYPE SHA1
+
+%%#define DEBUG_HASHES
+%%#define DEBUG_HASHES_SHOW_ONLY_MISMATCHES
+
+#define CORRUPTED "corrupted file: "
+#define TEMPERED  "; the file may have been tampered with"
+#define MISSING   "missing file: "
+#define EXITING   "; exiting"
+
+:- import crypto_hash/3 from machine.
+:- import xsb_configuration/2 from xsb_configuration.
+:- import
+        flora_get_counter/2,
+        flora_set_counter/2,
+	flora_convert_forward_slash_to_backward/2,
+	flora_running_under/4,
+	flora_get_substring/4
+   from flrporting.
+:- import
+        flora_set_compilation_context/1,
+        flora_clear_compilation_context/1,
+	ergohash/2,
+	ergohash/4
+   from flrcompiler.
+:- export
+	verify_os_dependent_hashes/0,
+	verify_os_independent_hashes/0.
+
+verify_os_dependent_hashes :-
+	flora_running_under(OS,WordSize,_,CpuType),
+        (CpuType==arm -> flora_concat_atoms([OS,WordSize,'_arm'],OSkey)
+	; flora_concat_atoms([OS,WordSize],OSkey)
+        ),
+#ifdef DEBUG_HASHES
+	WARNOUTLN(oskey = OSkey),
+#endif
+	repeat,
+	(ergohash(OSkey,TargetDirIndicator,LocalName,Hash),
+	    xsb_configuration(TargetDirIndicator,TargetDir),
+	    flora_slash(Slash),
+	    flora_concat_atoms([TargetDir,Slash,LocalName],ProtectedFilePre),
+	    (flora_running_under(windows) ->
+		flora_convert_forward_slash_to_backward(ProtectedFilePre,ProtectedFile)
+	    ; ProtectedFile = ProtectedFilePre
+	    ),
+	    (flora_file_op(exists,ProtectedFile) ->
+		crypto_hash(HASHTYPE,file(ProtectedFile),ActualHash),
+#ifdef DEBUG_HASHES
+		(Hash == ActualHash ->
+		    WARNOUTLN(ProtectedFile=passed)
+		; WARNOUTLN(ProtectedFile=failed(expected:Hash,got:ActualHash))
+		)
+#else
+	        (Hash == ActualHash -> true
+		;
+#ifdef DEBUG_HASHES_SHOW_ONLY_MISMATCHES
+                    WARNOUTLN(ProtectedFile=failed(expected:Hash,got:ActualHash)),
+#endif
+		    atom_codes(Corrupted,CORRUPTED),
+		    atom_codes(Tempered,TEMPERED),
+		    flora_abort([Corrupted,ProtectedFile,Tempered],FLORA_ABORT_NOTRACE)
+		)
+#endif
+	    ;
+#ifdef DEBUG_HASHES
+		WARNOUTLN(ProtectedFile=notfound)
+#else
+	        atom_codes(Missing,MISSING),
+	        atom_codes(Exiting,EXITING),
+		flora_abort([Missing,ProtectedFile,Exiting],FLORA_ABORT_NOTRACE)
+#endif
+	    ),
+	    fail
+	; true
+	).
+
+verify_os_independent_hashes :-
+	flora_configuration(installdir,TargetDir),
+	repeat,
+	(ergohash(LocalName,Hash),
+	    flora_concat_atoms([TargetDir,LocalName],ProtectedFilePre),
+	    (flora_running_under(windows) ->
+		flora_convert_forward_slash_to_backward(ProtectedFilePre,ProtectedFile)
+	    ; ProtectedFile = ProtectedFilePre
+	    ),
+	    (flora_file_op(exists,ProtectedFile) ->
+		crypto_hash(HASHTYPE,file(ProtectedFile),ActualHash),
+#ifdef DEBUG_HASHES
+		(Hash == ActualHash ->
+		    WARNOUTLN(ProtectedFile=passed)
+		; WARNOUTLN(ProtectedFile=failed(expected:Hash,got:ActualHash))
+		)
+#else
+	        (Hash == ActualHash -> true
+		;
+#ifdef DEBUG_HASHES_SHOW_ONLY_MISMATCHES
+                    WARNOUTLN(ProtectedFile=failed(expected:Hash,got:ActualHash)),
+#endif
+		    atom_codes(Corrupted,CORRUPTED),
+		    atom_codes(Tempered,TEMPERED),
+		    flora_abort([Corrupted,ProtectedFile,Tempered],FLORA_ABORT_NOTRACE)
+		)
+#endif
+	    ;
+#ifdef DEBUG_HASHES
+		WARNOUTLN(ProtectedFile=notfound)
+#else
+	        atom_codes(Missing,MISSING),
+	        atom_codes(Exiting,EXITING),
+		flora_abort([Missing,ProtectedFile,Exiting],FLORA_ABORT_NOTRACE)
+#endif
+	    ),
+	    fail
+	; true
+	).
+

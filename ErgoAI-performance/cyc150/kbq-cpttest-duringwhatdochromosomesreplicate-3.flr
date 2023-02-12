@@ -1,0 +1,81 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-DuringWhatDoChromosomesReplicate (query 3)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_In-house_4
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlPreds, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(subEventTypes, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(predicateIntersection, PartiallyCommutativePredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(properSubEventTypes, subEventTypes)).
+istAsserted(UniversalVocabularyMt, predicateIntersection(uniqueProperSubEventTypes, uniqueProperSubSituationTypes, properSubEventTypes)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(BaseKB, iterativeSubEventTypesTotality(InterphaseOfEukaryoticCellCycle, ChromosomalDuplication, SPhase)).
+istAsserted(BaseKB, properSubEventTypes(SPhase, ChromosomalDuplication)).
+istAsserted(BaseKB, uniqueProperSubEventTypes(InterphaseOfEukaryoticCellCycle, SPhase)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Implicit Background Rules
+forwardSentence(genlPreds(?PRED, ?GENLPRED1)) :- removalSentence(predicateIntersection(?PRED, ?XGENLPRED2, ?GENLPRED1)).
+forwardSentence(genlPreds(?PRED, ?GENLPRED1)) :- removalSentence(predicateIntersection(?PRED, ?GENLPRED1, ?XGENLPRED2)).
+forwardSentence(uniqueProperSubEventTypes(?SUPER, ?SUB)) :- removalSentence(iterativeSubEventTypesTotality(?SUPER, ?XSUB_SUB, ?SUB)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-DuringWhatDoChromosomesReplicate 3').
+%pretest :- subEventTypes(InterphaseOfEukaryoticCellCycle, ChromosomalDuplication), %write_results('SUCCESS  : $CPTTest-DuringWhatDoChromosomesReplicate 3').
+
+// Debugging
+proof(6475, 0) :- subEventTypes(InterphaseOfEukaryoticCellCycle, ChromosomalDuplication).
+
+proof(6475, 1000) :- genlPreds(uniqueProperSubEventTypes, properSubEventTypes).
+proof(6475, 1001) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(6475, 1002) :- iterativeSubEventTypesTotality(InterphaseOfEukaryoticCellCycle, ChromosomalDuplication, SPhase).
+proof(6475, 1003) :- properSubEventTypes(SPhase, ChromosomalDuplication).
+proof(6475, 1004) :- uniqueProperSubEventTypes(InterphaseOfEukaryoticCellCycle, SPhase).
+
+proof(6475, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(6475, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(6475, 2002) :- admittedArgument(SecondFn(4, MinuteFn(57, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(6475, 2003) :- admittedArgument(SecondFn(4, MinuteFn(57, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(6475, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(6475, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(6475, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(6475, 2007) :- isa(predicateIntersection, PartiallyCommutativePredicate).
+proof(6475, 2008) :- subEventTypes(InterphaseOfEukaryoticCellCycle, ChromosomalDuplication). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

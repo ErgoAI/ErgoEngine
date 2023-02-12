@@ -1,0 +1,115 @@
+/* File:      ergo_lib/ergo2owl/ergo_owl.P -- Prolog-OWL adaptor
+**
+** Author(s): Paul Fodor
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2018-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+:- compiler_options([xpp_on]).
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+#define INVALID_FILENAME 'the input file name must be an atom'
+#define INVALID_INPUT_LANG_SYNTAX 'the input language syntax must be an atom'
+#define INVALID_IRIS  'invalid component found in iris'
+#define INVALID_OUTPUT_FORMAT 'invalid output format; must be fastload, predicates, or frames'
+
+
+:- import
+        %%flora_concat_atoms/2,
+        flora_file_op/3,
+        flora_abort/2
+   from flrporting.
+
+:- import
+        flora_tempfile_by_template/6
+   from flrutils.
+
+:- import
+        java/2,
+        java/4
+   from interprolog.
+
+:- import memberchk/2 from basics.
+
+:- export
+        owl2ergo_outfile_name/3,
+        rdfTranslate/5.
+
+init :-
+  java('com.coherentknowledge.ergo.owl.ErgoOWLAPI', 'ErgoOWLAPI').
+
+?- init.
+
+% Method to load an RDF into Ergo
+rdfTranslate(RdfFile,_LangSyntax,OutFile,_OutputFormat,_IrisText) :-
+        %% don't translate OWL to Ergo if translation is newer
+        flora_file_op(newerthan,OutFile,RdfFile),
+        !.
+rdfTranslate(RdfFile,LangSyntax,OutFile,OutputFormat,IrisText) :-
+        (memberchk(OutputFormat,[fastload,predicates,frames]) -> true
+        ; flora_abort(['ErgoOWL(rdf_load): ', INVALID_OUTPUT_FORMAT],
+                      FLORA_ABORT_NOTRACE)
+        ),
+        ( atom(RdfFile) -> true
+        ;
+            flora_abort(['ErgoOWL(rdf_load): ', INVALID_FILENAME],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        ( atom(LangSyntax) -> true
+        ;
+            flora_abort(['ErgoOWL(rdf_load): ', INVALID_INPUT_LANG_SYNTAX],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        ( atom(IrisText) -> true
+        ;
+            flora_abort(['ErgoOWL(rdf_load): ', INVALID_IRIS],
+                        FLORA_ABORT_NOTRACE)
+        ),
+        flora_file_op(expand,RdfFile,RdfFileExpanded),
+        /*
+           Should pass current Ergo encoding to translateRDF in Java:
+           flrencoding:flora_encoding_for_java(Charset),
+        */
+        java('com.coherentknowledge.ergo.owl.ErgoOWLAPI', 
+             X,
+             Exception, 
+             translateRDF(string(RdfFileExpanded),
+                          string(LangSyntax),
+                          string(OutFile),
+                          string(OutputFormat),
+                          string(IrisText))
+            ),
+        ( Exception == null -> true
+        ; Exception = exception(_JavaLangException,ExceptionString),
+            flora_abort([ExceptionString],FLORA_ABORT_NOTRACE)
+        ),
+        X=boolean(1).
+
+
+owl2ergo_outfile_name(InputFileName,Format,OutputFileName) :-
+        (Format == fastload -> Suffix = '#fast.P'
+        ; Format == predicates -> Suffix = '#pred.ergo'
+        ; Format == frames -> Suffix = '#frame.ergo'
+        %% issue an error otherwise
+        ),
+        %%flora_file_op(localname,InputFileName,LocalInputName),
+        flora_file_op(expand,InputFileName,InputFileNameExpanded),
+        flora_tempfile_by_template(InputFileNameExpanded,ergo_owl,'','',Suffix,
+                                   OutputFileName).

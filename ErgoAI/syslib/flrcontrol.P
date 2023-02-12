@@ -1,0 +1,186 @@
+/* File:      flrcontrol.P
+**
+** Author(s): Michael Kifer
+**            Guizhen Yang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+
+:- import flora_commit_storage/0 from flrutils.
+:- import flora_apply_negation_wrapper/3 from flrnegation.
+:- local quitLoop/0, quitLoopAction/0, quitLoopCond/0.
+
+
+/***************************************************************************
+  if-then-else statement
+***************************************************************************/
+FLLIBIFTHENELSE(_Mod,Cond,Then,_Else,_Line,_File) :-
+	call(Cond),
+	call(Then).
+
+FLLIBIFTHENELSE(Mod,Cond,_Then,Else,Line,File) :-
+	flora_apply_negation_wrapper(Cond,Mod,CondWrapped),
+	FLORA_NAF_PREDICATE(CondWrapped,[],Line,File),
+	call(Else).
+
+
+/***************************************************************************
+  if-then statement
+
+  The semantics is such that the entire statement succeeds when the
+  condition part fails.
+***************************************************************************/
+FLLIBIFTHEN(_Mod,Cond,Then,_Line,_File) :-
+	call(Cond),
+	call(Then).
+
+FLLIBIFTHEN(Mod,Cond,_Then,Line,File) :-
+	flora_apply_negation_wrapper(Cond,Mod,CondWrapped),
+	FLORA_NAF_PREDICATE(CondWrapped,[],Line,File).
+
+
+%% UNLESS ... DO ... is like IF...THEN true ELSE ...
+FLLIBUNLESSDO(_Mod,Cond,_Action,_Line,_File) :-
+	call(Cond).
+FLLIBUNLESSDO(Mod,Cond,Action,Line,File) :-
+	flora_apply_negation_wrapper(Cond,Mod,CondWrapped),
+	FLORA_NAF_PREDICATE(CondWrapped,[],Line,File),
+	call(Action).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%   while-do and do-until loops commit storage after each iteration
+%%%%   so they are not backtrackable (backtracking over updates can occur
+%%%%   only within the condition or action parts, but not after an iteration
+%%%%   is finished)
+%%%%   These loops fail only if Action fails.
+%%%%   Variables that were unbound at the time of the call stay unbound
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This should fail ONLY if Cond is true, but Action fails.
+%% We use catch/throw to achieve this
+%% The first case is for NON-backtrackable prolog predicates, like read/1
+%% The assumption is that Cond fails when there is nothing to do. For example,
+%% read/1 won'r do: use read(Stream,X),X\==end_of_file.
+FLLIBWHILEDO(_Mod,FL_REPEAT(Cond),Action,_Line,_File) :- 
+	!,
+	FLORA_SYMBOL('catch')(
+			      (repeat,
+				  (call(Cond) ->
+				      (call(Action) ->
+                                          flrutils:flora_commit_storage,
+                                          fail
+				      ; throw(quitLoop)
+				      )
+				  ; true
+				  ),
+				  !     %% don't backtrack through the loop
+			      ),
+			      quitLoop,	%% catcher
+			      fail      %% fail, if condition was thrown
+			     ).
+FLLIBWHILEDO(_Mod,Cond,Action,_Line,_File) :- 
+	FLORA_SYMBOL('catch')((call(Cond),
+			       (call(Action) ->
+                                   flrutils:flora_commit_storage
+			       ; throw(quitLoop)
+			       ),
+			       fail
+			      ; true
+			      ),
+			      quitLoop,	%% catcher
+			      fail      %% fail, if condition was thrown
+			     ).
+
+%% Fails only if Action becomes false before Cond becomes true
+FLLIBDOUNTIL(_Mod,Action,FL_REPEAT(Cond),_Line,_File) :-
+	!,
+	FLORA_SYMBOL('catch')(
+			      (repeat,
+				  (
+				    (call(Action),
+                                        flrutils:flora_commit_storage
+				    ; throw(quitLoopAction)
+				    ),
+				    call(Cond),
+				    throw(quitLoopCond)
+				  )
+			      ; true
+			      ),
+			      Ball,
+			      (Ball == quitLoopAction ->fail
+			      ; Ball == quitLoopCond -> true
+			      ; throw(Ball)
+			      )
+			     ).
+FLLIBDOUNTIL(_Mod,Action,Cond,_Line,_File) :-
+        repeat,
+	call(Action),
+	flora_commit_storage,
+	call(Cond),
+        !.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% while-loop and loop-until
+%%%% These loops are fully backtrackable, but they are more expensive, 
+%%%% since they are recursive.
+%%%% These loops fail only if Action fails.
+%%%% Variables that were unbound at the time of the call stay unbound
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+FLLIBWHILELOOP(_Mod,Cond,Action,Line,File) :- 
+	%% Must copy_term Action&Cond together so the variables
+	%% will be preserved
+	copy_term((Action,Cond),(Action1,Cond1)),
+	(call(Cond1) ->
+	    (call(Action1), FLLIBWHILELOOP(_Mod,Cond,Action,Line,File)
+	    ; fail
+	    )
+	; true
+	).
+
+%% Cond shouldn't be tabled!!! Otherwise "naf" barks!!!
+%% We can't use FLORA_NAF_PREDICATE instead of "naf" because
+%% FLORA_NAF_PREDICATE would table Cond and cause more iterations
+%% than necessary. We could call flora_abolish_nonincremental_tables from within
+%% FLORA_NAF_PREDICATE, but this is dangerous:
+%%    If there is a recursive dependency on Cond then abolishing tables
+%%    while computing them can crash XSB
+FLLIBLOOPUNTIL(_Mod,Action,Cond,Line,File) :-
+	%% Must copy_term Action&Cond together so the variables
+	%% will be preserved
+	copy_term((Action,Cond),(Action1,Cond1)),
+	call(Action1),
+	(call(Cond1) -> true
+	;
+            FLLIBLOOPUNTIL(_Mod,Action,Cond,Line,File)
+	).
+
+
+%% This exists in order to hide the calls to catch/throw in the debugger
+FLORA_SYMBOL('catch')(X,Y,Z) :- catch(X,Y,Z).

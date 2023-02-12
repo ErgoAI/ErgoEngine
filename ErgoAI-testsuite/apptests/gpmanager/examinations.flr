@@ -1,0 +1,344 @@
+:- use_rule_structure_db.
+
+
+/********************************************************************
+**      Print information about a particular exam
+********************************************************************/
+
+:- ignore_depchk{%clean_failhistory_internal(?_,?_), %clean_failhistory(?_,?_)}.
+:- symbol_context{
+            qualScores/1, %print/1, %printQualInfo/1, printQualInfo/1,
+            %print_advisor/2,
+            %printQualInfoForStudent/1, remarks/0,
+            %print_remarks/1, date/2, qualScores/0, %printQualInfo/0,
+            printQualInfo/0, date/1
+   }.
+
+// History list may contain dummy entries -- ignore
+%clean_failhistory([],[]) :- \true.
+%clean_failhistory(?L,?CleanL) :-
+	%clean_failhistory_internal(?L,?CleanL).
+
+// This one grounds the CleanL var when computation ended
+%clean_failhistory_internal([],[]) :- !.
+%clean_failhistory_internal([date(?Y,?M)|?Rest], ?CleanL) :-
+	(?Y==none; ?M == none),
+	!,
+	%clean_failhistory_internal(?Rest,?CleanL).
+%clean_failhistory_internal([none|?Rest],?CleanL) :-
+	!,
+	%clean_failhistory_internal(?Rest,?CleanL).
+%clean_failhistory_internal([date(?_Y,?_M)|?Rest], [date(?_Y,?_M)|?CleanL]) :-
+	%clean_failhistory_internal(?Rest, ?CleanL).
+
+?Exam[getFailHistoryDates-> ?Hist] :- 
+	?Exam:exam@PPLMODULE,
+	?List = collectset{?Date| ?Exam.failed[date->?Date]@PPLMODULE},
+	%clean_failhistory(?List,?Hist).
+
+?Exam[passing_date -> ?Date] :-
+	?Exam:exam@PPLMODULE,
+	// legacy or new dates
+	?Exam[passed->?Date; passed->?_[?Date]]@PPLMODULE,
+	?Date[isValid]@TEMPORAL,
+	!.
+
+?Exam[qualResult(?Semester)-> passed] :-
+	?Exam[passing_date -> ?_Date[qualsSemester->?Semester]@TEMPORAL],
+	!.
+?Exam[qualResult(?Semester)-> noretake] :-
+	?Exam[noretake]@PPLMODULE,
+	?Exam[date(?Semester)->?_],
+	!.
+?Exam[qualResult(?Semester)-> failed] :-
+	?Semester[before->fall(2003)]@TEMPORAL,
+	!,
+	?Exam:exam@PPLMODULE,
+	?Exam[failed -> ?_[date->?_Date[qualsSemester->?Semester]@TEMPORAL]]@PPLMODULE.
+?Exam[qualResult(?Semester)-> incomplete] :-
+	?Exam[date(?Semester)->?_].
+
+
+// Scores of the exam for this semester
+?_Exam[qualScores(?_Semester)-> {}].
+?Exam[qualScores(?Semester)-> (?Date,?R) - pass(?Score)] :-
+	// passed exams
+	?Exam[passed->?_[details->
+                           ?Rec[date->?Date[qualsSemester->?Semester]@TEMPORAL,
+			       scores->?Score
+			       //(remarks->R, ! ; R='')
+			    ]]
+	      ]@PPLMODULE,
+	\unless ?Rec[remarks->?R]@PPLMODULE \do ?R=''.
+?Exam[qualScores(?Semester)-> (?Date,?R) - fail(?Score)] :-
+	// failed exams
+	?Exam[failed->?Rec[date->?Date[qualsSemester->?Semester]@TEMPORAL,
+	    	    	   scores->?Score
+		        ]
+    	    ]@PPLMODULE,
+	\unless ?Rec[remarks->?R]@PPLMODULE \do ?R=''.
+
+// All scores, not just this semester
+?_Exam[qualScores-> {}].
+?Exam[qualScores-> (?Date,?R) - pass(?Score)] :-
+	// passed exams
+	?Exam[passed->?_[details->
+                           ?Rec[date->?Date,
+			       scores->?Score
+			       //(remarks->?R, ! ; ?R='')
+			     ]]
+	      ]@PPLMODULE,
+	\unless ?Rec[remarks->?R]@PPLMODULE \do ?R=''.
+?Exam[qualScores-> (?Date,?R) - fail(?Score)] :-
+	// failed exams
+	?Exam[failed->?Rec[date->?Date,
+	    	    	   scores->?Score
+			   //(remarks->?R, ! ; ?R='')
+			 ]
+    	    ]@PPLMODULE,
+	\unless ?Rec[remarks->?R]@PPLMODULE \do ?R=''.
+
+
+?Exam[date(?Semester)-> ?Date] :-
+	?Exam[passing_date -> ?Date[qualsSemester->?Semester]@TEMPORAL],
+	!.
+?Exam[date(?Semester)-> ?Date] :-
+	?Exam[passed->?_[details->?_[date->?Date[qualsSemester->?Semester]@TEMPORAL]]]@PPLMODULE,
+	!.
+?Exam[date(?Semester)-> ?Date] :-
+	?Exam[failed->?_[date->?Date[qualsSemester->?Semester]@TEMPORAL]]@PPLMODULE.
+        
+
+
+?Exam[%print_pass_fail_info(?FailHistory,?Indent)] :-
+	?Exam:exam@PPLMODULE,
+	\if ?Exam[passing_date->?Date]
+	\then (
+	       write('Passed: ')@\plg(), ?Date[%println]@TEMPORAL,
+	       \if ?FailHistory \== []
+	       \then (
+		      %indent(?Indent),
+		      write('Prior attempts: ')@\plg(),
+		      %print_date_list(?FailHistory)
+	       )
+        ) \else (
+	       \if ?FailHistory == []
+	       \then
+		  writeln('Not taken')@\plg()
+	       \else (
+		   write('Failed on: ')@\plg(),
+		   %print_date_list(?FailHistory)
+	       )
+        ).
+
+?Exam[%print_conditions(?Indent)] :-
+	?Exam:exam@PPLMODULE,
+	\if (
+	       %nonempty(${?Exam[conditions->?Cond]@PPLMODULE}),
+	       ?Exam.passing_date[]
+        ) \then (
+	       %indent(?Indent),
+	       format('Conditions: ~w~n', [?Cond])@\plg(format)
+        ).
+
+?Exam[%print_remarks(?Indent)] :-
+	?Exam:exam@PPLMODULE,
+	\if %nonempty(${?Exam[remarks->?Remark]@PPLMODULE})
+        \then (
+	       %indent(?Indent),
+	       format('Remarks:  ~w~n', [?Remark])@\plg(format)
+        ).
+
+nottaken[%print(?_Indent)] :- !,
+	writeln('Not taken')@\plg().
+
+?Exam[%print(?Indent)] :-
+	?Exam:exam@PPLMODULE,
+	\if ?Exam[getFailHistoryDates->?Hist]
+        \then
+           ?Exam[%print_pass_fail_info(?Hist,?Indent)]
+        \else
+           ?Exam[%print_pass_fail_info([],?Indent)],
+	?Exam[%print_conditions(?Indent)],
+	?Exam[%print_remarks(?Indent)].
+
+
+?Exam[%printQual(?Sem,?Indent)] :-
+	?Exam[qualResult(?Sem)-> ?Result],
+	%indent(?Indent),write('Overall result:  ')@\plg(),
+	writeln(?Result)@\io,
+	\if ?Result == passed
+	\then ?Exam[%print_conditions(?Indent)],
+	?Exam[qualScores(?Sem)->-> ?Scores],
+	%writeQualScores('Current scores:  ',?Indent,?Scores),
+	?Exam[qualScores->-> ?AllScores],
+	\if ?Scores=[(?Date,?_Remark) - ?_Result |?_] \then
+	    %removeScores(?Date,?AllScores,?RestScores)
+	\else ?RestScores=?AllScores,
+	%writeQualScores('Past scores:     ',?Indent,?RestScores),
+	?Exam[%print_remarks(?Indent)],
+	nl@\plg().
+
+?Stud[%printQualInfo(?Sem)] :-
+	?Stud: student@PPLMODULE,
+	?Stud[%print_basic_info],
+	?Stud[%print_joined(1)],
+	?Stud[%print_advisor(?Sem,1)],
+	?Stud[%print_status(?Sem,1)],
+	?Stud[quals->?Exam]@PPLMODULE,
+	?Exam[%printQual(?Sem,1)].
+
+?Stud[%printQualInfo] :-
+	?Stud: student@PPLMODULE,
+	?Stud[%print_basic_info],
+	?Stud[%print_joined(1)],
+	?Stud[%print_advisor(?Sem,1)],
+	?Stud[%print_status(?Sem,1)],
+	%indent(1), write('Quals:    ')@\plg(),
+	((?Stud.quals)@PPLMODULE)[%print(1)].
+
+%writeQualScores(?Header,?Indent,?ScoreList) :-
+	\if ?ScoreList \= [] \then (
+	    %indent(?Indent), write(?Header)@\plg(),
+	    %writeQualScores1((null,''), ?Indent, ?ScoreList)
+	).
+// Final remark and newline
+%writeQualScores1((?_PrevDate,?PrevR),?_,[]) :-
+	\if ?PrevR \== '' \then (
+	       write(' [')@\plg(),
+	       write(?PrevR)@\plg(),
+	       writeln(']')@\plg()
+	) \else nl@\plg().
+%writeQualScores1((?PrevD,?PrevR), ?Indent, [(?Date,?Remark) - ?Result(?Part(?Score))|?Rest]) :-
+	\if (?PrevD,?PrevR) \= (?Date,?Remark) \then (
+	    \if ?PrevR \== '' \then (
+	       write('  [')@\plg(),
+	       write(?PrevR)@\plg(),
+	       write(']')@\plg()
+	    ),
+	    \unless ?PrevD == null \do (
+	        nl@\plg(),
+		%indent(?Indent),
+		write('                 ')@\plg()
+	    ),
+	    ?Date[%print]@TEMPORAL,
+	    write(' - ')@\plg()
+        ),
+	write(?Part)@\plg(),
+	write('=')@\plg(),
+	write(?Score)@\plg(),
+	write('/')@\plg(),
+	write(?Result)@\plg(),
+	write(' ')@\plg(),
+	%writeQualScores1((?Date,?Remark), ?Indent, ?Rest).
+
+
+// Print results for people who took the quals in Sem
+%printQualResults(?Sem) :-
+	%printquery(printQualInfo(?Sem),
+		    SORT_on_NAME(?S),
+		    querySpec(?S,${((?S.quals)@PPLMODULE).qualResult(?Sem)[]})).
+
+// Situations with the quals for PhD students who have been here
+// at least 1 semester and have not finished all the quals
+%print_quals_watchlist(?Sem) :-
+	%printquery(printQualInfo,
+		    SORT_on_NAME(?S),
+		    querySpec(?S, ${
+				   (
+				    (?S:phd(?Sem))@PPLMODULE,
+				    (
+					(?S.quals.passed)@PPLMODULE = futuredate
+				    ;
+				        ?S.quals.passed[futuredate]@PPLMODULE
+				    ),
+				    ((?S.joined)@PPLMODULE)[before->?Sem]@TEMPORAL
+				   )
+		                  })).
+
+// Removes scores corresponding to Date
+%removeScores(?_Date, [], []) :- !.
+%removeScores(?Date, [(?Date,?_Remark) - ?_Result|?Scores], ?Result) :-
+	!,
+	%removeScores(?Date,?Scores,?Result).
+%removeScores(?Date, [?_Score|?Scores], [?_Score|?Result]) :-
+	!,
+	%removeScores(?Date,?Scores,?Result).
+
+// Produce a report for students
+// Print results for people who took the quals in Sem
+%printQualResultsForStudents(?Sem) :-
+	%printquery(printQualInfoForStudent(?Sem),
+		    SORT_on_NAME(?S),
+		    querySpec(?S,${((?S.quals)@PPLMODULE).qualResult(?Sem)[]})).
+
+// Write qual results for students
+?Stud[%printQualInfoForStudent(?Sem)] :-
+	?Stud: student@PPLMODULE,
+	?Stud[%print_basic_info],
+	?Stud[quals->?Exam]@PPLMODULE,
+	?Exam[%printQualForStudent(?Sem,1)].
+
+?Exam[%printQualForStudent(?Sem,?Indent)] :-
+	?Exam[qualResult(?Sem)-> ?Result],
+	%indent(?Indent),write('Overall qualifier status:  ')@\plg(),
+	writeln(?Result)@\io,
+	\if ?Result == passed
+	\then ?Exam[%print_conditions(?Indent)],
+	?Exam[qualScores(?Sem)->-> ?Scores],
+	%writeQualScoresForStudent('Results per exam: ',?Indent,?Scores),
+	?Exam[qualScores->-> ?AllScores],
+	\if ?Scores=[(?Date,?Remark) - ?_Result |?_] \then
+	    %removeScores(?Date,?AllScores,?RestScores)
+	\else ?RestScores=?AllScores,
+	%writeQualScoresForStudent('Past results:     ',?Indent,?RestScores),
+	\if (?Scores = [(?_,?Remark) - ?_ | ?_], ?Remark \= '')
+        \then (%indent(?Indent),writeln('*** GPD: add remarks ***')@\plg()),
+	%indent(?Indent),write('Your next action: ')@\plg(),
+	%writeNextAction(?Exam,?Result,?Sem),
+	nl@\plg().
+
+%writeQualScoresForStudent(?Header,?Indent,?ScoreList) :-
+	\if ?ScoreList \= [] \then (
+	    %indent(?Indent), write(?Header)@\plg(),
+	    %writeQualScoresForStudent1((null,''), ?Indent, ?ScoreList)
+	).
+// Final remark and newline
+%writeQualScoresForStudent1(?_,?_,[]) :- nl@\plg().
+%writeQualScoresForStudent1((?PrevD,?_), ?Indent, [(?Date,?Remark) - ?Result(?Part(?_Score))|?Rest]) :-
+	\if ?PrevD \= ?Date \then (
+	    \unless ?PrevD == null \do (
+	        nl@\plg(),
+		%indent(?Indent),
+		write('        ')@\plg()
+	    ),
+	    ?Date[%print]@TEMPORAL,
+	    write(' - ')@\plg()
+        ),
+	write(?Part)@\plg(),
+	write(':')@\plg(),
+	write(?Result)@\plg(),
+	write(' ')@\plg(),
+	%writeQualScoresForStudent1((?Date,?Remark), ?Indent, ?Rest).
+
+
+%writeNextAction(?Exam,?Result,?Sem) :-
+	?Exam=?_(?StudOid),
+	?StudOid[status(?Sem)->?_[type->?StuStatus], !
+                ; ${?StuStatus=unknown} ]@PPLMODULE,
+        write('\n\t\t'),
+	\if ?Result==passed \then (
+	   write('Congratulations!\n\t\t')@\plg(),
+	   \if ?StuStatus==phd \then
+                write('Your next step is to prepare for the RPE.')@\plg()
+	   \else
+                write('You may be eligible to enter the Ph.D. program.')@\plg(),
+	   writeln('\n\t\tPlease consult the Graduate Handbook.')@\plg()
+	) \else \if ?Result==noretake \then (
+	    write('Sorry, you failed the exam and are not allowed to re-take.\n\t\t')@\plg(),
+	    \if ?StuStatus==phd \then
+                writeln('You must switch to the M.S program.')@\plg()
+	    \else
+                writeln('You cannot enter the Ph.D. program.')@\plg()
+	) \else
+                writeln('Take or re-take the missing parts of the exam.')@\plg().

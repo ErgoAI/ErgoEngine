@@ -1,0 +1,52 @@
+
+:- symbol_context{%query@main}.
+
+tom[believes-> ${alice[thinks->flora:cool]}].
+tom[believes-> ${sally[thinks-> ${flora:cool}]}].
+
+%abc(${?_H@?_M},?_ConsiderSucceeded,j(rule,?_ID(?_B))) :- \true.
+%cde(${%?_H@?_M},?_ConsiderSucceeded,j(rule,?_ID(?_B))) :- \true.
+
+%tst1 :- ?X = ${a[b->c[e]]@foo}, write('tst1: ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+%tst2 :- ?X = collectset{?B| tom[believes->?B]},
+	write('tst2: ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+%tst3 :- ?X = ${b:a[b->c]@bar}, write('tst3: ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode), nl@\plg().
+
+%tst4 :- insert{jack[believes-> ${mary[thinks-> ${flora:cool}]}]},
+	jack[believes->?B],
+	write('tst4: ')@\plg(), 
+	flora_write_goal(?B)@\plg(flrdecode), nl@\plg(),
+        // need to figure out how to make it use just delete{jack[believes->?B]}
+	delete{jack[believes->?B] :- ?},
+	//delete{jack[believes->?B]},
+	write('tst4: P = ')@\plg(),
+	flora_write_goal(?B)@\plg(flrdecode), nl@\plg(),
+	\if jack[believes->?_] \then
+           writeln('Tst4: something wrong')@\plg()
+        \else
+           writeln('Tst4: ok')@\plg().
+
+%tst5 :- %abc(${query@main},\true,?_J), writeln('test5 succeeded')@\plg.
+%tst6 :- %cde(${%query@main},\true,?_J), writeln('test6 succeeded')@\plg.
+
+%tst7 :- %?Pred(?Arg,\true,?_J), ?Arg ~ query@main, writeln(test7=?Pred)@\plg.
+%tst8 :- %?Pred(?Arg,\true,?_J), ?Arg ~ %query@main, writeln(test8=?Pred)@\plg.
+
+%tst9 :- flora_string_command_line('${foo(?)@bar}.',?C,?,?)@\plg(flrcallflora),
+	 ?C[show->?CC]@\show,
+	 writeln(test9 = ?CC)@\plg.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+
+

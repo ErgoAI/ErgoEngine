@@ -1,0 +1,93 @@
+student[|name    => \string,
+	 joined  => semester, graduated => semester,
+	 advisor => advisor,
+	 status  => status,
+	 graduated -> futuresemester,  // default value
+         advisor -> noadvisor          // default value
+|].
+
+advisor[|faculty,
+	 since => semester, until => semester,
+         since -> pastsemester, until -> futuresemester  // default values
+|].
+
+noadvisor:advisor.
+faculty::advisor.
+
+// derived classes
+?A: advisor :- ?:student[advisor->?A].
+?S: status  :- ?:student[status->?S].
+
+status[|
+        type  => program,
+	since => semester, until => semester,
+        since -> pastsemester, until -> futuresemester  // default values
+|].
+
+ms:program.
+phd:program.
+
+
+\#:student
+  [ name      -> Mary,
+    joined    -> fall(2001),
+    // Note: the following is inherited
+    // graduated ->  futuresemester,
+    advisor   -> {
+      	      	      \#[b1, since -> fall(2001), until->spring(2002)],
+      	      	      \#[r1, since -> spring(2002), until-> fall(2004)],
+      	      	      \#[s1, since -> spring(2002)]
+      	      	  },
+    status    -> {
+    	    	     \#[type -> phd,
+		             since->fall(2001), until->spring(2003)],
+                     \#[type -> ms,
+		             since->fall(2003), until->spring(2004)],
+                     \#[type -> phd,
+		             since->fall(2004), until->spring(2005)],
+                     \#[type -> phd, since->fall(2005)]
+                  }
+].
+
+
+\#:student
+  [ name      -> Ann,
+    joined    -> fall(2003),
+    // Note: Graduated is inherited
+    // noadvisor is inherited
+    // advisor   -> { },
+    status    -> {
+                     \#[type -> ms, since->fall(2003)]
+                  }
+].
+
+
+\#:student
+  [ name      -> Rose,
+    joined    -> fall(2003),
+    // Note: Graduated is inherited
+    advisor   -> {
+      	      	      \#[s1, since -> fall(2003)],
+		      \#[b1, since -> spring(2003)]
+      	      	  },
+    status    -> {
+                     \#[type -> ms,
+		             since->fall(2003), until->spring(2004)],
+                     \#[type -> phd, since->fall(2004)]
+                  }
+].
+
+
+\#:student
+  [ name      -> Billy,
+    joined    -> fall(2004),
+    graduated ->  spring(2005),
+    advisor   -> {
+                      // until is inherited
+      	      	      \#[b1, since -> fall(2003)]
+      	      	  },
+    status    -> {
+                     \#[type -> ms,
+		             since->fall(2004), until->spring(2005)]
+                  }
+].

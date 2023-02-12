@@ -1,0 +1,35 @@
+?- insert{abc[prop1->\#, prop2->\#3, prop3->\#3],
+            cde[prop1->\#, prop2->\#3, prop3->\#]}.
+%test1 :- abc[prop1->\#, prop2->\#5, prop3->\#5], writeln('test1 ok')@\plg.
+%test2 :- (cde[prop1->\#, prop2->\#5, prop3->\#5] -->> writeln('test2 failed')@\plg
+          ; writeln('test2 ok')@\plg
+          ).
+
+head1(${head11(?_X,\#) :- body11(\#1,\#1)}).
+
+%test3 :- head1(${head11(?_X,?Y) :- body11(\#1,\#1)}),
+          isskolem{?Y},
+          writeln('test3 ok')@\plg.
+
+?- insert{p(a), p(\#)}.
+%test4 :- (?X = ${p(\#)}, ?X -->> writeln('test4 failed')@\plg
+          ; writeln('test4 ok')@\plg
+          ).
+
+%test5 :- ?X = ${pppp(\#)}, insert{?X}, pppp(\#), writeln('test5 ok')@\plg.
+
+
+%test6 :- ?X = ${p(\#2,\#2)}, insert{?X}, p(\#7,\#7), writeln('test6 ok')@\plg.
+
+%test7 :- (erase{p(?,?)}, ?X = ${p(\#2,\#)}, insert{?X}, p(\#7,\#7)
+          -->> writeln('test7 failed')@\plg
+          ; writeln('test7 ok')@\plg
+          ).
+
+%pretest :- %test1, %test2, %test3, %test4, %test5, %test6, %test7.
+
+%test :-
+	tell(temp)@\plg(),
+	%pretest,
+	told@\plg().
+

@@ -1,0 +1,214 @@
+:- use_rule_structure_db.
+/*
+**
+**  Schema Info for PPLMODULE
+**
+*/
+
+:- symbol_context{
+       ms/1, phd/1, student/1, status/0, advisor/1, support/1,
+        gcf/1, renaissance/1, catacosinos/1, uf/1, ces/1,
+        parttime/1, onleave/1, date/0, status/1
+   }.
+
+
+:- compiler_options{expert=on}.
+
+
+?- Method[mustDefine(off,?:onleave(?)@ \@)]@\sys.
+?- Method[mustDefine(off,?:parttime(?)@ \@)]@\sys.
+
+phd:statusName.
+ms:statusName.
+
+faculty :: instructor.
+lecturer :: instructor.
+
+phd(?_)::student.
+ms(?_)::student.
+'5yr'(?_X)::ms(?_X).
+student(?_)::student.
+// Student has active status during semester
+?Stud:student(?Sem) :-
+	?Stud:student[joined->?JoinSem, graduation_semester->?GradSem],
+	?JoinSem[sameOrBefore->?Sem]@TEMPORAL,
+	?GradSem[sameOrAfter->?Sem]@TEMPORAL.
+
+?S:string :- atom(?S)@\plg.
+?N:integer :- integer(?N)@\plg.
+?F:float :- float(?F)@\plg.
+
+?C:courseCode :- (atom(?C), str_sub(cse,?C,1))@\plg, !.
+?C:courseCode :- (atom(?C), str_sub(ese,?C,1))@\plg, !.
+?C:courseCode :- (atom(?C), str_sub(ams,?C,1))@\plg, !.
+?C:courseCode :- (atom(?C), str_sub(mat,?C,1))@\plg, !.
+none:courseCode.
+
+ra : supporttype.
+ta : supporttype.
+ga : supporttype.
+self : supporttype.  // self-supported
+fellowship : supporttype.
+instructor : supporttype.
+
+uf(?Sem) : fellowshipCode :- ?Sem:semester@TEMPORAL.
+pf(?Sem) : fellowshipCode :- ?Sem:semester@TEMPORAL.
+pfs(?Sem) : fellowshipCode :- ?Sem:semester@TEMPORAL.
+gcf(?Sem) : fellowshipCode :- ?Sem:semester@TEMPORAL.
+turner(?Sem) : fellowshipCode :- ?Sem:semester@TEMPORAL.
+ces(?Sem) : fellowshipCode :- ?Sem:semester@TEMPORAL.
+erickson(?Sem) : fellowshipCode :- ?Sem:semester@TEMPORAL.
+catacosinos(?Sem) : fellowshipCode :- ?Sem:semester@TEMPORAL.
+renaissance(?Sem) : fellowshipCode :- ?Sem:semester@TEMPORAL.
+pieper(?Sem) : fellowshipCode :- ?Sem:semester@TEMPORAL.
+
+status[|type  {1..1}=> statusName,
+        since {1..1}=> semester,
+        since       -> pastsemester,
+        until {1..1}=> semester,
+        until       -> futuresemester
+|].
+
+student[|first      {1..1}=>  string,
+	 last	    {1..1}=>  string,
+	 email      {1..1}=>  string,
+	 joined     {1..1}=>  semester, // when joined graduate program
+         advisor          => supervising,
+	 advisor          -> {},
+         support          => support,
+	 support          -> {},
+         status     {1..1}=>  status,
+	 quals      {1..1}=>  exam,
+	 quals            ->  nottaken,
+	 rpe        {1..1}=>  exam,
+	 rpe              ->  nottaken,
+	 prelim     {1..1}=>  exam,
+	 prelim           ->  nottaken,
+	 defense    {1..1}=>  exam,
+	 defense          ->  nottaken,
+	 //graduated{1..1}=>  date,
+	 taught           => teaching,
+	 taught           -> {},
+	 //canteach {1..1}=>  list(courseCode),
+	 canteach         -> [],
+	 ta_eligibility   -> {},
+	 ta_waitlist      -> {},
+	 ra_waitlist      -> {},
+	 ga_waitlist      -> {},
+	 remarks    {1..1}=>  string,    // whatever appropriate
+         remarks          ->  ''
+|].
+
+?_[date{1..1}=>date].
+?_[semester{1..1}=>semester].
+?_[since{1..1}=>semester].
+?_[until{1..1}=>semester].
+
+instructor[|name       {1..1}=>  string,
+	    department {1..1}=>  string,
+	    department       ->  cse      // default dept is cse
+|].
+
+support[|type    {1..1}=>  supporttype,
+	 code    {1..1}=>  fellowshipCode,
+	 remarks {1..1}=>  string,
+	 since   {1..1}=>  semester,
+	 since         ->  pastsemester,
+	 until   {1..1}=>  semester,
+	 until         ->  futuresemester,
+	 load          ->  1,
+	 remarks       ->  ''
+|].
+
+teaching[|course   {1..1}=> courseCode,
+	  semester {1..1}=> semester,
+	  load           -> 1,
+	  load     {1..1}=> float,
+	  grade          -> 0,
+	  grade    {1..1}=> integer,
+	  remarks        -> '',
+	  remarks  {1..1}=> string
+|].
+
+supervising[|since {1..1}=>  semester,
+	     since       -> pastsemester,
+	     until {1..1}=>  semester,
+	     until       -> futuresemester
+|].
+
+
+exam[|passed     {1..1}=>  (date \or qualResult),
+     passed            ->  futuredate,
+     conditions  {1..1}=>  string,
+     history           => failedExamResult,
+     history           -> {},
+     remarks     {1..1}=>  string   
+|].
+
+failedExamResult[|
+     date   {1..1}=> date
+     // , scores => {}
+|].
+
+
+// The following ISA rules are needed in order to provide defaults
+// by inheritance for things like since/until for exams/supervising/status,
+// load/grade/remarks for teaching, etc.
+nottaken:exam.
+?E(?S):exam :- ?S[quals -> ?E(?S); rpe -> ?E(?S); prelim -> ?E(?S); defense -> ?E(?S)].
+
+?E(?S):failedExamResult :- ?_(?S)[history->?E(?S)].
+
+?R : qualResult :- ?_S:student[quals->?_[passed -> ?R]].
+
+?T(?Stud):teaching :- ?Stud[taught->?T(?Stud)].
+
+?A(?Stud):supervising :- ?Stud[advisor->?A(?Stud)].
+// We make this into a default for advisor(Sem) method
+noadvisor:supervising[noadvisor].
+
+?Stat(?Stud):status :- ?Stud[status->?Stat(?Stud)].
+?Sup(?Stud):support :- ?Stud[support->?Sup(?Stud)].
+
+
+// This defines classes like phd(2000), ms(2001), onleave, parrtime
+?S:?Type(?Semester) :- ?S:student, ?S.status(?Semester).type = ?Type.
+
+// Graduation semester
+?Stud[graduation_semester->?Sem] :-
+	?Stud.graduated[date->?_[inSemester->?Sem]@TEMPORAL].
+
+// Aditional methods for students
+?Stud[status(?Sem)->?Status] :-
+	?Stud[status->?Status[since->?SinceSem, until->?UntilSem],
+	     joined->?Joined,
+	     graduation_semester->?Finished],
+	?Sem[between->{[?Joined, ?Finished], [?SinceSem, ?UntilSem]} ]@TEMPORAL.
+
+
+?Stud[advisor(?Sem) -> ?A] :-
+	?Stud[advisor->?_[?A, since->?SinceSem,until->?UntilSem],
+	     joined->?Joined,
+	     graduation_semester->?Finished],
+	?Sem[between->{[?Joined, ?Finished], [?SinceSem, ?UntilSem]} ]@TEMPORAL.
+?Stud[advisor(?Sem) -> noadvisor] :- \naf ?Stud[advisor(?Sem) -> ?_].
+
+
+?Stud[support(?Sem) -> ?Sup] :-
+	?Stud[support->?Sup[since->?SinceSem, until->?UntilSem],
+	     joined->?Joined,
+	     graduation_semester->?Finished],
+	?Sem[between->{[?Joined, ?Finished], [?SinceSem, ?UntilSem]} ]@TEMPORAL.
+
+// If student taught in Sem and was not supported as a TA,
+// then look into the teaching records
+?Stud[support(?Sem)->sup(?Sem2)(?Stud):support[type->ta,
+	                                    load->?Load,
+					    since->?Sem,until->?Sem,
+					    temporary]] :-
+	(?Sem == anysemester, ! ; ?Sem=?Sem2),
+	?Stud[taught->?_[semester->?Sem2, \naf noappointment]],
+	?Load=sum{?Ld | ?Stud[taught->?_[semester->?Sem2, load->?Ld]]},
+	\naf exist(?Sup,?Since,?Until)^((?Stud[support->?Sup[type->ta, since->?Since,until->?Until]],
+	      ?Sem2[between->[?Since, ?Until]]@TEMPORAL
+	     )).

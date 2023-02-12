@@ -1,0 +1,294 @@
+/***************************************************************************
+  file: closure/flrsigaxioms.fli - Axioms for inheritance of signatures
+
+  Author(s): Michael Kifer
+
+  Contact:   flora-users@lists.sourceforge.net
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018;
+       and Vulcan, Inc., 2008.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+***************************************************************************/
+
+:- import
+        sub_compound/4,
+        sub_compound_eq/5
+   from flrauxil.
+:- import predicate_property/2 from curr_sym.
+
+/*****************************************************************************
+  monotonic inheritance of signatures
+*****************************************************************************/
+WRAP_MVDSIG(O,M,R,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_MVDSIG(_,_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMVDSIG(C,M,R,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_IMVDSIG(C,M,R,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_IMVDSIG(_,_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMVDSIG(S,M,R,FL_CONTEXT(Caller,Id1,Id2)).
+
+
+WRAP_MVDCONDEF(O,M,L,H,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_MVDCONDEF(_,_,_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMVDCONDEF(C,M,L,H,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_IMVDCONDEF(C,M,L,H,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_IMVDCONDEF(_,_,_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMVDCONDEF(S,M,L,H,FL_CONTEXT(Caller,Id1,Id2)).
+
+
+WRAP_MVDSIGDEF(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_MVDSIGDEF(_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMVDSIGDEF(C,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_IMVDSIGDEF(C,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_IMVDSIGDEF(_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMVDSIGDEF(S,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_BOOLSIG(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_BOOLSIG(_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_IBOOLSIG(C,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_IBOOLSIG(C,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_IBOOLSIG(_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	WRAP_IBOOLSIG(S,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+
+%% C[|=>%M|], O:C |= O[=>%M]
+WRAP_TRANSIG(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_TRANSIG(_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_ITRANSIG(C,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+%% S[|=>%M|], C:S |= C[=>%M]
+WRAP_ITRANSIG(C,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_ITRANSIG(_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	WRAP_ITRANSIG(S,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+
+/******************** negative inheritance *******************************/
+
+FLNEGPREFIX(WRAP_IMVDSIG)(C,M,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMVDSIG)(_,_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	FLNEGPREFIX(WRAP_MVDSIG)(O,M,R,FL_CONTEXT(Caller,_,_)).
+
+FLNEGPREFIX(WRAP_IMVDSIGDEF)(C,M,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMVDSIGDEF)(_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	FLNEGPREFIX(WRAP_MVDSIGDEF)(O,M,FL_CONTEXT(Caller,_,_)).
+
+FLNEGPREFIX(WRAP_IMVDSIG)(S,M,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMVDSIG)(_,_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	FLNEGPREFIX(WRAP_IMVDSIG)(C,M,R,FL_CONTEXT(Caller,_,_)).
+
+FLNEGPREFIX(WRAP_IMVDSIGDEF)(S,M,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMVDSIGDEF)(_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	FLNEGPREFIX(WRAP_IMVDSIGDEF)(C,M,FL_CONTEXT(Caller,_,_)).
+
+FLNEGPREFIX(WRAP_IBOOLSIG)(C,M,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IBOOLSIG)(_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	FLNEGPREFIX(WRAP_BOOLSIG)(O,M,FL_CONTEXT(Caller,_,_)).
+
+FLNEGPREFIX(WRAP_IBOOLSIG)(S,M,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IBOOLSIG)(_,_,_), tabled),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	FLNEGPREFIX(WRAP_IBOOLSIG)(C,M,FL_CONTEXT(Caller,_,_)).
+
+
+
+/******* Axioms for signatures that deal with method argument ****************
+**       specialization/generalization & result generalization/specialization
+*/
+
+%% =>
+%% O[M=>R], R::R1 |= O[M=>R1]
+WRAP_MVDSIG(O,M,R1,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(WRAP_MVDSIG(_,_,_,_), tabled),
+	WRAP_MVDSIG(O,M,R,FL_CONTEXT(Caller,_,_)),
+	WRAP_SUB(R,R1,FL_CONTEXT(Caller,_,_)).
+
+/****************
+%% The next two axioms have NO justification
+%% O[M=>R], M1::M |= O[M1=>R]
+WRAP_MVDSIG(O,M1,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(WRAP_MVDSIG(_,_,_,_), tabled),
+	WRAP_MVDSIG(O,M,R,FL_CONTEXT(Caller,_,_)),
+	WRAP_SUB(M1,M,FL_CONTEXT(Caller,_,_)).
+
+%% O[M=>R], M1:M |= O[M1=>R]
+WRAP_MVDSIG(O,M1,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(WRAP_MVDSIG(_,_,_,_), tabled),
+	WRAP_MVDSIG(O,M,R,FL_CONTEXT(Caller,_,_)),
+	WRAP_ISA(M1,M,FL_CONTEXT(Caller,_,_)).
+*/
+
+%% O[M(A1,...,An)=>R], B1??A1, ..., BN??AN |= O[M(B1,...,BN)=>R]
+%% where ?? is :, ::, or =
+WRAP_MVDSIG(O,M1,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(WRAP_MVDSIG(_,_,_,_), tabled),
+	WRAP_MVDSIG(O,M,R,FL_CONTEXT(Caller,_,_)),
+	FL_METHOD_SPECIALIZATION(M1,M).
+
+%% [|...|]
+%% C[|M=>R|], R::R1 |= C[|M=>R1|]
+WRAP_IMVDSIG(C,M,R1,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(WRAP_IMVDSIG(_,_,_,_), tabled),
+	WRAP_IMVDSIG(C,M,R,FL_CONTEXT(Caller,_,_)),
+	WRAP_SUB(R,R1,FL_CONTEXT(Caller,_,_)).
+
+/************************************************
+%% The next two axioms have NO justification
+%% C[|M=>R|], M1::M |= C[|M1=>R|]
+WRAP_IMVDSIG(C,M1,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(WRAP_IMVDSIG(_,_,_,_), tabled),
+	WRAP_IMVDSIG(C,M,R,FL_CONTEXT(Caller,_,_)),
+	WRAP_SUB(M1,M,FL_CONTEXT(Caller,_,_)).
+
+%% C[|M=>R|], M1:M |= C[|M1=>R|]
+WRAP_IMVDSIG(C,M1,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(WRAP_IMVDSIG(_,_,_,_), tabled),
+	WRAP_IMVDSIG(C,M,R,FL_CONTEXT(Caller,_,_)),
+	WRAP_ISA(M1,M,FL_CONTEXT(Caller,_,_)).
+************************************************/
+
+%% C[|M(A1,...,An)=>R|], B1??A1, ..., BN??AN |= C[|M1(B1,...,BN)=>R|]
+%% where ?? is :, ::, or =
+WRAP_IMVDSIG(C,M1,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(WRAP_IMVDSIG(_,_,_,_), tabled),
+	WRAP_IMVDSIG(C,M,R,FL_CONTEXT(Caller,_,_)),
+	FL_METHOD_SPECIALIZATION(M1,M).
+
+
+%% \neg =>
+%% \neg O[M=>R1], R::R1 |= \neg O[M=>R]
+FLNEGPREFIX(WRAP_MVDSIG)(O,M,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_MVDSIG)(_,_,_,_), tabled),
+	FLNEGPREFIX(WRAP_MVDSIG)(O,M,R1,FL_CONTEXT(Caller,_,_)),
+	WRAP_SUB(R,R1,FL_CONTEXT(Caller,_,_)).
+
+/*
+%% THE NEXT TWO AXIOMS HAVE NO JUSTIFICATION
+%% \neg O[M1=>R], M1::M |= \neg O[M=>R]
+FLNEGPREFIX(WRAP_MVDSIG)(O,M,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_MVDSIG)(_,_,_,_), tabled),
+	FLNEGPREFIX(WRAP_MVDSIG)(O,M1,R,FL_CONTEXT(Caller,_,_)),
+	WRAP_SUB(M1,M,FL_CONTEXT(Caller,_,_)).
+
+%% \neg O[M1=>R], M1:M |= \neg O[M=>R]
+FLNEGPREFIX(WRAP_MVDSIG)(O,M,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_MVDSIG)(_,_,_,_), tabled),
+	FLNEGPREFIX(WRAP_MVDSIG)(O,M1,R,FL_CONTEXT(Caller,_,_)),
+	WRAP_ISA(M1,M,FL_CONTEXT(Caller,_,_)).
+*/
+
+
+%% \neg O[M1(B1,...,Bn)=>R], B1??A1, ..., BN??AN |= \neg O[M(A1,...,AN)=>R]
+%% where ?? is :, ::, or =
+FLNEGPREFIX(WRAP_MVDSIG)(O,M,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_MVDSIG)(_,_,_,_), tabled),
+	FLNEGPREFIX(WRAP_MVDSIG)(O,M1,R,FL_CONTEXT(Caller,_,_)),
+	FL_METHOD_SPECIALIZATION(M1,M).
+
+%% \neg [|...|]
+%% \neg C[|M=>R1|], R::R1 |= \neg C[|M=>R|]
+FLNEGPREFIX(WRAP_IMVDSIG)(C,M,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMVDSIG)(_,_,_,_), tabled),
+	FLNEGPREFIX(WRAP_IMVDSIG)(C,M,R1,FL_CONTEXT(Caller,_,_)),
+	WRAP_SUB(R,R1,FL_CONTEXT(Caller,_,_)).
+
+
+/*
+%% THESE TWO AXIOMS HAVE NO JUSTIFICATION
+%% \neg C[M1=>R], M1::M |= \neg C[M=>R]
+FLNEGPREFIX(WRAP_IMVDSIG)(O,M,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMVDSIG)(_,_,_,_), tabled),
+	FLNEGPREFIX(WRAP_IMVDSIG)(O,M1,R,FL_CONTEXT(Caller,_,_)),
+	WRAP_SUB(M1,M,FL_CONTEXT(Caller,_,_)).
+
+%% \neg O[M1=>R], M1:M |= \neg O[M=>R]
+FLNEGPREFIX(WRAP_IMVDSIG)(O,M,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMVDSIG)(_,_,_,_), tabled),
+	FLNEGPREFIX(WRAP_IMVDSIG)(O,M1,R,FL_CONTEXT(Caller,_,_)),
+	WRAP_ISA(M1,M,FL_CONTEXT(Caller,_,_)).
+*/
+
+%% \neg C[|M1(B1,...,Bn)=>R|], B1??A1, ..., BN??AN |= \neg C[|M(A1,...,AN)=>R|]
+%% where ?? is :, ::, or =
+FLNEGPREFIX(WRAP_IMVDSIG)(C,M,R,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IMVDSIG)(_,_,_,_), tabled),
+	FLNEGPREFIX(WRAP_IMVDSIG)(C,M1,R,FL_CONTEXT(Caller,_,_)),
+	FL_METHOD_SPECIALIZATION(M1,M).
+
+%% Boolean
+%% O[=>M(A1,...,An)], B1??A1, ..., BN??AN |= O[=>M1(B1,...,BN)]
+%% where ?? is :, ::, or =
+WRAP_BOOLSIG(O,M1,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(WRAP_BOOLSIG(_,_,_), tabled),
+	WRAP_BOOLSIG(O,M,FL_CONTEXT(Caller,_,_)),
+	FL_METHOD_SPECIALIZATION(M1,M).
+
+%% C[|=>M(A1,...,An)|], B1??A1, ..., BN??AN |= C[|=>M1(B1,...,BN)|]
+%% where ?? is :, ::, or =
+WRAP_IBOOLSIG(C,M1,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(WRAP_IBOOLSIG(_,_,_), tabled),
+	WRAP_IBOOLSIG(C,M,FL_CONTEXT(Caller,_,_)),
+	FL_METHOD_SPECIALIZATION(M1,M).
+
+%% The \neg axioms are somewhat strong. Maybe too strong
+%% \neg O[M1(B1,...,Bn)], B1??A1, ..., BN??AN |= \neg O[M(A1,...,AN)]
+%% where ?? is :, ::, or =
+FLNEGPREFIX(WRAP_BOOLSIG)(O,M,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_BOOLSIG)(_,_,_), tabled),
+	FLNEGPREFIX(WRAP_BOOLSIG)(O,M1,FL_CONTEXT(Caller,_,_)),
+	FL_METHOD_SPECIALIZATION(M1,M).
+
+%% \neg C[|=>M1(B1,...,Bn)|], B1??A1, ..., BN??AN |= \neg C[|=>M(A1,...,AN)|]
+%% where ?? is :, ::, or =
+FLNEGPREFIX(WRAP_IBOOLSIG)(C,M,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(FLNEGPREFIX(WRAP_IBOOLSIG)(_,_,_), tabled),
+	FLNEGPREFIX(WRAP_IBOOLSIG)(C,M1,FL_CONTEXT(Caller,_,_)),
+	FL_METHOD_SPECIALIZATION(M1,M).
+
+%% O[=>%M(A1,...,An)], B1??A1, ..., BN??AN |= O[=>%M1(B1,...,BN)]
+%% where ?? is :, ::, or =
+WRAP_TRANSIG(O,M1,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(WRAP_TRANSIG(_,_,_), tabled),
+	WRAP_TRANSIG(O,M,FL_CONTEXT(Caller,_,_)),
+	FL_METHOD_SPECIALIZATION(M1,M).
+
+%% C[|=>%M(A1,...,An)|], B1??A1, ..., BN??AN |= C[|=>%M1(B1,...,BN)|]
+%% where ?? is :, ::, or =
+WRAP_ITRANSIG(C,M1,FL_CONTEXT(Caller,_,_)) :-
+        predicate_property(WRAP_ITRANSIG(_,_,_), tabled),
+	WRAP_ITRANSIG(C,M,FL_CONTEXT(Caller,_,_)),
+	FL_METHOD_SPECIALIZATION(M1,M).
+
+
+%% background axioms for justification
+#include "extensions/flrbgaxioms_common.inc"

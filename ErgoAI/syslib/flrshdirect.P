@@ -1,0 +1,91 @@
+/* File:      flrshdirect.P
+**
+** Author(s): Guizhen Yang 
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+
+:- import flora_shdefine_operator/3 from flroperator.
+
+:- import flora_shdefine_arguments/3 from flrarguments.
+
+:- import flora_storage_check_module_name/1 from flrstorageutils.
+
+:- import
+	flora_dyna_hilog_module_predicate_symbol/2,
+	flora_dynz_hilog_module_predicate_symbol/2,
+	flora_tdyna_hilog_module_predicate_symbol/2,
+	flora_tdynz_hilog_module_predicate_symbol/2
+   from flrwrapper.
+
+:- import flora_abort/1 from flrporting.
+
+
+/*****************************************************************************
+  FLLIBSHDIRECT
+
+  Processes directives in the flora shell (like op, etc.)
+*****************************************************************************/
+
+%% Executable version of this directive makes sense only in main
+%% module in the shell
+FLLIBSHDIRECT(FL_OP,Module,Preced,Assoc,Op) :-
+	(Module == FLORA_DEFAULT_WORKSPACE ->
+	    flora_shdefine_operator(Preced,Assoc,Op)
+	; true
+	).
+
+%% Executable version of this directive makes sense only in main
+%% module in the shell
+/** DEPRECATED
+FLLIBSHDIRECT(FL_ARGUMENTS,Module,Funct,Arity,Args) :-
+	(Module == FLORA_DEFAULT_WORKSPACE ->
+	    flora_shdefine_arguments(Funct,Arity,Args)
+	; true
+	).
+**/
+
+FLLIBSHDIRECT(FL_INDEX,Module,Arity,Position) :-
+	flora_storage_check_module_name(Module),
+        (Arity=FL_TRANSACTIONAL(NA),!; NA=Arity),
+	( integer(NA), integer(Position), Position>0, NA >= Position ->
+	    A is NA+1,
+            P is Position+1,
+            (Arity=FL_TRANSACTIONAL(NA) ->
+                flora_dyna_hilog_module_predicate_symbol(Module,NewPA),
+                flora_dynz_hilog_module_predicate_symbol(Module,NewPZ)
+            ;
+                flora_tdyna_hilog_module_predicate_symbol(Module,NewPA),
+                flora_tdynz_hilog_module_predicate_symbol(Module,NewPZ)
+            ),
+            call(index(NewPA/A,P)),
+            call(index(NewPZ/A,P))
+	;
+	    flora_abort('Invalid argument in index directive')
+	).

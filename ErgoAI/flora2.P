@@ -1,0 +1,735 @@
+/* File:      flora2.P
+**
+** Author(s): Michael Kifer
+**            Guizhen Yang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2023.
+**      Coherent Knowledge Systems, LLC, 2014-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+** 
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flag_defs_xsb.h"
+#include "sig_xsb.h"
+#include "standard.h"
+#include "flrincludes/flora_terms.flh"
+#include "flrincludes/flora_exceptions.flh"
+#include "flrincludes/flora_contexts.flh"
+
+#define FLORA_RC_FILE     'FLORA_RC_FILE'
+
+#define FLORA_RC_FILE      'ERGO_RC_FILE'
+%% unclear where this is used. Previously was /ergosuite/include,
+%% but neither .../include nor .../ergosuite/include exist!
+#define ERGOAI_INCLUDE  "/include"
+
+:- import
+	flora_import_predicate/4
+   from flrimport.
+
+:- import
+        flora_save_module_util/2, flora_save_module_util/1,
+	flora_compile_util/2, flora_compile_util/1,
+	flora_compile_add/2, flora_compile_add/1
+   from flrutils.
+
+:- import
+	set_initial_memory_cap/0
+   from flrerrhandler.
+
+:- import
+	flora_configuration/2,
+	%%flora_user_module_registry/1,
+	flora_module_registry/1
+   from flrregistry.
+
+:- import
+	flora_stdmsg_line/1,
+	flora_abort_line/1,
+	flora_stderr_nl/0
+   from flrprint.
+
+:- import flora_call_string_command/5 from flrcallflora.
+
+:- import
+	flora_abort/2,
+	flora_file_op/2,
+	flora_concat_atoms/2,
+
+        flora_user_home/1,
+        %%flora_match_substring/3,
+
+	flora_set_counter/2,
+	flora_get_counter/2,
+	flora_increment_counter/4,
+
+	flora_set_banner_control/2,
+	flora_slash/1
+   from flrporting.
+
+:- import
+	call_c/1
+   from standard.
+:- import set_inthandler/2 from loader.
+
+:- import
+	FLLIBLOAD/4,
+	FLLIBADD/4,
+	interpreter_index_hook/1,
+	flora_embedded_shell_loop/0,
+	flora_shell_loop/0
+   from usermod.
+
+:- import hide_this_show/2 from usermod.
+:- import xpp_include_dir/1 from parse.
+
+:- import
+        add_lib_dir/1,
+        search_module/6
+   from consult.
+
+:- import
+        %%parse_filename/4,
+        is_xwammode/1,
+	getenv/2,
+	stat_set_flag/2,
+	slash/1
+   from machine.
+
+:- import
+        %%file_set_character_set/2,
+        path_sysop/3
+   from file_io.
+
+:- import
+	flora_dump_incomplete_tables/1,
+	flora_dump_incomplete_tables/2,
+	flora_dump_incomplete_tables_after_exception/1,
+	flora_dump_incomplete_tables_after_exception/2,
+	flora_dump_tables/2,
+	flora_dump_tables/4
+   from flrtabledump.
+
+:- dynamic hide_this_show(_,_).
+
+:- export
+	bootstrap_flora/0,
+	bootstrap_ergo/0,
+	'_#flmakesetup'/0,
+	unstrap_flora/0,
+	FLQUERYCMD/5,
+	flora_shell/0,
+	ergo_shell/0,
+	'\\flimport'/1,
+	'\\compile'/1,
+	'\\compileadd'/1,
+	'\\load'/1,
+	'\\add'/1,
+        '\\save'/1,
+	'\\isloaded'/1.
+
+:- export
+	'\\tabledump'/2,
+	'\\tabledump'/3,
+	'\\tabledump'/4,
+	'\\dump_incomplete_tables'/1,
+	'\\dump_incomplete_tables'/2,
+	'\\dump_incomplete_tables_after_exception'/1,
+	'\\dump_incomplete_tables_after_exception'/2,
+	'\\set_dump_incomplete_tables_on_exception'/0.
+
+:- export
+	flora_get_break_level/1,
+	flora_set_break_level/1,
+	flora_increment_break_level/3,
+	flora_enable_keyboard_interrupts/0,
+	flora_disable_keyboard_interrupts/0,
+	flora_keyboard_interrupts_enabled/0,
+	flora_protected_break_level/0,
+	flora_unprotect_break_level/0.
+
+:- export
+	print_break_message/0,
+	special_flora_abort_handler/1.
+:- export
+        add_flora_configuration_dir/2,
+        has_flora_configuration_dir/2.
+
+/*****************************************************************************/
+
+?- search_module(flora2,Dir,_,_,_,_),
+   slash(S),
+   (search_module(flrcompiler,FlrDir,_,_,_,_) ->
+       path_sysop(expand,FlrDir,FloraDir)
+   ;
+       atom_concat(Dir,S,Dir0),
+       path_sysop(expand,Dir0,Dir1),
+       atom_concat(Dir1,flora2,FloraDir),
+       add_lib_dir(a(FloraDir))
+   ),
+   add_flora_configuration_dir(installdir,FloraDir),
+   flora_concat_atoms([FloraDir,S,'.ergo_buildinfo.P'],FloraBuildInfoFile),
+   load_dyn(FloraBuildInfoFile),
+   %% must be after load_dyn(FloraBuildInfoFile)!
+   add_flora_configuration_dir(installdir,FloraDir).
+
+%% used only in makefiles
+'_#flmakesetup' :- bootstrap_internal_base.
+
+ergo_shell      :- shell_internal.
+flora_shell     :- shell_internal.
+
+?- has_flora_configuration_dir(installdir,FloraDir),
+    add_lib_dir(a(FloraDir)),
+    flora_slash(S),
+    flora_concat_atoms([FloraDir,S,'opt',S,'optcompile.P'],Optimizer),
+    [Optimizer].
+
+:- import flora_concat_strings/2 from flrporting.
+
+bootstrap_flora :- bootstrap_internal.
+bootstrap_ergo  :- bootstrap_internal.
+
+bootstrap_internal :-
+        bootstrap_internal_base,
+        set_directory_configuration,
+        !.
+bootstrap_internal.
+
+bootstrap_internal_base :-
+	flora_set_counter(flora_shell_loaded,0),
+	\+ flora_configuration(loaded,yes),
+	has_flora_configuration_dir(installdir,FloraDir),
+	flora_slash(S),
+	flora_concat_atoms([pkgs,S,prolog],PkgsProlog),
+	flora_concat_atoms(['AT',S,prolog],ATsProlog),
+        add_lib_dir(a(FloraDir)),
+	[flrversion],
+	flora_assert_directories([syslib,datatypes,lib,debugger,pkgs,'AT',PkgsProlog,ATsProlog,cc]),
+        flora_assert_directories([ergo_syslib,ergo_lib,ergo_pkgs]),
+	!,
+        %% Set UTF-8 as default
+        set_prolog_flag(character_set,utf_8),
+        %%telling(CurrOutStream),
+        %%file_set_character_set(CurrOutStream,utf_8),
+
+	assert(flora_configuration(loaded,yes)),
+	flora_concat_atoms([FloraDir,S,closure],Closure),
+	flora_concat_atoms([FloraDir,S,includes],Includes),
+	flora_concat_atoms([FloraDir,S,flrincludes],FlrIncludes),
+	flora_concat_atoms([FloraDir,S,genincludes],GenIncludes),
+	flora_concat_atoms([FloraDir,S,lib,S,include],LibIncludes),
+	flora_concat_atoms([FloraDir,S,'AT',S,include],ATIncludes),
+	assert(xpp_include_dir(Closure)),
+	assert(xpp_include_dir(Includes)),
+	assert(xpp_include_dir(FlrIncludes)),
+	assert(xpp_include_dir(GenIncludes)),
+	assert(xpp_include_dir(LibIncludes)),
+	assert(xpp_include_dir(ATIncludes)),
+        flora_concat_strings([FloraDir,ERGOAI_INCLUDE],ErgosuiteInclude),
+	assert(xpp_include_dir(ErgosuiteInclude)),
+	assert(flora_configuration(includedirs,[ErgosuiteInclude,Closure,Includes,FlrIncludes,GenIncludes,LibIncludes,ATIncludes])),
+	flora_set_counter(FLORA_COMPILATION_COUNTER,0), % disambiguates _# in _add
+	flora_set_break_level(0),
+	flora_unprotect_break_level,
+	assert(interpreter_index_hook(flora_get_break_level(_))),
+	%% this must be initialized here, NOT in flrcompiler.P
+	flora_set_counter(CONTEXT_COMPILER_STRING_COMMAND,0),
+	%% *-indexing only to the level 2
+	%% Deeper than 2 may be bad for HiLog and F-logic,
+	%% since *-indexing can't index on prefix arguments
+	flora_set_star_indexing_depth(2),
+	%%flora_set_counter(FL_QUERY_PREDICATE0,0),
+	[flrcommon_definitions],
+	[cc_config],
+	%% flrimportedcalls is used by flora_query, if called directly from XSB
+	[flrimportedcalls],
+	consult(flrshell),
+	reset_control_counters,
+	stat_set_flag(ANSWER_COMPLETION,0), %% turn OFF answer completion
+	set_initial_memory_cap,  %% set memory cap at ~0.85*RAM; user can change
+	load_rc_file.
+
+flora_assert_directories([]) :- !.
+flora_assert_directories([H|T]) :-
+	flora_slash(S),
+	has_flora_configuration_dir(installdir,FloraInstallDir),
+	flora_concat_atoms([FloraInstallDir,S,H], Directory),
+        add_lib_dir(Directory),
+	flora_assert_directories(T).
+
+flora_set_star_indexing_depth(X) :- 
+	(X > 10 -> XX = 10
+	; X < 1 -> XX = 1
+	; XX = X
+	),
+	stat_set_flag(MAXTOINDEX_FLAG,XX).
+
+load_rc_file :-
+	getenv('FLORA_RC_FILE',File),
+	flora_file_op(isplain,File),
+	flora_file_op(readable,File),
+	!,
+	flora_set_counter(flora_rc_file_loaded,1),
+	seeing(OldFile),
+	see(File),
+	flora_embedded_shell_loop,
+	see(OldFile).
+load_rc_file.
+
+reset_control_counters :-
+	flora_set_counter(flora_feedback_control,0),
+	flora_set_counter(flora_prompt_control,0).
+
+/*****************************************************************************/
+unstrap_flora :-
+	flora_get_break_level(0),
+	\+flora_protected_break_level,
+	!,
+	retractall(interpreter_index_hook(flora_get_break_level(_))),
+	flora_stdmsg_line('\n\nCiao!'),
+	has_flora_configuration_dir(includedirs,IncludeDirs),
+	remove_include_dirs(IncludeDirs),
+	retractall(flora_configuration(loaded,_)),
+	flora_set_counter(flora_shell_loaded,0),
+	set_inthandler('_$xsb_keyboard_int'(_,_),MYSIG_KEYB).
+unstrap_flora :-
+	flora_stdmsg_line('\n').
+
+
+/*****************************************************************************/
+%% do not show shell commands in trace
+:- assert(hide_this_show(ergo_shell,0)),
+	assert(hide_this_show(flora_shell,0)),
+	assert(hide_this_show(shell_internal,0)). 
+
+
+/*****************************************************************************/
+
+shell_internal :-
+	bootstrap_flora,
+	notrace,
+	set_inthandler('_$flora_keyboard_int'(_,_),MYSIG_KEYB),
+	flora_enable_keyboard_interrupts,
+	flora_get_counter(flora_shell_loaded,LoadFlag),
+	( LoadFlag == 1 -> true
+	;
+	    %% enable prompt, feedback, and flora banner
+	    flora_set_banner_control(noprompt,0),
+	    flora_set_banner_control(nofeedback,0),
+	    flora_set_banner_control(nobanner,0),
+	    flora_shell_loop
+	).
+
+set_directory_configuration :-
+        %% under MacOS, in a bundle, the current directory is indeterminate
+        %% So, switch to home, if the current directory is unwritable
+        flora_file_op(cwd,CurDir),
+        flora_slash(Slash),
+        flora_user_home(Home),
+        has_flora_configuration_dir(installdir,InstallDir),
+        (\+ flora_file_op(writable,CurDir) -> flora_file_op(chdir,Home)
+        %% if curr dir is a Flora-2 install or its parent, then
+        %% use user's home == the current dir -- makes corruption less likely
+        ; path_sysop(standardize,CurDir,CurDirStandard),
+            path_sysop(standardize,[CurDir,Slash,flora2],CurDirStandardFlora),
+            path_sysop(standardize,[CurDir,Slash,'Ergo'],CurDirStandardErgo),
+            path_sysop(standardize,InstallDir,InstallDirStandard),
+            basics:memberchk(InstallDirStandard, [CurDirStandard,CurDirStandardFlora,CurDirStandardErgo])
+        -> flora_file_op(chdir,Home)
+        ; true
+        ),
+        %% set baseworkdir, cwd configuration
+        flora_file_op(cwd,BaseDir),
+        add_flora_configuration_dir(baseworkdir,BaseDir),
+        add_flora_configuration_dir(cwd,BaseDir).
+
+/************************************************************************
+  Flora-2 import stuff
+
+  Syntax:
+      :- '\\flimport' Pred/Arity as Pred1(_,_,...) from File[.flr]>>FloraModule
+  or
+      :- '\\flimport' Pred/Arity as Pred1(_,_,...) from FloraModule
+
+  Also to load into the default module FROM WITHIN Prolog:
+      :- '\\load'(file).
+  or
+      :- '\\load'(file>>module).
+
+  To compile (without loading) FROM WITHIN Prolog:
+      :- '\\compile'(file).
+  or
+      :- '\\compile'(file>>module).
+
+  To add file to an existing module without overriding FROM WITHIN Prolog:
+      :- '\\add'(file).
+  or
+      :- '\\add'(file>>module).
+
+  To save module to a flora file FROM WITHIN Prolog:
+      :- '\\save'(file).
+  or
+      :- '\\save'(module>>file).
+            
+  To compile for addition to an existing module without overriding
+  FROM WITHIN Prolog:
+      :- '\\compileadd'(file).
+  or
+      :- '\\compileadd'(file>>module).
+
+************************************************************************/
+
+:- op(1170,fx,('\\flimport')).
+
+%% The other operators, '>>' and 'from', are already defined in Prolog
+
+%% Taking care of the old FLORA-2's definition of the (as) operator
+'\\flimport'(from(as(What,AsWhat),FileMod)) :-
+	!,
+	process_import_statement(What,AsWhat,FileMod).
+%% Taking care of XSB's definition of the (as) operator
+'\\flimport'(as(What,from(AsWhat,FileMod))) :-
+	!,
+	process_import_statement(What,AsWhat,FileMod).
+'\\flimport'(X) :- flora_abort(['Invalid _flimport syntax: ', X],
+                               FLORA_ABORT_NOTRACE).
+
+process_import_statement(What,AsWhat,FileMod) :-
+	(atom(FileMod)  % in this case FileMod is a module name
+	-> ('\\isloaded'(FileMod)
+	   -> flora_import_predicate(What,AsWhat,_,FileMod)
+	   ;  flora_abort(['Trying to import hilog predicate ', What,
+			   ' from a nonloaded ',FLSYSTEM,' module ', FileMod],
+			  FLORA_ABORT_NOTRACE)
+	   )
+	; FileMod = File>>Module ->
+            flora_import_predicate(What,AsWhat,File,Module)
+	).
+
+
+'\\tabledump'(File,Goal)   :- flora_dump_tables(File,Goal).
+'\\tabledump'(File,Goal,DisplOpt) :-
+	flora_dump_tables(File,Goal,DisplOpt,hide).
+%% HideOpt: hide/show
+'\\tabledump'(File,Goal,DisplOpt,HideOpt) :-
+    	flora_dump_tables(File,Goal,DisplOpt,HideOpt).
+'\\dump_incomplete_tables'(File) :- flora_dump_incomplete_tables(File).
+%% HideOpt: hide/show
+'\\dump_incomplete_tables'(File,HideOpt) :-
+    	flora_dump_incomplete_tables(File,HideOpt).
+%% print incomplete tables dumped by an exception
+'\\dump_incomplete_tables_after_exception'(File) :-
+    	flora_dump_incomplete_tables_after_exception(File).
+%% HideOpt: hide/show
+'\\dump_incomplete_tables_after_exception'(File,HideOpt) :-
+    	flora_dump_incomplete_tables_after_exception(File,HideOpt).
+'\\set_dump_incomplete_tables_on_exception' :-
+    	set_prolog_flag(exception_pre_action,print_incomplete_tables).
+
+/*************************************************************************
+  
+  \save(+ModuleName,+FlrFile)
+  \save(+FlrFile)
+   
+  Purpose: -save Module into FlrFile
+           -shell command
+           -if ModuleName is omitted, main by defaut	   
+  Comments: none
+	   
+*************************************************************************/
+
+FL_SAVE(Module>>File) :- !, flora_save_module_util(Module,File).
+FL_SAVE(File) :- flora_save_module_util(File).
+
+
+FL_COMPILE(File>>Module) :- !, flora_compile_util(File,Module).
+FL_COMPILE(File) :- flora_compile_util(File).
+
+
+%% Compile for adding to module
+FL_COMPILE_ADD(File>>Module) :- !, flora_compile_add(File,Module).
+FL_COMPILE_ADD(File) :- flora_compile_add(File).
+
+%% \load/\add are neded only so that we could call them from prolog
+FL_LOAD(File>>Module) :- !, FLLIBLOAD([File>>Module],FL_SHELL_FICTITIOUS_FILENAME,FLORA_DEFAULT_WORKSPACE,[external,unknown]).
+FL_LOAD(File) :-FLLIBLOAD([File],FL_SHELL_FICTITIOUS_FILENAME,FLORA_DEFAULT_WORKSPACE,[external,unknown]). 
+FL_ADD(File>>Module) :- !, FLLIBADD([File>>Module],FL_SHELL_FICTITIOUS_FILENAME,FLORA_DEFAULT_WORKSPACE,[external,unknown]).
+FL_ADD(File) :- FLLIBADD([File],FL_SHELL_FICTITIOUS_FILENAME,FLORA_DEFAULT_WORKSPACE,[external,unknown]).
+
+%% tells if ModuleName is loaded
+'\\isloaded'(ModuleName) :- 
+	%%flora_user_module_registry(ModuleName).
+	flora_module_registry(ModuleName).
+
+
+/***************************************************************************/
+%% Some utilities that must be duplicated here because they can't be imported
+
+remove_include_dirs([]).
+remove_include_dirs([H|T]) :-
+	(retract(xpp_include_dir(H)) ; true),
+	remove_include_dirs(T).
+
+
+/************************************************************************
+    FLQUERYCMD(+String,+Vars,-Status,-XWamState,-Exception)
+
+   Execute a query specified in String.
+
+   String: A query string
+   Vars:   A list of the form [Name1=Var1, Name2=Var2,...].
+           Name is a name of a variable mentioned in String, for instance, 
+	   '?X' (note: must be quoted, since it is an atom).
+	   Var is a variable where you want the binding for the variable 
+	   Name in String to be returned. For instance, 
+	   if String is 'p(?X,?Y).'
+	   Vars can be ['?X' = ?Xyz, '?Y' = ?Qpr]
+	   Then ?Xyz will be bound to the value of ?X in p(?X,?Y) after
+	   the execution and ?Qpr will be bound to the value of ?Y in p(?X,?Y).
+   Status: indicates the status of compilation of the command in String.
+   XWamState: if =:= 0, the answer is true; else undefined
+   Exception: is a possible exception during the runtime execution 
+              of the command in String.
+*************************************************************************/
+FLQUERYCMD(String,Vars,Status,XWamState,Exception) :-
+	flora_call_string_command(String,Vars,Status,XWamState,Exception).
+
+:- export flora_query/5.
+flora_query(String,Vars,Status,XWamState,Exception) :-
+	flora_call_string_command(String,Vars,Status,XWamState,Exception).
+
+%%%%%%%%%%%%%%% Ergo keyboard interrupt handler %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% this is a renamed verbatim copy of XSB's keyboard interrupt handler
+'_$xsb_keyboard_int'(Call,_Code) :- 
+	is_xwammode(Flag),
+	( Flag =:= 1 -> abort
+	; break,
+	    call_c(Call)
+	).
+
+:- import file_clone/3 from file_io.
+:- import
+        flora_status_msg/1,
+        send_color_control_chars/2,
+	flora_stdfdbk_nl/0,
+	flora_stdfdbk_string/1
+   from flrprint.
+:- import flora_subshell_loop/0 from usermod.
+:- import
+        analyze_non_termination/0
+   from flrterminyzer.
+:- import
+        entered_break/0,
+        resumed_computation/0
+   from interprolog.
+
+:- import xsb_backtrace/1 from machine.
+:- import get_backtrace_list/2 from error_handler.
+
+'_$flora_keyboard_int'(Call,_Code) :-
+    \+flora_keyboard_interrupts_enabled,
+    !,
+    call_c(Call).
+%% This clause prevents breaking when nothing is running
+%% This is not ideal since sometimes true() is called during the execution.
+%% If ^C is hit at that moment then it will be ignored.
+'_$flora_keyboard_int'(true(),_Code) :-
+    %%\+flora_get_break_level(0),
+    flora_is_idle,
+    !,
+    %%flora_stdfdbk_string('+++ cannot pause here; nothing is running'),
+    flora_stdfdbk_nl,
+    %% keep "fail" here or else won't be able to ^C inside a break
+    %% level when everything is idle
+    %% Previously we had "true" here because we were not filtering on
+    %% Print = [machine:xsb_backtrace/1,standard:get_code/1|_], which
+    %% makes sure that we are failing ONLY if XSB is idle, waiting for input
+    fail.
+'_$flora_keyboard_int'(Call,_Code) :-
+    (flora_configuration(uimode,studio) -> entered_break; true),
+    flora_break,
+    (flora_configuration(uimode,studio) -> resumed_computation; true),
+    flora_status_msg(resume),
+    call_c(Call).
+
+
+/*
+%% Ergo BREAK MODE
+%% Puts Ergo into an XSB-like break mode
+*/
+:- export '_$ergo_break'/0.
+'_$ergo_break' :- flora_break.
+flora_break :-
+	seeing(InpFile), telling(OutFile),
+	%% file_clone is a hack for MacOS.
+	%% If no cloning, ^D will exit XSB on the Mac
+	(flora_configuration(uimode,studio) ->
+	    InCopy = STDIN
+	;
+            /*
+	    (InpFile >= 0 -> file_clone(STDIN,InCopy,_)
+	    ;
+                %% InpFile<0:  This is the case of ergo -e [file]. %
+                %% where file has a long-running query in it %
+                file_clone(STDIN,InCopy,_)
+	    ),
+            */
+	    file_clone(STDIN,InCopy,_),
+	    print_break_message
+	),
+        %% NOTE: InCopy must be STDIN or its clone. Cannot be InpFile!
+        %% Indeed, XSB may be reading non-Ergo input file InpFile and if we
+        %% see(InpFile) or its clone then shell_loop_during_pause will
+        %% start getting input from that file, which can be random stuff,
+        %% not Ergo commands.
+	see(InCopy), tell(userout),
+	flora_increment_break_level(Blevel,_Nblevel,1),
+        %% analyze_non-termination  must be AFTER flora_increment_break_level
+        analyze_non_termination,
+	x_interp:handle_timed_calls,
+        flora_status_msg(pause),
+	shell_loop_during_pause(InpFile,OutFile),
+	flora_set_break_level(Blevel),
+	protect_break_level,
+	seen, told,
+	(InpFile >= 0 -> see(InpFile) ; true),
+        tell(OutFile),
+	x_interp:reinvoke_timed_calls.
+
+flora_is_idle :-
+	xsb_backtrace([Bt]),
+	get_backtrace_list(Bt,Print),
+	Print = [machine:xsb_backtrace/1,flora2:flora_is_idle/0,standard:get_code/1|_].
+
+shell_loop_during_pause(InpFile,OutFile) :-
+	catch(flora_subshell_loop,Ball,pause_subshell_handler(Ball,InpFile,OutFile)),
+	(flora_get_break_level(0) -> throw(END_OF_FLORA_SHELL)
+	; true
+	),
+	!.
+
+pause_subshell_handler(FLORA_ABORT_PARENT,InpFile,_OutFile) :-
+	seen, told,
+	see(InpFile),
+	%%tell(_OutFile),
+	throw(FLORA_EXIT_BREAK),
+	!.
+pause_subshell_handler(Ball,InpFile,OutFile) :-
+	seen, told,
+	see(InpFile), tell(OutFile),
+	default_error_handler(Ball),
+	fail.
+
+print_break_message :-
+    flora_configuration(uimode,studio),
+    !,
+    flrerrhandler:quick_performance_summary,
+    send_color_control_chars(stdfdbk,brown),
+    flora_stdfdbk_string('~n+++ current operation is paused:~n'),
+    send_color_control_chars(stdfdbk,default),
+    send_color_control_chars(stdfdbk,blue),
+    flora_stdfdbk_string('    Debug-menu has tools for inspecting the state of computation~n~n'),
+    send_color_control_chars(stdfdbk,default).
+print_break_message :-
+	flrerrhandler:quick_performance_summary,
+        send_color_control_chars(stdfdbk,brown),
+	flora_stdfdbk_string('~n+++ current operation is paused:~n'),
+        send_color_control_chars(stdfdbk,default),
+        send_color_control_chars(stdfdbk,blue),
+        flora_stdfdbk_string('    \\resume'),
+        send_color_control_chars(stdfdbk,default),
+        flora_stdfdbk_string('         - resume operation~n'),
+        send_color_control_chars(stdfdbk,blue),
+        flora_stdfdbk_string('    \\toplevel'),
+        send_color_control_chars(stdfdbk,default),
+        flora_stdfdbk_string('       - abort operation~n'),
+        send_color_control_chars(stdfdbk,blue),
+        (flora_configuration(uimode,[_,gui]) ->
+            flora_stdfdbk_string('    setruntime{}   ')
+	; flora_stdfdbk_string('    setruntime{...}')
+        ),
+        send_color_control_chars(stdfdbk,default),
+	flora_stdfdbk_string(' - set time, memory, and term-size limits~n'),
+        send_color_control_chars(stdfdbk,blue),
+        (flora_configuration(uimode,[_,gui]) ->
+            flora_stdfdbk_string('    showgoals{}   ')
+        ; flora_stdfdbk_string('    showgoals{...}')
+        ),
+        send_color_control_chars(stdfdbk,default),
+	flora_stdfdbk_string('  - show all subgoals currently being computed~n'),
+        send_color_control_chars(stdfdbk,blue),
+        flora_stdfdbk_string('    peek{...}'),
+        send_color_control_chars(stdfdbk,default),
+	flora_stdfdbk_string('       - show answers to specific subgoals found so far~n~n').
+
+
+/******** break level API ****************************************************/
+
+flora_get_break_level(BL) :- flora_get_counter(CONTEXT_BREAK_LEVEL,BL).
+flora_set_break_level(BL) :- flora_set_counter(CONTEXT_BREAK_LEVEL,BL).
+flora_increment_break_level(OBL,NBL,Incr) :-
+	flora_increment_counter(CONTEXT_BREAK_LEVEL,Incr,OBL,NBL).
+
+flora_disable_keyboard_interrupts :-
+	flora_set_counter(CONTEXT_DISABLE_KBD_INT,1).
+flora_enable_keyboard_interrupts :-
+	flora_set_counter(CONTEXT_DISABLE_KBD_INT,0).
+flora_keyboard_interrupts_enabled :-
+	flora_get_counter(CONTEXT_DISABLE_KBD_INT,0).
+
+%% A break level is protected right after we go from level N+1 to level N.
+%% It gets unprotected when flrshell:flora_end_internal/0 throws to
+%% the top level or out of the shell.
+protect_break_level :-
+	flora_set_counter(protect_break_level,1).
+flora_unprotect_break_level :-
+	flora_set_counter(protect_break_level,0).
+flora_protected_break_level :-
+	flora_get_counter(protect_break_level,1).
+
+
+/******************************************************************************
+** Interrupt handlers for non-shell emergencies, like calling Ergo           **
+** from C, Java                                                              **
+******************************************************************************/
+
+%% don't print the backtrace
+special_flora_abort_handler(FLORA_ABORT_NOTRACE(Msg,_Trace)) :-
+        !,
+        flora_stderr_nl,
+        flora_abort_line(Msg),
+        flora_stderr_nl,
+        fail.
+
+%% Note: on Windows dirs ending in \ are not standardized by stripping \
+%% so this possibly can cause duplicate asserts
+add_flora_configuration_dir(Key,Dir) :-
+        path_sysop(standardize,Dir,FullDir),
+        retractall(flora_configuration(Key,_)),
+        assert(flora_configuration(Key,FullDir)).
+has_flora_configuration_dir(Key,Dir) :-
+        (var(Dir) -> flora_configuration(Key,Dir)
+        ; path_sysop(standardize,Dir,FullDir),
+            flora_configuration(Key,FullDir)
+        ).

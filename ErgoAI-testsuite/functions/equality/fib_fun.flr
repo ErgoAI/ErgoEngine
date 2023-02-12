@@ -1,0 +1,23 @@
+:- prolog{fib/2}.
+:- table{fib/2}.
+
+\udf ?x+?y:=?z \if ?z \is ?x+?y.
+\udf ?x-?y:=?z \if ?z \is ?x-?y.
+
+//\udf fib(0):=1 \if \true.
+//\udf fib(1):=1 \if \true.
+//\udf fib(?n):=fib(?n-1)+fib(?n-2) \if ?n>1.
+
+\udf fib(?x):=?y \if fib(?x,?y).
+fib(0,1):- !.
+fib(1,1):- !.
+//fib(?n,?y):- is(?x1,?n-1)@\plg, is(?x2,?n-2)@\plg, ?y \is ?x1+?x2.
+fib(?n,fib(?n-1)+fib(?n-2)):- ?n>1.
+
+/*test(?X,?Y) :- cputime(?T)@\plg, ?Y=fib(?X), cputime(?TT)@\plg,
+       is(?TTT,?TT-?T)@\plg, writeln(cputime=?TTT)@\plg.
+
+?- nl@\plg,test(10000,?y).*/
+
+?- ?y=fib(10000).
+

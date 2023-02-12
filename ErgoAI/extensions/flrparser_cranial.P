@@ -1,0 +1,386 @@
+/* File:   extensions/flrparser_cranial.P  -- the Ergo head Cranial transform hook
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2014-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+/*
+** The final stage of the Omni Head transform (the Head-Cranial transform).
+**
+** a. If Formula is a conjunction, then split it in two rules
+** b. If Formula is universally quantified, then drop forall(...)
+**    after renaming the variables quantified by that quantifier.
+** c. If Formula is a disjunction, then directionalize it:
+**    A;B --> A :- neg B
+**            B :- neg A
+** d. If Formula is an existential quantifier, then skolemize existential vars.
+** e. Literals (atomic or neg atomic) terminate the recursion.
+**
+*/
+
+
+#define NEWOMNIVAR    '_newomnivar'
+
+%%#define CranialDBG
+
+
+:- import
+	remove_dupflvars/2,
+	collect_flvar_names/2,
+	collect_flvars/2
+   from flrcompiler.
+
+:- import has_test_mode/1 from flrtesting.
+
+:- export
+	flwrite_cranial/2,
+	flwrite_cranial_stderr/2.
+
+#ifdef CranialDBG
+:- import set_test_mode/1 from flrtesting.
+?- set_test_mode(cranial).
+#endif
+
+
+to_Cranial_list([],H-H,B-B,NO_ERRORS) :- !.
+to_Cranial_list([Term|Rest],HeadList,H2BCranialList,Status) :-
+	(var(Term) -> THeadList = [NULL|THL], TH2BCranialList = [NULL|TBL]
+	; to_Cranial(Term,THeadList-THL,TH2BCranialList-TBL,S1)
+	),
+	(S1 == NO_ERRORS ->
+	    to_Cranial_list(Rest,RHeadList-RHL,RH2BCranialList-RBL,Status)
+	; Status = S1
+	),
+	%% concat diff lists
+	THL = RHeadList,
+	TBL = RH2BCranialList,
+	HeadList = THeadList - RHL,
+	H2BCranialList = TH2BCranialList - RBL.
+
+/****************************************************************************
+   to_Cranial/4, calls to_Cranial/5
+
+   to_Cranial(+ParserTerm,-OutHeadList,-OutH2BCranialListLT,-Status)
+
+   ParserTerm: input head term
+   OutHeadList: processed heads - list of literals
+   OutH2BCranialListLT: List of cranial bodies per each head
+****************************************************************************/
+to_Cranial(ParserTerm,HeadList,H2BCranialListLT,Status) :-
+#ifdef CranialDBG
+        DBGOUT('\nin='),
+	flwriteline_stderr(ParserTerm),
+#endif
+	to_Cranial(ParserTerm,NULL,HeadList,H2BCranialList,Status),
+#ifdef CranialDBG
+        DBGOUT('<cranial_HeadList_pre_LT>\n'),
+	copy_term(HeadList,HeadListCopy-[]),
+        flwritelinelist_stderr(HeadListCopy),
+	DBGOUT('</cranial_HeadList_pre_LT>\n'),
+        DBGOUT('<cranial_H2B_pre_LT>\n'),
+	copy_term(H2BCranialList,H2BCranialListCopy-[]),
+	flwritelinelist_stderr(H2BCranialListCopy),
+	DBGOUT('</cranial_H2B_pre_LT>\n'),
+#endif
+	to_LT_list(H2BCranialList,H2BCranialListLT),
+#ifdef CranialDBG
+        flwrite_cranial_stderr(HeadList,H2BCranialListLT),
+#endif
+	(flrtesting:has_test_mode(cranial) ->
+	    DBGOUT('in='),
+	    flwriteline_stderr(ParserTerm),
+	    DBGOUT('<cranial>\n'),
+	    flwrite_cranial_stderr(HeadList,H2BCranialListLT),
+	    DBGOUT('</cranial>\n')
+	; true
+	).
+
+
+/****************************************************************************
+   to_Cranial/5
+
+   to_Cranial(+ParserTerm,+InH2B,-OutHeadList,-OutH2BList,-Status)
+
+   ParserTerm: input head term
+   InH2B: input H2B part
+   OutHeadList: processed heads - list of literals
+   OutH2BList: List of cranial bodies per each head
+****************************************************************************/
+%% ParserTerm is conjunct: (Left,Right)
+to_Cranial(ParserTerm,InH2B,OutHeadList,OutH2BList,Status) :-
+	is_flconjunct(ParserTerm,Left,Right),
+	!,
+	%% split into Left:- InH2B  and Right :- InH2B rules
+	to_Cranial(Left,InH2B,LeftHeadList-LHO,LeftH2BList-LBO,S1),
+	(S1 == NO_ERRORS ->
+	    to_Cranial(Right,InH2B,RightHeadList-RHO,RightH2BList-RBO,Status)
+	; Status=S1
+	),
+	%% concat diff lists
+	LHO = RightHeadList,
+	LBO = RightH2BList,
+	OutHeadList = LeftHeadList-RHO,
+	OutH2BList = LeftH2BList-RBO.
+
+%% ParserTerm is disjunct: (Left;Right)
+to_Cranial(ParserTerm,InH2B,OutHeadList,OutH2BList,Status) :-
+	is_fldisjunct(ParserTerm,Left,Right),
+	!,
+        (flrtesting:has_test_mode(skolemize_then_directionalize) ->
+            %% Skilemize before directionalizing
+            skolemize_head_parser_term(Left,LeftSk),
+            skolemize_head_parser_term(Right,RightSk)
+        ; %% Skilemize after directionalizing
+            LeftSk = Left,
+            RightSk = Right
+        ),
+	%% make the rule  Left :- neg Right
+	flneg_struct(RightSk,NO_INDEX,RightH2B),
+	flconjunct_struct(RightH2B,InH2B,RightH2BConj),
+	to_Cranial(LeftSk,RightH2BConj,LeftHeadOut-LHO,LeftH2BOut-LBO,S1),
+	%% make the rule  Right :- neg Left
+	flneg_struct(LeftSk,NO_INDEX,LeftH2B),
+	flconjunct_struct(LeftH2B,InH2B,LeftH2BConj),
+	(S1 == NO_ERRORS ->
+	    to_Cranial(RightSk,LeftH2BConj,RightHeadOut-RHO,RightH2BOut-RBO,Status)
+	; Status = S1
+	),
+	%% concat diff lists
+	LHO = RightHeadOut,
+	LBO = RightH2BOut,
+	OutHeadList = LeftHeadOut-RHO,
+	OutH2BList = LeftH2BOut-RBO.
+
+%% ParserTerm is forall(QuantVars)^(Formula)
+%% Rename QuantVars and drop quantifier.
+to_Cranial(ParserTerm,InH2B,OutHeadList,OutH2BList,Status) :-
+        %% Moving VarsCode into OutH2BList as VarsCode=VarsCode
+        %% This will cause var binding code to be generated.
+	is_fllogicquantifier(ParserTerm,Quant,QuantVars,VarsCode,Formula,Idx),
+	is_universalquant(Quant),
+	!,
+	rename_flvars(QuantVars,Formula-VarsCode,NewParseTerm-NewVarsCode,_),
+	to_Cranial(NewParseTerm,InH2B,OutHeadList,OutH2BList_pre,S1),
+        (VarsCode \== NULL ->
+            %% Generate code for NewVarsCode=NewVarsCode
+            flatom_struct(FL_UNIVEQ,NO_INDEX,Unify),
+            flterm_struct(Unify,2,[NewVarsCode,NewVarsCode],NewVarsEqCode),
+            flmodule_struct(FLORAUSERMOD,NewVarsEqCode,NULL,VarsEqWSCode),
+            %% Conjunct variable binding code to every member of OutH2BList_pre
+            map_difflist_one_conjunct(OutH2BList_pre,VarsEqWSCode,OutH2BList)
+        ;  OutH2BList = OutH2BList_pre
+        ),
+	%% Check if the quantified vars all occur in Formula
+	%% This could be combined with rename_flvars -- a possible TODO
+	collect_flvar_names(Formula,FormVarNames),
+	(\+subset(QuantVars,FormVarNames) ->
+	    parsing_error(Idx,QUANT_VARS_NOT_SUBSET,Status)
+	; Status = S1
+	).
+
+%% ParserTerm is exists(QuantVars)^(Formula)
+%% Skolemize QuantVars, remove exists
+%%
+%% This is NOT REACHABLE, if has_test_mode(skolemize_then_directionalize)
+%% is defined since in that case we skolemize before directionalization
+to_Cranial(ParserTerm,InH2B,OutHeadList,OutH2BList,Status) :-
+        %% _VarsCode is ignored, as existential head-vars get skolemized
+	is_fllogicquantifier(ParserTerm,_Quant,QuantVars,_VarsCode,Formula,Idx),
+	!,
+	collect_flvars(ParserTerm,FreeVars),
+	make_skolem_terms(QuantVars,FreeVars,Idx,Skolems),
+	replace_flvars(QuantVars,Skolems,Formula,NewParseTerm),
+	to_Cranial(NewParseTerm,InH2B,OutHeadList,OutH2BList,S1),
+	%% Check if the quantified vars all occur in Formula
+	%% This could be combined with replace_flvars -- a possible TODO
+	collect_flvar_names(Formula,FormVarNames),
+	(\+subset(QuantVars,FormVarNames) ->
+	    parsing_error(Idx,QUANT_VARS_NOT_SUBSET,Status)
+	; Status = S1
+	).
+
+%% catchall case: should be just literals
+to_Cranial(ParserTerm,InH2B,[ParserTerm|P]-P,[InH2B|H]-H,NO_ERRORS).
+
+
+/************************************************************************
+   to_LT_list(+InH2BCranialList, -OutH2BCranialList)
+************************************************************************/
+to_LT_list([T|Rest]-TailVar,[LT_T|LT_Rest]-LTTailVar) :-
+        /*
+#ifdef CranialDBG
+        DBGOUT('pre_LT_form='),
+	flwriteline_stderr(T),
+#endif
+        */
+	to_LT(T,LT_T),
+	(Rest == TailVar -> LT_Rest=LTTailVar
+	; to_LT_list(Rest-TailVar,LT_Rest-LTTailVar)
+	).
+
+/***************************************************************************
+    skolemize_head_parser_term(+InTerm,-OutTerm)
+
+    Assumes \neg is already pushed inwards in InTerm
+
+    This an experiment. Causes wrong result for cases like this:
+    p({a,b,c}).
+    forall(?X)^p(?X) ==> q.
+    q should be undefined because forall(?X)^p(?X) is, but it would be false,
+    if we skolemize first.
+    The problems with skolemizing first and directionalizing first
+    are explained in flora2/docs/ergodocs/problems-with-omni-skolemization.txt
+
+    Enable this with
+         ?- set_test_mode(skolemize_then_directionalize)@\plg(flrtesting).
+***************************************************************************/
+%% (term,term)
+skolemize_head_parser_term(InTerm,OutTerm) :-
+        is_flconjunct(InTerm,Left,Right),
+	!,
+        skolemize_head_parser_term(Left,LeftSk),
+        skolemize_head_parser_term(Right,RightSk),
+        flconjunct_struct(LeftSk,RightSk,OutTerm).
+
+%% (term;term)
+skolemize_head_parser_term(InTerm,OutTerm) :-
+        is_fldisjunct(InTerm,Left,Right),
+	!,
+        skolemize_head_parser_term(Left,LeftSk),
+        skolemize_head_parser_term(Right,RightSk),
+        fldisjunct_struct(LeftSk,RightSk,OutTerm).
+
+%% forall(...)^term
+skolemize_head_parser_term(InTerm,OutTerm) :-
+	is_fllogicquantifier(InTerm,Quant,QuantVars,VarsCode,Formula,Idx),
+	is_universalquant(Quant),
+	!,
+        skolemize_head_parser_term(Formula,FormulaSk),
+        flquantifier_struct(Quant,QuantVars,VarsCode,FormulaSk,Idx,OutTerm).
+
+%% exist(...)^term
+skolemize_head_parser_term(InTerm,OutTerm) :-
+        %% _VarsCode is ignored, as existential head-vars get skolemized
+	is_fllogicquantifier(InTerm,_Quant,QuantVars,_VarsCode,Formula,Idx),
+        !,
+        collect_flvars(InTerm,FreeVars),
+	make_skolem_terms(QuantVars,FreeVars,Idx,Skolems),
+	replace_flvars(QuantVars,Skolems,Formula,OutTerm).
+
+skolemize_head_parser_term(InTerm,InTerm).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Utilities %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+replace_flvars([],[],ParseTerm,ParseTerm) :- !.
+replace_flvars([VarName|VarNameL],[Repl|ReplL],ParseTerm,NewParseTerm) :-
+	rename_one_flvar(VarName,Repl,ParseTerm,NewParseTerm1),
+	replace_flvars(VarNameL,ReplL,NewParseTerm1,NewParseTerm).
+
+rename_flvars([],ParseTerm,ParseTerm,[]) :- !.
+rename_flvars([VarName|VarNameL],ParseTerm,NewParseTerm,[NewVarObj|NewVarL]) :-
+	new_flvar_struct(NO_INDEX,NewVarObj),
+	rename_one_flvar(VarName,NewVarObj,ParseTerm,NewParseTerm1),
+	rename_flvars(VarNameL,NewParseTerm1,NewParseTerm,NewVarL).
+
+rename_one_flvar(VarName,NewVarObj,ParseTerm,NewParseTerm) :-
+	( atomic(ParseTerm) -> NewParseTerm = ParseTerm
+	; var(ParseTerm) -> NewParseTerm  = ParseTerm
+	; is_list(ParseTerm)
+	-> rename_one_flvar_in_list(VarName,NewVarObj,ParseTerm,NewParseTerm)
+	; is_flvar_struct(ParseTerm,VarName,_Idx) -> NewParseTerm = NewVarObj
+	; is_flatomnumberstringbuiltindatatype(ParseTerm)
+	->  NewParseTerm = ParseTerm
+	%% rename under the quantifier, if possible
+	; is_fllogicquantifier(ParseTerm,Quant,QVarNames,VarsCode,Formula,Idx)
+	-> (QVarNames==FL_STAR -> NewParseTerm = ParseTerm
+	   ; memberchk(VarName,QVarNames) -> NewParseTerm = ParseTerm
+	   ; rename_one_flvar(VarName,NewVarObj,Formula,NewFormula),
+	       flquantifier_struct(Quant,QVarNames,VarsCode,NewFormula,Idx,NewParseTerm)
+	   )
+	),
+	!.
+rename_one_flvar(VarName,NewVarObj,ParseTerm,NewParseTerm) :-
+	ParseTerm =.. [Wrapper|Args],
+	rename_one_flvar_in_list(VarName,NewVarObj,Args,NewArgs),
+	NewParseTerm =.. [Wrapper|NewArgs].
+
+rename_one_flvar_in_list(_,_,[],[]) :- !.
+rename_one_flvar_in_list(VarName,NewVarObj,[T|Terms],[NewT|NewTerms]) :-
+	rename_one_flvar(VarName,NewVarObj,T,NewT),
+	rename_one_flvar_in_list(VarName,NewVarObj,Terms,NewTerms).
+
+make_skolem_terms(QuantVars,FreeVars,Idx,Skolems) :-
+	length(FreeVars,N),
+	remove_dupflvars(FreeVars,FreeVarsNoDups),
+	make_skolem_terms1(QuantVars,FreeVarsNoDups,N,Idx,Skolems).
+make_skolem_terms1([],_FreeVars,_,_,[]) :- !.
+make_skolem_terms1([Var|QuantVars],FreeVars,N,Idx,[SkTerm|Skolems]) :-
+	%% Assumes QuantVars are sorted names of vars. Sorting is done when
+	%% quantifier structure is created
+	omni_skolem_struct(Var,Idx,Funct),
+	(N>0 -> flterm_struct(Funct,N,FreeVars,SkTerm)
+	; SkTerm=Funct
+	),
+	make_skolem_terms1(QuantVars,FreeVars,N,Idx,Skolems).
+
+
+%% Like FL_NEWOID, but is a Skolem both in the body and in the head
+%% Generated by skolemization during the omni transform
+%% Also, name of variable is in the skolem's name
+omni_skolem_struct(Var,Idx,FLTOKEN(FLSPECIALSKOLEM,Suff,Idx)) :-
+	!,
+	flora_increment_counter(ANON_OID_COUNT,1,_,Num),
+	flora_concat_items([FL_OMNI_SKOLEM_PREFIX,Var,'_',Num],Suff).
+
+%% NEWOMNIVAR starts with a _, so no single/unsafe var warnings will be issued
+new_flvar_struct(Idx,FLVAR(Name,Idx)) :-
+	flora_increment_counter(NEWFLVAR,1,OldVal,_NewVal),
+	flora_concat_items([NEWOMNIVAR,OldVal],Name).
+
+is_flatomnumberstringbuiltindatatype(FLATOM(_,_)).
+is_flatomnumberstringbuiltindatatype(FLNUMBER(_,_)).
+is_flatomnumberstringbuiltindatatype(FLSTRING(_,_)).
+is_flatomnumberstringbuiltindatatype(FLBUILTIN_IDENTIFIER(_,_)).
+is_flatomnumberstringbuiltindatatype(FLDATATYPELIST(_)).
+is_flatomnumberstringbuiltindatatype(FLDATATYPE(_,Contents,_)) :-
+        \+is_flvar_struct(Contents,_,_).
+
+map_difflist_one_conjunct([E1|R1]-T,Conj,[C|R]-T) :-
+	flconjunct_struct(Conj,E1,C),
+        (R1 == T -> R=R1
+	; map_difflist_one_conjunct(R1-T,Conj,R-T)
+        ).
+
+
+/***** Writing utils **********************************************************/
+
+flwrite_cranial_stderr(H,B) :-
+	tell(2),
+	flwrite_cranial(H,B),
+	told.
+flwrite_cranial([H|RH]-HTail,[B|RB]-BTail) :-
+	(H \== '' ->
+	    flwrite(H),
+	    write(' :- '),
+	    flwriteline(B)
+	; true
+	),
+	(RH==HTail -> RB=BTail
+	; flwrite_cranial(RH-HTail,RB-BTail)
+	).
+

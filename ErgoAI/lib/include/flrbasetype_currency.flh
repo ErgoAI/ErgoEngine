@@ -1,0 +1,74 @@
+/* File:      include/flrbasetype_currency.flh
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2018;
+**      and Coherent Knowledge Ststems, LLC. 2018;
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- export{
+           ?[add(?)->?],
+           ?[times(?)->?],
+           ?[ratio(?)->?],
+           ?[unit->?],
+           ?[amount->?],
+           ?[description->?],
+           ?[sign->?]
+         }.
+
+?X^^\currency[unit->?R] :- money_unit(?X,?R)@\prolog(flrdatatype).
+?X^^\currency[amount->?R] :- money_amount(?X,?R)@\prolog(flrdatatype).
+?X^^\currency[description->?R] :- money_info(?X,?R,?)@\prolog(flrdatatype).
+?X^^\currency[sign->?R] :- money_info(?X,?,?R)@\prolog(flrdatatype).
+
+?X^^\currency[add(-(?Y))->?R] :-
+        !,
+        money_unit(?X,?U)@\prolog(flrdatatype),
+        (money_unit(?Y,?U)@\prolog(flrdatatype) ; isnumber{?Y}),
+        !,
+        flora_type_numeric_value(?X,?V)@\prolog(flrdatatype),
+        flora_type_numeric_value(?Y,?V2)@\prolog(flrdatatype),
+        ?R1 \is ?V-?V2,
+        \currency[toType(?U,?R1)->?R].
+?X^^\currency[add(?Y)->?R] :-
+        money_unit(?X,?U)@\prolog(flrdatatype),
+        (money_unit(?Y,?U)@\prolog(flrdatatype) ; isnumber{?Y}),
+        !,
+        flora_type_numeric_value(?X,?V)@\prolog(flrdatatype),
+        flora_type_numeric_value(?Y,?V2)@\prolog(flrdatatype),
+        ?R1 \is ?V+?V2,
+        \currency[toType(?U,?R1)->?R].
+
+?X^^\currency[times(?Y)->?R] :-
+        money_unit(?X,?U)@\prolog(flrdatatype),
+        isnumber{?Y},
+        !,
+        flora_type_numeric_value(?X,?V)@\prolog(flrdatatype),
+        ?R1 \is ?V*?Y,
+        \currency[toType(?U,?R1)->?R].
+
+?X^^\currency[ratio(?Y^^\currency)->?R] :-
+        money_unit(?X,?U)@\prolog(flrdatatype),
+        money_unit(?Y,?U)@\prolog(flrdatatype),
+        !,
+        flora_type_numeric_value(?X,?V)@\prolog(flrdatatype),
+        flora_type_numeric_value(?Y,?V2)@\prolog(flrdatatype),
+        ?R1 \is ?V/?V2,
+        \currency[toType(?U,?R1)->?R].

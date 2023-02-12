@@ -1,0 +1,100 @@
+?- Method[mustDefine(on)]@\sys.
+
+:- setsemantics{tabling=reactive}.
+
+:- use_argumentation_theory.
+
+@!{aaa} @{bbb} @@{defeasible} p(\@!) :- \true.
+
+@!{'111'} @{bbb} @@{strict} q(\@!) :- \true.
+@!{'222'} @{bbb} @@{defeasible} r(\@!).
+
+// Answers: test1: r('222') q('111') p(aaa) 
+%tst1 :- write('test1: ')@\plg,
+	?P(?A),
+	write(?P(?A))@\io,
+	write(' ')@\plg,
+	\false.
+%tst1 :- nl@\plg.
+
+// Answers: test2: ${r(?A)} :- \true ${p(?A)} :- \true 
+%tst2 :- write('test2: ')@\plg,
+	clause{@@{defeasible}  ?H@main,?B},
+	flora_decode_goal_as_atom_substitute_vars((?H:-?B),?Atm)@\plg(flrdecode),
+	write(?Atm)@\plg,
+	write(' ')@\plg,
+	\false.
+%tst2 :- nl@\plg.
+
+// Answers: test3: ${q(?A)} :- \true 
+%tst3 :- write('test3: ')@\plg,
+	clause{@@{strict}  ?H@main,?B},
+	flora_decode_goal_as_atom_substitute_vars((?H:-?B),?Atm)@\plg(flrdecode),
+	write(?Atm)@\plg,
+	write(' ')@\plg,
+	\false.
+%tst3 :- nl@\plg.
+
+// Answers: test4: r('222') 
+%tst4 :- write('test4: ')@\plg,
+	disable{aaa},
+	disable{'111',\@F,main},
+	\+isenabled{aaa},
+	isdisabled{aaa,\@F,main},
+	isdisabled{'111'},
+	?P(?A),
+	write(?P(?A))@\io,
+	write(' ')@\plg,
+	\false.
+%tst4 :- nl@\plg.
+
+// Answers:  test5: p(aaa) r('222') 
+%tst5 :- write('test5: ')@\plg,
+	enable{aaa,\@F,main},
+	isenabled{aaa,\@F,main},
+	\+isdisabled{aaa,\@F,main},
+	isdisabled{'111',\@F,main},
+	?P(?A),
+	write(?P(?A))@\io,
+	write(' ')@\plg,
+	\false.
+%tst5 :- nl@\plg.
+
+// Answers: test6: ${q(?A)} :- \true 
+%tst6 :- write('test6: ')@\plg,
+	makedefeasible{'111'},
+	enable{'111',\@F,main},
+	clause{@@{strict}  ?H@main,?B},
+	isdefeasible{'111',\@F,?},
+	\+isstrict{'111'},
+	flora_decode_goal_as_atom_substitute_vars((?H:-?B),?Atm)@\plg(flrdecode),
+	write(?Atm)@\plg,
+	write(' ')@\plg,
+	\false.
+%tst6 :- nl@\plg.
+
+// Answers: test7: r('222') p(aaa) 
+%tst7 :- write('test7: ')@\plg,
+	insert{@{ccc} \neg q(?)},
+	?P(?A),
+	write(?P(?A))@\io,
+	write(' ')@\plg,
+	\false.
+%tst7 :- nl@\plg.
+
+// Answers: test8: q('111') r('222') p(aaa) 
+%tst8 :- write('test8: ')@\plg,
+	makestrict{'111',\@F,main},
+	?P(?A),
+	write(?P(?A))@\io,
+	write(' ')@\plg,
+	\false.
+%tst8 :- nl@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6,
+	// shis should be removed after XSB incr bug 871 is fixed
+	\abolishtables,
+	%tst7, %tst8.
+%test :- tell(temp)@\plg(),
+	%pretest,
+	told@\plg().

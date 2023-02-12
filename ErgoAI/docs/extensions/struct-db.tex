@@ -1,0 +1,267 @@
+
+\subsection{Querying Rules via the Rule Structure Database}
+
+\index{rule structure database}
+%%
+The \emph{rule structure database} provides a simple yet powerful
+interface for querying the rule structure of \ERGO knowledge bases. In many
+respects, this interface goes beyond what \texttt{clause\{...\}} can do,
+but it does not replace \texttt{clause\{...\}}.
+The major advance over \texttt{clause\{...\}} is that it allows one to find
+all rules \emph{containing} a particular atomic formula---either in the
+head or in the body. This is possible even if the formula occurs under
+\texttt{\RULELOGNEG}  and/or \texttt{\RULELOGNAF},  under a quantifier,
+aggregate, and other
+constructs. In addition, the query can have complex goals such as 
+those allowed under the Lloyd-Topor and omniformity extensions described in
+Sections~\ref{sec-lt} and \ref{sec-omniform}.
+
+
+\paragraph{Requesting the structural database feature.}
+\ERGO does not build the structure database by default because of a slight
+overhead in compile time, load time, and additional demands on RAM.
+The user can request that \ERGO builds a structure database for a file by
+placing the directive
+%%
+\index{use\_rule\_structure\_db directive}
+\index{directive!use\_rule\_structure\_db}
+%% 
+\begin{verbatim}
+    :- use_rule_structure_db.
+\end{verbatim}
+%% 
+in the file (or in a file \texttt{\#include}'ed in that file).
+If the above directive is not present, the calls to the structural query
+API will simply fail (will return false).
+
+If, so some reason, it is preferable to not include
+the above directive in a file, structure database may be requested at
+\emph{runtime} by executing the primitive
+\texttt{use\_rule\_structure\_db\{Module,Flag\}} as a query. For instance,
+%% 
+\begin{verbatim}
+    ?- use_rule_structure_db{foo,on}.
+\end{verbatim}
+%% 
+From then on, any file compiled for loading into the module \texttt{foo} will
+have the rule structure database available. To turn this mode off, use
+%% 
+\begin{verbatim}
+    ?- use_rule_structure_db{foo,off}.
+\end{verbatim}
+%% 
+Note, these commands \underline{\emph{affect only the files that need
+  recompilation}} (because they were never compiled or because they were
+changed since their last compilation). If a file was compiled \emph{before}
+the change in the default mode for rule structure databases (from
+\texttt{on} to \texttt{off} or vice versa) then reloading such a file will
+not cause a recompilation and thus the availability of that database with
+respect to the aforesaid file will not change.
+
+\paragraph{Structural queries.}
+The structural database provides special primitives for querying the rule
+structure:
+%% 
+\begin{itemize}
+\item 
+  \texttt{structdb\{\textnormal{\textit{?Goal},\textit{?SearchSpec},\textit{?Id},\textit{?Module},\textit{?File}}\}
+      }
+      \\
+      Here \emph{?Goal} and \emph{?SearchSpec} must be bound. The \emph{?Goal}
+      argument is a formula that is allowed in the head or the body of a
+      rule; it does not need to be reified, as \ERGO knows what to expect
+      here.
+      The \emph{?Goal}  formula is decomposed into a list of atomic frames
+      or predicates
+      and then the rule base is searched according to \emph{?SearchSpec}.
+      The latter can be as follows:
+      \begin{itemize}
+      \item \texttt{any} --- means that a rule satisfies the search
+        condition if it contains \emph{any} of the aforesaid atomic formulas
+        (in the head or body)
+      \item \texttt{all} --- means a rule satisfies the search
+        condition if it matches  \emph{all}  of the aforesaid atomic formulas
+        (whether they appear in the head or body)
+      \item $X+Y$, where $X$ can be \texttt{any} or \texttt{all} and
+        $Y$ can be \texttt{head}, \texttt{body} or a variable. For instance,
+        \texttt{all+head} means that for a rule to satisfy the search
+        condition it must contain all of the aforesaid atomic formulas in
+        the head; \texttt{all+body} is similar except that all the formulas
+        must occur in the body of that rule. If \texttt{any+head} is given,
+        it means that it is enough to have just one of the aforesaid atomic
+        formulas in the rule head, and so on.        
+      \end{itemize}
+      %%
+      The output variables are \emph{?Id}, \emph{?Module}, and \emph{?File}.
+      Why these three? Recall from Section~\ref{sec-rule-id} that a rule
+      Id is composed out of these three components and knowing them opens
+      the door to the host of rule manipulation meta-facilities described
+      in this manual.
+  \item
+    \texttt{structdb\{\textnormal{\textit{?Id},\textit{?Module},\textit{?File},\textit{?Goal},\textit{?LocationInRule},\textit{?Context}}\}
+    }
+    \\
+    Here \emph{?Id} and \emph{?Module} must
+    be bound before issuing a call to this primitive. That is, given a
+    partial (or complete) rule Id, this primitive returns the atomic
+    formulas that occur in the corresponding rules (via the \emph{?Goal}
+    variable).
+    In addition, for each such formula, it tells us (via the
+    \texttt{?LocationInRule} variable) whether that formula occurs in the
+    rule head or in its body. Finally, the semantic context of the formula
+    is also returned as a list of semantic attributes.
+    The relevant semantic attributes are $\RULELOGNAF$, $\RULELOGNEG$,
+    $\PLGNAF$, and all the aggregate functions \texttt{avg}, \texttt{sub},
+    \texttt{setof}, and the others.   
+    For instance, if, say, $max\{?X\mid p(?X,?Y),\, \RULELOGNAF\, \RULELOGNEG \;q(?Y)\}$
+    appears in the rule then the semantic context of $p(?X,?Y)$ would be
+    the list \texttt{[max]} while for $q(?Y)$  it will be
+    \texttt{[\RULELOGNEG,\RULELOGNAF,max]} (the semantic attributes are
+    listed in the reverse order of their appearance). 
+\end{itemize}
+%% 
+Here are some examples that illustrate the use of the above primitives.
+\begin{verbatim}
+  :- use_rule_structure_db.
+  @!{r1} p(?X) :- q(?X), r(?X).
+  @!{r2} p(?X)==>r(?X) :- q(?X), ?X=avg{?V|\neg t(?V)}.
+  @!{r3} \neg q(?X) :- \neg p(?X).
+  ?- structdb{(p(?)==>r(?)),all+head,?Id,?Mod,?File}.
+  ?- structdb{(p(?)==>r(?)),all,?Id,?Mod,?File}.
+  ?- structdb{(p(?)==>r(?)),any,?Id,?Mod,?File}.
+  ?- structdb{r2,main,?,?P,?H,?C}.
+\end{verbatim}
+%%
+Then the first query returns
+%% 
+\begin{verbatim}
+  ?Id = r2
+  ?Mod = main
+  ?File = 'foo.ergo'
+\end{verbatim}
+%% 
+because \texttt{p(?)} and \texttt{r(?)} both occur in the rule \emph{head}
+only in rule \texttt{r2}. The second query returns 
+%% 
+\begin{verbatim}
+  ?Id = r1
+  ?Mod = main
+  ?File = 'foo.ergo'
+
+  ?Id = r2
+  ?Mod = main
+  ?File = 'foo.ergo'
+\end{verbatim}
+%% 
+because \texttt{p(?)} and \texttt{r(?)} both occur in \emph{some} part of a
+rule (head or body) in rules \texttt{r1} and \texttt{r2}. The third query   
+returns information about all three rules because it is looking for rules
+where either \texttt{p(?)} or \texttt{r(?)} occur (in the head \emph{or}
+body). 
+Finally, the last query (which uses the 6-argument version of the
+\texttt{structdb} primitive) returns the information about all the literals
+found in rule \texttt{r2}. For each literal it says where the literal
+occurs and in what context:
+%% 
+\begin{verbatim}
+  ?P = ${p(?_h2847)@main}
+  ?H = body
+  ?C = []
+
+  ?P = ${p(?_h2875)@main}
+  ?H = head
+  ?C = ['\\neg']
+
+  ?P = ${q(?_h2819)@main}
+  ?H = body
+  ?C = []
+
+  ?P = ${r(?_h2729)@main}
+  ?H = head
+  ?C = []
+
+  ?P = ${r(?_h2757)@main}
+  ?H = body
+  ?C = ['\\neg']
+
+  ?P = ${t(?_h2787)@main}
+  ?H = body
+  ?C = ['\\neg', avg]
+
+  ?P = ${\neg p(?_h2963)@main}
+  ?H = head
+  ?C = []
+
+  ?P = ${\neg r(?_h2905)@main}
+  ?H = body
+  ?C = []
+
+  ?P = ${\neg t(?_h2933)@main}
+  ?H = body
+  ?C = [avg]
+\end{verbatim}
+%% 
+Of particular interest here are the answers such as
+%% 
+\begin{verbatim}
+  ?P = ${r(?_h2757)@main}
+  ?H = body
+  ?C = ['\\neg']
+
+  ?P = ${t(?_h2787)@main}
+  ?H = body
+  ?C = ['\\neg', avg]
+
+  ?P = ${\neg t(?_h2933)@main}
+  ?H = body
+  ?C = [avg]
+\end{verbatim}
+%% 
+The first says that \texttt{r(...)} occurs in the body under negation
+\texttt{\RULELOGNEG}, the second says that
+\texttt{t(...)} occurs in the body under first 
+\texttt{\RULELOGNEG} and then the aggregation \texttt{avg}. The last answer
+rephrases the second one, saying that the literal \texttt{\RULELOGNEG}
+\texttt{t(...)} occurs under aggregation \texttt{avg}. 
+
+Finally, we give an example of a 5-argument \texttt{structdb} query where
+the mode has form \texttt{all+?Y}  or \texttt{any+?Y}:
+%% 
+\begin{verbatim}
+  ?- structdb{(p(?)==>r(?)),all+?H,?Id,?Mod,?File}.
+
+  ?H = body
+  ?Id = r2
+  ?Mod = main
+  ?File = 'foo.ergo'
+
+  ?H = head
+  ?Id = r2
+  ?Mod = main
+  ?File = 'foo.ergo'
+\end{verbatim}
+%% 
+We do know that \texttt{r2} is the right rule here, but 
+one might wonder why in the first answer \texttt{?H} is bound to
+\texttt{body} while in the second to \texttt{head}. On the surface,
+the first answer seems incorrect since in rule \texttt{r2} both
+\texttt{p(?)} and \texttt{r(?)} seem to appear in the head only.   
+The explanation is that that rule
+  \texttt{p(?X)==>r(?X) :- q(?X), ?X=avg\{?V|\RULELOGNEG t(?V)\}}
+has a composite head, which gets
+transformed by the omniformity transformation (Section~\ref{sec-omniform})
+into two rules:
+%% 
+\begin{verbatim}
+  r(?X) :- q(?X), ?X=avg{?V|\neg t(?V)}, p(?X).
+  \neg p(?X) :- q(?X), ?X=avg{?V|\neg t(?V)}, \neg r(?X).
+\end{verbatim}
+%% 
+Thus, in reality, both \texttt{r(?)} and \texttt{p(?)} appear in the
+head as well as in the body of the rules created out of the original rule.
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

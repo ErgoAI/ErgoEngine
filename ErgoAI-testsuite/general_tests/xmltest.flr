@@ -1,0 +1,25 @@
+
+?- [xmlimport_navlinks>>foo],
+        [xmlimport_nonavlinks>>bar],
+        %import@foo,
+        %import@bar.
+
+%tst1 :- writeln(test1=foo)@\plg, %query(5000)@foo.
+%tst2 :- writeln(test2=bar)@\plg, %query(5000)@bar.
+%tst3 :- write('test3(foo) ')@\plg,
+           query2(5000,?id,?first,?last)@foo,
+           writeln(?id+?first+?last)@\plg,
+           \false.
+%tst3 :- nl@\plg.
+%tst4 :- write('test4(bar) ')@\plg,
+           query2(5000,?id,?first,?last)@bar,
+           writeln(?id+?first+?last)@\plg,
+           \false.
+%tst4 :- nl@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4.
+
+%test :- tell(temp)@\plg(), 
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	told@\plg.

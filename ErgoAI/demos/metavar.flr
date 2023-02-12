@@ -1,0 +1,26 @@
+/* This demo shows the use of the meta programming (Hilog features). */
+
+o1[m1(a1) -> r1].
+o1[m2(b1,b2) -> r2].
+o1[m3 -> r3].
+o1[m4(c1,c2,c3) -> r4].
+
+o2[?M->?R] :-
+	o1[?M->?R],
+	?M=?_F(?_A1,?_A2).
+
+
+?- writeln('all objects, all method invocations:')@\plg(), ?X[?M -> ?R].
+
+?- writeln('Methods of o2:')@\plg(), o2[?M -> ?R].
+
+// All these must succeed
+?- ?X[a->b]@?Y ~ k[a->?C]@?U, writeln((tst1,x=?X,y=?Y,c=?C,u=?U))@\io.
+?- ?Q=mod, ?X[a->b]@mod ~ ?Y[?Z->?P]@?Q, writeln((tst2,q=?Q,x=?X,y=?Y,z=?Z,p=?P))@\io.
+?- ?Y[?Z->?P]@?Q ~ ?X[a->b]@mod, writeln((tst3,q=?Q,x=?X,y=?Y,p=?P))@\io.
+?- ?X[a->b] ~ ppp[?Y->?Z], writeln((tst4,x=?X,y=?Y,z=?Z))@\io.
+?- ?X[a->b]@mod ~ ?Y[?Z->?P]@mod, writeln((tst5,x=?X,y=?Y,z=?Z,p=?P))@\io.
+?- ?X[a->b]@mod ~ ?Y[?Z->?P]@?Q, writeln((tst6,q=?Q,x=?X,y=?Y,z=?Z,p=?P))@\io.
+?- p(?X)@?Y ~ p(ooo)@mod, writeln((tst7,x=?X,y=?Y))@\io.
+?- p(?X)@?Y ~ p(ooo)@mod, ?Y=mod, writeln((tst8,x=?X,y=?Y))@\io.
+

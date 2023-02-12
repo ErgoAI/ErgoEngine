@@ -1,0 +1,664 @@
+/* File:      ergo_syslib/ergo_struct_db.P  -- produces structural DB of rules
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2015-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+%% Uncomment for debugging
+%%#define STRUCTDB_DEBUG
+
+#include "ergo_structdb.flh"
+
+#include "flora_characters.flh"
+#include "flora_errors.flh"
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "flora_exceptions.flh"
+#include "flora_var_attributes.flh"
+
+#include "standard.h"
+
+:- op(500,xfx,'$$$').
+
+%%:- import format/2 from format.
+
+:- import
+        /*
+	length/2,
+	append/3,
+        */
+        member/2
+   from basics.
+:- import
+        memberchk_eq/2
+   from lists.
+
+:- import
+        /*
+	%%flora_term_to_atom_quote/2,
+	flora_double_backslash_and_quotes/2,
+	flora_double_backslash/2,
+	flora_write_quoted_atom/1,
+	flora_write_atom/1,
+	flora_concat_atoms/2
+        */
+	flora_abort/2
+   from flrporting.
+
+:- import
+        unnegate_predicate/2,
+        flora_decode_predicate/6,
+        flora_decode_module_name/2
+   from flrwrapper.
+:- import
+	flora_decode_oid_list_as_atom_list_substitute_vars/2
+   from flrdecode.
+
+:- import
+	flora_stdwarn_nl/0,
+        flora_warning_line/1,
+        flora_warning_line/2
+   from flrprint.
+
+:- import
+        flora_hypothetical_lib/1,
+        flora_aggregate_lib/2
+   from flrcompiler.
+
+:- import
+	incr_storage_insert_fact/3,
+	incr_storage_delete_fact/3,
+        incr_storage_find_fact/2
+   from storage.
+
+:- import
+	is_prlist/4,
+        is_prologatomlit/3,
+        is_ruleupdate/1,
+	is_fllibdb/1,
+	is_prologterm/4,
+	is_prologterm/5,
+	is_prologliblit/4,
+	is_prologliblit/5,
+	is_prcall/2,
+	is_flogic/4,
+	is_pratomlit/5,
+	is_prtransactionalatomlit/5,
+	is_prtermlit/5,
+	is_prtransactionaltermlit/5,
+	is_prworkspace/3,
+        is_prneg/2,
+	is_goallogic/4,
+	is_prquery/2,
+	is_florasyslib/5,
+	is_prvariable/3,
+        flora_write_struct/3
+   from flrcoder.
+
+:- import
+        extract_goal_from_prrulelognaf/2
+   from flrcompiler.
+
+:- import
+        flora_FSTRDB_trie_name/2,
+        flora_zap_attrvars/1
+   from flrutils.
+
+:- import
+        is_naf_literal/2
+   from flrcanon.
+
+:- import conjunct_code/2 from flrauxil.
+
+:- export
+        ergo_query_structdb/5,
+        ergo_query_structdb/6,
+        delete_rule_from_structdb/3,
+        insert_rule_info_into_structdb/7,
+        ergo_structdb_write_canonical/1.
+
+ergo_structdb_write_canonical([]) :- !.
+ergo_structdb_write_canonical(RuleSignature) :-
+        is_prquery(RuleSignature,Syslib),
+        is_florasyslib(Syslib,FLLIBINSRULESIG,11,RuleInfo,_Idx),
+        RuleInfo = [RuleId,FileN,_DescrVars,Module,_StmtNum,Head,Body,
+                    H2BSig,_PreBody,_PostBody,_DefeatCond],
+	flora_zap_attrvars(Head),
+	flora_zap_attrvars(Body),
+        write_structdb_facts(RuleId,FileN,Module,Head,Body,H2BSig).
+
+
+
+write_structdb_facts(RuleId,FileN,Module,Head,Body,H2BSig) :-
+        record_struct_db_for_rule(RuleId,FileN,Module,Head,Body,H2BSig).
+
+
+record_struct_info_for_goal(HeadBody,RuleId,FileN,Module,Goal) :-
+        extract_atomic_subgoals(Goal,List),
+        !,
+        maplist_record_struct_info(HeadBody,RuleId,FileN,Module,List,[]).
+
+%% process nested list of atomic goals and
+%% apply record_struct_info_for_atomic_goal/6 to each list member
+maplist_record_struct_info(_HeadBody,_RuleId,_FileN,_Module,[],_) :- !.
+maplist_record_struct_info(HeadBody,RuleId,FileN,Module,[H|T],Context) :-
+	(is_list(H) ->
+            maplist_record_struct_info(HeadBody,RuleId,FileN,Module,H,Context),
+            maplist_record_struct_info(HeadBody,RuleId,FileN,Module,T,Context)
+        ; H = G $$$ ContextG ->
+            maplist_record_struct_info(HeadBody,RuleId,FileN,Module,[G],[ContextG|Context]),
+            maplist_record_struct_info(HeadBody,RuleId,FileN,Module,T,Context)
+        ;   record_struct_info_for_atomic_goal(HeadBody,RuleId,FileN,Module,H,Context),
+            maplist_record_struct_info(HeadBody,RuleId,FileN,Module,T,Context)
+        ),
+        !.
+#ifdef STRUCTDB_DEBUG
+maplist_record_struct_info(_,_,_,_,T,Context):- 
+        DBGOUT('          Problem in maplist_record_struct_info: '),
+        DBGOUTLN(T),
+        DBGOUT('              Context: '),
+        DBGOUTLN(Context).
+#else
+maplist_record_struct_info(_,_,_,_,_,_).
+#endif
+
+extract_atomic_subgoals(NULL,[]) :- !.
+extract_atomic_subgoals(Goal,[L1 $$$ FL_PLGNAF]) :-
+        is_goallogic(Goal,FL_PLGNAF,1,[G1]),
+        !,
+        %% output goallist with its context \+
+        extract_atomic_subgoals(G1,L1).
+extract_atomic_subgoals(Goal,[]) :-
+        %% PRCUT
+        is_goallogic(Goal,_,0,_),
+        !.
+extract_atomic_subgoals(Goal,[L1 $$$ FL_RULELOGNAF]) :-
+        extract_goal_from_prrulelognaf(Goal,G1),
+        !,
+        %% output goallist with its context \naf
+        extract_atomic_subgoals(G1,L1).
+%% no longer saving \neg foo without context. Instead, saving foo $$$ [\neg]
+%%extract_atomic_subgoals(Goal,[Goal, G $$$ FL_NEG_Atm]) :-
+extract_atomic_subgoals(Goal,[G $$$ FL_NEG_Atm]) :-
+        %% output goallist with its context \neg
+        is_prneg(Goal,G),
+        !.
+extract_atomic_subgoals(Goal,L) :-
+        is_prcall(Goal,G),
+        !,
+        extract_atomic_subgoals(G,L).
+extract_atomic_subgoals(Goal,[L1,L2]) :-
+        %% Arity 2: PRAND, PRBAND,PROR
+        %% Must be AFTER \+, \naf, \neg, call, cut
+        is_goallogic(Goal,_Connective,2,[G1,G2]),
+        !,
+        extract_atomic_subgoals(G1,L1),
+        extract_atomic_subgoals(G2,L2).
+extract_atomic_subgoals(Goal,L) :-
+        control_construct_subgoals(Goal,L),
+        !.
+extract_atomic_subgoals(Goal,[L1,L2]) :-
+        %% Prolog foo -> bar
+	is_prologterm(Goal,'->',2,[G1,G2]),
+        !,
+        extract_atomic_subgoals(G1,L1),
+        extract_atomic_subgoals(G2,L2).
+extract_atomic_subgoals(Goal,Literals) :-
+        %% wish/must delay quantifiers
+        is_prologterm(Goal,FLLIBDELAYEDLITERAL,4,[_Quant,_File,_Line,LitInfo]),
+        !,
+	is_prlist(LitInfo,LitList,_Tail,_Idx),
+        LitList = [_,_,Formula],
+        extract_atomic_subgoals(Formula,Literals).
+extract_atomic_subgoals(Goal,[L $$$ AggFun]) :-
+        %% output aggregation literals with their context
+        %% (the name of the aggregate function)
+        is_florasyslib(Goal,Lib,N,Args,_Idx),
+        flora_aggregate_lib(Lib,AggFun),
+        !,
+        (N==3 -> Args = [_,Body|_]
+        ; N==4 -> Args = [_,_,Body|_]
+        ; N==5 -> Args = [_,_,_,Body|_]
+        ; flora_abort(['StructuralDB: unknown aggregate, ', Goal],
+                      FLORA_ABORT_NOTRACE)
+        ),
+        extract_atomic_subgoals(Body,L).
+extract_atomic_subgoals(Goal,[L $$$ HypoOp]) :-
+        %% output hypotheticals with their context
+        is_florasyslib(Goal,Lib,2,[HypoOp,Formula],_Idx),
+        flora_hypothetical_lib(Lib),
+        !,
+        extract_atomic_subgoals(Formula,L).
+extract_atomic_subgoals(Goal,L) :-
+        %% output catch{...}
+        is_florasyslib(Goal,FLLIBCATCH,3,[PureGoal,_,_],_Idx),
+        !,
+        extract_atomic_subgoals(PureGoal,L).
+
+extract_atomic_subgoals(Goal,[Goal]) :-
+        %% these are the atomic formulas
+        is_normal_atomic_formula(Goal),
+        !.
+extract_atomic_subgoals(Goal,[]) :-
+        %% these are the formulas to be ignored (eg, plain Prolog formulas)
+        is_to_be_ignored(Goal),
+        !.
+extract_atomic_subgoals(Goal,[]) :-
+        !,
+        flora_warning_line('unrecognized goal in Ergo struct DB, ~w~n', [Goal]).
+
+control_construct_subgoals(Goal,Gs) :-
+        is_florasyslib(Goal,Type,_,CallInfo,_Idx),
+        %% while, loop, until, if-then-else, etc.
+        control_wrapper(Type),
+        !,
+        (CallInfo = [_Mod,Cond,G,_L,_F] ->
+            extract_atomic_subgoals(Cond,Cond1),
+            extract_atomic_subgoals(G,GG),
+            Gs = [Cond1,GG]
+        ; CallInfo = [_Mod,Cond,G1,G2,_L,_F],
+            extract_atomic_subgoals(Cond,Cond1),
+            extract_atomic_subgoals(G1,GG1),
+            extract_atomic_subgoals(G2,GG2),
+            Gs = [Cond1,GG1,GG2]
+        ).
+
+control_wrapper(FLLIBWHILEDO).
+control_wrapper(FLLIBWHILELOOP).
+control_wrapper(FLLIBDOUNTIL).
+control_wrapper(FLLIBLOOPUNTIL).
+control_wrapper(FLLIBUNLESSDO).
+control_wrapper(FLLIBIFTHEN).
+control_wrapper(FLLIBIFTHENELSE).
+
+is_normal_atomic_formula(Term) :-
+        (is_pratomlit(Term,_,_,_,_)
+        ; is_prtransactionalatomlit(Term,_,_,_,_)
+        ; is_prtermlit(Term,_,_,_,_)
+        ; is_prtransactionaltermlit(Term,_,_,_,_)
+        ; is_flogic(Term,_,_,_)
+        ; is_prworkspace(Term,_,_)
+        ),
+        !.
+is_to_be_ignored(Term) :-
+	(is_prologterm(Term,_,_,_)
+	; is_prologterm(Term,_,_,_,_)
+	; is_prologliblit(Term,_,_,_)
+	; is_prologliblit(Term,_,_,_,_)
+        ; is_prologatomlit(Term,_,_)
+        ; is_prvariable(Term,_,_)
+        ; is_florasyslib(Term,Syslib,_,_,_), ignored_syslib(Syslib)
+        ),
+        !.
+
+ignored_syslib(FLLIBMODLIT).
+ignored_syslib(FLLIBMODOBJ).
+ignored_syslib(FLNEGLIBMODLIT).
+ignored_syslib(FLNEGLIBMODOBJ).
+ignored_syslib(FLLIBUNIVEQFORM).
+ignored_syslib(FLLIBMETAUNIV).
+ignored_syslib(FLLIBLOAD).
+ignored_syslib(FLLIBADD).
+ignored_syslib(FLLIBADDNEW).
+ignored_syslib(FLLIBSENSOR).
+ignored_syslib(FLLIBANSWER).
+ignored_syslib(FLLIBSHELLANS).
+ignored_syslib(FLLIBPROGRAMANS).
+ignored_syslib(FLLIBTHROW).
+ignored_syslib(FLLIBEXPORT).
+ignored_syslib(X) :- is_fllibdb(X), !.
+ignored_syslib(X) :- is_ruleupdate(X), !.
+        
+record_struct_db_for_rule(RuleId,FileN,Module,Head,Body,H2BSig) :-
+        PRINT('%% Rule Id = '),
+        flora_write_struct(RuleId,CODER_GENERIC_CONTEXT,_), PRINTNL,
+        PRINT('%% File    = '),
+        write_canonical(FileN), PRINTNL,
+        PRINT('%% Module  = '),
+        flora_write_struct(Module,CODER_GENERIC_CONTEXT,_), PRINTNL,
+        PRINTLN('%% Head    = '),
+        %% record_struct_info_for_goal, NOT for atomic_goal because Head
+        %% can have \neg and we want both positive and negative
+        %%record_struct_info_for_atomic_goal(FL_HEAD,RuleId,FileN,Module,Head,[]),
+        record_struct_info_for_goal(FL_HEAD,RuleId,FileN,Module,Head),
+        PRINTLN('%% Body    = '),
+        record_struct_info_for_goal(FL_BODY,RuleId,FileN,Module,Body),
+        %% H2BSig contains the code thrown from the head to the body (eg, omni)
+        PRINTLN('%% H2BSig  = '),
+        record_struct_info_for_goal(FL_BODY,RuleId,FileN,Module,H2BSig),
+        PRINTNL.
+
+
+%% ignore the NULL goal
+record_struct_info_for_atomic_goal(_,_,_,_,NULL,_) :- !.
+
+#ifdef STRUCTDB_DEBUG
+record_struct_info_for_atomic_goal(_,_,_,_,Lit,ContextList) :-
+        PRINT('       '),
+        flora_write_struct(Lit,CODER_BODY_CONTEXT,_),
+        PRINTLN('.'),
+        PRINT('          %% Context: '),
+        PRINT(ContextList)
+        PRINTNL.
+#else
+%% Note: Module is not really necessary, but we pass it the the DB for now
+record_struct_info_for_atomic_goal(HeadBody,RuleId,FileN,Module,Lit,ContextList) :-
+        PRINT('       /*\n         '),
+        flora_write_struct(Lit,CODER_BODY_CONTEXT,_),
+        PRINTLN('\n       */'),
+        PRINT('       '),
+        %% GOAL_FIRST_PREDICATE(Goal,HeadOrBody,Id,Module,File)
+        PRINT(GOAL_FIRST_PREDICATE), PRINT('('),
+        flora_write_struct(Lit,CODER_BODY_CONTEXT,_),
+        !,
+        PRINT(','), PRINT(HeadBody),
+        PRINT(','), flora_write_struct(RuleId,CODER_GENERIC_CONTEXT,_),
+        PRINT(','), flora_write_struct(Module,CODER_GENERIC_CONTEXT,_),
+        PRINT(','), write_canonical(FileN),
+        PRINTLN(').'),
+        PRINT('       '),
+        %% ID_FIRST_PREDICATE(Id,Module,File,Goal,HeadOrBody,Context)
+        PRINT(ID_FIRST_PREDICATE), PRINT('('),
+        flora_write_struct(RuleId,CODER_GENERIC_CONTEXT,_),
+        PRINT(','), flora_write_struct(Module,CODER_GENERIC_CONTEXT,_),
+        PRINT(','), write_canonical(FileN),
+        PRINT(','), flora_write_struct(Lit,CODER_BODY_CONTEXT,_),
+        PRINT(','), PRINT(HeadBody),
+        PRINT(','), write_canonical(ContextList),
+        PRINTLN(').').
+#endif
+
+%% catchall
+#ifdef STRUCTDB_DEBUG
+record_struct_info_for_atomic_goal(_,_,_,_,Lit,_) :-
+        DBGOUT('          Problem in record_struct_info_for_atomic_goal: '),
+        DBGOUTLN(Lit).
+#else
+record_struct_info_for_atomic_goal(_,_,_,_,_,_).
+#endif
+
+%%%%%%%%%%%%%%%%% Dynamic Rules Support %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+insert_rule_info_into_structdb(RuleId,FileN,Module,HeadList,Body,H2BFList,H2BBList) :-
+        conjunct_code(HeadList,Head),
+        insert_struct_info_for_goal(FL_HEAD,RuleId,FileN,Module,Head),
+        insert_struct_info_for_goal(FL_BODY,RuleId,FileN,Module,Body),
+        conjunct_code(H2BFList,H2BFGoal),
+        insert_struct_info_for_goal(FL_BODY,RuleId,FileN,Module,H2BFGoal),
+        conjunct_code(H2BBList,H2BBGoal),
+        insert_struct_info_for_goal(FL_BODY,RuleId,FileN,Module,H2BBGoal).
+
+insert_struct_info_for_goal(HeadBody,RuleId,FileN,Module,Goal) :-
+        extract_atomic_subgoals_runtime(Goal,GoalList),
+        !,
+        maplist_insert_struct_info(HeadBody,RuleId,FileN,Module,GoalList,[]).
+
+
+%% process nested list of atomic goals and
+%% apply insert_struct_info_for_atomic_goal/6 to each list member
+maplist_insert_struct_info(_HeadBody,_RuleId,_FileN,_Module,[],_) :- !.
+maplist_insert_struct_info(HeadBody,RuleId,FileN,Module,[H|T],Context) :-
+	(is_list(H) ->
+            maplist_insert_struct_info(HeadBody,RuleId,FileN,Module,H,Context),
+            maplist_insert_struct_info(HeadBody,RuleId,FileN,Module,T,Context)
+        ; H = G $$$ ContextG ->
+            maplist_insert_struct_info(HeadBody,RuleId,FileN,Module,[G],[ContextG|Context]),
+            maplist_insert_struct_info(HeadBody,RuleId,FileN,Module,T,Context)
+        ;   insert_struct_info_for_atomic_goal(HeadBody,RuleId,FileN,Module,H,Context),
+            maplist_insert_struct_info(HeadBody,RuleId,FileN,Module,T,Context)
+        ),
+        !.
+
+insert_struct_info_for_atomic_goal(HeadBody,RuleId,FileN,Module,Goal,Context) :-
+	flora_FSTRDB_trie_name(Module,TrieName),
+        incr_storage_insert_fact(TrieName,
+                                 GOAL_FIRST_PREDICATE(Goal,HeadBody,RuleId,Module,FileN),
+                                 _),
+        incr_storage_insert_fact(TrieName,
+                            ID_FIRST_PREDICATE(RuleId,Module,FileN,Goal,HeadBody,Context),
+                            _).
+
+delete_rule_from_structdb(Id,FileN,Module) :-
+	flora_FSTRDB_trie_name(Module,TrieName),
+        !,
+        delete_rule_from_structdb_aux(TrieName,Id,FileN,Module).
+delete_rule_from_structdb_aux(TrieName,Id,FileN,Module) :-
+        repeat,
+        incr_storage_delete_fact(TrieName,
+                                 ID_FIRST_PREDICATE(Id,Module,FileN,Goal,HeadBody,_),
+                                 DelFlag1),
+        incr_storage_delete_fact(TrieName,
+                                 GOAL_FIRST_PREDICATE(Goal,HeadBody,Id,Module,FileN),
+                                 DelFlag2),
+        (DelFlag1 == 0, DelFlag2 == 0 -> true %% exit delete loop
+        ; fail
+        ).
+%% just for safety - should never reach here
+delete_rule_from_structdb_aux(_TrieName,Id,FileN,Module) :-
+        flora_warning_line('structdb: could not delete structdb info on the ruleid=~w, file=~w, module=~w~n', [Id,FileN,Module]).
+
+
+
+%%%%%%%%%%%%%%%%% The query interface %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%ergo_query_structdb/6
+%%ergo_query_structdb(?Id,?Module,?File,+?Goal,?HeadOrBody,?Context)
+ergo_query_structdb(Id,Module,File,Goal,HeadOrBody,Context) :-
+        (nonvar(Id), atom(Module) ->
+            query_structdb_by_id(Id,Module,File,Goal,HeadOrBody,Context)
+        ; 
+            flora_decode_oid_list_as_atom_list_substitute_vars([Id,Module],[IdAtm,ModAtm]),
+            flora_stdwarn_nl,
+            flora_warning_line('structdb{?Id,?Module,?File,?Goal,...}: Id and Module must be properly bound; this call''s bindings: id=~w, module=~w~n', [IdAtm,ModAtm])
+        ).
+
+%%ergo_query_structdb/5
+%%ergo_query_structdb(+Goal,+AllAny,?Id,?Module,?File)
+ergo_query_structdb(Goal,_AllAny,_Id,_Module,_File) :-
+        var(Goal),
+        !,
+        flora_stdwarn_nl,
+        flora_warning_line('structdb{?Goal,...}: Goal must be properly bound'),
+        fail.
+ergo_query_structdb(Goal,AllAnyMode,Id,Module,File) :-
+        (structdb_query_mode(AllAnyMode,Selectivity,HeadBody) -> true
+        ;
+            flora_stdwarn_nl,
+            flora_warning_line('structdb{?Goal,?Mode,...}: mode must be all/any+head/body/_; this call has: mode=~w~n', [AllAnyMode])
+        -> fail
+        ),
+        query_structdb_by_goal(Selectivity,Goal,HeadBody,Id,Module,File).
+
+%% split Mode into Selectivity=all/any and Position = head/body/_
+structdb_query_mode(Mode,Selectivity,HeadBody) :-
+        (memberchk_eq(Mode,[all,any])
+        -> Mode = Selectivity, HeadBody = _
+        ; Mode = Selectivity+HeadBody,
+            memberchk_eq(Selectivity,[all,any]),
+            (memberchk_eq(HeadBody,[head,body]) ; var(HeadBody))
+        ).
+
+%% query_structdb_by_goal(+Selectivity,+Goal,+AllAnyMode,?Id,?Module,?File)
+query_structdb_by_goal(Selectivity,Goal,HeadBody,Id,Mod,File) :-
+        extract_atomic_subgoals_runtime(Goal,SubgoalList1),
+        strip_context_flat(SubgoalList1,SubgoalList),
+        !,
+        (Selectivity == any ->
+            query_structdb_by_goallist_any(SubgoalList,HeadBody,Id,Mod,File)
+        ; query_structdb_by_goallist_all(SubgoalList,HeadBody,Id,Mod,File)
+        ).
+
+query_structdb_by_goallist_any(SubgoalList,HeadBody,Id,Mod,File) :-
+        member(Subgoal,SubgoalList),
+        flora_decode_module_name(Subgoal,Mod), atom(Mod),
+	flora_FSTRDB_trie_name(Mod,TrieName),
+	incr_storage_find_fact(TrieName,GOAL_FIRST_PREDICATE(Subgoal,HeadBody,Id,Mod,File)).
+query_structdb_by_goallist_all([Subgoal|RestSubg],HeadBody,Id,Mod,File) :-
+        flora_decode_module_name(Subgoal,Mod), atom(Mod),
+	flora_FSTRDB_trie_name(Mod,TrieName),
+        (atom(HeadBody) -> NewHeadBody = HeadBody, NewNewHeadBody = HeadBody
+        ; true
+        ),
+	incr_storage_find_fact(TrieName,GOAL_FIRST_PREDICATE(Subgoal,NewHeadBody,Id,Mod,File)),
+        (RestSubg == [] -> true
+        ; query_structdb_by_goallist_all(RestSubg,NewNewHeadBody,Id,Mod,File),
+            %% this trick lets us obtain all positions in which any of the
+            %% subgoals occurs (but the rules returned will have all subgoals)
+            (atom(HeadBody) -> true
+            ; NewHeadBody = NewNewHeadBody -> HeadBody = NewHeadBody
+            ; HeadBody = NewHeadBody
+            ; HeadBody = NewNewHeadBody
+            )
+        ).
+
+%% query_structdb_by_id(+Id,+Module,?File,?Goal,?HeadOrBody,?Context)
+query_structdb_by_id(Id,Mod,File,Goal,HdBdy,Context) :-
+	flora_FSTRDB_trie_name(Mod,TrieName),
+        (var(Goal) ->
+            incr_storage_find_fact(TrieName,ID_FIRST_PREDICATE(Id,Mod,File,Goal,HdBdy,Context))
+        ; extract_atomic_subgoals_runtime(Goal,SubgoalList),
+            strip_context_flat(SubgoalList,SubgoalListNoContext),
+            !,
+            incr_storage_find_fact(TrieName,ID_FIRST_PREDICATE(Id,Mod,File,Subgoal,HdBdy,Context)),
+            member(Subgoal,SubgoalListNoContext)
+        ).
+
+%% does some goal decomposition for runtime goals so we could query
+%% structdb with complex goals
+extract_atomic_subgoals_runtime((Goal1,Goal2),[Goal1List,Goal2List]) :-
+        !,
+        extract_atomic_subgoals_runtime(Goal1,Goal1List),
+        extract_atomic_subgoals_runtime(Goal2,Goal2List).
+extract_atomic_subgoals_runtime((Goal1;Goal2),[Goal1List,Goal2List]) :-
+        !,
+        extract_atomic_subgoals_runtime(Goal1,Goal1List),
+        extract_atomic_subgoals_runtime(Goal2,Goal2List).
+%% \naf
+extract_atomic_subgoals_runtime(NafGoal,[PosGoal $$$ FL_RULELOGNAF]) :-
+        flrcanon:is_naf_literal(NafGoal,Goal),
+        !,
+        extract_atomic_subgoals_runtime(Goal,PosGoal).
+extract_atomic_subgoals_runtime(DelayQuantGoal,Goal) :-
+        DelayQuantGoal = FLLIBDELAYEDLITERAL(FL_DELAYQUANT,_,_,[_,_,Goal1]),
+        !,
+        extract_atomic_subgoals_runtime(Goal1,Goal).
+extract_atomic_subgoals_runtime(ControlGoal,Goal) :-
+        extract_goal_from_control(ControlGoal,StrippedGoal),
+        !,
+        extract_atomic_subgoals_runtime(StrippedGoal,Goal).
+extract_atomic_subgoals_runtime(ControlGoal,[Goal $$$ AggType]) :-
+        extract_goal_from_aggregate(ControlGoal,AggType,StrippedGoal),
+        !,
+        extract_atomic_subgoals_runtime(StrippedGoal,Goal).
+extract_atomic_subgoals_runtime(ControlGoal,[Goal $$$ HypoType]) :-
+        extract_goal_from_hypothetical(ControlGoal,HypoType,StrippedGoal),
+        !,
+        extract_atomic_subgoals_runtime(StrippedGoal,Goal).
+extract_atomic_subgoals_runtime(FL_PLGNAF(Goal),[Goal1 $$$ FL_PLGNAF]) :-
+        !,
+        extract_atomic_subgoals_runtime(Goal,Goal1).
+extract_atomic_subgoals_runtime(Goal,OutGoal) :-
+        flora_decode_predicate(Goal,Type,Module,_,_,_),
+        nonvar(Module),
+        memberchk_eq(Type,[flogic,neg_flogic,hilog,neg_hilog]),
+        !,
+        unnegate_predicate(Goal,Goal1),
+        (memberchk_eq(Type,[neg_flogic,neg_hilog]) ->
+            %% for asserting to structdb we want to assert Goal as well, but
+            %% not when extract_atomic_subgoals_runtime is used for querying
+            %%OutGoal = [(Goal1 $$$ FL_NEG_Atm),Goal]
+            OutGoal = [(Goal1 $$$ FL_NEG_Atm)]
+        ; OutGoal = [Goal1]
+        ).
+%% ignore the rest
+extract_atomic_subgoals_runtime(_,[]).
+
+
+extract_goal_from_control(FLLIBIFTHENELSE(_,If,Then,Else,_,_),(If,Then,Else)).
+extract_goal_from_control(FLLIBIFTHEN(_,If,Then,_,_),(If,Then)).
+extract_goal_from_control(FLLIBWHILEDO(_,Cond,Do,_,_),(Cond,Do)).
+extract_goal_from_control(FLLIBWHILELOOP(_,Cond,Do,_,_),(Cond,Do)).
+extract_goal_from_control(FLLIBWHILELOOP(_,Cond,Do,_,_),(Cond,Do)).
+extract_goal_from_control(FLLIBDOUNTIL(_,Do,Cond,_,_),(Do,Cond)).
+extract_goal_from_control(FLLIBLOOPUNTIL(_,Do,Cond,_,_),(Do,Cond)).
+extract_goal_from_control(FLLIBUNLESSDO(_,Cond,Do,_,_),(Cond,Do)).
+extract_goal_from_control(FLLIBCATCH(Call,_,_),Call).
+extract_goal_from_control('->'(If,Then), (If,Then)).
+extract_goal_from_control(call(Goal), Goal).
+
+extract_goal_from_aggregate(FLLIBMIN(_,_,_,Goal,_),FL_MIN,Goal).
+extract_goal_from_aggregate(FLLIBMAX(_,_,_,Goal,_),FL_MAX,Goal).
+extract_goal_from_aggregate(FLLIBSUM(_,_,_,Goal,_),FL_SUM,Goal).
+extract_goal_from_aggregate(FLLIBAVG(_,_,_,Goal,_),FL_AVG,Goal).
+extract_goal_from_aggregate(FLLIBCOUNT(_,_,_,Goal,_),FL_COUNT,Goal).
+extract_goal_from_aggregate(FLLIBSUMDISTINCT(_,_,Goal,_),FL_SUMDISTINCT,Goal).
+extract_goal_from_aggregate(FLLIBAVGDISTINCT(_,_,Goal,_),FL_AVGDISTINCT,Goal).
+extract_goal_from_aggregate(FLLIBCOUNTDISTINCT(_,_,Goal,_),FL_COUNTDISTINCT,Goal).
+%%extract_goal_from_aggregate(FLLIBSETOF(_,_,_,Goal,_),FL_SET,Goal).
+%%extract_goal_from_aggregate(FLLIBBAGOF(_,_,_,Goal,_),FL_BAG,Goal).
+extract_goal_from_aggregate(FLLIBSETOF(_,_,_,Goal,_),FL_SET,Goal).
+extract_goal_from_aggregate(FLLIBBAGOF(_,_,_,Goal,_),FL_BAG,Goal).
+%%extract_goal_from_aggregate(FLLIBCOLLECTSET(_,_,_,Goal,_),FL_SET,Goal).
+%%extract_goal_from_aggregate(FLLIBCOLLECTBAG(_,_,_,Goal,_),FL_BAG,Goal).
+extract_goal_from_aggregate(FLLIBCOLLECTSET(_,_,_,Goal,_),FL_SET,Goal).
+extract_goal_from_aggregate(FLLIBCOLLECTBAG(_,_,_,Goal,_),FL_BAG,Goal).
+%%extract_goal_from_aggregate(FLLIBSETSORTBY(_,_,Goal,_),FL_SET,Goal).
+%%extract_goal_from_aggregate(FLLIBBAGSORTBY(_,_,Goal,_),FL_BAG,Goal).
+extract_goal_from_aggregate(FLLIBSETSORTBY(_,_,_,Goal,_),FL_SET,Goal).
+extract_goal_from_aggregate(FLLIBBAGSORTBY(_,_,_,Goal,_),FL_BAG,Goal).
+
+extract_goal_from_hypothetical(FLLIBHYPOTHETICAL(HypoType,Goal),HypoType,Goal).
+
+%% accummulates and propagates context and flattens
+%% will be used for structdb for dynamic rules
+%% NOT USED!!!
+:- export propagate_context_flat/2.  %% to temporarily silence the XSB compiler
+propagate_context_flat(In,Out) :-
+        propagate_context_flat(In,Out,[],[]).
+propagate_context_flat([],Var,Var,_) :- !.
+propagate_context_flat([H|T],Flatlist,Flatout,Context):-
+	(is_list(H) ->
+            propagate_context_flat(H,Flatlist,HFlatlist,Context),
+            propagate_context_flat(T,HFlatlist,Flatout,Context)
+        ; H = G $$$ ContextG ->
+            propagate_context_flat([G],Flatlist,HFlatlist,[ContextG|Context]),
+            propagate_context_flat(T,HFlatlist,Flatout,Context)
+        ;   Flatlist = [H $$$ Context|HFlatlist],
+            propagate_context_flat(T,HFlatlist,Flatout,Context)
+        ).
+
+%% strips context and flattens
+strip_context_flat(In,Out) :-
+        strip_context_flat(In,Out,[]).
+strip_context_flat([],Var,Var) :- !.
+strip_context_flat([H|T],Flatlist,Flatout):-
+	(is_list(H) ->
+            strip_context_flat(H,Flatlist,HFlatlist),
+            strip_context_flat(T,HFlatlist,Flatout)
+        ; H = G $$$ _ContextG ->
+            strip_context_flat([G],Flatlist,HFlatlist),
+            strip_context_flat(T,HFlatlist,Flatout)
+        ;   Flatlist = [H|HFlatlist],
+            strip_context_flat(T,HFlatlist,Flatout)
+        ).
+

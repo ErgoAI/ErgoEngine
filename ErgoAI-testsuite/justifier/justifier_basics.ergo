@@ -1,0 +1,211 @@
+
+:- use_argumentation_theory.
+
+:- compiler_options{omni=on}.
+//:- compiler_options{production=on,omni=on}.
+
+@!{ruleSenator}
+exist(?Sn1,?Sn2)^senator(?St,{?Sn1,?Sn2}) :- state(?St).
+state(NY).
+state(AL).
+state(TX).
+%tst1 :- ${senator(AL,?_X)}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test1=?EA)@\plg.
+%tst2 :- ${senator(PR,?_X)}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test2=?EA)@\plg.
+
+%tst2_2 :- senator(?State,?), ${senator(?State,?)}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test2_2=?EA)@\plg,
+        \false.
+%tst2_2 :- \true.
+
+\neg p(a),
+\neg q(b).
+
+q(abc) :- !.
+//@!{\#[textit->'If q then p']}
+@!{ppp1[textit->'If q then p']}
+p(?X):-q(?X).
+r :- \naf w.
+
+@!{kk1[textit->'If kk then kk']}
+kk(?X) :- kk(?X).
+@!{\#[textit->'If q then kk']}
+kk(?X) :- q(?X).
+
+%tst3 :- ${kk(?)}[why(full,withtext)->?E]@\why,
+        ${p(?)}[why(full,withtext)->?E2]@\why,
+        ?E[show->?EA]@\show,
+        ?E2[show->?E2A]@\show,
+        writeln(test3=?EA)@\plg,
+        writeln(test3=?E2A)@\plg.
+
+ppp.
+
+@!{ruleM1}
+@{aaa} m1 :- ccc(1), ddd(2).
+@{bbb} m2.
+\overrides(aaa,bbb).
+\opposes(m1,m2). // refuted
+
+@{ccc} m3.
+@{ddd} m4 :- ccc(1), ddd(2).
+\opposes(m3,m4). // rebutted
+
+@{nn1} n1.
+n2.
+\opposes(n1,n2). // beaten by strict rule
+
+textit{kk(?X), 'this is a%s %s test', [n,?X]},
+textit{p(?X), 'this is a test for p(%s)', [?X]}.
+
+%tst4 :- ${m1}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test4=?EA)@\plg.
+%tst5 :- ${m2}[why(full,withtext)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test5=?EA)@\plg.
+%tst6 :- ${m3}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test6=?EA)@\plg.
+%tst7 :- ${m4}[why(full,withtext)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test7=?EA)@\plg.
+%tst8 :- ${n1}[why(full,withtext)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test8=?EA)@\plg.
+%tst9 :- ${n2}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test9=?EA)@\plg.
+
+abc:cde.
+efg::cde.
+@!{rule48}
+cde[|prop->1, ooo->i|] :- ccc(1), ddd(2).
+@!{rule49}
+ccc(?X) :- rrr(?X), zzz(?X).
+ddd(2), rrr(1), zzz(1).
+cde[|prop=>\integer|].
+
+%tst10 :- ${abc[prop->1,ooo->i]}[why(full,withtext)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test10=?EA)@\plg.
+%tst11 :- ${efg[|prop->1,ooo->i|]}[why(full,withtext)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test11=?EA)@\plg.
+%tst12 :- ${efg[|prop=>\integer|]}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test12=?EA)@\plg.
+%tst13 :- ${abc[prop=>\integer]}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test13=?EA)@\plg.
+
+@!{ruleWhyNot}
+whynot(?X) :-
+        (?X > 4,
+          wn(?X)
+        ;
+          ?X > 9
+        ).
+
+wn({10,11}).
+
+@!{ruleWhyNot2}
+whynot2(?X) :- wn(?X), \naf wn2(?X).
+wn2(11).
+
+%tst14 :- ${whynot(5)}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test14=?EA)@\plg.
+%tst15 :- ${whynot2(9) ; whynot2(11)}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test15=?EA)@\plg,
+        \false.
+%tst15 :- !.
+
+
+@{mmm} m5.
+@{nnn} n5.
+\opposes(m5,n5).
+\overrides(mmm,nnn).
+\overrides(nnn,mmm).
+
+%tst16 :- ${m5}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test16=?EA)@\plg.
+%tst17 :- ${n5}[why(full,withtext)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test17=?EA)@\plg.
+
+p7 :- \naf p7.
+
+@!{rulep8888}
+p8888 :- p9, p100, \naf p8, \neg p5, p111, p111, p(ooo), ppp. // highlit test
+p8 :- p9, \naf p8.
+p9.
+
+@!{p10rule}
+p10(?X) :-  q10(?Y), ?X \is ?Y+2, ?X > 9. 
+q10({6,8}).
+
+@!{rulep11}
+p11(?X) :- ?X = sum{?Y|a11(?Y)}.
+a11({1,2,3,4}).
+
+%tst18 :- ${p7}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test18=?EA)@\plg.
+%tst19 :- ${p8888}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test19=?EA)@\plg.
+
+%tst20 :- ${p10(?)}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test20=?EA)@\plg.
+%tst21 :- ${p11(?)}[why(full,withtext)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test21=?EA)@\plg.
+
+fact2.
+\neg fact2.
+
+fact22 :- \true.
+\neg fact22 :- \true.
+
+fact3 :- p9.
+\neg fact3 :- p99.
+p99 :- p999,p9999.
+p999, p9999.
+
+%tst22 :- ${fact2}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test22=?EA)@\plg.
+%tst23 :- ${fact3}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test23=?EA)@\plg.
+%tst24 :- ${fact22}[why(full)->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test24=?EA)@\plg.
+
+// the point here is to make sure the justifier does not bomb & \is is delayed.
+q25(?X) :- ?X \is 1+?Y, p25(?Y).
+p25(1).
+
+%tst25 :- ${q25(2)}[why->?_E]@\why,
+        ?_E[show->?EA]@\show,
+        writeln(test25=?EA)@\plg,
+        \false.
+%tst25 :- !.
+
+%pretest :- %tst1, %tst2, %tst2_2,
+        %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9,
+        %tst10, %tst11, %tst12, %tst13, %tst14, %tst15, %tst16, %tst17,
+        %tst18, %tst19, %tst20, %tst21, %tst22, %tst23, %tst24, %tst25.
+
+
+%test :- tell(temp)@\plg,
+	%pretest,
+	told@\plg.

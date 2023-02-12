@@ -1,0 +1,48 @@
+
+q(a,a,r(z,1)).
+q(a,a,r(g,2)).
+q(b,b,r(b,2)).
+q(b,b,r(d,3)).
+q(b,b,r(d,3)) :- \true.
+q(b,c,r(d,3)) :- \true.
+q(b,c,r(e,1)).
+q(e,e,r(k,3)).
+q(e,e,s(k,4)).
+q(e,e,s(p,5)).
+q(e,e,s(p,5)) :- \true.
+q(e,e,s(p,5)).
+
+%tst1 :- ?_Y= setof{?_Z[?_X,?_Q] | q(?_X,?_Q,?_Z)},
+	(write('tst1: '), write(grp1=?_X), write(' '), write(grp2=?_Q),
+	write(' '), writeln(res=?_Y))@\plg, \false.
+%tst1 :- \true.
+%tst2 :- (?_Y= setof{?_Z | q(?_X,?_Q,?_Z)},
+	(write('tst2 '), writeln(res=?_Y))@\plg, \false;\true).
+%tst3 :- (?_Y= setof{?_Z[?_X,?_Q](asc,desc) | q(?_X,?_Q,?_Z)},
+	(write('tst3 '), write(grp1=?_X), write(' '), write(grp2=?_Q),
+	write(' '), writeln(res=?_Y))@\plg, \false;\true).
+%tst4 :- (?_Y= setof{?_Z[?_X,?_Q](desc) | q(?_X,?_Q,?_Z)},
+	(write('tst4 '), write(grp1=?_X), write(' '), write(grp2=?_Q),
+	write(' '), writeln(res=?_Y))@\plg, \false;\true).
+%tst5 :- (?_Y= setof{?_Z[?_X,?_Q]([asc(1),desc(2),desc(3)],[desc(1),asc(2)]) | q(?_X,?_Q,?_Z)},
+	(write('tst5 '), write(grp1=?_X), write(' '), write(grp2=?_Q),
+	write(' '), writeln(res=?_Y))@\plg, \false;\true).
+
+%tst6 :- (?_Y= setof{?_Z[?_X,?_Q](asc,[desc(1),asc(2)]) | q(?_X,?_Q,?_Z)},
+	(write('tst6 '), write(grp1=?_X), write(' '), write(grp2=?_Q),
+	write(' '), writeln(res=?_Y))@\plg, \false;\true).
+%tst7 :- (?_Y= bagof{?_Z(asc) | q(?_X,?_Q,?_Z)},
+	(write('tst7 '), writeln(res=?_Y))@\plg, \false;\true).
+%tst8 :- (?_Y= bagof{?_Z([asc(1),desc(2),desc(3)]) | q(?_X,?_Q,?_Z)},
+	(write('tst8 '), writeln(res=?_Y))@\plg, \false;\true).
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

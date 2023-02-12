@@ -1,0 +1,555 @@
+/* File:      flrbasetype.flr
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- compiler_options{production=on}.
+
+/*
+  must be data-nontabled, as we have \time[now->...] and the like,
+  which change all the time. But signatures must be tabled because there
+  is recursion over their inheritance. Therefore, use
+      :- nontabled_data_module.
+  and not
+      :- nontabled_module.
+*/
+:- nontabled_data_module.
+:- suppress_rule_signatures.
+
+:- prolog{class_type_error/2}.
+
+:- symbol_context{now/1,toType/1,toType/6,toType/7,toType/10,
+	          toDateTime/3,toDateTime/1,toDate/1}.
+
+:- ignore_depchk{sysabort(?)@\system}.
+:- ignore_depchk{?[mustDefine(?)]@\sys, ?[mustDefine(?,?)]@\sys}.
+
+#include "flora_terms.flh"
+
+:- export{
+           ?[rawValue->?],
+           ?[typeName->?],
+           ?[equals(?)],
+           ?[isTypeOf(?)],
+           ?[lessThan(?)],
+           ?[lessEq(?)],
+           ?[gt(?)],
+           ?[gtEq(?)],
+           ?[add(?) -> ?],
+           ?[inverse -> ?],
+           // non-strict convert to type: fail for args of wrong types
+           ?[toType(?)->?],                   // all types
+           ?[toType(?,?)->?],                 // \currency/2
+           ?[toType(?,?,?,?,?,?)->?],         // \time/6 
+           ?[toType(?,?,?,?,?,?,?)->?],       // \date/7, \uri/7, \duration/7
+           ?[toType(?,?,?,?,?,?,?,?,?,?)->?], // \dateTime/10
+           
+           ?[toDateTime(?,?,?)->?],
+           ?[toDateTime(?)->?],
+           ?[toDate->?],
+           
+           ?[monthend->?],
+           ?[monthstart->?],
+           ?[days_until(?)->?],
+
+           ?[date->?],
+           ?[time->?],
+
+           ?[nextday(?)->?],
+           ?[nextmonth(?)->?],
+           ?[nextyear(?)->?],
+           ?[nexthour(?)->?],
+           ?[nextminute(?)->?],
+           ?[nextsecond(?)->?],
+           
+           ?[minus(?) -> ?],
+
+           ?[now->?],
+           ?[now(?)->?],
+
+           ?[hour->?],
+           ?[minute->?],
+           ?[second->?],
+           ?[dateSign->?],
+           ?[year->?],
+           ?[month->?],
+           ?[day->?],
+           ?[zoneSign->?],
+           ?[zoneHour->?],
+           ?[zoneMinute->?],
+           ?[localtime->?],
+           ?[toUTC(?,?)->?],
+           ?[islocaltime],
+           ?[toTZ(?,?)->?]
+         }.
+:- export{
+           ?[weekday->?,weeknum->?,weekstart->?,weekend->?]
+         }.
+
+\opaqueJustification(?, ${?@\basetype}).
+
+?D[?M->?] :-
+	isvar{?M},
+	!,
+	sysabort(['Attempt to apply an unbound method ', ?M,
+                   ' to a basic data type object ', ?D])@\sys.
+?D[?M->?Result] :-
+	isvar{?D},
+	isvar{?Result},
+        ?M \== toSymbol,
+        ?M \== rawValue,
+        ?M \== typeName,
+	!,
+	\false.
+
+// general
+?D[lessThan(?D2)] :-
+        isvar{?D}; isvar{?D2},
+        !,
+	flora_decode_oid_as_atom(?D,?PrintableD)@\prolog(flrdecode),
+	flora_decode_oid_as_atom(?D2,?PrintableD2)@\prolog(flrdecode),
+	sysabort(['in ', ?PrintableD,
+                   '[lessThan(',?PrintableD2, ')]: both arguments must be bound'])@\system.
+?D[lessEq(?D2)] :-
+        isvar{?D}; isvar{?D2},
+        !,
+	flora_decode_oid_as_atom(?D,?PrintableD)@\prolog(flrdecode),
+	flora_decode_oid_as_atom(?D2,?PrintableD2)@\prolog(flrdecode),
+	sysabort(['in ', ?PrintableD,
+                   '[lessEq(',?PrintableD2, ')]: both arguments must be bound'])@\system.
+
+// time
+?D^^\time[hour->?V] :- hour(?D,?V)@\prolog(flrdatatype), !.
+?D^^\time[minute->?V] :- minute(?D,?V)@\prolog(flrdatatype), !.
+?D^^\time[second->?V] :- second(?D,?V)@\prolog(flrdatatype), !.
+?D^^\time[zoneSign->?V] :- zoneSign(?D,?V)@\prolog(flrdatatype), !.
+?D^^\time[zoneHour->?V] :- zoneHour(?D,?V)@\prolog(flrdatatype), !.
+?D^^\time[zoneMinute->?V] :- zoneMinute(?D,?V)@\prolog(flrdatatype), !.
+?D^^\time[localtime->?V] :- localtime(?D,?V)@\prolog(flrdatatype), !.
+?D^^\time[toUTC(?H,?M)->?V] :- toUTC(?D,?H,?M,?V)@\prolog(flrdatatype), !.
+?D^^\time[toTZ(?H,?M)->?V] :- toTZ(?D,?H,?M,?V)@\prolog(flrdatatype), !.
+?D^^\time[islocaltime] :- zoneSign(?D,0)@\prolog(flrdatatype), !.
+
+?D^^\time[lessThan(?D2^^\time)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V @< ?V2.
+?D^^\time[lessEq(?D2^^\time)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V @=< ?V2.
+
+\time[now->?V] :-
+	!,
+	get_localdate(?_Y,?_Mo,?_D,?H,?Mi,?S)@\plg,
+	\time[toType(?H,?Mi,?S,1,0,0)->?V].
+\time[now(?TZ)->?V] :-
+	isnumber{?TZ},
+	!,
+	(?TZ<0 -->> ?Sign = -1, ?TZpos \is -1 * ?TZ
+        ; ?Sign = 1, ?TZpos = ?TZ
+        ),
+	?TZH \is floor(?TZpos),
+	?TZM \is floor(100*(?TZpos-?TZH)),
+	get_utcdate(?_Y,?_Mo,?_D,?H,?Mi,?S)@\plg,
+	\time[toType(?H,?Mi,?S,?Sign,?TZH,?TZM)->?V].
+\time[now(utc)->?V] :-
+	!,
+	get_utcdate(?_Y,?_Mo,?_D,?H,?Mi,?S)@\plg,
+	\time[toType(?H,?Mi,?S,1,0,0)->?V].
+
+// date
+?D^^\date[dateSign->?V] :- datesign(?D,?V)@\prolog(flrdatatype), !.
+?D^^\date[year->?V] :- year(?D,?V)@\prolog(flrdatatype), !.
+?D^^\date[month->?V] :- month(?D,?V)@\prolog(flrdatatype), !.
+?D^^\date[day->?V] :- day(?D,?V)@\prolog(flrdatatype), !.
+?^^\date[hour->0] :- !.
+?^^\date[minute->0] :- !.
+?^^\date[second->0] :- !.
+?D^^\date[zoneSign->?V] :- zoneSign(?D,?V)@\prolog(flrdatatype), !.
+?D^^\date[zoneHour->?V] :- zoneHour(?D,?V)@\prolog(flrdatatype), !.
+?D^^\date[zoneMinute->?V] :- zoneMinute(?D,?V)@\prolog(flrdatatype), !.
+?D^^\date[localtime->?V] :- localtime(?D,?V)@\prolog(flrdatatype), !.
+?D^^\date[toUTC(?H,?M)->?V] :- toUTC(?D,?H,?M,?V)@\prolog(flrdatatype), !.
+?D^^\date[toTZ(?H,?M)->?V] :- toTZ(?D,?H,?M,?V)@\prolog(flrdatatype), !.
+?D^^\date[islocaltime] :- zoneSign(?D,0)@\prolog(flrdatatype), !.
+
+?_D^^\date[date->?_D] :- !.
+?^^\date[time->"0:0:0"^^\time] :- !.
+
+?D^^\date[lessThan(?D2^^\date)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V @< ?V2.
+?D^^\date[lessEq(?D2^^\date)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V @=< ?V2.
+
+?D[minus(?D2) -> ?D3] :-
+	isground{?D}, isground{?D2},
+	date_time_minus(?D,?D2,?D3)@\prolog(flrdatatype).
+
+// promote \date, \time to \datetime
+// X,Y,Z are either Yr,Mo,Day or H,Min,Sec
+?D[toDateTime(?X,?Y,?Z)->?D2] :- to_dateTime(?D,?X,?Y,?Z,?D2)@\prolog(flrdatatype).
+?D[toDateTime(?X)->?D2] :- to_dateTime(?D,?X,?D2)@\prolog(flrdatatype).
+?D[toDate->?D2] :- to_date(?D,?D2)@\prolog(flrdatatype).
+
+// current date
+\date[now->?V] :-
+	!,
+	get_localdate(?Y,?Mo,?D,?_H,?_Mi,?_S)@\plg,
+	\date[toType(1,?Y,?Mo,?D,1,0,0)->?V].
+\date[now(?TZ)->?V] :-
+	isnumber{?TZ},
+	!,
+	(?TZ<0 -->> ?Sign = -1, ?TZpos \is -1 * ?TZ
+        ; ?Sign = 1, ?TZpos = ?TZ
+        ),
+	?TZH \is floor(?TZpos),
+	?TZM \is floor(100*(?TZpos-?TZH)),
+	get_utcdate(?Y,?Mo,?D,?_H,?_Mi,?_S)@\plg,
+	\date[toType(1,?Y,?Mo,?D,?Sign,?TZH,?TZM)->?V].
+\date[now(utc)->?V] :-
+	!,
+	get_utcdate(?Y,?Mo,?D,?_H,?_Mi,?_S)@\plg,
+	\date[toType(1,?Y,?Mo,?D,1,0,0)->?V].
+
+// dateTime
+?D^^\dateTime[hour->?V] :- hour(?D,?V)@\prolog(flrdatatype), !.
+?D^^\dateTime[minute->?V] :- minute(?D,?V)@\prolog(flrdatatype), !.
+?D^^\dateTime[second->?V] :- second(?D,?V)@\prolog(flrdatatype), !.
+?D^^\dateTime[dateSign->?V] :- datesign(?D,?V)@\prolog(flrdatatype), !.
+?D^^\dateTime[year->?V] :- year(?D,?V)@\prolog(flrdatatype), !.
+?D^^\dateTime[month->?V] :- month(?D,?V)@\prolog(flrdatatype), !.
+?D^^\dateTime[day->?V] :- day(?D,?V)@\prolog(flrdatatype), !.
+?D^^\dateTime[zoneSign->?V] :- zoneSign(?D,?V)@\prolog(flrdatatype), !.
+?D^^\dateTime[zoneHour->?V] :- zoneHour(?D,?V)@\prolog(flrdatatype), !.
+?D^^\dateTime[zoneMinute->?V] :- zoneMinute(?D,?V)@\prolog(flrdatatype), !.
+?D^^\dateTime[localtime->?V] :- localtime(?D,?V)@\prolog(flrdatatype), !.
+?D^^\dateTime[toUTC(?H,?M)->?V] :- toUTC(?D,?H,?M,?V)@\prolog(flrdatatype), !.
+?D^^\dateTime[toTZ(?H,?M)->?V] :- toTZ(?D,?H,?M,?V)@\prolog(flrdatatype), !.
+?D^^\dateTime[islocaltime] :- zoneSign(?D,0)@\prolog(flrdatatype), !.
+
+?D^^\dateTime[lessThan(?D2^^\dateTime)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V @< ?V2.
+?D^^\dateTime[lessEq(?D2^^\dateTime)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V @=< ?V2.
+
+// dateTime vs date and vice versa
+?D^^\dateTime[lessThan(?D2^^\date)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V @< ?V2.
+?D^^\dateTime[lessEq(?D2^^\date)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V @=< ?V2.
+?D^^\date[lessThan(?D2^^\dateTime)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V @< ?V2.
+?D^^\date[lessEq(?D2^^\dateTime)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V @=< ?V2.
+
+// dateTime to components
+?D^^\dateTime[date->?D2] :-
+	datetime_to_time(FL_DATE,?D,?D2)@\prolog(flrdatatype).
+?D^^\dateTime[time->?D2] :-
+	datetime_to_time(FL_TIME,?D,?D2)@\prolog(flrdatatype).
+
+// date+time in the UTC time
+\dateTime[now->?V] :-
+	!,
+	get_localdate(?Y,?Mo,?D,?H,?Mi,?S)@\plg,
+	\dateTime[toType(1,?Y,?Mo,?D,?H,?Mi,?S,1,0,0)->?V].
+\dateTime[now(?TZ)->?V] :-
+	isnumber{?TZ},
+	!,
+	(?TZ<0 -->> ?Sign = -1, ?TZpos \is -1 * ?TZ
+        ; ?Sign = 1, ?TZpos = ?TZ
+        ),
+	?TZH \is floor(?TZpos),
+	?TZM \is floor(100*(?TZpos-?TZH)),
+	get_utcdate(?Y,?Mo,?D,?H,?Mi,?S)@\plg,
+	\dateTime[toType(1,?Y,?Mo,?D,?H,?Mi,?S,?Sign,?TZH,?TZM)->?V].
+\dateTime[now(utc)->?V] :-
+	!,
+	get_utcdate(?Y,?Mo,?D,?H,?Mi,?S)@\plg,
+	\dateTime[toType(1,?Y,?Mo,?D,?H,?Mi,?S,1,0,0)->?V].
+
+?X[nextday(?Increment)->?Y] :- next(day,?X,?Y,?Increment).
+?X[nextmonth(?Increment)->?Y] :- next(month,?X,?Y,?Increment).
+?X[nextyear(?Increment)->?Y] :- next(year,?X,?Y,?Increment).
+?X[nexthour(?Increment)->?Y] :- next(hour,?X,?Y,?Increment).
+?X[nextminute(?Increment)->?Y] :- next(minute,?X,?Y,?Increment).
+?X[nextsecond(?Increment)->?Y] :- next(second,?X,?Y,?Increment).
+next(?period,?X,?Y,?Increment) :-
+        isnonvar{?X},
+        isinteger{?Increment},
+        (?X:\date ; ?X:\dateTime ; ?X:\time),
+        !,
+        (?Increment>=0 -->> ?Sign=1, ?Increment1 = ?Increment
+        ; ?Sign= -1, ?Increment1 \is -?Increment
+        ),
+        (?period==year -->> ?DurOp = toType(?Sign,?Increment1,0,0,0,0,0)
+        ; ?period==month -->> ?DurOp = toType(?Sign,0,?Increment1,0,0,0,0)
+        ; ?period==day -->> ?DurOp = toType(?Sign,0,0,?Increment1,0,0,0)
+        ; ?period==hour -->> ?DurOp = toType(?Sign,0,0,0,?Increment1,0,0)
+        ; ?period==minute -->> ?DurOp = toType(?Sign,0,0,0,0,?Increment1,0)
+        ; ?period==second -->> ?DurOp = toType(?Sign,0,0,0,0,0,?Increment1)
+        ),
+        \duration[?DurOp -> ?Duration],
+        ?X[add(?Duration) -> ?Y].
+
+// \duration
+?D^^\duration[hour->?V] :- hour(?D,?V)@\prolog(flrdatatype), !.
+?D^^\duration[minute->?V] :- minute(?D,?V)@\prolog(flrdatatype), !.
+?D^^\duration[second->?V] :- second(?D,?V)@\prolog(flrdatatype), !.
+?D^^\duration[dateSign->?V] :- datesign(?D,?V)@\prolog(flrdatatype), !.
+?D^^\duration[year->?V] :- year(?D,?V)@\prolog(flrdatatype), !.
+?D^^\duration[month->?V] :- month(?D,?V)@\prolog(flrdatatype), !.
+?D^^\duration[day->?V] :- day(?D,?V)@\prolog(flrdatatype), !.
+
+?D^^\duration[lessThan(?D2^^\duration)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V @< ?V2.
+?D^^\duration[lessEq(?D2^^\duration)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V @=< ?V2.
+
+?D^^\currency[lessThan(?D2^^\currency)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V < ?V2.
+?D^^\currency[lessEq(?D2^^\currency)] :-
+	flora_type_numeric_value(?D,?V)@\prolog(flrdatatype),
+	flora_type_numeric_value(?D2,?V2)@\prolog(flrdatatype),
+        !,
+	?V =< ?V2.
+
+// numbers
+?N[lessThan(?N2)] :- number(?N)@\prolog, number(?N2)@\prolog, !, ?N < ?N2.
+?N[lessEq(?N2)] :- number(?N)@\prolog, number(?N2)@\prolog, !, ?N =< ?N2.
+
+?N[lessThan(?N2)] :-
+	?N[rawValue->?V],
+	?N2[rawValue->?V2],
+	number(?V)@\prolog, number(?V2)@\prolog,
+        !,
+        ?V < ?V2.
+?N[lessEq(?N2)] :-
+	?N[rawValue->?V],
+	?N2[rawValue->?V2],
+	number(?V)@\prolog, number(?V2)@\prolog,
+        !,
+        ?V =< ?V2.
+
+// strings
+?N[lessThan(?N2)] :-
+        dtype_isa(?N,\string)@\prolog(flrdtype_sub),
+        dtype_isa(?N2:\string)@\prolog(flrdtype_sub),
+        !,
+        ?N.rawValue @< ?N2.rawValue.
+?N[lessEq(?N2)] :-
+        dtype_isa(?N,\string)@\prolog(flrdtype_sub),
+        dtype_isa(?N2:\string)@\prolog(flrdtype_sub),
+        !,
+        ?N.rawValue @=< ?N2.rawValue.
+
+// symbols
+?N[lessThan(?N2)] :-
+        dtype_isa(?N,FL_SYMBOL)@\prolog(flrdtype_sub),
+        dtype_isa(?N2,FL_SYMBOL)@\prolog(flrdtype_sub),
+        !,
+        ?N.rawValue @< ?N2.rawValue.
+?N[lessEq(?N2)] :-
+        dtype_isa(?N,FL_SYMBOL)@\prolog(flrdtype_sub),
+        dtype_isa(?N2,FL_SYMBOL)@\prolog(flrdtype_sub),
+        !,
+        ?N.rawValue @=< ?N2.rawValue.
+
+// IRIs
+?N[lessThan(?N2)] :-
+        dtype_isa(?N,FL_IRI)@\prolog(flrdtype_sub),
+        dtype_isa(?N2,FL_IRI)@\prolog(flrdtype_sub),
+        !,
+        ?N.rawValue @< ?N2.rawValue.
+?N[lessEq(?N2)] :-
+        dtype_isa(?N,FL_IRI)@\prolog(flrdtype_sub),
+        dtype_isa(?N2,FL_IRI)@\prolog(flrdtype_sub),
+        !,
+        ?N.rawValue @=< ?N2.rawValue.
+
+?X[gt(?Y)] :- ?Y[lessThan(?X)].
+?X[gtEq(?Y)] :- ?Y[lessEq(?X)].
+
+?D[rawValue->?V] :- flora_datatype_raw_value(?D,?V)@\prolog(flrdatatype), !.
+?D[typeName->?V] :- flora_datatype_name(?D,?V)@\prolog(flrdatatype), !.
+
+?_D[equals(?_D)] :- !.
+
+?T[isTypeOf(?V)] :- flora_datatype_name(?V,?T)@\prolog(flrdatatype), !.
+// catch cases when class methods are applied to instances by mistake
+?T[isTypeOf(?)] :- class_type_error(?T,'\\isTypeOf(?) -> ?').
+
+// these are supposed to fail, if no error
+?T[toType(?)->?] :- class_type_error(?T,'toType(?) -> ?').
+?T[toType(?,?)->?] :-                                                // 2 args
+	class_type_error(?T,'toType(?) -> ?').
+?T[toType(?,?,?,?,?,?)->?] :-                                        // 6 args
+	class_type_error(?T,'toType(?) -> ?').
+?T[toType(?,?,?,?,?,?,?)->?] :-                                      // 7 args
+	class_type_error(?T,'toType(?) -> ?').
+?T[toType(?,?,?,?,?,?,?,?,?,?)->?] :-                                // 10 args
+	class_type_error(?T,'toType(?) -> ?').
+
+
+/*
+?T[toType(?V)->?] :- 
+	?V[typeName->?TN],
+	?TN \== ?T,
+	flora_decode_oid_as_atom(?T,?PrintableT)@\prolog(flrdecode),
+	flora_decode_oid_as_atom(?V,?PrintableV)@\prolog(flrdecode),
+	sysabort([?PrintableT,'[toType(',?PrintableV,')->?]: argument ',
+	        ?PrintableV,' must be a literal of type ',?PrintableT])@\system.
+*/
+
+
+// The 1-argument version is for:
+//      FL_LONG, FL_DOUBLE, FL_STRING, FL_CHARLIST, FL_BOOL
+// Also for FL_DATE, FL_TIME, FL_URI, and FL_DATETIME, but we need to implement
+// this in flrdatatype_parse.P
+// These use the no-check versions of flora_make_datatype/3, which
+// fail if argument is not convertible to the target data type
+?T[toType(?A)->?Obj] :-
+	?T == FL_SYMBOL,
+	!,
+	?A[toSymbol->?Obj].
+// T is FL_STRING or FL_IRI
+?T[toType(?A)->?Obj] :-
+	(?T == FL_STRING ; ?T == FL_IRI),
+	!,
+	flora_datatype_raw_value(?A,?ARaw)@\prolog(flrdatatype),
+	?ParsedRepr =.. [?T,?ARaw],
+	flora_special_datatype_internal_representation(?ParsedRepr,?Obj)@\prolog(flrdatatype),
+	!.
+?T[toType(?A)->?Obj] :-
+	?A[rawValue->?RA],
+	flora_make_datatype(?T,(?RA),?Obj1)@\prolog(flrdatatype_parse),
+	// special treatment for IRIs - hide their data type
+	\if ?T == \iri \then ?Obj1[toSymbol->?Obj]
+        \else ?Obj = ?Obj1.
+
+// the 2-arg is for FL_CURRENCY
+?T[toType(?A1,?A2)->?Obj] :-
+        ?T == FL_CURRENCY,
+	flora_make_datatype(?T,(?A1,?A2),?Obj)@\prolog(flrdatatype_parse).
+// the 6-arg is for FL_TIME
+?T[toType(?A1,?A2,?A3,?A4,?A5,?A6)->?Obj] :-
+        ?T == FL_TIME,
+	flora_make_datatype(?T,(?A1,?A2,?A3,?A4,?A5,?A6),?Obj)@\prolog(flrdatatype_parse).
+// the 7-arg is for FL_DATE, FL_URI, FL_DURATION
+?T[toType(?A1,?A2,?A3,?A4,?A5,?A6,?A7)->?Obj] :-
+        member(?T,[FL_DATE,FL_URI,FL_DURATION])@\prolog(basics),
+	flora_make_datatype(?T,(?A1,?A2,?A3,?A4,?A5,?A6,?A7),?Obj1)@\prolog(flrdatatype_parse),
+	// special treatment for IRIs - hide their data type
+	\if ?T == \iri \then ?Obj1[toSymbol->?Obj]
+        \else ?Obj = ?Obj1.
+// this 10-argument version is for FL_DATETIME
+?T[toType(?A1,?A2,?A3,?A4,?A5,?A6,?A7,?A8,?A9,?A10)->?Obj] :-
+        ?T == FL_DATETIME,
+	flora_make_datatype(?T,(?A1,?A2,?A3,?A4,?A5,?A6,?A7,?A8,?A9,?A10),?Obj)@\prolog(flrdatatype_parse).
+
+// this is supposed to fail, if everything is right
+// ?Typ must be a string data type or an atom?
+class_type_error(?Typ,?Meth) :-
+	flora_builtin_datatype(?BI)@\prolog(flrdatatype),
+	\if (Method[mustDefine(?Mode)]@\sys, ?Mode==on)
+	\then Method[mustDefine(off)]@\sys,
+	\if (dtype_isa(?Typ,?BI)@\prolog(flrdtype_sub), ?BI !== \string, ?BI !== \symbol)
+        \then Method[mustDefine(?Mode)]@\sys
+        \else (Method[mustDefine(?Mode)]@\sys, \false),
+	flora_decode_oid_as_atom(?Typ,?PrintableT)@\prolog(flrdecode),
+	sysabort([?PrintableT, '[', ?Meth, ']: ',
+                   ?PrintableT, ' must be a data type'])@\system.
+
+// addition of types
+?T[add(?T1) -> ?T2] :-
+	flora_dt_add(?T,?T1,?T2)@\prolog(flrdatatype),
+        !.
+
+?T[inverse->?T1] :-
+        (isnumber{?T} -->> ?T1 \is -?T
+        ; flora_datatype_name(?T,\duration)@\prolog(flrdatatype) -->>
+          flora_duration_inverse(?T,?T1)@\prolog(flrdatatype)
+        ).
+
+?T[weekday->?DayOfWk,weeknum->?WkNum,weekstart->?WkStart,weekend->?WkEnd] :- 
+        flora_dt_date_week(?T,?DayOfWk,?WkNum,?WkStart,?WkEnd)@\prolog(flrdatatype).
+
+?T[monthend -> ?E] :- last_day_of_month(?T,?E)@\prolog(flrdatatype).
+?T[monthstart -> ?E] :- first_day_of_month(?T,?E)@\prolog(flrdatatype).
+
+// Full days between dates and dateTimes.
+// Takes time zones into account and also the time component of dateTimes.
+?Dt[days_until(?Dt2) -> ?Days] :- 
+        flora_dt_days_between_dates(?Dt,?Dt2,?Days)@\prolog(flrdatatype).
+
+
+// Included stuff
+// symbol should be before string and list
+#include "flrbasetype_symbol.flh"
+
+#include "flrbasetype_iri.flh"
+
+#include "flrbasetype_signatures.flh"
+#include "flrbasetype_double.flh"
+
+// list before string!
+#include "flrbasetype_list.flh"
+#include "flrbasetype_string.flh"
+
+#include "flrbasetype_currency.flh"
+

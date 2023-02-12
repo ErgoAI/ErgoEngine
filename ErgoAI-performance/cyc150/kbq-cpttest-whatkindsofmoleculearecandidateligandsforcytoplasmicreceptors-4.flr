@@ -1,0 +1,124 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhatKindsOfMoleculeAreCandidateLigandsForCytoplasmicReceptors (query 4)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, disjointWith(HydrophilicChemicalObject, HydrophobicChemicalObject)).
+istAsserted(UniversalVocabularyMt, genls(DopamineMolecule, HydrophilicChemicalObject)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Explicit Background Facts
+istAsserted(MolecularBiologyMt, relationInstanceOnly(candidateReceptorTypeForLigand, CytoplasmicReceptorMolecule, HydrophobicChemicalObject)).
+
+// Explicit Background Rules
+backwardSentence(not(relationInstanceOnly(candidateReceptorTypeForLigand, CytoplasmicReceptorMolecule, HydrophobicChemicalObject))) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(relationInstanceOnly), candidateReceptorTypeForLigand(CytoplasmicReceptorMolecule, ?OBJ), isa(?OBJ, ?TYPE), disjointWith(HydrophobicChemicalObject, ?TYPE).
+backwardSentence(not(candidateReceptorTypeForLigand(CytoplasmicReceptorMolecule, ?OBJ))) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(candidateReceptorTypeForLigand), relationInstanceOnly(candidateReceptorTypeForLigand, CytoplasmicReceptorMolecule, HydrophobicChemicalObject), disjointWith(HydrophobicChemicalObject, ?TYPE), isa(?OBJ, ?TYPE).
+backwardSentence(not(isa(?OBJ, ?TYPE))) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(isa), candidateReceptorTypeForLigand(CytoplasmicReceptorMolecule, ?OBJ), relationInstanceOnly(candidateReceptorTypeForLigand, CytoplasmicReceptorMolecule, HydrophobicChemicalObject), disjointWith(HydrophobicChemicalObject, ?TYPE).
+backwardSentence(not(disjointWith(HydrophobicChemicalObject, ?TYPE))) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(disjointWith), candidateReceptorTypeForLigand(CytoplasmicReceptorMolecule, ?OBJ), relationInstanceOnly(candidateReceptorTypeForLigand, CytoplasmicReceptorMolecule, HydrophobicChemicalObject), isa(?OBJ, ?TYPE).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-261110', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-261110', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-EpinephrineMolecule-261111', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261110', MtTimeDimFn(Now)), isa('HYP-EpinephrineMolecule-261111', EpinephrineMolecule)).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-261113', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-261113', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-TestosteroneMolecule-261114', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261113', MtTimeDimFn(Now)), isa('HYP-TestosteroneMolecule-261114', TestosteroneMolecule)).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-261116', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-261116', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PhospholipaseCMolecule-261117', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261116', MtTimeDimFn(Now)), isa('HYP-PhospholipaseCMolecule-261117', PhospholipaseCMolecule)).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-261119', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-261119', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-NorepinephrineMolecule-261120', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261119', MtTimeDimFn(Now)), isa('HYP-NorepinephrineMolecule-261120', NorepinephrineMolecule)).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-261122', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-261122', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-DopamineMolecule-261123', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261122', MtTimeDimFn(Now)), isa('HYP-DopamineMolecule-261123', DopamineMolecule)).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-261130', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-261130', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Thing-261131', Thing)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Collection-261132', Collection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-Collection-261132', Thing)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261130', MtTimeDimFn(Now)), isa('HYP-Thing-261131', 'HYP-Collection-261132')).
+istAsserted(UniversalVocabularyMt, isa('Proof-HypotheticalContext-261133', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Proof-HypotheticalContext-261133', 'Hypothesis-HypotheticalContext-261130')).
+istAsserted(UniversalVocabularyMt, isa('HYP-Thing-261131', Individual)).
+istAsserted(MtSpace('Proof-HypotheticalContext-261133', MtTimeDimFn(Now)), isa('HYP-Thing-261131', ExtracellularSignalingChemicalObject)).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261122')).
+//REMOVED TITLE('KBQ  : $CPTTest-WhatKindsOfMoleculeAreCandidateLigandsForCytoplasmicReceptors 4').
+%pretest :- neg candidateReceptorTypeForLigand(CytoplasmicReceptorMolecule, 'HYP-DopamineMolecule-261123'), %write_results('SUCCESS  : $CPTTest-WhatKindsOfMoleculeAreCandidateLigandsForCytoplasmicReceptors 4').
+
+// Debugging
+proof(8254, 0) :- relationInstanceOnly(candidateReceptorTypeForLigand, CytoplasmicReceptorMolecule, HydrophobicChemicalObject).
+proof(8254, 1) :- isa('HYP-DopamineMolecule-261123', DopamineMolecule).
+proof(8254, 2) :- isa('HYP-DopamineMolecule-261123', DopamineMolecule).
+proof(8254, 3) :- disjointWith(HydrophobicChemicalObject, DopamineMolecule).
+proof(8254, 4) :- disjointWith(HydrophobicChemicalObject, DopamineMolecule).
+proof(8254, 5) :- isa('HYP-DopamineMolecule-261123', DopamineMolecule), disjointWith(HydrophobicChemicalObject, DopamineMolecule).
+proof(8254, 6) :- isa('HYP-DopamineMolecule-261123', DopamineMolecule), disjointWith(HydrophobicChemicalObject, DopamineMolecule), relationInstanceOnly(candidateReceptorTypeForLigand, CytoplasmicReceptorMolecule, HydrophobicChemicalObject).
+proof(8254, 7) :- not(candidateReceptorTypeForLigand(CytoplasmicReceptorMolecule, 'HYP-DopamineMolecule-261123')).
+proof(8254, 8) :- isa('HYP-DopamineMolecule-261123', HydrophilicChemicalObject).
+proof(8254, 9) :- isa('HYP-DopamineMolecule-261123', HydrophilicChemicalObject).
+proof(8254, 10) :- disjointWith(HydrophobicChemicalObject, HydrophilicChemicalObject).
+proof(8254, 11) :- disjointWith(HydrophobicChemicalObject, HydrophilicChemicalObject).
+proof(8254, 12) :- isa('HYP-DopamineMolecule-261123', HydrophilicChemicalObject), disjointWith(HydrophobicChemicalObject, HydrophilicChemicalObject).
+proof(8254, 13) :- isa('HYP-DopamineMolecule-261123', HydrophilicChemicalObject), disjointWith(HydrophobicChemicalObject, HydrophilicChemicalObject), relationInstanceOnly(candidateReceptorTypeForLigand, CytoplasmicReceptorMolecule, HydrophobicChemicalObject).
+proof(8254, 14) :- not(candidateReceptorTypeForLigand(CytoplasmicReceptorMolecule, 'HYP-DopamineMolecule-261123')).
+
+proof(8254, 1000) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(8254, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-261122', 1, genlMt).
+proof(8254, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-261122', 2, genlMt).
+proof(8254, 2002) :- admittedArgument(SecondFn(31, MinuteFn(12, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(8254, 2003) :- admittedArgument(SecondFn(31, MinuteFn(12, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(8254, 2004) :- disjointWith(DopamineMolecule, HydrophobicChemicalObject).
+proof(8254, 2005) :- disjointWith(HydrophilicChemicalObject, HydrophobicChemicalObject).
+proof(8254, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261122'), UniversalVocabularyMt).
+proof(8254, 2007) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261122'), BaseKB).
+proof(8254, 2008) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261122'), MolecularBiologyMt).
+proof(8254, 2009) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261122'), MtSpace('Hypothesis-HypotheticalContext-261122', MtTimeDimFn(Now))).
+proof(8254, 2010) :- isa('HYP-DopamineMolecule-261123', DopamineMolecule).
+proof(8254, 2011) :- isa('HYP-DopamineMolecule-261123', HydrophilicChemicalObject). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

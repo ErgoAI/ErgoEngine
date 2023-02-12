@@ -1,0 +1,24 @@
+%"abc"^^\string.
+%"abc"^^\string(p).
+bbb[%"abc"^^\string].
+bbb[%"abc"^^\string(p)].
+?- insert{aaaa[%"abc"^^\string]}.
+?- insert{aaaa[%"abc"^^\string(p)]}.
+
+%tst1 :- %"abc"^^\string, %"abc"^^\string(p), writeln(test1=ok)@\plg.
+
+%tst2 :- bbb[%"abc"^^\string], bbb[%"abc"^^\string(p)], writeln(test2=ok)@\plg.
+
+%tst3 :- aaaa[%"abc"^^\string], aaaa[%"abc"^^\string(p)],writeln(test3=ok)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3.
+
+%test :- 
+	tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	\abolishtables,
+	!,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().

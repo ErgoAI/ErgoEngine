@@ -1,0 +1,68 @@
+:- ignore_depchk{writeln(?)@\plg}.
+
+p({a,b}).
+q({c,d}).
+
+// this one is just a compilation test
+xxx :- \naf(aa[?_SM{1..1}=>?_V]).
+
+%tst1 :- \naf exists(?X)^(p(?X),q(?X)), writeln(test1=ok)@\plg.
+%tst2 :- \naf (p(?X),q(?X)), writeln(test2=ok)@\plg.
+%tst3 :- \naf forall(?X)^(p(?X),q(?X)), writeln(test3=ok)@\plg.
+
+%tst4 :- forall(?Y,?X)^(\naf(pp(?X,?Y),\naf qq(?X,?Y))), writeln(test4=ok)@\plg.
+%tst5 :- \naf (p(?),q(?)), writeln(test5=fail)@\plg, !.
+%tst5 :- writeln(test5=ok)@\plg.
+
+ppp({1,2}).
+qqq({1,2,3}).
+rrr({3}).
+
+tst6 :- \naf exists(?X)^(\naf(((\naf ppp(?X)) \or qqq(?X)))),
+	  writeln(test6=ok)@\plg.
+tst6b :- true{\naf exists(?X)^(\naf(((\naf ppp(?X)) \or qqq(?X))))},
+	  writeln(test6b=ok)@\plg.
+
+tst7 :-
+        setruntime{unsafe_naf(ignoreonce)},
+        \naf (\naf(((\naf ppp(?X)) \or qqq(?X)))),
+	writeln(test7=ok)@\plg.
+tst7b :-
+        setruntime{unsafe_naf(ignoreonce)},
+        true{\naf (\naf(((\naf ppp(?X)) \or qqq(?X))))},
+	  writeln(test7b=ok)@\plg.
+
+tst8 :- setruntime{unsafe_naf(ignoreonce)},
+        false{\naf exists(?X)^(((\naf ppp(?X)) \or rrr(?X)))},
+	writeln(test8=ok)@\plg.
+
+tst9 :-  ppp(?X) \and \naf rrr(?X), writeln(test9=ok)@\plg.
+tst9b :-  true{ppp(?X) \and \naf rrr(?X)}, writeln(test9b=ok)@\plg.
+
+tst10 :- \naf exists(?X)^(((\naf fff(?X)) \or rrr(?X))),
+	  !,
+	  writeln(test10=fail)@\plg.
+tst10 :- writeln(test10=ok)@\plg.
+tst10b :- false{\naf exists(?X)^(((\naf fff(?X)) \or rrr(?X)))},
+	  !,
+	   writeln(test10b=ok)@\plg.
+
+tst11 :-  fff(?X) \and \naf rrr(?X),
+	  !,
+	  writeln(test11=fail)@\plg.
+tst11 :- writeln(test11=ok)@\plg.
+tst11b :-  false{fff(?X) \and \naf rrr(?X)}, !, writeln(test11b=ok)@\plg.
+
+p12(b).
+\udf f12(a) := b.
+%tst12 :- false{\naf p12(f12(a))}, writeln(test12=ok)@\plg.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5,
+	    true{tst6}, tst6b, true{tst7}, tst7b, true{tst8}, 
+	    true{tst9}, tst9b, true{tst10}, tst10b, true{tst11}, tst11b,
+            %tst12.
+
+%test :- tell(temp)@\plg(),
+	%pretest,
+        told@\plg().

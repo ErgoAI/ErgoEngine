@@ -1,0 +1,105 @@
+names(c1,Joe).
+names(c2,Bob).
+names(c3,Mary).
+names(c4,Ann).
+names(c5,Bess).
+names(c6,Tom).
+names(c7,Don).
+
+rel(a11,s1,c1,p1).
+rel(a12,s1,c3,p1).
+rel(a13,s1,c3,p2).
+rel(a14,s1,c5,p4).
+rel(a15,s1,c7,p4).
+rel(a16,s1,c7,p5).
+
+rel(a21,s2,c2,p5).
+rel(a22,s2,c3,p6).
+rel(a23,s2,c3,p4).
+rel(a24,s2,c4,p6).
+rel(a25,s2,c5,p2).
+rel(a26,s2,c6,p4).
+rel(a27,s2,c6,p3).
+
+rel(a31,s3,c2,p3).
+rel(a32,s3,c4,p4).
+rel(a33,s3,c5,p5).
+rel(a34,s3,c6,p1).
+rel(a35,s3,c7,p2).
+
+rel(a41,s4,c1,p3).
+rel(a42,s4,c2,p1).
+rel(a43,s4,c4,p4).
+rel(a44,s4,c6,p3).
+rel(a45,s4,c6,p1).
+
+rel(a51,s5,c2,p5).
+rel(a52,s5,c2,p2).
+rel(a53,s5,c3,p1).
+rel(a54,s5,c3,p4).
+rel(a55,s5,c4,p4).
+rel(a56,s5,c5,p4).
+rel(a57,s5,c5,p6).
+rel(a58,s5,c6,p3).
+rel(a59,s5,c7,p3).
+
+/*
+  This test case works right ONLY if push_exists is used in the parser.
+  Prior to this case, there were no test cases for push_exists and it was
+  disabled.
+  Without push_exists, r1(?CN1,?CN2) will return only undefined answers,
+  while r2(?CN1,?CN2) will have all true answers. 
+  With push_exists, both return true answers only.
+*/
+
+r1(?CN1,?CN2) :-
+        exist(?C1,?C2)^(
+          names(?C1,?CN1),
+          names(?C2,?CN2),
+          ?C1 != ?C2,
+          forall(?sh)^exist(?Au1,?Ak1)^(
+            rel(?Au1,?sh,?C1,?Ak1) <~~ exist(?Au2,?Ak2)^rel(?Au2,?sh,?C2,?Ak2)
+          )
+        ).
+
+r2(?CN1,?CN2) :-
+    exist(?C1,?C2)^(
+      names(?C1,?CN1),
+      names(?C2,?CN2),
+      ?C1 != ?C2,
+      forall(?sh)^(
+        exist(?Au1,?Ak1)^(rel(?Au1,?sh,?C1,?Ak1)) <~~ exist(?Au2,?Ak2)^rel(?Au2,?sh,?C2,?Ak2)
+      )
+    ).
+
+r3(?CN1,?CN2) :-
+    exist(?C1,?C2)^(
+      names(?C1,?CN1),
+      names(?C2,?CN2),
+      ?C1 != ?C2,
+      forall(?sh,?Au2,?Ak2)^(
+        exist(?Au1,?Ak1)^(rel(?Au1,?sh,?C1,?Ak1)) <~~ rel(?Au2,?sh,?C2,?Ak2)
+      )
+    ).
+
+r4(?CN1,?CN2) :-
+    exist(?C1,?C2)^(
+      names(?C1,?CN1),
+      names(?C2,?CN2),
+      ?C1 != ?C2,
+      forall(?sh)^exist(?Au1,?Ak1)^forall(?Au2,?Ak2)^(
+        rel(?Au1,?sh,?C1,?Ak1) <~~ rel(?Au2,?sh,?C2,?Ak2)
+      )
+    ).
+
+%tst1 :- setof{?O| true{r1(?CN1,?CN2)}, ?O = ?CN1+?CN2} = ?L, writeln(test1=?L)@\plg.
+%tst2 :- setof{?O| true{r2(?CN1,?CN2)}, ?O = ?CN1+?CN2} = ?L, writeln(test2=?L)@\plg.
+%tst3 :- setof{?O| true{r3(?CN1,?CN2)}, ?O = ?CN1+?CN2} = ?L, writeln(test3=?L)@\plg.
+%tst4 :- setof{?O| true{r4(?CN1,?CN2)}, ?O = ?CN1+?CN2} = ?L, writeln(test4=?L)@\plg.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4.
+
+%test :- tell(temp)@\plg(),
+	%pretest,
+        told@\plg().

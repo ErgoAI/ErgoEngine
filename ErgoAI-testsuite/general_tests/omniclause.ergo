@@ -1,0 +1,41 @@
+
+:- compiler_options{omni=on}.
+
+:- use_argumentation_theory.
+
+${forall(?X,?Y)^(p(?X),q(?Y) ==> exists(?Z)^r(?Z,?X))}.
+${aaa;bbb}.
+\neg bbb.
+
+${p(a.b)}.
+a[b->c].
+?- insert{ccc;ddd}, insert{\neg ddd}.
+
+?- insertrule{${eee;fff :- rrrr}}, insert{\neg fff,rrrr}.
+
+forall(?St)^exist(?Sn1,?Sn2)^(senator(?St,{?Sn1,?Sn2}) <== state(?St)).
+exist(?Sn1,?Sn2)^senator2(?St,{?Sn1,?Sn2}) :- state(?St).
+\neg exist(?X)^senator(PuertoRico,?X).
+state(NY).
+state(AL).
+state(TX).
+
+ttttt(?X) :- wwwww(?X).
+wwwww(ii).
+
+
+%tst1 :- writeln('TEST1')@\plg,
+	 clause{?X,?Y}, ?X \= ${%tst1}, ?X\=${%pretest}, ?X\=${%test},
+	 flora_rename_vars_meaningfully((?X,?Y))@\plg(flrdecode),
+	 write(?X)@\io, write(' :- ')@\plg, writeln(?Y)@\io,
+	 \false.
+%tst1 :- \true.
+
+%pretest :- %tst1.
+
+%test :- tell(temp)@\plg(),
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        %pretest,
+        told@\plg().

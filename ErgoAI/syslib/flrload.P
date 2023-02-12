@@ -1,0 +1,230 @@
+/* File:        flrload.P
+**
+** Author(s): Guizhen Yang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_extensions.flh"
+#include "flora_exceptions.flh"
+
+
+:- import
+	flora_stderr_nl/0,
+	flora_stderr_string/1,
+	flora_error_line/1,
+	flora_error_line/2,
+	flora_error_heading/0
+   from flrprint.
+
+:- import
+	flora_load_module_util/2,
+	flora_load_module_util/3,
+	flora_add_module_dyn/2,
+	flora_add_module_dyn/3,
+	flora_locate_file/3
+   from flrutils.
+
+:- import flora_display_error/1 from flrdisplay.
+
+:- import
+	flora_abort/2,
+	flora_get_counter/2,
+	flora_file_op/3
+   from flrporting.
+
+:- import flora_user_load_registry/4 from flrregistry.
+
+
+/********************************************************************/
+FLLIBLOAD([],_HostFile,_HostMod,_Rulenum) :- !.
+FLLIBLOAD([T|L],HostFile,HostMod,Location) :-
+	!,
+	flora_load_file(T,HostFile,HostMod,Location),
+	%%\+ (\+ FLLIBLOAD(L,HostFile,HostMod,Location)).
+	FLLIBLOAD(L,HostFile,HostMod,Location).
+
+%% add a file to module
+FLLIBADD([],_HostFile,_HostMod,_Rulenum) :- !.
+FLLIBADD([T|L],HostFile,HostMod,Location) :-
+	!,
+	flora_load_file(FL_PLUS(T),HostFile,HostMod,Location),
+	%%\+ (\+ FLLIBADD(L,HostFile,HostMod,Location)).
+	FLLIBADD(L,HostFile,HostMod,Location).
+
+%% FLADDNEW - like FLADD, but file is not added to the module
+%% if it was added before, EVEN if the module was modified.
+%% This exists to work around the low time resolution in XSB for file modtimes.
+%% Because the resolution is in seconds, it is possible that file mod time
+%% and its add-time are the same even though the add happened later.
+%% In such a case, FLADD will still re-add the file even though it should not
+%% have done so. FLADDNEW will not re-add in such a situation.
+FLLIBADDNEW([],_HostFile,_HostMod,_Rulenum) :- !.
+FLLIBADDNEW([T|L],HostFile,HostMod,Location) :-
+        (T = FL_RIGHTTO(TT,Module) -> true
+        ; TT = T, Module = FLORA_DEFAULT_WORKSPACE
+        ),
+        (flora_user_load_registry(_,Module,RegF,add),
+            flora_file_op(basename,RegF,BaseRegF), BaseRegF == TT
+        ->
+            FLLIBADDNEW(L,HostFile,HostMod,Location)
+        ; flora_load_file(FL_PLUS(T),HostFile,HostMod,Location)
+        ).
+
+
+/*********************************************************************
+  flora_load_file(+FileName,+HostFile,+HostMod,+Location)
+  flora_load_file(FL_RIGHTTO(+FileName,+Workspace),+HostFile,+HostMod,+Location)
+
+  Filename: file being loaded
+  Workspace: module into which it is loaded
+  HostFile: program file from which this call was made
+  HostMod: module into which HostFile was loaded
+  Location: of the form [Line,Char] indicates the line and char
+            where the loading literal occurs in the program
+
+  Note: Runtime checking of file and workspace names is needed, since
+        the load list can be constructed at runtime.
+*********************************************************************/
+%% adding files to modules
+flora_load_file(FL_PLUS(T),_,_,_) :-
+	var(T),
+	!,
+	flora_stderr_nl,
+	flora_error_line('uninstantiated file name in add{?~w}',[T]),
+	fail.
+
+%% adding files to modules
+flora_load_file(FL_PLUS(FL_RIGHTTO(FileName,Workspace)),HostFile,HostMod,_Location) :-
+	!,
+	flora_load_file(FL_RIGHTTO(FL_PLUS(FileName),Workspace),HostFile,HostMod,_Location).
+flora_load_file(FL_RIGHTTO(FL_PLUS(FileName),Workspace),HostFile,_HostMod,_Location) :-
+	!,
+	%% Don't check module overriding - we are adding rules
+	%%flora_check_module_overriding(FileName,Workspace,HostFile,_HostMod,_Location),
+	( atom(Workspace) ->
+            (atom(FileName) -> FileNameout = FileName
+            ; atom(FileName), P2H_CONVERSION(FL_URL(TT),FileName), atom(TT) ->
+                FileNameout = FL_URL(TT)
+            ),
+	    flora_add_module_dyn(FileNameout,Workspace,HostFile)
+	;
+	    flora_stderr_nl,
+	    ( var(Workspace) ->
+		flora_error_line('uninstantiated module name in add{~w>>?~w}',
+                                 [FileName,Workspace])
+	    ;
+	        flora_error_heading,
+		flora_stderr_string('invalid module name: '),
+		flora_display_error(Workspace),
+		flora_stderr_nl
+	    ),
+	    !,
+	    fail
+        ).
+
+flora_load_file(FL_PLUS(T),HostFile,_HostMod,_Location) :-
+	%% Don't check module overriding - we are adding rules
+	%%flora_check_module_overriding(T,FLORA_DEFAULT_WORKSPACE,HostFile,_HostMod,_Location),
+	(atom(T) -> Tout = T
+        ; atom(T), P2H_CONVERSION(FL_URL(TT),T), atom(TT) -> Tout = FL_URL(TT)
+        ),
+	!,
+	flora_add_module_dyn(Tout,HostFile).
+
+%% Replacing contents of modules
+flora_load_file(T,_,_,_) :-
+	var(T),
+	!,
+	flora_stderr_nl,
+	flora_error_line('uninstantiated file name in load{?~w}', [T]),
+	fail.
+
+flora_load_file(FL_RIGHTTO(FileName,Workspace),HostFile,HostMod,Location) :-
+	!,
+	flora_check_module_overriding(FileName,Workspace,HostFile,HostMod,Location),
+	( atom(Workspace) ->
+            (atom(FileName) -> FileNameout = FileName
+            ; atom(FileName), P2H_CONVERSION(FL_URL(TT),FileName), atom(TT) ->
+                FileNameout = FL_URL(TT)
+            ),
+	    flora_load_module_util(FileNameout,Workspace,HostFile)
+	;
+	    flora_stderr_nl,
+	    ( var(Workspace) ->
+		flora_error_line('uninstantiated module name in load{~w>>?~w}',
+                                 [FileName,Workspace])
+	    ;
+	        flora_error_heading,
+		flora_stderr_string('invalid module name: '),
+		flora_display_error(Workspace),
+		flora_stderr_nl
+	    ),
+	    !,
+	    fail
+        ).
+
+flora_load_file(T,HostFile,HostMod,Location) :-
+	(atom(T) -> Tout = T
+        ; atom(T), P2H_CONVERSION(FL_URL(TT),T), atom(TT) -> Tout = FL_URL(TT)
+        ),
+	!,
+	flora_check_module_overriding(Tout,FLORA_DEFAULT_WORKSPACE,HostFile,HostMod,Location),
+	flora_load_module_util(Tout,HostFile).
+
+flora_load_file(X,_,_,_) :-
+	flora_stderr_nl,
+	flora_error_heading,
+	flora_stderr_string('invalid file name: '),
+	flora_display_error(X),
+	flora_stderr_nl,
+	!,
+	fail.
+
+
+/***************************************************************************
+  Don't allow a module to load into itself
+***************************************************************************/
+flora_check_module_overriding(_LoadFile,_Workspace,FL_SHELL_FICTITIOUS_FILENAME,main,_Location) :-
+	!.
+
+%% Don't do the check if we are loading a prolog module
+%% (i.e., it doesn't have the .flr file and no workspace was given in [...])
+flora_check_module_overriding(LoadFile,main,_HostFile,_HostMod,_Location) :-
+	not flora_locate_file(LoadFile,FLORA_FILE_EXT,_FlrFile),
+	!.
+
+
+flora_check_module_overriding(LoadFile,Workspace,HostFile,HostMod,[Line,Char]) :-
+	HostMod == Workspace,
+	!,
+	flora_stderr_nl,
+	flora_file_op(localname,HostFile,HostFileBasename),
+	flora_error_line('~w: Loading ~w into module ~w near line(~w)/char(~w) would override all the rules and facts in that module.~n\t\tTry to load it into a different module.',
+			 [HostFileBasename,LoadFile,HostMod,Line,Char]),
+	flora_abort('aborting due to prior errors',FLORA_ABORT_NOTRACE).
+
+flora_check_module_overriding(_LoadFile,_Workspace,_HostFile,_HostMod,_Location).
+

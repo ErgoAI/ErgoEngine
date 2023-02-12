@@ -1,0 +1,197 @@
+/* File:      flora_prefix.flh -- FLORA-2 prefixes
+**
+** Author(s): Michael Kifer
+**	      Guizhen Yang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2023;
+**      and Vulcan, Inc., 2008-2013.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+/******************************************************************************
+  Flora prefix
+
+  All Flora symbols begin with this prefix.
+******************************************************************************/
+/* Prefix for F-logic and HiLog predicates */
+
+#include "flrproduct.flh"
+
+/******************************************************************************
+  Attaching FLORA_PREFIX
+
+  The argument to this Macro should be quoted.
+******************************************************************************/
+#define FLORA_SYMBOL(X)	       	       	FLORA_PREFIX#1
+#define ERGO_SYMBOL(X)	       	       	FLORA_PREFIX#1
+
+
+/******************************************************************************
+  Strings following FLORA_PREFIX
+
+  These strings should be quoted.
+******************************************************************************/
+/* Keep "mod" in the name of a formula wrapper right after FLORA_PREFIX
+   We rely on this to identify meta wrappers */
+#define FLORA_MODULE_TAG		'mod'
+#define FLORA_FDB_TRIE   		'fdbtrie'
+
+/*  Trie for keeping skeletons of defined facts -- debugging */
+#define FLORA_FLD_TRIE  		'fldtrie'
+
+/*  Trie for storing used symbols names */
+#define FLORA_FLS_TRIE  		'flstrie'
+
+
+
+/******************************************************************************
+  Module and trie prefixes
+******************************************************************************/
+/* prefix to construct Flora module predicates. */
+#deffast FLORA_MODULE_PREFIX	  	FLORA_SYMBOL(FLORA_MODULE_TAG)
+
+/*  prefix to name Flora storage trie for a module. */
+#deffast FLORA_FDB_TRIE_PREFIX	        FLORA_SYMBOL(FLORA_FDB_TRIE)
+
+
+/* prefix to name Flora fld storage trie for a module. */
+#deffast FLORA_FLD_TRIE_PREFIX	        FLORA_SYMBOL(FLORA_FLD_TRIE)
+
+/* prefix to name Flora fls storage trie for a module. */
+#deffast FLORA_FLS_TRIE_PREFIX	        FLORA_SYMBOL(FLORA_FLS_TRIE)
+
+
+/****************************************************************************
+  F-logic atom prefixes for predicates that are used to distinguish F-logic
+  wrappers in the trailers, the user program, base facts, etc.
+****************************************************************************/
+#define FL_PREFIXSEPARATOR	'^'
+
+#define FL_HEADPREFIX		'derived^'
+#define FL_TRAILERPREFIX	'inferred^'
+#define FL_EMPTYPREFIX		''
+#define FL_NEGPREFIX		'neg^'
+#define FL_NAFPREFIX		'naf^'
+#define FL_NEGHEADPREFIX       'neg^derived^'
+#define FL_NEGTRAILERPREFIX    'neg^inferred^'
+
+#mode save
+#mode nostring "\!#'"
+#define FLHEADPREFIX(X)		'derived^#1'
+#define FLTRAILERPREFIX(X)	'inferred^#1'
+#define FLNEGPREFIX_UNQ(X)  	neg^#1
+#define FLNEGPREFIX(X)  	'neg^#1'
+#define FLNEGHEADPREFIX(X)      'neg^derived^#1'
+#define FLNEGTRAILERPREFIX(X)   'neg^inferred^#1'
+#define FLNEGBUILTIN(X)  	'neg^#1'
+#define FLNAFPREFIX_UNQ(X)  	naf^#1
+#define FLNAFPREFIX(X)  	'naf^#1'
+#mode restore
+
+
+/******************************************************************************
+  Lengths of prefixes of F-logic wrappers
+******************************************************************************/
+#deffast FLHEADPREFIX_LEN		#eval length(FLHEADPREFIX)-2
+#deffast FLTRAILERPREFIX_LEN		#eval length(FLTRAILERPREFIX)-2
+
+/****************************************************************************
+  Prefixes that are used for F-logic wrappers in rule bodies of user programs.
+  They are called "debuggin prefixes" because they were introduced to help
+  implement the debugging feature that catches undefined methods.
+  Note:
+     naf^, dyna^, dynz^ are the outermost prefixes
+     neg^ is the next outermost
+****************************************************************************/
+#define FL_BodyPREFIX		'd^'
+#define FL_NEGBodyPREFIX        'neg^d^'
+#define FL_STATICPREFIX         'static^'
+#define FL_STATICNEGPREFIX      'static^neg'
+#define FL_DYNAPREFIX		'dyna^'
+#define FL_DYNZPREFIX		'dynz^'
+#define FL_NEGDYNAPREFIX  	'dyna^neg^'
+#define FL_NEGDYNZPREFIX  	'dynz^neg^'
+#define FL_NAFBodyPREFIX  	'naf^d^'
+#define FL_NAFNEGBodyPREFIX  	'naf^neg^d^'
+/* Prefixes used for checking undefinedness */
+#define FL_DefinedPREFIX	'defined^'
+#define FL_UndefinedPREFIX	'undef^'
+
+/* Corresponding 1-arg macros */
+#mode save
+#mode nostring "\!#'"
+#define FLBodyPREFIX(X)                 'd^#1'
+#define FLBodyPREFIX_UNQ(X)             d^#1
+#define FLDYNAPREFIX(X)		        'dyna^#1'
+#define FLDYNZPREFIX(X)		        'dynz^#1'
+#define FLSTATIC_HEAD_PREFIX(X)	        'static^#1'
+
+#define FLDYNAPREFIX_UNQ(X)	        dyna^#1
+#define FLDYNZPREFIX_UNQ(X)	        dynz^#1
+#define FLSTATIC_HEAD_PREFIX_UNQ(X)     static^#1
+#define FLNEGDYNZPREFIX_UNQ(X)	        dynz^neg^#1
+#define FLNEGSTATIC_HEAD_PREFIX_UNQ(X)  static^neg^#1
+
+#define FLDefinedPREFIX(X)	'defined^#1'
+#define FLUndefinedPREFIX(X)	'undef^#1'
+
+#define FLNEGBodyPREFIX_UNQ(X)     neg^d^#1
+#define FLNEGBodyPREFIX(X)  	   'neg^d^#1'
+#define FLNAFBodyPREFIX_UNQ(X)     naf^d^#1
+#define FLNAFBodyPREFIX(X)  	   'naf^d^#1'
+
+#define FLNEGSTATIC_HEAD_PREFIX(X) 'static^neg^#1'
+#define FLNEGDYNAPREFIX(X)  	   'dyna^neg^#1'
+#define FLNEGDYNZPREFIX(X)  	   'dynz^neg^#1'
+#define FLNAFNEGBodyPREFIX_UNQ(X)  naf^neg^d^#1
+#define FLNAFNEGBodyPREFIX(X)  	   'naf^neg^d^#1'
+#mode restore
+
+
+/******* these are used in inheritance closure axioms *******/
+#define FL_INHERITANCEPREFIX    'inheritance^'
+#define FL_LOCALPREFIX		'local^'
+
+#mode save
+#mode nostring "\!#'"
+#define FLINHERITANCEPREFIX(X)  'inheritance^#1'
+#define FLLOCALPREFIX(X)        'local^#1'
+#mode restore
+
+/******* these are for transactions in LIBMOD *******/
+#define FL_TRANSACT		'trans^'
+
+#mode save
+#mode nostring "\!#'"
+#define FLTRANSPREFIX(X)        'trans^#1'
+#mode restore
+
+/******************************************************************************
+  Lengths of prefixes that are used in the wrappers to the left of module name
+
+  Note: We need to remember that these prefixes are enclosed in quotes.
+        But we need the actual atom length that Prolog uses. So, we deduct 2.
+******************************************************************************/
+
+#deffast FLORA_PREFIX_LEN_PLUS1	     #eval length(FLORA_PREFIX)-1
+
+/* length of FLORA_PREFIX'FLORA_MODULE_TAG */
+#deffast FLORA_MODULE_PREFIX_LEN_PLUS1  #eval length(FLORA_MODULE_PREFIX)-2
+

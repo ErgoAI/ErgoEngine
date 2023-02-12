@@ -1,0 +1,213 @@
+/* File:      extensions/flrerrhandler_tripwire.P -- tripwire widget
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2016.
+**
+*/
+
+:- import memberchk/2 from basics.
+:- import
+        flora_decode_goal_as_atom_substitute_vars/2
+   from flrdecode.
+:- import
+        ipListenerWindow/1,
+        editGtGetResult/3
+   from usermod.
+
+:- import check_ergo_gui_busy/1 from flrutils.
+
+:- export setruntime_widget/0.
+
+#define NO_CHANGE_TIP  none
+
+/*
+    Reason for enable/disable_tripwires:
+    When a modal dialog pops up, there might be an asynchronous timer interrupt.
+    This will call break_on_interrupt, which in turn calls
+    interprolog:entered_break, which calls javaMessage(E,prologEnteredBreak).
+    So, studio thinks there's a valid Prolog computation to wait for
+    and the studio hangs.
+    By calling disable_all_tripwires we prevent such interrupts from occurring.
+    The interrupts are re-enabled after the modal dialog and, always,
+    in flora_call in flranswers.P
+*/
+setruntime_widget :-
+        ergo_gui_mode,
+        !,
+        check_ergo_gui_busy('setruntime{}'),
+        (initialize_java ; true),
+        (ipListenerWindow(W) ; W = null),
+        !,
+        disable_all_tripwires,
+        flora_stdmsg_nl,
+        flora_message_line('setting a timer cancels any timer or monitor currently in effect'),
+        GT = gt('Runtime parameters: fill only what you want to change',
+        [class = 'com.xsb.xj.containers.LabelValueColumn',
+         label_anchor = west,
+         updatable],
+        [gt('   ', [atom,readonly,nonpersistent],[]),  %% spacer
+         gt('',[caption='Timer settings (secs):  ', atom,readonly],
+               [
+                gt('Max time= ',[atom,readonly,nonpersistent],[]),
+                gt(_,[integer, optional,
+                      emptyTip=NO_CHANGE_TIP,
+                      typicalSize =  7,
+                      tip='Limit on the time queries are allowed to run'],[]),
+                gt('    Action= ',[atom,readonly,nonpersistent],[]),
+                gt(pause,
+                   [comboBox(pause,[pause,abort]),
+                    %%editable,
+                    emptyTip=NO_CHANGE_TIP,
+                    tip = 'Action to take when time limit is reached'
+                   ],[]),
+                gt('     Interval= ',[atom,readonly,nonpersistent],[]),
+                gt(_,[integer, optional,
+                      emptyTip=NO_CHANGE_TIP,
+                      tip='Periodic interrupts at the given interval'],[]),
+                gt('   Action= ',[atom,readonly,nonpersistent],[]),
+                gt(pause,
+                   [comboBox(pause,[pause,abort]),
+                    %%editable,
+                    emptyTip=NO_CHANGE_TIP,
+                    tip='Action to take at each periodic interrupt'
+                   ],[])
+               ]),
+         gt('   ',[atom,readonly,nonpersistent],[]), %% a spacer
+         gt('',[caption='Goal terms size limit:  ',atom,readonly],
+               [
+                gt(_,[integer, optional,
+                      emptyTip=NO_CHANGE_TIP,
+                      typicalSize =  14,
+                      tip='Max size for terms in goals'],[]),
+                gt('    Action= ',[atom,readonly,nonpersistent],[]),
+                gt(pause,
+                   [comboBox(pause,[pause,abort,abstract]),
+                    %%editable,
+                    optional,
+                    %%typicalSize =  25,
+                    emptyTip=NO_CHANGE_TIP,
+                    tip = 'Action to take when the max size is reached'
+                   ],[])
+                ]),
+         gt('   ',[atom,readonly,nonpersistent],[]), %% a spacer
+         gt('',[caption='Answer term size limit:   ',atom,readonly],
+               [
+                gt(_,[integer, optional,
+                      emptyTip=NO_CHANGE_TIP,
+                      typicalSize =  14,
+                      tip='Max size for terms in query answers'],[]),
+                gt('    Action= ',[atom,readonly,nonpersistent],[]),
+                gt(pause,
+                   [comboBox(pause,[pause,abort,abstract]),
+                    %%editable,
+                    optional,
+                    %%typicalSize =  25,
+                    emptyTip=NO_CHANGE_TIP,
+                    tip = 'Action to take when the max size is reached'
+                   ],[])
+                ]),
+         gt('   ',[atom,readonly,nonpersistent],[]), %% a spacer
+         gt('',[caption='Limit for active subgoals:   ',atom,readonly],
+               [
+                gt(_,[integer, optional,
+                      emptyTip=NO_CHANGE_TIP,
+                      typicalSize =  14,
+                      tip='Max number of active subgoals during query computation'],[]),
+                gt('    Action= ',[atom,readonly,nonpersistent],[]),
+                gt(pause,
+                   [comboBox(pause,[pause,abort]),
+                    %%editable,
+                    optional,
+                    %%typicalSize =  25,
+                    emptyTip=NO_CHANGE_TIP,
+                    tip = 'Action to take when the max number of subgoals is reached'
+                   ],[])
+                ]),
+         gt('   ',[atom,readonly,nonpersistent],[]), %% a spacer
+         gt('',[caption='Memory limit (GBs):  ', atom,readonly],
+               [gt(_,[integer, optional,
+                      emptyTip=NO_CHANGE_TIP,
+                      typicalSize =  14,
+                      tip='Limit on main memory for the Ergo process (GB)'],
+                      []),
+                gt('    Action= ',[atom,readonly,nonpersistent],[]),
+                gt(_,
+                   [comboBox(pause,[pause,abort]),
+                    emptyTip=NO_CHANGE_TIP,
+                    tip = 'Action to take when the memory limit is reached'
+                   ],[])
+               ]),
+         gt('   ',[atom,readonly,nonpersistent],[]) %% a spacer
+        ]),
+        editGtGetResult(W,GT,Result),
+        Result =.. [_,
+                    TimerTerm,
+                    GoalsizeTerm, AnswersizeTerm,
+                    ActiveGoalsTerm,
+                    MemoryTerm],
+        TimerTerm =.. [_,TimeMax,TimeMaxAction,
+                       TimeInterval,TimeIntervalAction],
+        GoalsizeTerm =.. [_,GS_TermSize,GS_Action],
+        AnswersizeTerm =.. [_,AS_TermSize,AS_Action],
+        ActiveGoalsTerm =.. [_,AG_TermSize,AG_Action],
+        MemoryTerm =.. [_,MemLimit,MemAction],
+        widget_set_timer(TimeMax,TimeMaxAction,TimeInterval,TimeIntervalAction),
+        widget_set_goal_tripwire(GS_TermSize,GS_Action),
+        widget_set_answer_tripwire(AS_TermSize,AS_Action),
+        widget_set_activegoal_tripwire(AG_TermSize,AG_Action),
+        widget_set_memory_tripwire(MemLimit,MemAction),
+        enable_all_tripwires.
+setruntime_widget :-
+        flora_abort('setruntime{} is defined only in GUI mode',FLORA_ABORT_NOTRACE).
+
+widget_set_timer(TimeMax,_TimeMaxAction,TimeInterval,_TimeIntervalAction) :-
+        var(TimeMax),
+        var(TimeInterval),
+        !.
+widget_set_timer(TimeMax,TimeMaxAction,TimeInterval,TimeIntervalAction) :-
+        (nonvar(TimeInterval) ->
+            (memberchk(TimeIntervalAction,[pause,abort,ignore,fail]) ->
+                RealTimeIntervalAction = TimeIntervalAction
+            ; flrutils:get_goal_from_string(TimeIntervalAction,RealTimeIntervalAction,Outcome1),
+                Outcome1 \== error -> true
+            ; flora_decode_goal_as_atom_substitute_vars(TimeIntervalAction,TimeIntervalActionAtm),
+                flora_abort(['syntax error in the specification of the action for periodic timer interrupts, ', TimeIntervalActionAtm], FLORA_ABORT_NOTRACE)
+            ),
+            OptionInterval = [repeating(TimeInterval,RealTimeIntervalAction)]
+        ; OptionInterval = []
+        ),
+        (nonvar(TimeMax) ->
+            (memberchk(TimeMaxAction,[pause,abort,ignore,fail]) ->
+                RealTimeMaxAction = TimeMaxAction
+            ; flrutils:get_goal_from_string(TimeMaxAction,RealTimeMaxAction,Outcome),
+                Outcome \== error -> true
+            ; flora_decode_goal_as_atom_substitute_vars(TimeMaxAction,TimeMaxActionAtm),
+                flora_abort(['syntax error in the specification of the action for timouts, ', TimeMaxActionAtm], FLORA_ABORT_NOTRACE)
+            ),
+            Options = [max(TimeMax,RealTimeMaxAction)|OptionInterval]
+        ; Options = OptionInterval
+        ),
+        flora_set_timeout(Options).
+
+widget_set_goal_tripwire(GS_TermSize,GS_Action) :-
+        (var(GS_TermSize) -> true
+        ; flora_set_subgoal_size(GS_TermSize,GS_Action)
+        ).
+widget_set_answer_tripwire(AS_TermSize,AS_Action) :-
+        (var(AS_TermSize) -> true
+        ; flora_set_answer_size(AS_TermSize, AS_Action)
+        ).
+
+widget_set_activegoal_tripwire(AG_TermSize,AG_Action) :-
+        (var(AG_TermSize) -> true
+        ; flora_set_max_active_goals(AG_TermSize, AG_Action)
+        ).
+
+widget_set_memory_tripwire(MemLimit,MemAction) :-
+        (var(MemLimit) -> true
+        ; MemLimit == 0 -> flora_clear_memory_limit
+        ; flora_set_memory_limit(MemLimit,MemAction)
+        ).

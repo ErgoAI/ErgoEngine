@@ -1,0 +1,194 @@
+/* File:    extensions/flrprint_ctl.P -- the studio color control for flrprint.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2015-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+
+
+
+#include "flora_terms.flh"
+
+#define COLORDFLT  '\1\0'
+%% stdout
+#define BLACK      '\1\1'
+%% stderr
+#define RED        '\1\2'
+%% stdwarn
+#define BROWN      '\1\3'
+%% stdmsg
+#define ITALIC     '\1\4'
+%% stdbg - also brown == stdwarn
+#define DBGTXT     '\1\5'
+%% stdfdbk - black == stdout
+#define FDBKTXT    '\1\6'
+%% prompt
+#define GREEN      '\1\7'
+%% endLoad
+#define PURPLE     '\1\8'
+%% bold does not seem to work
+#define BOLD       '\1\9'
+%% seems to work as italic
+#define BOLDITAL   '\1\:'
+#define BLUE       '\1\;'
+#define MAGENTA    '\1\<'
+#define ORANGE     '\1\='
+
+:- export process_text/3.
+:- import
+	flora_concat_atoms/2
+   from flrporting.
+
+:- import
+	flora_decode_oid_as_atom_substitute_vars/2
+   from flrdecode.
+
+:- import
+        '\\issymbol'/1,
+        flora_datatype_name/2,
+        flora_datatype_raw_value/2,
+        flora_printable_type_representation/2
+   from flrdatatype.
+
+process_text(In,GuiFlag,Out) :-
+	(is_list(In) ->
+            process_text_list(In,GuiFlag,OutList),
+	    flora_concat_atoms(OutList,Out)
+        ; process_text_item(In,GuiFlag,Out)
+        ).
+
+process_text_list([],_GuiFlag,'') :- !.
+process_text_list([H|T],GuiFlag,[Hout|Tout]) :-
+	process_text_item(H,GuiFlag,Hout),
+	process_text_list(T,GuiFlag,Tout).
+
+%% if GuiFlag is gui then interpret style attributes. Otherwise, strip them
+process_text_item(In,GuiFlag,Out) :-
+	( (In = black(Txt) ; In = WRAP_HILOG(black,Txt)) -> CtlChars = BLACK
+        ; (In = red(Txt) ; In = WRAP_HILOG(red,Txt))  -> CtlChars = RED
+        ; (In = brown(Txt) ; In = WRAP_HILOG(brown,Txt))  -> CtlChars = BROWN
+        ; (In = italic(Txt) ; In = WRAP_HILOG(italic,Txt))  -> CtlChars = ITALIC
+        ; (In = green(Txt) ; In = WRAP_HILOG(green,Txt))  -> CtlChars = GREEN
+        ; (In = purple(Txt) ; In = WRAP_HILOG(purple,Txt))  -> CtlChars = PURPLE
+        ; (In = bold(Txt) ; In = WRAP_HILOG(bold,Txt))  -> CtlChars = BOLD
+        ; (In = boldital(Txt) ; In = WRAP_HILOG(boldital,Txt))  -> CtlChars = BOLDITAL
+        ; (In = blue(Txt) ; In = WRAP_HILOG(blue,Txt))  -> CtlChars = BLUE
+        ; (In = magenta(Txt) ; In = WRAP_HILOG(magenta,Txt))  -> CtlChars = MAGENTA
+        ; (In = orange(Txt) ; In = WRAP_HILOG(orange,Txt))  -> CtlChars = ORANGE
+        ; (In = default(Txt) ; In = WRAP_HILOG(default,Txt))  -> CtlChars = COLORDFLT
+	; Txt = In, CtlChars = COLORDFLT
+        ),
+        ('\\issymbol'(Txt) -> TxtAtm = Txt
+        ; to_symbol(Txt,TxtAtm)
+        ),
+	(GuiFlag == gui ->
+	    flora_concat_atoms([CtlChars,TxtAtm,COLORDFLT],Out)
+	; Out = TxtAtm
+        ).
+
+to_symbol(DType,Symbol) :-
+        flora_printable_type_representation(DType,[_T,V]),
+	!,
+	(number(V) ->
+            number_codes(V,VC),
+            atom_codes(Symbol,VC)
+        ; Symbol = V
+        ).
+to_symbol(DType,Symbol) :-
+	flora_datatype_name(DType,TN),
+	(TN == FL_CHARLIST ; TN == FL_SYMBOL),
+	!,
+	flora_datatype_raw_value(DType,Symbol).
+to_symbol(DType,Symbol) :-
+	flora_decode_oid_as_atom_substitute_vars(DType,Symbol).
+
+
+#define STDDFLTCTL   telling(__S0),send_color_control_chars_aux(__S0,COLORDFLT),
+#define STDOUTCTL    telling(__S1),send_color_control_chars_aux(__S1,BLACK),
+#define STDERRCTL    flora_err_stream(__S2),send_color_control_chars_aux(__S2,RED),
+#define STDWARNCTL   flora_warn_stream(__S3),send_color_control_chars_aux(__S3,BROWN),
+#define STDMSGCTL    flora_msg_stream(__S4),send_color_control_chars_aux(__S4,ITALIC),
+#define STDDBGCTL    flora_dbg_stream(__S5),send_color_control_chars_aux(__S5,DBGTXT),
+#define STDFDBKCTL   flora_fdbk_stream(__S6),send_color_control_chars_aux(__S6,FDBKTXT),
+#define STDPROMPTCTL flora_fdbk_stream(__S7),send_color_control_chars_aux(__S7,GREEN),
+#define STDCLRLDCTL  flora_fdbk_stream(__S7),send_color_control_chars_aux(__S7,PURPLE),
+
+#define PROMPTSTRING_AUX(Str)    prompt_string_aux(Str)
+
+:- export send_color_control_chars/2.
+
+send_color_control_chars(StreamName,ColorName) :-
+        '_$ergo_color'(ColorName,ColorSeq),
+        '_$ergo_stream'(StreamName,StreamNo),
+        send_color_control_chars_aux(StreamNo,ColorSeq).
+
+send_color_control_chars_aux(Stream,Seq) :-
+	(flora_configuration(uimode,studio) ->
+	    write(Stream,Seq)
+	; true
+	).
+
+prompt_string_aux(Str) :-
+	(flora_configuration(uimode,studio) ->
+	    flora_get_break_level(Blevel),
+	    (Blevel == 0 -> flora_stdfdbk_line('... done ...~n')
+	    ; flora_stdfdbk_string('computation paused~n~n')
+	    )
+	; flora_stdfdbk_string(Str)
+	).
+
+:- export
+        stdout_color_string/2,
+        map_stdout_color_string/2.
+stdout_color_string(Str,Color) :-
+        telling(S1),
+        '_$ergo_color'(Color,ColorSeq),
+        send_color_control_chars_aux(S1,ColorSeq),
+        write(S1,Str),
+        STDDFLTCTL
+        true.
+
+map_stdout_color_string(Call,Color) :-
+        telling(S1),
+        '_$ergo_color'(Color,ColorSeq),
+        send_color_control_chars_aux(S1,ColorSeq),
+        call(Call),
+        STDDFLTCTL
+        true.
+
+
+'_$ergo_color'(default,COLORDFLT).
+'_$ergo_color'(black,BLACK).
+'_$ergo_color'(red,RED).
+'_$ergo_color'(brown,BROWN).
+'_$ergo_color'(green,GREEN).
+'_$ergo_color'(purple,PURPLE).
+'_$ergo_color'(blue,BLUE).
+'_$ergo_color'(magenta,MAGENTA).
+'_$ergo_color'(orange,ORANGE).
+'_$ergo_color'(italic,ITALIC).
+'_$ergo_color'(bold,BOLD).
+'_$ergo_color'(boldital,BOLDITAL).
+
+'_$ergo_stream'(stdout,Stream)  :- telling(Stream).
+'_$ergo_stream'(stdin,Stream)   :- seeing(Stream).
+'_$ergo_stream'(stderr,Stream)  :- flora_err_stream(Stream).
+'_$ergo_stream'(stdwarn,Stream) :- flora_warn_stream(Stream).
+'_$ergo_stream'(stdfdbk,Stream) :- flora_fdbk_stream(Stream).
+'_$ergo_stream'(stdfmsg,Stream) :- flora_msg_stream(Stream).
+
+#include "ergo_gui_output.P"

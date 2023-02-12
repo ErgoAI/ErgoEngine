@@ -1,0 +1,236 @@
+/* File:      ergo_lib/ergo2java/ergo_java.P -- Prolog-Java interface
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2018-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+:- ensure_loaded(interprolog).
+
+:- import
+	flora_warning_line/1
+   from flrprint.
+:- import
+	flora_configuration/2
+   from flrregistry.
+:- import
+        flora_abort/2,
+	flora_concat_atoms/2,
+        flora_term_to_atom/2,
+        flora_running_under/1,
+	flora_slash/1
+   from flrporting.
+:- import
+        memberchk/2
+   from basics.
+
+:- import
+	java/2,
+	java/3,
+	%%java/4,
+	spawn_java/2,
+	ipPrologEngine/1,
+	ipJavaMachinePID/1,
+	kill_java/0
+   from interprolog.
+
+:- export
+        smart_java_call/3,
+        get_java_current_time/1,
+        set_java_flags/1,
+        java_alive/0,
+	initialize/0.
+
+/*
+   ipPrologEngine(E): Java InterProlog API available, Java is on top or below
+   ipJavaMachinePID(PID): Java InterProlog API available, XSB on top
+   java('java.awt.GraphicsEnvironment',boolean(0),isHeadless): Java GUI is
+           available, can create windows
+*/
+initialize :-
+	\+ flora_configuration(uimode,studio),
+	\+ ipPrologEngine(_),
+	!,
+        get_java_flags([Classpath,JavaFlags,MainMethodFlags]),
+	flora_slash(S),
+	flora_configuration(installdir,FloraDir),
+	flora_concat_atoms([FloraDir,S,ergo_lib,S,ergo2java,S], E2J_dir),
+	%%flora_concat_atoms([E2J_dir,java,S,'ergo2java.jar'], E2J_jar),
+        (flora_running_under(windows) -> CP_separator = ';'
+        ; CP_separator = ':'
+        ),
+	flora_concat_atoms([E2J_dir,java,S,'ergoStudio.jar',CP_separator,Classpath], E2J_jar),
+        %% The -Djava.net.preferIPv4Stack=true is needed for ehcache.
+        %% Won't be needed if we get rid of the cache.
+        %% But we'll need to pass arguments for NLP and such. This is done
+        %% by asserting flrregistry:flora_configuration(java_flags,[CP,F1,F2]).
+        flora_concat_atoms([JavaFlags,' -Djava.net.preferIPv4Stack=true'],
+                           RealJavaFlags),
+	(spawn_java(E2J_jar,[RealJavaFlags,MainMethodFlags]),
+	    ipPrologEngine(Engine),
+	    java('com.xsb.xj.XJPrologEngine',initPrologLayer(Engine))
+	->
+	    retractall(flora_configuration(uimode,_)),
+	    (java('java.awt.GraphicsEnvironment',boolean(1),isHeadless) ->
+		assert(flora_configuration(uimode,[ergo2java,nogui]))
+	    ; assert(flora_configuration(uimode,[ergo2java,gui]))
+	    )
+	; (kill_java -> true ; true),
+	    (ipPrologEngine(_) ->
+		flora_warning_line('Java process is already running.')
+	    ; flora_warning_line('Java process failed to start: the system may be too slow or there is a problem with the Java or Ergo installation.')
+	    )
+	).
+initialize.
+
+%% in ergo-on-top mode
+java_alive :-
+	\+ flora_configuration(uimode,studio),
+        ipJavaMachinePID(_),
+        !.
+%% in the studio
+java_alive :- ipPrologEngine(_).
+
+
+
+%% list of atoms [Classpath,JavaFlags,MainMethodFlags]. Used to spawn java
+%% and utilized in interprolog.P
+%% +Classpath - additional class path to use when spawning Java.
+%%              On windows:  'jar-o-dir1;jar-or-dir2' etc.
+%%              Linux/Mac:   'jar-o-dir1:jar-or-dir2' etc.
+%% +JavaFlags - flags passed to Java proper
+%% +MainMethodFlags - flags passed to the main method of the main class.
+%% Not checking the flags for correctness. If incorrect, set to ['','','']
+get_java_flags([Classpath,JavaFlags,MainMethodFlags]) :-
+        %% one must set this before starting Java
+        flora_configuration(java_flags,[Classpath,JavaFlags,MainMethodFlags]),
+        !.
+get_java_flags(['','','']).
+
+get_java_current_time(T) :-
+        %% java.lang.System.currentTimeMillis() returns integers
+        %% that are too large for Prolog. So we added a class to
+        %% AbstractPrologEngine that returns seconds and uses double
+        %%java('java.lang.System',T,'currentTimeMillis').
+        java('com.declarativa.interprolog.AbstractPrologEngine',double(T),'currentTimeSecs').
+
+%% +Classpath - additional class path to use when spawning Java.
+%%              On windows:  'jar-o-dir1;jar-or-dir2' etc.
+%%              Linux/Mac:   'jar-o-dir1:jar-or-dir2' etc.
+%% +JavaFlags - flags passed to Java proper
+%% +MainMethodFlags - flags passed to the main method of the main class.
+set_java_flags(List) :-
+        is_list(List),
+        ground(List),
+        (List = [CP,JavaParams,MainMethodFlags] ->
+            OutList = List,
+            atom(CP), atom(JavaParams), atom(MainMethodFlags)
+        ; List = [CP,JavaParams] ->
+            OutList = [CP,JavaParams,''],
+            atom(CP), atom(JavaParams)
+        ; List = [CP] ->
+            OutList = [CP,'',''],
+            atom(CP)
+        ),
+        !,
+        retractall(flora_configuration(java_flags,_)),
+        assert(flora_configuration(java_flags,OutList)).
+set_java_flags(List) :-
+        flora_term_to_atom(List,Atm),
+        flora_abort(['<ergo2java> invalid form of Java flags in \\e2j: ', Atm],
+                    FLORA_ABORT_NOTRACE).
+
+
+smart_java_call(Obj,Msg,DetypedResult) :-
+        java_alive,
+        nonvar(Obj),
+        %%(atom(Obj) ; integer(Obj) ; Obj = string(Str)),
+        !,
+        var(DetypedResult),
+        %% message is a list when we select from an array
+        (compound(Msg), \+is_list(Msg) ->
+            Msg =.. [Method|Args],
+            type_args([Obj|Args],[TypedObj|TypedArgs]),
+            TypedMsg =.. [Method|TypedArgs]
+        ; is_list(Msg) ->
+            type_args([Obj],[TypedObj]),
+            TypedMsg = Msg
+        ; atom(Msg) ->
+            type_args([Obj],[TypedObj]),
+            TypedMsg = Msg
+        ),
+        java(TypedObj,Result,TypedMsg),
+        detype_result(Result,DetypedResult).
+
+type_args([],[]) :- !.
+type_args([Arg|RestArgs],[TypedArg|RestTypedArgs]) :-
+        (Arg = asis(Val) -> TypedArg = Val
+        ; Arg = oid(Val), integer(Val) -> TypedArg = Val
+        ; Arg = class(Class), atom(Class) -> TypedArg = Class
+        %% messaging static var: Interprolog uses - here, but + is better
+        ; Arg = class(Class+StaticVar), atom(Class), atom(StaticVar)
+        -> TypedArg = Class-StaticVar
+        ; float(Arg) -> TypedArg = double(Arg)
+        ; integer(Arg) -> TypedArg = long(Arg)
+        ; Arg == [] -> TypedArg = Arg
+        ; atom(Arg) -> TypedArg = string(Arg)
+        ; is_list(Arg) -> TypedArg = terms(Arg)
+        ; Arg == '\\true' -> TypedArg = boolean(1)
+        ; Arg == '\\false' -> TypedArg = boolean(0)
+        ; Arg = byte(_val) -> TypedArg = Arg
+        ; Arg = int(_val) -> TypedArg = Arg
+        ; Arg = short(_val) -> TypedArg = Arg
+        ; Arg = array(_type,_list) -> TypedArg = Arg
+        ; Arg = term(_term) -> TypedArg = Arg
+        ; Arg =.. [Wrap,Val],
+            memberchk(Wrap,['Boolean','Character','Byte','Double','Float',
+                            'Integer','Long','Short'])
+            ->
+            flora_concat_atoms(['java.lang.',Wrap],FullWrap),
+            TypedArg =.. [FullWrap,Val]
+        ; flora_abort(['<ergo2java> unsupported message agument type: ', Arg],
+                      FLORA_ABORT_NOTRACE)
+        ),
+        type_args(RestArgs,RestTypedArgs).
+
+detype_result(Res,Detyped) :-
+        (Res = double(Detyped) -> true
+        ; Res = float(Detyped) -> true
+        ; Res = integer(Detyped) -> true
+        ; Res = short(Detyped) -> true
+        ; Res = long(Detyped) -> true
+        ; Res = int(Detyped) -> true
+        ; Res = byte(Detyped) -> true
+        ; Res = string(Detyped) -> true
+        ; Res = boolean(1) -> Detyped = '\\true'
+        ; Res = boolean(0) -> Detyped = '\\false'
+        ; Res = array(_type,List) -> Detyped = List
+        ; Res = term(Term) -> Detyped = Term
+        ; Res = array(_,Term) -> Detyped = Term
+        ; Res = null -> Detyped = 'NULL'(_)
+        ; integer(Res) -> Detyped = oid(Res)
+        ; flora_abort(['<ergo2java> unsupported message result type: ', Res],
+                      FLORA_ABORT_NOTRACE)
+        ).

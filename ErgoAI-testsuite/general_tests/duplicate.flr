@@ -1,0 +1,280 @@
+
+// balance(+acct#,+balance)
+balance(1001, 12000).
+balance(1002, 12000).
+balance(1003, 18000).
+balance(1004, 18000).
+balance(1005, 10000).
+balance(1006, 20000).
+
+// transaction(+acct#,+date,+amount)
+// Deposit/withdrawal.
+// Transactions involving more than $5000 are deemed suspicious.
+// Dates use shorthand notation instead of "..."^^\date.
+// Assume one transaction per day per account - to avoid mplicating things
+// with more data.
+transaction(1001,\d"2020-5-11",2000).
+transaction(1001,\d"2020-5-11",6000).
+transaction(1001,\d"2020-5-12",2000).
+transaction(1002,\d"2020-5-14",-2000).
+transaction(1002,\d"2020-5-14",7000).
+transaction(1003,\d"2020-5-12",-8000).
+transaction(1003,\d"2020-5-13",-8000).
+transaction(1003,\d"2020-5-14",500).
+transaction(1004,\d"2020-5-20",500).  // 1004 has no suspicious transactions
+transaction(1004,\d"2020-5-21",1200).
+transaction(1004,\d"2020-5-22",1200).
+transaction(1005,\d"2020-5-19",1200).
+transaction(1005,\d"2020-5-19",-7200).
+transaction(1006,\d"2020-6-1",1200).  // 1006 has no suspicious transactions
+
+// owner(+person,+acct#)
+owner(John,1001).
+owner(John,1003).
+owner(John,1005).
+owner(May,1001).
+owner(May,1004).
+owner(Bill,1004).    // Bill doesn't own accounts with suspicious transactions
+owner(Bill,1006).
+owner(Bob,1001).
+owner(Bob,1002).
+owner(Bob,1003).
+owner(Bob,1004).
+owner(Sally,1004).
+owner(Sally,1005).
+owner(Acme,1004).    // Acme doesn't own accounts with suspicious transactions
+owner(Acme,1006).
+// Note: 1006 is the only account that is not owned by a suspicious person.
+
+/*
+   Intended query: What is the sum of the balances of the accounts that
+   are owned by at least one suspect.
+
+   An owner is a suspect if he owns an account that had at least one
+   transaction exceeding $5,000.
+
+   The correct answer is 70,000 - the sum of balances of accounts 1001 - 1005.
+*/
+tst1 :- write('test1: ')@\io,
+        // Counts same acct balances several times and gives wrong result
+        // of 458,000. See the correct answer above.
+        ?Result = sum{?Bal|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?_Owner,?_suspiciousAcct),
+                  owner(?_Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        writeln(?Result)@\plg.
+tst2 :- write('test2: ')@\io,
+        // Should give the sum of all balances owned by at least one suspect.
+        // Gives 70,000 -- the correct answer -- because of the duplication
+        // controlling variable ?_OtherAcct used in the aggregate.
+        ?Result = sum{?Bal(?_OtherAcct)|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?_Owner,?_suspiciousAcct),
+                  owner(?_Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        writeln(?Result)@\plg.
+
+/*
+   Intended query: What is the sum of the balances of the accounts per
+   suspect that are owned by that suspect.
+
+   See the definition of a suspect above.
+
+   Correct answers:
+        ?Result = 28000  - sum of 1004 and 1005
+        ?Owner = Sally
+
+        ?Result = 30000  - sum of 1001 and 1004
+        ?Owner = May
+
+        ?Result = 40000  - sum of 1001, 1003, and 1005
+        ?Owner = John
+
+        ?Result = 60000  - sum of 1001 to 1004
+        ?Owner = Bob
+*/
+tst3 :-
+        /*
+           Incorrect answer:
+                ?Result = 28000  - happens to be correct by chance
+                ?Owner = Sally
+
+                ?Result = 30000  - happens to be correct by chance
+                ?Owner = May
+
+                ?Result = 160000 - incorrect
+                ?Owner = John
+
+                ?Result = 240000 - incorrect
+                ?Owner = Bob
+
+           Note that the results for Sally and May happen to be correct only
+           because they own only one suspicious account and no duplicate
+           balances are produced by the query in that case.
+        */
+        ?Result = sum{?Bal[?Owner]|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?Owner,?_suspiciousAcct),
+                  owner(?Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        write('test3: ')@\io,
+        writeln(?Result+?Owner)@\plg.
+tst4 :-
+        // Gives correct answer shown above.
+        ?Result = sum{?Bal[?Owner](?_OtherAcct)|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?Owner,?_suspiciousAcct),
+                  owner(?Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        write('test4: ')@\io,
+        writeln(?Result+?Owner)@\plg.
+
+
+tst5 :- write('test5: ')@\io,
+        ?Result = avg{?Bal|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?_Owner,?_suspiciousAcct),
+                  owner(?_Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        writeln(?Result)@\plg.
+tst6 :- write('test6: ')@\io,
+        ?Result = avg{?Bal(?_OtherAcct)|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?_Owner,?_suspiciousAcct),
+                  owner(?_Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        writeln(?Result)@\plg.
+
+tst7 :-
+        ?Result = avg{?Bal[?Owner]|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?Owner,?_suspiciousAcct),
+                  owner(?Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        write('test7: ')@\io,
+        writeln(?Result+?Owner)@\plg.
+tst8 :-
+        ?Result = avg{?Bal[?Owner](?_OtherAcct)|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?Owner,?_suspiciousAcct),
+                  owner(?Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        write('test8: ')@\io,
+        writeln(?Result+?Owner)@\plg.
+
+
+tst9 :- write('test9: ')@\io,
+        ?Result = count{?Bal|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?_Owner,?_suspiciousAcct),
+                  owner(?_Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        writeln(?Result)@\plg.
+tst10 :- write('test10: ')@\io,
+        ?Result = count{?Bal(?_OtherAcct)|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?_Owner,?_suspiciousAcct),
+                  owner(?_Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        writeln(?Result)@\plg.
+
+tst11 :-
+        ?Result = count{?Bal[?Owner]|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?Owner,?_suspiciousAcct),
+                  owner(?Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        write('test11: ')@\io,
+        writeln(?Result+?Owner)@\plg.
+tst12 :-
+        ?Result = count{?Bal[?Owner](?_OtherAcct)|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?Owner,?_suspiciousAcct),
+                  owner(?Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        write('test12: ')@\io,
+        writeln(?Result+?Owner)@\plg.
+
+tst13 :-
+        ?Result = sumdistinct{?Bal|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?_Owner,?_suspiciousAcct),
+                  owner(?_Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        write('test13: ')@\io,
+        writeln(?Result)@\plg.
+tst14 :-
+        ?Result = sumdistinct{?Bal[?Owner]|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?Owner,?_suspiciousAcct),
+                  owner(?Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        write('test14: ')@\io,
+        writeln(?Result+?Owner)@\plg.
+
+tst15 :-
+        ?Result = avgdistinct{?Bal|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?_Owner,?_suspiciousAcct),
+                  owner(?_Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        write('test15: ')@\io,
+        writeln(?Result)@\plg.
+tst16 :-
+        ?Result = avgdistinct{?Bal[?Owner]|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?Owner,?_suspiciousAcct),
+                  owner(?Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        write('test16: ')@\io,
+        writeln(?Result+?Owner)@\plg.
+
+tst17 :-
+        ?Result = countdistinct{?Bal|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?_Owner,?_suspiciousAcct),
+                  owner(?_Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        write('test17: ')@\io,
+        writeln(?Result)@\plg.
+tst18 :-
+        ?Result = countdistinct{?Bal[?Owner]|
+                  transaction(?_suspiciousAcct,?_d,?_Amt), abs(?_Amt) > 5000,
+                  owner(?Owner,?_suspiciousAcct),
+                  owner(?Owner,?_OtherAcct),
+                  balance(?_OtherAcct,?Bal)
+                },
+        write('test18: ')@\io,
+        writeln(?Result+?Owner)@\plg.
+
+
+pretest :-
+        tst1,tst2,tst3, tst4, tst5, tst6, tst7, tst8, tst9, tst10, tst11,tst12,
+        tst13, tst14, tst15, tst16, tst17, tst18.
+
+:- ignore_depchk{pretest}.
+:- ignore_depchk{%test}.
+:- ignore_depchk{writeln(?)@\plg}.
+:- ignore_depchk{write(?)@\io}.
+
+%test :- tell(temp)@\plg,
+	pretest,
+	told@\plg.

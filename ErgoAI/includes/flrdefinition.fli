@@ -1,0 +1,187 @@
+/************************************************************************
+  file: includes/flrdefinition.flh
+
+  Author(s): Guizhen Yang, Michael Kifer
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+
+  This file is automatically included by the FLORA-2 compiler.
+  This file is for comands that are to be executed once per module.
+************************************************************************/
+
+
+:- compiler_options([spec_off]).
+
+#include "flora_prefix.flh"
+#include "flora_wspredicates.flh"
+:- WRAP_DUMP  '#include "flora_errors.flh"'.
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_MODULE_NAME'.
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_FILENAME'.
+:- WRAP_COPY_UNQUOTED 'FLORA_NAF_PREDICATE'.
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_FLD_STORAGE'.
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_FDB_STORAGE'.
+:- WRAP_COPY_UNQUOTED 'ERGO_THIS_STRUCTDB_STORAGE'.
+:- WRAP_COPY_UNQUOTED 'WARN_TABLED_FLLOAD'.
+:- WRAP_COPY_UNQUOTED 'Exception'.
+:- WRAP_COPY_UNQUOTED '_Trace'.
+
+:- dynamic flora_defined_class/1.
+
+:- import {}/1 from clpr.
+
+:- import
+	flora_db_find_base/2,
+        flora_db_delete_all/1,
+	flora_new_db_storage/1
+   from flrstoragebase.
+
+:- import
+	flora_load_dyndata_for_user_modules/1,
+	FLORA_SYMBOL('debugger_loaded')/0
+   from flrdebugger.
+:- import
+        flora_storage_registry/1,
+	flora_fld_storage_registry/1,
+     	flora_debug_module_registry/1,
+	flora_module_registry/1,
+	flora_module_registry/3,
+	flora_defeasible_module_registry/2,
+	flora_defined_udf_registry/6,
+	flora_used_udf_registry/4,
+	flora_in_debug_mode/1
+   from flrregistry.
+
+:- import flora_reset_descriptor_meta_predicates/1 from flrdescriptor_support.
+:- import flora_warning_line/2 from flrprint.
+
+:- import flora_increment_update_counter/0 from flrupdatecounter.
+
+:- import
+       'FLORA_NAF_PREDICATE'/4,
+       'FLORA_NAF_PREDICATE'/1
+   from flrnegation.
+:- import
+       flora_abolish_nonincremental_tables/0,
+       flora_abolish_table_call/1,
+       flora_abolish_table_call_carefully/1
+   from flrtables.
+
+:- import
+       flora_match_substring/3,
+       flora_set_counter/2
+   from flrporting.
+:- import flora_error_undefined/1 from flrundefined.
+:- import flora_error_notexported/1 from flrundefined.
+:- import flora_check_export_registry/3 from flrexport.
+:- import flora_reset_export_registries/1 from flrexport.
+:- import
+     flora_reset_query_signature/1,
+     flora_reset_rule_signature/1
+   from flrcanon.
+
+:- import flora_delete_all_hooks/1 from flrhooks.
+
+:- import
+       incr_retract/1,
+       incr_asserta/1
+   from increval.
+
+?- flora_db_delete_all('FLORA_THIS_FLD_STORAGE').
+?- flora_in_debug_mode('_'), !,
+      assert(flora_debug_module_registry('FLORA_THIS_MODULE_NAME'))
+      ; true.
+
+?- flora_db_delete_all('FLORA_THIS_FDB_STORAGE').
+?- (flora_storage_registry('FLORA_THIS_FDB_STORAGE'), !
+    ; assert(flora_storage_registry('FLORA_THIS_FDB_STORAGE')),
+       assert(flora_fld_storage_registry('FLORA_THIS_FLD_STORAGE'))
+    ),
+    flora_new_db_storage('FLORA_THIS_FDB_STORAGE').
+
+:- import set_use_rule_structural_db_mode/2 from flrutils.
+?- flora_db_delete_all('ERGO_THIS_STRUCTDB_STORAGE').
+?- set_use_rule_structural_db_mode('FLORA_THIS_MODULE_NAME',off).
+
+?- (flora_module_registry('FLORA_THIS_MODULE_NAME') ->
+      retract(flora_module_registry('FLORA_THIS_MODULE_NAME',_,_)),
+      asserta(flora_module_registry('FLORA_THIS_MODULE_NAME',FL_UNCHANGED,'NULL'()))
+    ; asserta(flora_module_registry('FLORA_THIS_MODULE_NAME',FL_UNCHANGED,'NULL'())),
+      %% If debugger is loaded, read debugger data for this module
+      (current_predicate(FLORA_SYMBOL('debugger_loaded')/0)
+      -> flora_load_dyndata_for_user_modules(['FLORA_THIS_MODULE_NAME'])
+      ;  true
+      )
+   ).
+
+?- flora_reset_descriptor_meta_predicates('FLORA_THIS_MODULE_NAME').
+
+?- flora_reset_export_registries('FLORA_THIS_MODULE_NAME').
+
+?- flora_reset_rule_signature('FLORA_THIS_MODULE_NAME').
+?- flora_reset_query_signature('FLORA_THIS_MODULE_NAME').
+
+?- flora_delete_all_hooks('FLORA_THIS_MODULE_NAME').
+
+%% This was previously asserted in flrcomon.fli, but sometimes too late:
+%% flora_defined_class/1 could have been called before the trailer is loaded.
+%% Eg, if Flora-2 is strated from Java API.
+%% Have to assert, because flora_defined_class/1 gets its content from
+%% different modules. Using compiled rules would cause each module to
+%% override another
+?- \+flora_defined_class(_),
+   assert((
+       flora_defined_class(X) :-
+            !,
+	    %% With class expressions, this is always true, so no longer makes
+	    %% sense. Will probably delete this rule eventually
+	    true
+	    /*
+	    FLTRAILERPREFIX(WRAP_SUB)(X, Y,_FWContext), Y \== FL_TOPTYPE ;
+	    FLTRAILERPREFIX(WRAP_SUB)(_, X,_FWContext) ;
+	    FLTRAILERPREFIX(WRAP_ISA)(_, X,_FWContext)
+	    */
+    )).
+
+/*
+   Using flora_abolish_nonincremental_tables/0 is INCORRECT here. We don't
+   want to add/delete facts incrementally because this is too expensive
+*/
+?- (flrlibman:flora_system_module('FLORA_THIS_MODULE_NAME') -> true
+   ; 
+     catch(abolish_all_tables,
+           'Exception',
+           (
+             %%writeln('Exception'),
+             ('Exception' = error(permission_error(_op,Msg,_),context(Pred,_trace))
+             -> true
+             ; Pred=unknown
+             ),
+             (flora_match_substring('patch.P','FLORA_THIS_FILENAME',_) ->
+               Offender = '<internal patch file>'
+             ; Offender = 'FLORA_THIS_FILENAME'
+             ),
+             flora_warning_line('WARN_TABLED_FLLOAD',
+                                ['load{...} or newmodule{...},\n\t\t  which must be standalone queries',
+                                 Offender,
+                                 'FLORA_THIS_MODULE_NAME',
+                                 Pred])
+           )
+          )
+   ).
+?- flora_increment_update_counter.
+
+/***********************************************************************/

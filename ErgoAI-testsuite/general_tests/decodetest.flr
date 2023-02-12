@@ -1,0 +1,629 @@
+:- symbol_context{%f(?),%f(?)@\@,f(?),f(?,?),c,c(?),%pp(?,?),%p(?),g(?,?),g(?),g(?)@\@,b,b@\@,p,p(?)@foo,a@\@,a(?,?),%test@?}.
+
+%tst0 :- write('tst0: ')@\plg(),
+	?X= ${f(a)},
+	write('${f(a)}  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	write(' ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst0_2 :- write('tst0_2: ')@\plg(),
+	?X= ${%f(a)},
+	write('${%f(a)}  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	write(' ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst1 :- write('tst1: ')@\plg(),
+	?X= f(a),
+	write('f(a)  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+/*
+%tst1_2 :- write('tst1_2: ')@\plg(),
+	X= % f(a),
+	write('%f(a)  ')@\plg(),
+	flora_write_goal(res=X)@\plg(flrdecode),
+	nl@\plg().
+*/
+%tst2 :- write('tst2: ')@\plg(),
+	?X= f(g(${a[b->c]}))(a),
+	write('f(g(${a[b->c]}))(a)  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+/*
+%tst2_2 :- write('tst2_2: ')@\plg(),
+	X= % f(% g(${a[b->c]}))(a),
+	write('%f(%g(${a[b->c]}))(a)  ')@\plg(),
+	flora_write_goal(X)@\plg(flrdecode),
+	nl@\plg().
+*/
+%tst3 :- write('tst3: ')@\plg(),
+	?X= ${f(a)},
+	write('f(a)  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst3_2 :- write('tst3_2: ')@\plg(),
+	?X= ${%f(a)},
+	write('%f(a)  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst4 :- write('tst4: ')@\plg(),
+	?X= ${f(g(${a[b->c]}))(a)},
+	write('f(g(${a[b->c]}))(a)  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+
+%tst4_2 :- write('tst4_2: ')@\plg(),
+	?X= ${%f(g(${a[b->c]}))(a)},
+	write('%f(g(${a[b->c]}))(a)  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+
+%tst5 :- write('tst5: ')@\plg(),
+	?X= f(g(b),g(${a[b->c]})),
+	write('f(g(b),g(${a[b->c]}))  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+/*
+%tst5_2 :- write('tst5_2: ')@\plg(),
+	X= % f(% g(b),% g(${a[b->c]})),
+	write('%f(%g(b),%g(${a[b->c]}))  ')@\plg(),
+	flora_write_goal(X)@\plg(flrdecode),
+	nl@\plg().
+*/
+%tst6 :- write('tst6: ')@\plg(),
+	write('f(g(b),g(${a[b->c]}))  ')@\plg(),
+	flora_write_goal(f(g(b),g(${a[b->c]})))@\plg(flrdecode),
+	nl@\plg().
+/*
+%tst6_2 :- write('tst6_2: ')@\plg(),
+	write('%f(%g(b),%g(${a[b->c]}))  ')@\plg(),
+	flora_write_goal(% f(% g(b),% g(${a[b->c]})))@\plg(flrdecode),
+	nl@\plg().
+*/
+%tst7 :- write('tst7: ')@\plg(),
+	write('f(g(${a[b->c]}))(a)  ')@\plg(),
+	flora_write_goal(${f(g(${a[b->c]}))(a)})@\plg(flrdecode),
+	nl@\plg().
+
+%tst7_2 :- write('tst7_2: ')@\plg(),
+	write('%f(g(${a[b->c]}))(a)  ')@\plg(),
+	flora_write_goal(${%f(g(${a[b->c]}))(a)})@\plg(flrdecode),
+	nl@\plg().
+
+%tst8 :- write('tst8: ')@\plg(),
+	?X= f(g,g(${a[b->c]})@\plg())@\plg(),
+	write('f(g,g(${a[b->c]})@\plg())@\plg()  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+/*
+%tst8_2 :- write('tst8_2: ')@\plg(),
+	X= % f(% g,% g(${a[b->c]})@\plg())@\plg(),
+	write('%f(%g,%g(${a[b->c]})@\plg())@\plg()  ')@\plg(),
+	flora_write_goal(X)@\plg(flrdecode),
+	nl@\plg().
+*/
+%tst9 :- write('tst9: ')@\plg(),
+	?PPP=foobar,
+	?X@?_M ~ f(a)@?PPP,
+	write('f(a)@foobar  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst9_2 :- write('tst9_2: ')@\plg(),
+	?PPP=foobar,
+	%?X@?_M ~ %f(a)@?PPP,
+	write('%f(a)@foobar  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst10 :- write('tst10: ')@\plg(),
+	?X= f(a),
+	write('f(a)  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+/*
+%tst10_2 :- write('tst10_2: ')@\plg(),
+	X= % f(a),
+	write('%f(a)  ')@\plg(),
+	flora_write_goal(res=X)@\plg(flrdecode),
+	nl@\plg().
+*/
+%tst11 :- write('tst11: ')@\plg(),
+	?X= atom(a),
+	write('atom(a)  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+/*
+%tst11_2 :- write('tst11_2: ')@\plg(),
+	X= %atom(a),
+	write('%atom(a)  ')@\plg(),
+	flora_write_goal(res=X)@\plg(flrdecode),
+	nl@\plg().
+*/
+%tst12 :- write('tst12: ')@\plg(),
+	write('p(a)  ')@\plg(),
+	flora_write_goal(p(a))@\plg(flrdecode),
+	nl@\plg().
+/*
+%tst12_2 :- write('tst12_2: ')@\plg(),
+	write('%p(a)  ')@\plg(),
+	flora_write_goal(%p(a))@\plg(flrdecode),
+	nl@\plg().
+*/
+%tst13 :- write('tst13: ')@\plg(),
+	write('(\+ ppp)  ')@\plg(),
+	flora_write_goal((\+ ppp))@\plg(flrdecode),
+	nl@\plg().
+%tst14 :- write('tst14: ')@\plg(),
+	write('(\+ ppp)  ')@\plg(),
+	flora_write_goal(${\+ ppp})@\plg(flrdecode),
+	nl@\plg().
+%tst15 :- write('tst15: ')@\plg(),
+	write('call(ppp)  ')@\plg(),
+	flora_write_goal(call(ppp))@\plg(flrdecode),
+	nl@\plg().
+%tst16 :- write('tst16: ')@\plg(),
+	write('res=\\naf(ppp)  ')@\plg(),
+	flora_write_goal(res=\naf(ppp))@\plg(flrdecode),
+	write(' (here \\naf is a HiLog function symbol)')@\plg,
+	nl@\plg().
+%tst17 :- write('tst17: ')@\plg(),
+	write('\\naf(ppp)  ')@\plg(),
+	flora_write_goal(\naf(ppp))@\plg(flrdecode),
+	write(' (here \\naf is also a HiLog function symbol)')@\plg,
+	nl@\plg().
+%tst18 :- write('tst18: ')@\plg(),
+	write('\\naf(ppp)  ')@\plg(),
+	flora_write_goal(${\naf(ppp)})@\plg(flrdecode),
+	nl@\plg().
+%tst19 :- write('tst19: ')@\plg(),
+	write('atom(a)  ')@\plg(),
+	flora_write_goal(atom(a))@\plg(flrdecode),
+	nl@\plg().
+%tst20 :- write('tst20: ')@\plg(),
+	write('a+b  ')@\plg(),
+	flora_write_goal(a+b)@\plg(flrdecode),
+	nl@\plg().
+%tst21 :- write('tst21: ')@\plg(),
+	?X= ${f(a)@foo},
+	write('${f(a)@foo}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst21_2 :- write('tst21_2: ')@\plg(),
+	?X= ${%f(a)@foo},
+	write('${%f(a)@foo}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst22 :- write('tst22: ')@\plg(),
+	?PPP=foobar,
+	?X@?_M ~ f(a)@?PPP,
+	write('${f(a)@foobar}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst22_2 :- write('tst22_2: ')@\plg(),
+	?PPP=foobar,
+	%?X@?_M ~ %f(a)@?PPP,
+	write('${%f(a)@foobar}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst23 :- write('tst23: ')@\plg(),
+	?X= ${a[b->c]},
+	write('a[b->c]  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst24 :- write('tst24: ')@\plg(),
+	?X= ${a[b->c(ff(${dd[dd->dd]}))]},
+	write('a[b->c(ff(${dd[dd->dd]}))]  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst25 :- write('tst25: ')@\plg(),
+	?X= ${g(a)[f(b)->h(c)]},
+	write('g(a)[f(b)->h(c)]  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst26 :- write('tst26: ')@\plg(),
+	?X= ${${g(a)[|p(d)->h|]}[f(b)->h(c)]},
+	write('${g(a)[|p(d)->h|]}[f(b)->h(c)]  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst27 :- write('tst27: ')@\plg(),
+	?X= ${a[b->c]},
+	write('${a[b->c]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst28 :- write('tst28: ')@\plg(),
+	?X= ${a[b->c]@foo},
+	write('${a[b->c]@foo}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst29 :- write('tst29: ')@\plg(),
+	?PPP=bar,
+	?X= ${a[b->c]@?PPP},
+	write('${a[b->c]@bar}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst30 :- write('tst30: ')@\plg(),
+	?PPP=bar,
+	?X= ${a[b->c]@?PPP},
+	write('a[b->c]@bar  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst31 :- write('tst31: ')@\plg(),
+	?X= ${a[|b->c|]},
+	write('${a[|b->c|]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst32 :- write('tst32: ')@\plg(),
+	?X= ${a[b{1..1}=>c]},
+	write('${a[b{1..1}=>c]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst33 :- write('tst33: ')@\plg(),
+	?X= ${a[|b{1..1}=>c|]},
+	write('${a[|b{1..1}=>c|]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst34 :- write('tst34: ')@\plg(),
+	?X= ${a[b->c]},
+	write('${a[b->c]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst35 :- write('tst35: ')@\plg(),
+	?X= ${a[b->{c,d}]},
+	write('${a[b->{c,d}]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst36 :- write('tst36: ')@\plg(),
+	?X= ${a[b->->c]},
+	write('${a[b->->c]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst37 :- write('tst37: ')@\plg(),
+	?X= ${a[|b->->c|]},
+	write('${a[|b->->c|]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst38 :- write('tst38: ')@\plg(),
+	?X= ${a[|b->c|]},
+	write('${a[|b->c|]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst39 :- write('tst39: ')@\plg(),
+	?X= ${a[|b+>>c|]},
+	write('${a[|b+>>c|]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst40 :- write('tst40: ')@\plg(),
+	write('a[|b+>>c|]  ')@\plg(),
+	flora_write_goal(${a[|b+>>c|]})@\plg(flrdecode),
+	nl@\plg().
+%tst41 :- write('tst41: ')@\plg(),
+	?X= ${a[b=>c]},
+	write('${a[b=>c]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst42 :- write('tst42: ')@\plg(),
+	?X= ${a[|b=>c|]},
+	write('${a[|b=>c|]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst43 :- write('tst43: ')@\plg(),
+	?X= ${a[pp(a,y)]},
+	write('${a[pp(a,y)]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst44 :- write('tst44: ')@\plg(),
+	?X= ${a[|pp(a,y)|]},
+	write('${a[|pp(a,y)|]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst45 :- write('tst45: ')@\plg(),
+	?X= ${a[%pp(a,y)]},
+	write('${a[%pp(a,y)]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst46 :- write('tst46: ')@\plg(),
+	?X= ${a:=:b},
+	write('${a:=:b}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst47 :- write('tst47: ')@\plg(),
+	?X= ${f(a):=:g(b,p)},
+	write('${f(a):=:g(b,p)}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	write(' ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst48 :- write('tst48: ')@\plg(),
+	?X= ${p(y)@\plg()},
+	write('p(y)@\plg()  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst49 :- write('tst49: ')@\plg(),
+	?X= ${p(y)@\plg(aaa)},
+	write('p(y)@\plg(aaa)  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst50 :- write('tst50: ')@\plg,
+	write('p(y)@\plg(aaa)  ')@\plg,
+	flora_write_goal(${p(y)@\plg(aaa)})@\plg(flrdecode),
+	nl@\plg().
+%tst51 :- write('tst51: ')@\plg,
+	?X= ${p(y)@foo},
+	write('${p(y)@foo}  ')@\plg,
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst52 :- write('tst52: ')@\plg,
+	?X= ${a[b->c]@foo},
+	write('${a[b->c]@foo}  ')@\plg,
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst53 :- write('tst53: ')@\plg(),
+	?X= ${\if a[b->c]@foo \then b[y->p] \else g(c)},
+	write('${\\if a[b->c]@foo \\then b[y->p] \\else g(c)}  ')@\plg,
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	write(' ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst54 :- write('tst54: ')@\plg(),
+	?X= ${\if (a[b->c]@foo, p(a)) \then b},
+	write('${\\if (a[b->c]@foo, p(a)) \\then b}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst55 :- write('tst55: ')@\plg(),
+	?X= ${\unless a[b->c]@foo \do b},
+	write('\\unless a[b->c]@foo \\do b  ')@\plg(),
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst56 :- write('tst56: ')@\plg(),
+	?X= ${\while a[b->c]@foo \do b},
+	write('${\\while a[b->c]@foo \\do b}  ')@\plg,
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg.
+%tst57 :- write('tst57: ')@\plg,
+	?X= ${\while a[b->c]@foo \loop p[%p(r)]},
+	write('${\\while a[b->c]@foo \\loop p[%p(r)]}  ')@\plg,
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg.
+%tst58 :- write('tst58: ')@\plg,
+	?X= ${\loop a[b->c]@foo \until b},
+	write('\\loop a[b->c]@foo \\until b  ')@\plg,
+	flora_write_goal(?X)@\plg(flrdecode),
+	nl@\plg.
+%tst59 :- write('tst59: ')@\plg,
+	?X= ${\do a[b->c]@foo \until b},
+	write('${\\do a[b->c]@foo \\until b}  ')@\plg,
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg.
+/*
+%tst60 :- write('tst60: ')@\plg,
+	write('${insert{a.b[c->d]}}  ')@\plg,
+	flora_write_goal(res= ${insert{a.b[c->d]}})@\plg(flrdecode),
+	nl@\plg.
+%tst61 :- write('tst61: ')@\plg,
+	write('insert{a.b[c->d]}  ')@\plg,
+	flora_write_goal(${insert{a.b[c->d]}})@\plg(flrdecode),
+	nl@\plg.
+*/
+//disabled since path expression is illegal in insert now
+
+%tst62 :- write('tst62: ')@\plg,
+	?X= ${insert{a[b->c]}},
+	write('${insert{a[b->c]}}  ')@\plg,
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg.
+%tst63 :- write('tst63: ')@\plg,
+	?X= ${insert{a[b->c],e[f->g]}},
+	write('${insert{a[b->c],e[f->g]}}  ')@\plg,
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg.
+%tst64 :- write('tst64: ')@\plg,
+	?X= ${insert{a[b->c]|e[f->g],2>1}},
+	write('${insert{a[b->c]|e[f->g],2>1}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg.
+%tst65 :- write('tst65: ')@\plg,
+	?X= ${delete{a[b->c],e[f->g]}},
+	write('${delete{a[b->c],e[f->g]}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst66 :- write('tst66: ')@\plg(),
+	?X= ${delete{a[b->c]|e[f->g],2>1}},
+	write('${delete{a[b->c]|e[f->g],2>1}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst67 :- write('tst67: ')@\plg(),
+	?X= ${deleteall{a[b->c]|e[f->g],2>1}},
+	write('${deleteall{a[b->c]|e[f->g],2>1}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst68 :- write('tst68: ')@\plg(),
+	?X= ${eraseall{a[b->c]| 2>1}},
+	write('${eraseall{a[b->c]| 2>1}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst69 :- write('tst69: ')@\plg(),
+	?X= ${erase{a[b->c]|e[f->g],2>1}},
+	write('${erase{a[b->c]|e[f->g],2>1}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst70 :- write('tst70: ')@\plg(),
+	?X= ${t_insert{a[b->c],e[f->g]}},
+	write('${t_insert{a[b->c],e[f->g]}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst71 :- write('tst71: ')@\plg(),
+	?X= ${t_insert{a[b->c]|e[f->g],2>1}},
+	write('${t_insert{a[b->c]|e[f->g],2>1}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst72 :- write('tst72: ')@\plg(),
+	?X= ${t_delete{a[b->c],e[f->g]}},
+	write('${t_delete{a[b->c],e[f->g]}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst73 :- write('tst73: ')@\plg(),
+	?X= ${t_delete{a[b->c]|e[f->g],2>1}},
+	write('${t_delete{a[b->c]|e[f->g],2>1}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst74 :- write('tst74: ')@\plg(),
+	?X= ${t_deleteall{a[b->c]|e[f->g],2>1}},
+	write('${t_deleteall{a[b->c]|e[f->g],2>1}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst75 :- write('tst75: ')@\plg(),
+	?X= ${t_erase{a[b->c]}},
+	write('${t_erase{a[b->c]}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst76 :- write('tst76: ')@\plg(),
+	?X= ${t_erase{a[b->c]|e[f->g],2>1}},
+	write('${t_erase{a[b->c]|e[f->g],2>1}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst77 :- write('tst77: ')@\plg(),
+	?X= ${t_eraseall{a[b->c]|e[f->g],2>1}},
+	write('${t_eraseall{a[b->c]|e[f->g],2>1}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst78 :- write('tst78: ')@\plg(),
+	?X= ${?_F=avg{?Y|e[?Y->g],2>1}},
+	write('${F=avg{?Y|e[?Y->g],2>1}}  ')@\plg(),
+	flora_write_goal_substitute_vars(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst79 :- write('tst79: ')@\plg(),
+	?X= ${?_F=avg{?Y [?Z]|e[?Y->g],?Z>1}},
+	write('${?F=avg{?Y [?Z]|e[?Y->g],?Z>1}}  ')@\plg(),
+	flora_write_goal_substitute_vars(res=?X)@\plg(flrdecode),
+	write(' ')@\plg(),
+	flora_write_goal_substitute_vars(?X)@\plg(flrdecode),
+	nl@\plg().
+%tst80 :- write('tst80: ')@\plg(),
+	?X= ${?_F=avg{?Y [?Z,?V]|e[?Y->g],?Z>?V}},
+	write('${?F=avg{?Y [?Z,?V]|e[?Y->g],?Z>?V}}  ')@\plg(),
+	flora_write_goal_substitute_vars(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst81 :- write('tst81: ')@\plg(),
+	?X= ${?F=count{?Y|e[?Y->g],2>1}},
+	write('${?F=count{?Y|e[?Y->g],2>1}}  ')@\plg(),
+	flora_write_goal_substitute_vars(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst82 :- write('tst82: ')@\plg(),
+	?X= ${p2h{f(s),g(p,a)}},
+	write('${p2h{f(s),g(p,a)}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst83 :- write('tst83: ')@\plg(),
+	?X= ${refresh{a[b->c]}},
+	write('${refresh{a[b->c]}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst84 :- write('tst84: ')@\plg(),
+	?X= ${refresh{a[b->c],d[g->p]}},
+	write('${refresh{a[b->c],d[g->p]}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst85 :- write('tst85: ')@\plg(),
+	?X= ${throw{a(b,c)}},
+	write('${throw{a(b,c)}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst86 :- write('tst86: ')@\plg(),
+	write('throw{a(b,c)}  ')@\plg(),
+	flora_write_goal(${throw{a(b,c)}})@\plg(flrdecode),
+	nl@\plg().
+%tst87 :- write('tst87: ')@\plg(),
+	?X= ${catch{a[b->c],f(a),p(oo)}},
+	write('${catch{a[b->c],f(a),p(oo)}}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+
+%tst88 :- write('tst88: ')@\plg(),
+	?X= ${a[%pp(a,y),pp(g(a),h(y));f(a)->b], a[|pp(a,y)|]},
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst89 :- write('tst89: ')@\plg(),
+	?X= ${a:b[b->c,e->f]},
+	write('${a:b[b->c,e->f]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst90 :- write('tst90: ')@\plg(),
+	?X= ${a[b->c;p->q]},
+	write('${a[b->c;p->q]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst91 :- write('tst91: ')@\plg(),
+	?X= ${a[b->c,e->f;p->{q,r},oo+>>you]},
+	write('${a[b->c,e->f;p->{q,r},oo+>>you]}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst92 :- write('tst92: ')@\plg(),
+	?X= ${(a[b->c,e->f],ppp[p->{q,r}] ; qq[oo+>>you])},
+	write('${(a[b->c,e->f],ppp[p->{q,r}] ; qq[oo+>>you])}  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst93 :- write('tst93: ')@\plg(),
+	?X= [${a[b->c,e->f]},fff(y,pp),${(ppp[p->{q,r}],qq[oo+>>you])}],
+	write('[${a[b->c,e->f]},fff(y,pp),${(ppp[p->{q,r}],qq[oo+>>you])}]  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+%tst94 :- write('tst94: ')@\plg(),
+	?X= [${a[b->c,e->f]},fff(y,pp),(${(ppp[p->{q,r}],qq[oo+>>you])})],
+	write('[${a[b->c,e->f]},fff(y,pp),(${(ppp[p->{q,r}],qq[oo+>>you])})]  ')@\plg(),
+	flora_write_goal(res=?X)@\plg(flrdecode),
+	nl@\plg().
+
+//tom.wife.father[wife->joan].  //path expression is illegal in rule head now.
+//tom!wife!father[wife->joan].  //path expression is illegal in rule head now.
+//tom.wife!father.mother!father[wife->joan].  //path expression is illegal in rule head now.
+//tst95 is disabled, since path expression is illegal in rule head now.
+/*
+%tst95 :- write('tst95: ')@\plg(),
+	?X[wife->joan],
+	flora_write_goal(?X)@\plg(flrdecode),
+	write(' ')@\plg(),
+	\false.
+%tst95 :- nl@\plg().
+*/
+%tst96 :- write('tst96: ')@\plg(),
+	flora_write_goal(p([f(a)-g(b),h(s)-j(o)]))@\plg(flrdecode),
+	nl@\plg().
+
+%tst97 :- write('tst97: ')@\plg(),
+	flora_write_goal(res= [f(a-b),h(s)-j(o)])@\plg(flrdecode),
+	nl@\plg().
+
+\#[test-> \#2 + \#2].
+%tst98 :- write('tst98: ')@\plg(),
+	?X[test->?Y],
+	flora_write_goal(?X - ?Y)@\plg(flrdecode),
+	nl@\plg().
+
+%tst99 :- write('tst99: ')@\plg(),
+	?X= ${(a[b->c,d->e],p(a),delete{foo(?P)|a[?P->2]},?P=avg{?O|p(?O)})},
+	flora_write_goal_substitute_vars(?X)@\plg(flrdecode),
+	nl@\plg().
+
+
+%pretest :- 
+	%tst0, %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9,
+	%tst10,%tst11,%tst12,%tst13,%tst14,%tst15,%tst16,%tst17,%tst18,%tst19,
+	%tst20,%tst21,%tst22,%tst23,%tst24,%tst25,%tst26,%tst27,%tst28,%tst29,
+	%tst30,%tst31,%tst32,%tst33,%tst34,%tst35,%tst36,%tst37,%tst38,%tst39,
+	%tst40,%tst41,%tst42,%tst43,%tst44,%tst45,%tst46,%tst47,%tst48,%tst49,
+	%tst50,%tst51,%tst52,%tst53,%tst54,%tst55,%tst56,%tst57,%tst58,%tst59,
+	/* %tst60,%tst61,*/ %tst62,%tst63,%tst64,%tst65,%tst66,%tst67,%tst68,%tst69,
+	%tst70,%tst71,%tst72,%tst73,%tst74,%tst75,%tst76,%tst77,%tst78,%tst79,
+	%tst80,%tst81,%tst82,%tst83,%tst84,%tst85,%tst86,%tst87,%tst88,%tst89,
+	%tst90,%tst91,%tst92,%tst93,%tst94,/*%tst95,*/ %tst96,%tst97,%tst98,%tst99,
+	%tst0_2, %tst3_2, %tst4_2, %tst7_2, %tst9_2, %tst21_2,%tst22_2.
+
+%test :- tell(temp)@\plg(),
+	%pretest,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	told@\plg().
+
+

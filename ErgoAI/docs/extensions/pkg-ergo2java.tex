@@ -1,0 +1,304 @@
+\chapter[\ERGO-to-Java Interface]
+{\ERGO-to-Java Interface: Calling Java from \ERGO\\
+  {\Large by Michael Kifer}}
+
+
+This chapter describes the API for opening some standard Java widgets from
+within \ERGO rules. This API also allows one to call arbitrary Java
+programs and thereby use \ERGO for scripting Java applications.
+
+The \ERGO-to-Java API works both when \ERGO runs as a standalone
+application and when it is under the control of Ergo Studio.
+The API calls should work the same in either environment.
+
+\section{General}
+
+The \ERGO-to-Java API is available in the system module \texttt{\bs{}e2j}
+and calling anything in this module will load that module. If, however, for
+some reason it is necessary to load this module without executing any
+operations, one can accomplish this by calling 
+%% 
+\begin{itemize}
+\item  \texttt{ensure\_loaded@\bs{}e2j}. 
+\end{itemize}
+%% 
+
+The following additional general API calls are available:
+%% 
+\begin{itemize}
+\item  \texttt{System[mode->?Mode]@\bs{}e2j} - the variable \texttt{?Mode} will be bound to one
+  of the following:
+  %% 
+  \begin{itemize}
+  \item    \texttt{studio} -- if \ERGO runs as part of Ergo Studio.
+  \item    \texttt{[ergo2java,gui]} -- if \ERGO runs as a standalone mode
+    in an environment that supports graphics. This is usually the case when
+    one invokes \ERGO in a command window on a personal computer.
+  \item \texttt{[ergo2java,nogui]} -- this is usually the case when \ERGO
+    runs in a non-graphical environment, such as a dumb terminal or a
+    command window opened on a remote server.
+    In a \texttt{nogui} situation, none of the widgets (windows, dialogs,
+    etc.) will be available. However, the dialog boxes will be simulated
+    through a command-line interface.
+  \end{itemize}
+  %% 
+  \item \texttt{System[restart]@\bs{}e2j} -- restarts the Java subprocess, if it was
+    killed and is needed again. This is required very rarely: for instance,
+    when the Java subprocess was killed outside of \ERGO (e.g., via the Task
+    Manager or System Monitor). Java is also killed when
+    \texttt{\bs{}end} is executed at the \ERGO prompt.
+  \item \texttt{System[path(studioLogFile)->?File]@\bs{}e2j} -- also a rarely used
+    feature. The variable \texttt{?File} gets
+    bound to the location of the Studio log file. This calls fails outside
+    of the studio environment. In the future, this API call will be extended
+    to include other file locations that might be deemed useful in the
+    future.
+\end{itemize}
+%% 
+
+\section{Dialog Boxes}
+
+This part of the API allows the user to pop up various dialog boxes and
+find out which button was clicked by the user. Several types of dialog
+boxes are supported:
+%% 
+\begin{itemize}
+\item \texttt{Dialog[show(?Question)->?Answer]@\bs{}e2j} -- pops up a dialog box
+  that asks the user a question and provides
+  an input text field plus the buttons \texttt{OK} and
+  \texttt{Cancel}.   
+  If the user clicks \texttt{Cancel} the call fails. Otherwise, if
+  \texttt{OK} is clicked, \texttt{?Answer} gets bound to whatever the user
+  typed in the input field.   
+\item
+  \texttt{Dialog[showOptions(?Title,?Message,?Buttons)->?ChosenButton]@\bs{}e2j} --
+  opens up a dialog box where the user is presented with a number of
+  buttons to click on. Here \texttt{?Title} must be bound to an atom---it
+  will be the title of the window;  \texttt{>Message} is an atom that
+  contains the message to be displayed to the user (e.g., ``Please click a
+  suitable button''); and \texttt{?Buttons} is a list of labels to appear
+  on the buttons presented as the available choices (e.g.,
+  \texttt{[Milk,Bread,Honey]}).
+\item \texttt{Dialog[show(?Title,?Message)]@\bs{}e2j} -- pops up a dialog box that 
+  shows a message (\texttt{?Message}) and waits until the user clicks
+  \texttt{OK}.  \texttt{?Title} is the title of the dialog box.
+\item \texttt{Dialog[chooseFile->?File]@\bs{}e2j} -- pops up a file
+  chooser. \texttt{?File} gets bound to the file chosen by the user.
+\item \texttt{Dialog[chooseFile(?ExtensionsList)->?File]@\bs{}e2j} -- like the above, but
+  also takes a parameter that represents a \emph{list} of  file
+  extensions. Only the files
+  with that extensions mentioned in the list are shown to the user in the
+  file chooser.
+\end{itemize}
+%% 
+
+\section{Windows}
+
+This part of the API supports opening, closing, and other operations on windows.
+%% 
+\begin{itemize}
+\item \texttt{Window[open(?WindTitle,?Tooltip)->?Window]@\bs{}e2j} -- pops up a new
+  window with the title \texttt{?WindTitle} and the tooltip
+  \texttt{?Tooltip}. The tooltip is appears when the mouse rests over the
+  window. The variable \texttt{?Window} gets bound to the Id of the newly
+  created window. This Id will need to be passed to other API calls that
+  manipulate windows, so the user must usually store these Ids in some
+  predicates.
+\item \texttt{Window[setSize(?Win,?Columns,?Rows)]@\bs{}e2j} -- changes the size of
+  the window so it will have the given number of columns and rows.
+  The system will then try to adjust the window (whose Id is passed in the
+  first argument \texttt{?Win}) to approximate the requested size.
+\item \texttt{Window[close(?Window)]@\bs{}e2j} -- closes the specified window.
+\item \texttt{Window[alive(?Window)]@\bs{}e2j} -- tells if the window is alive
+  (i.e., not closed by the user---either programmatically or by clicking
+  the \texttt{x} button in the corner of the window). 
+\end{itemize}
+%% 
+
+\section{Printing to a Window}
+
+The following describes how to print to a previously open window and how to
+erase the window contents.
+%% 
+\begin{itemize}
+\item  \texttt{Window[clear(?Window)]@\bs{}e2j} -- erases the contents of the given
+  window. 
+
+\item \texttt{Window[print(?Window,?Text)]@\bs{}e2j} -- prints \texttt{?Text} to a
+  given window.  \texttt{?Text} specifies what to print and how. Several
+  colors are supported (\texttt{black}, \texttt{red}, \texttt{brown},
+  \texttt{green}, \texttt{purple}, \texttt{blue}, \texttt{magenta},
+  \texttt{orange}, and \texttt{default}), as well as a few faces
+  (\texttt{italic}, \texttt{bold}, \texttt{boldital}).
+
+  \texttt{?Text} is either a \emph{text descriptor} or a \emph{list} of
+  text descriptors, where a text descriptor is
+  %% 
+  \begin{itemize}
+  \item  a Hilog term; or
+  \item  \emph{modifier}(Hilog term)
+  \end{itemize}
+  %% 
+  Here \emph{modifier} is one of the aforesaid colors or faces.
+  Not all faces may be available for the default fonts on your system
+  so, say, \texttt{boldital} may appear as \texttt{italic} ot as
+  \texttt{bold}. Likewise, colors may look different on different screens.   
+
+  Note that
+  if you want to print a term like \texttt{red(tomato)} then you would have
+  to wrap it in one of the above modifiers, like
+  \texttt{default(red(tomato))} (to print \texttt{red(tomato)}  in the default
+  color---usually black) or \texttt{green(red(tomato))} (to print
+  {\color{green}\texttt{red(tomato)}}). Otherwise, if \texttt{red(tomato)}
+  is not wrapped as described, 
+  \texttt{{\color{red}tomato}}  will be printed instead.
+
+  Examples. Let us assume that window with Id 3 is open. Then:\\
+  \texttt{Window[print(3,magenta('this is red(herring), 1lb'))]@\bs{}e2j}
+  will print
+  {\color{magenta}this is red(herring), 1lb}.\\
+   \texttt{Window[print(3,[magenta('this is a '), green(2),
+       italic(' pound '), red(herring)])]@\bs{}e2j}
+     will print: {\color{magenta}this is a} {\color{green}2} \emph{pound}
+     {\color{red}herring}. 
+\end{itemize}
+%% 
+
+
+\section{Scripting Java Applications}
+
+The java scripting API allows the user to load Java jar-files, invoke
+methods that exist in the public classes of those jar-files, and process
+the results.
+
+%% 
+\begin{itemize}
+  %% addJar is deprecated
+  %% \item  \texttt{System[addJar(?Jar)]@\bs{}e2j} -- load the specified
+  %%   jar-file into the system. This API call works with Java 8, but not Java 9+.
+\item \texttt{System[setJavaCP(\textnormal{\emph{Classpath}})]@\bs{}e2j} --
+  specify the class path for additional Jars and classes to be used at run
+  time. \emph{Classpath} must be an atom that represents a valid
+  specification for the Java \texttt{-classpath} option.  Note that on
+  Windows the elements of a classpath are separated with a ``;'' and on
+  Linux/Mac with a ``:''.  Typically this call is made before issuing any
+  other calls to \texttt{\bs{}e2j}.  If this is called after other calls to
+  \texttt{\bs{}e2j} were issued, the existing Java process is killed first
+  and any in-memory data that it may have
+  created (e.g., objects that were created) will be discarded.
+\item
+  \texttt{\textnormal{\emph{JavaObjSpec}}[message(\textnormal{\emph{JavaMethodWithArgs}})
+    -> \textnormal{\emph{Result}}]@\bs{}e2j} -- invoke Java method on a
+  Java object and return the result.
+  \\
+  This feature is \emph{experimental} and incomplete. It does not support
+  all Java data structures and not all kinds of methods can be applied. 
+\end{itemize}
+%% 
+\emph{JavaObjSpec} in the above \texttt{message(...)}   API can have several forms:
+%% 
+\begin{itemize}
+\item  \texttt{oid(}\emph{Integer}\texttt{)}: When Java returns an object,
+  it is registered by \FLSYSTEM and is represented by an integer, e.g.,
+  345. In order to 
+  invoke a Java method on it, the \emph{JavaObjSpec} must be specified as
+  \texttt{oid(345)}.
+\item If \emph{JavaObjSpec} is an integer, float, or atom in \ERGO then
+  it is interpreted as a Java long, double, or string, respectively. Java
+  methods that apply can be used in \texttt{JavaMethodWithArgs}. For instance,
+  %% 
+\begin{verbatim}
+?- '123abc789'[message(split(abc))->?P]@\e2j.
+?P = ['123', '789']
+?- abc23op[message(matches('.+23.*'))->?P]@\e2j.
+?P = \true
+?- abcdf[message(getBytes)->?R]@\e2j.
+?R = "abcdf"^^\charlist
+\end{verbatim}
+  %% 
+\item If \emph{JavaObjSpec} is a list, it is interpreted as an array of
+  objects. For instance, the list \texttt{[pp,i(8),k(u,m)]} is mapped into
+  a Java array and \texttt{[1]} is a method applied to that array, which
+  returns the second element.  
+  %% 
+\begin{verbatim}
+?- [pp,i(8),k(u,m)][message([1])->?P]@\e2j.
+?P = i(8)  
+?- [pp,i(8),k(u,m)][message(length)->?P]@\e2j.
+?P = 3
+\end{verbatim}
+  %% 
+\item If \emph{JavaObjSpec} is \texttt{byte(}\emph{smallNumber}\texttt{)},
+  \texttt{short(}\emph{shortinteger}\texttt{)},
+  or \texttt{int(}\emph{integer}\texttt{)}
+  then it is interpreted as a byte or int constant.
+\item If \emph{JavaObjSpec} is \texttt{term(}\emph{someHiLogTerm}\texttt{)} 
+  then \emph{someHiLogTerm} is mapped into a \texttt{TermModel} object---see
+  \url{http://interprolog.com/ipjavadoc/com/declarativa/interprolog/TermModel.html}
+  for the details of this class, which has methods to de/compose terms on
+  the Java side.
+  %% 
+\begin{verbatim}
+?- term(p(a,b))[message(getFunctorArity)->?P]@\e2j.
+?P = 'p/2'
+\end{verbatim}
+  %% 
+\item If \emph{JavaObjSpec} is of the form
+  \texttt{array(}\emph{type},\emph{list}\texttt{)} then this is mapped to
+  an array of constants of the given type (string, byte, int, float). For
+  instance
+  %% 
+\begin{verbatim}
+?- array(int,[2,7,99])[message([2])->?P]@\e2j.
+?P = 99
+\end{verbatim}
+  %% 
+\item If \emph{JavaObjSpec} is of the form \emph{Wrap(const)}, where
+  \emph{Wrap} is one of Boolean, Character, Byte, Double, Float,
+  Integer, Long, or Short and \emph{const} is of the appropriate \ERGO
+  type, then this will be mapped into an object of type
+  \texttt{java.lang.Boolean}, \texttt{java.lang.Character}, etc., respectively.
+  Note that these are objects, while the wrappers \texttt{int},
+  \texttt{short}, \texttt{byte}, etc., which we introduced earlier   
+  are non-object constants.
+\item Additionally, to be able to execute \emph{static methods}, fully-qualified
+  classes wrapped with \texttt{class} can be used. For instance,
+  %% 
+\begin{verbatim}
+?- class('java.lang.String')[message(format('abc=%d %s',12,iiii))->?R]@\e2j.
+?R = 'abc=12 iiii'
+?- class('java.lang.String')
+              [message(String(array(byte,[119,111,114,108,100])))->?P]@\e2j.
+?P = world
+\end{verbatim}
+  %% 
+  \item It is further possible to send a message to a \emph{static variable}
+    (i.e., invoke a method on the object held by that static variable, as
+    in \texttt{java.lang.System.out.println("Hello")}) 
+    in a class as follows:
+    %% 
+\begin{verbatim}
+?- class('java.lang.System'+out)[message(println(Hello))->?R]@\e2j.
+Hello
+?R = \@?   // a null value because println returns void
+?- class('java.lang.System'+out)[message(printf('%1.16g', 69.1))->?R]@\e2j.
+69.10000000000000
+?R = oid(1)    
+\end{verbatim}
+    %% 
+    Note that here \texttt{out} is the static variable in class
+    \texttt{java.lang.String} to which the messages are being sent.  
+
+    Currently it is not possible to get the value of a static variable
+    unless there is a getter-method for that variable.
+\end{itemize}
+%% 
+The same mapping conventions are applied to the arguments of the
+method-expressions passed to \texttt{message(...)} in our API call. 
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora-packages"
+%%% End: 

@@ -1,0 +1,48 @@
+
+o[p1->2].
+oo[p2->f(a)].
+oo[p2->f(bb)].
+ooo[p3->${ff(bb)}].
+
+to[p1=>2].
+too[p2=>f(a)].
+too[p2=>f(bb)].
+tooo[p3=>${ff(bb)}].
+
+lo[p1->[3,4,2]].
+
+%tst1 :- o[p1->?X=2], o[p1->?X!=3], o[p1->?X==2], o[p1->?X!==3], o[p1->?X\==3],
+        o[p1->?X>1], o[p1->?X=<3], o[p1->?X:=:2], o[p1->?X \is 1-1+2],
+        o[p1->?X=:=2], o[p1->?X=\=3], o[p1->?X@>=1], \naf o[p1->?X@<1],
+        writeln(test1=ok)@\plg.
+
+%tst2 :- oo[p2->?X = f(?Y)], writeln(test2=?Y)@\plg.
+
+%tst3 :- ooo[p3->?X ~ ff(?Y)], oo[p2->?XX :=: f(?Y)], writeln(test3=?Y)@\plg.
+%tst4 :- ooo[p3->?X !~ ff(aa)], oo[p2->?XX !~ f(a)], writeln(test4=ok)@\plg.
+
+%tst5 :- to[p1=>?X=2], to[p1=>?X!=3], to[p1=>?X==2], to[p1=>?X!==3], to[p1=>?X\==3],
+        to[p1=>?X>1], to[p1=>?X=<3], to[p1=>?X:=:2], to[p1=>?X \is 1-1+2],
+        to[p1=>?X=:=2], to[p1=>?X=\=3], to[p1=>?X@>=1], \naf to[p1=>?X@<1],
+        writeln(test5=ok)@\plg.
+
+%tst6 :- too[p2=>?X = f(?Y)], writeln(test6=?Y)@\plg.
+
+%tst7 :- tooo[p3=>?X ~ ff(?Y)], too[p2=>?XX :=: f(?Y)], writeln(test7=?Y)@\plg.
+%tst8 :- tooo[p3=>?X !~ ff(aa)], too[p2=>?XX !~ f(a)], writeln(test8=ok)@\plg.
+
+%tst9 :- oo[p2->?X \in [p,f(?Y)]], writeln(test9=?X+?Y)@\plg.
+%tst10 :- lo[p1->?X \subset [u,1,4,t,3,y,2]],
+        lo[\+ p1->?X \subset [u,1,t,3,y,2]],
+        lo[\+ p1->?X \sublist [u,1,4,t,3,y,2]],
+        lo[p1->?X \sublist [u,1,3,t,4,y,2]],
+        writeln(test10=ok)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9, %tst10.
+
+%test :- tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.

@@ -1,0 +1,64 @@
+
+:- setsemantics{tabling=reactive}.
+
+:- use_argumentation_theory{AT} .
+?- [flrgclp>>AT].
+
+occupies(trout, Squamish).
+fishCount(0, Squamish, trout, 400).
+\neg fishCount(?s, ?r, ?f, ?C1) :- ?C1 != ?C2 \and fishCount(?s, ?r, ?f, ?C2).
+\neg fishCount(?s, ?r, ?f, ?C2) :- ?C1 != ?C2 \and fishCount(?s, ?r, ?f, ?C1).
+quantities(0).
+quantities(400).
+
+\opposes(fishCount(?_s,?_r,?_f,?C1), fishCount(?_s,?_r,?_f,?C2)) :-
+	quantities(?C1),
+	quantities(?C2),
+	?C1 != ?C2.
+@{tdf1} fishCount(?snext, ?r, ?f, 0) :-
+	occurs(?s, toxicDischarge, ?r),
+	occupies(?f, ?r),
+	?snext \is ?s+1.
+@{pef1} fishCount(?snext, ?r, ?f, ?p) :-
+	fishCount(?s, ?r, ?f, ?p),
+	?snext \is ?s+1,
+	?s<5.
+\overrides(tdf1,pef1).
+occurs(1,toxicDischarge,Squamish).
+
+%test1 :- writeln(fishCount(1,Squamish,trout,400) - 'should be true')@\plg,
+	\if true{fishCount(1,Squamish,trout,400)} \then
+             writeln('\t...and it is!')@\plg
+	\else \if undefined{fishCount(1,Squamish,trout,400)} \then
+             writeln('\t...but is undefined :-(')@\plg
+	\else \if false{fishCount(1,Squamish,trout,400)} \then
+             writeln('\t...but is false :-(')@\plg.
+
+%test2 :- writeln(fishCount(2,Squamish,trout,0) - 'should be true')@\plg,
+	\if true{fishCount(2,Squamish,trout,0)} \then
+             writeln('\t...and it is!')@\plg
+	\else \if undefined{fishCount(2,Squamish,trout,0)} \then
+             writeln('\t...but is undefined :-(')@\plg
+	\else \if false{fishCount(2,Squamish,trout,0)} \then
+             writeln('\t...but is false :-(')@\plg.
+
+%test3(?T) :- writeln(fishCount(?T,Squamish,trout,400) - 'should be false')@\plg,
+	\if false{fishCount(?T,Squamish,trout,400)} \then
+             writeln('\t...and it is!')@\plg
+	\else \if undefined{fishCount(?T,Squamish,trout,400)} \then
+             writeln('\t...but is undefined :-(')@\plg
+	\else \if true{fishCount(?T,Squamish,trout,400)} \then
+             writeln('\t...but is true :-(')@\plg.
+%ttt :- false{fishCount(3,Squamish,trout,400)}.
+
+%test4 :- writeln('fish counts:')@\plg,
+	fishCount(?s, Squamish, trout, ?Count),
+         writeln(?s=?Count)@\plg,
+	 \false.
+%test4 :- \true.
+
+%pretest :- %test1, %test2, %test3(2), %test3(3), %test4.
+
+%test :- tell(temp)@\plg,
+	 %pretest,
+	 told@\plg.

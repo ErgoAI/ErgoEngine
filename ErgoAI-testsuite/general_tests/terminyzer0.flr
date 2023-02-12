@@ -1,0 +1,37 @@
+// terminating program
+
+@!{fact1} edge(1,2).
+@!{fact2} edge(2,3).
+@!{fact3} edge(3,4).
+@!{fact4} edge(4,1).
+@!{rule1} path(?X,?Y) :- edge(?X,?Y).
+@!{rule2} path(?X,?Y) :- edge(?X,?Z), path(?Z,?Y).
+
+// generates the logforest trace
+%build_log :-
+        writeln('Building the log...')@\plg,
+	setruntime{answersize(60,abort)},
+	logforest('terminyzer0_xsblog')@\plg(flrterminyzer),
+	//\logforest('terminyzer0_floralog','terminyzer0_xsblog'),
+	catch{path(1,?_Y),?,\true},
+	//\nologforest,
+	//\halt.
+        log_all_forest_flush@\plg(tables),
+        writeln('Done building the log...')@\plg.
+
+?- %build_log.
+
+// the following is regression test
+%test :- tell(temp)@\plg(),
+	terminyzer('terminyzer0_xsblog','terminyzer_summary.flr')@\prolog(flrterminyzer),
+	Method[mustDefine(on)]@\sys,
+	terminyzer('terminyzer0_xsblog','terminyzer_summary.flr')@\prolog(flrterminyzer),
+	Method[mustDefine(off)]@\sys,
+	told@\plg(),
+	open(file(temp)@\plg,append,?Port1)@\plg,
+	open(file('terminyzer_summary.flr')@\plg,read,?Port2)@\plg,
+	copyIOport(?Port2,?Port1)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	flora_file_op(unlink,'terminyzer_summary.flr')@\plg(flrporting),
+	flora_file_op(unlink,'terminyzer0_xsblog')@\plg(flrporting).

@@ -1,0 +1,26 @@
+#include "standard.h"
+
+%pretest :-
+	writeln(3,'Loaded into module foo:')@\plg,
+	[textual_warn>>foo],
+	writeln(3,'Added to module moo:')@\plg,
+	[+textual_warn>>moo].
+
+%test :- 
+	(File[exists(textual_load_old)]@\io -->> File[unlink(textual_load_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(textual_load_flora_old,textual_load_old)]@\io
+	;  File[link(textual_load_ergo_old,textual_load_old)]@\io
+        ),
+	file_reopen(temp,w,STDERR,?_)@\plg(file_io),
+	file_reopen(temp1,w,STDWARN,?_)@\plg(file_io),
+	%pretest,
+	file_close(STDWARN)@\plg(file_io),
+	file_close(STDERR)@\plg(file_io),
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp)@\plg,append,?Port2)@\plg,
+	copyIOport(?Port1,?Port2)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	flora_file_op(unlink,temp1)@\plg(flrporting).
+

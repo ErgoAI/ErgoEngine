@@ -1,0 +1,73 @@
+/* File:      include/flrbasetype_symbol.flh
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2012-2014;
+**      and Vulcan, Inc. 2012-2013.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- export{?[toSymbol->?],
+          ?[toNumber->?]}.
+
+// \symbol[concat(list) ->?Atom]
+FL_SYMBOL[concat(?List) -> ?Atom] :-
+    	!,
+	FL_SYMBOL['_$concat'(?List) -> ?Atom].
+FL_SYMBOL['_$concat'([]) -> ''] :- !.
+FL_SYMBOL['_$concat'([?Item|?List]) -> ?Result] :-
+	!,
+    	?Item[toSymbol->?ItemSym],
+	FL_SYMBOL['_$concat'(?List) -> ?ListSym],
+    	flora_concat_atoms([?ItemSym,?ListSym],?Result)@\prolog(flrporting).
+
+?D[toNumber->?D] :-
+        isnumber{?D},
+        !.
+?D[toNumber->?N] :-
+        isatom{?D},
+        !,
+        atom_codes(?D,?Codes)@\prolog,
+        catch{number_codes(?N,?Codes)@\prolog,
+              ?,
+              (warning(['toNumber(): ', ?D, ' is not convertible to a number; leaving as is'])@\sys,
+               ?N = ?D)
+             }.
+    	
+// toSymbol
+?D[toSymbol->?VA] :-
+        isvar{?D},
+        !,
+        fmt_write_string(?VA,'?%S',arg(?D)@\prolog)@\prolog.
+?D[toSymbol->?VA] :-
+	flora_printable_type_representation(?D,[?_T,?V])@\prolog(flrdatatype),
+	!,
+	(isnumber{?V} -->>
+	      number_codes(?V,?VC)@\plg, atom_codes(?VA,?VC)@\plg
+        ; ?VA = ?V
+        ).
+?D[toSymbol->?V] :-
+	flora_datatype_name(?D,?TN)@\prolog(flrdatatype),
+	(?TN == FL_CHARLIST ; ?TN == FL_SYMBOL; ?TN == FL_BOOL),
+	!,
+	flora_datatype_raw_value(?D,?V)@\prolog(flrdatatype).
+
+?D[toSymbol->?V] :-
+	flora_decode_oid_as_atom_substitute_vars(?D,?V)@\prolog(flrdecode).
+

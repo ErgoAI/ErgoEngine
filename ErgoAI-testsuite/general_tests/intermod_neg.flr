@@ -1,0 +1,39 @@
+:- ignore_depchk{writeln(?_)@\io, %q(?_,?_)}.
+
+// Some tests for intermodule negation
+
+?- insert{p[a]}.
+?- insertrule_z{(%p(?X) :- \naf p[?X])}.
+?- newmodule{foo}.
+?- insertrule_z{(%q(?X) :- caller{?Y},
+			 writeln(tst1_caller=?Y)@\io,%p(?X)@main)@foo}.
+%tst1 :- \naf %q(a)@foo, !, writeln('tst1: succeeded')@\plg().
+%tst1 :- writeln('tst1: failed')@\plg().
+
+// caller{...} should return Z=foo
+w[a(?X)->?P] :- caller{?Z}, writeln(test22_caller=?Z)@\io, %q(?X,?P).
+?- insertrule_z{(%q :- caller{?X}, writeln(tst2_caller=?X)@\io,
+		    \naf w[a(?_)->?_]@main)@foo}.
+%tst2 :- insert{%q(a,b), %q(a,c)},
+	\if %q@foo
+        \then writeln('tst2 failed')@\plg()
+	\else writeln('tst2 succeeded')@\plg().
+
+%tst3 :- delete{%q(a,b), %q(a,c)}, refresh{w[a(?_)->?_]},
+	\if %q@foo
+        \then writeln('tst3 succeeded')@\plg()
+	\else writeln('tst3 failed')@\plg().
+
+%pretest :- %tst1, %tst2, %tst3.
+
+%test :-
+	tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+	\abolishtables,
+        %pretest,
+	told@\plg().
+
+
+

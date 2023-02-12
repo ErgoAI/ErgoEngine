@@ -1,0 +1,231 @@
+
+\subsection{Sets, Maps, and Dictionaries}\label{sec-data-types-set}
+
+\index{set}
+\index{map}
+\index{associative array}
+\index{dictionary}
+%%
+This section introduces the built-in \FLSYSTEM module, called
+\texttt{\bs{}set}, which provides two data structures:
+%% 
+\begin{itemize}
+\item  Sets: a data structure that provides containers for terms and
+  supports 
+  %% 
+  \begin{itemize}
+  \item   efficient  membership search, whose complexity is independent on
+    the size of the set (this is a big difference compared to lits)
+  \item   duplicate elimination
+  \end{itemize}
+  %% 
+\item  Single-valued key-value pairs: a data structure that efficiently associates search
+  keys with values, where each key is associated with at most one
+  value. This data structure is known as a \emph{map} in Java,
+  \emph{dictionary} in Python, and \emph{associative array} in Perl.   
+  For brevity, we shall use the term \emph{map} for this structure.
+\index{mv-map}
+\index{multi-valued map}
+\item  Multi-valued key-value pairs: a map allows one to associate at most one
+  value with each key. \FLSYSTEM makes it possible to have map-like
+  structures that permits association of multiple values with any key.
+  We will call this data structure a \emph{multi-valued map},
+  of \emph{mv-map}. 
+\end{itemize}
+%% 
+
+A set or a map is identified via user-selected abstract symbol (a Prolog atom)
+and is created the first time something is inserted into that data structure.
+The set/map identifier is \emph{global}, i.e., it does not need to be saved
+somewhere between uses in different rules. 
+For example,
+%% 
+\begin{verbatim}
+    ?- myset123[insert([foo,bar,p(234)])]@\set.
+\end{verbatim}
+%% 
+creates a set identified by the symbol \texttt{myset123} and inserts 
+three elements into it: \texttt{foo}, \texttt{bar}, and \texttt{p(234)}.   
+A set or a map exists until it is destroyed via
+%% 
+\begin{verbatim}
+    ?- myset123[destroy]@\set.
+\end{verbatim}
+%% 
+It is a good idea to destroy sets and maps that are no longer needed, to
+free up space (these structures are not garbage-collected by the system).
+
+There is no significant difference between the data structures used for
+sets, maps,
+and mv-maps. The only real difference lies in the APIs, i.e., the
+operations that are used to work with sets and maps. Because of this affinity,
+many API operations are common to
+sets, maps, and mv-maps.
+
+\subsubsection{API for Working with Both  Sets, Maps and MV-Maps}
+\label{sec-api-set-map}
+
+%% 
+\begin{itemize}
+\item  \texttt{?SetMap[exists]@\bs{}set} --- true if \texttt{?SetMap} is bound to
+  a set/map/mv-map that was created and not destroyed.
+  For example, \texttt{set1[exists]@\bs{}set}. 
+\item \texttt{?SetMap[empty]@\bs{}set} --- true if \texttt{?SetMap} is bound to
+  a set/map/mv-map that is empty or non-existent.
+\item \texttt{?SetMap[destroy]@\bs{}set} --- destroys the set/map/mv-map that is
+  identified via the atom bound to \texttt{?SetMap}.
+\item \texttt{?SetMap[union(?SetMap2)->?SetMap3]@\bs{}set} --- \texttt{?SetMap3}
+  becomes the union of \texttt{?SetMap} and \texttt{?SetMap2}. The variables
+  \texttt{?SetMap}, \texttt{?SetMap2}, \texttt{?SetMap3} must be bound to symbols,
+  which do not need to be distinct.
+  If, for example, \texttt{?SetMap2} and \texttt{?SetMap3} are bound to the same
+  symbol, \texttt{abc}, and \texttt{?SetMap} is bound to \texttt{foo},
+  i.e., \texttt{foo[union(abc)->abc]@\bs{}set}, then the
+  union of the sets/maps identified by \texttt{abc} and \texttt{foo} is
+  computed and gets associated (destructively) with the symbol
+  \texttt{abc}.
+
+  For example, \texttt{set1[union(set2)->set3]@\bs{}set}. 
+
+  \index{++ operator}
+  This expression has a shortcut:  \texttt{set3 \bs{}is set1++set2}.   
+
+\item \texttt{?SetMap[minus(?SetMap2)->?SetMap3]@\bs{}set} --- \texttt{?SetMap3}
+  becomes associated with the set /map/mv-map that is a set-difference of \texttt{?SetMap}
+  and \texttt{?SetMap2}. All three arguments must be bound to symbols, and
+  \texttt{?SetMap2} may be bound to the same symbol as \texttt{?SetMap3} or
+  \texttt{?SetMap}. For instance, \texttt{abc[minus(foo)->foo]@\bs{}set}      
+  computes the difference of the set/map/mv-map identified by \texttt{abc} and the
+  set/map/mv-map identified by \texttt{foo} and then \texttt{foo} becomes associated
+  with that computed set/map/mv-map.
+
+  Example: \texttt{set1[minus(set2)->set3]@\bs{}set}. 
+
+  \index{-- operator}
+  The expression \texttt{set1[minus(set2)->set3]@\bs{}set} has a shortcut:  \texttt{set3 \bs{}is set1--set2}.   
+
+  \item \texttt{?SetMap[intersect(?SetMap2)->?SetMap3]@\bs{}set} --- \texttt{?SetMap3}
+  becomes associated with the set/map/mv-map that is a set-intersection of \texttt{?SetMap}
+  and \texttt{?SetMap2}. All three arguments must be bound to symbols, and
+  neither \texttt{?SetMap} nor
+  \texttt{?SetMap2} can be bound to the same symbol as
+  \texttt{?SetMap3}.
+
+  Example: \texttt{set1[intersect(set2)->set3]@\bs{}set}. 
+
+  \index{\&\& operator}
+  The expression \texttt{set1[intersect(set2)->set3]@\bs{}set} has a shortcut:  \texttt{set3 \bs{}is set1\&\&set2}. 
+
+  \index{\bs{}subset operator}
+  \index{operator!\bs{}subset}
+\item \texttt{?SetMap[subset(?SetMap2)]@\bs{}set} --- true if \texttt{?SetMap}
+  identifies a set that is a subset/submap of the set/map/mv-map identified by
+  \texttt{?SetMap2}.
+  \\
+  \ERGO provides a convenient shortcut for this method: \texttt{?SetMap
+  \bs{}subset ?SetMap2}.  
+\item \texttt{?SetMap[equal(?SetMap2)]@\bs{}set} --- true if \texttt{?SetMap}
+  identifies a set that is equal to the set/map/mv-map identified by \texttt{?SetMap2}.
+\item \texttt{?SetMap[copy->?SetMap2]@\bs{}set} --- \texttt{?SetMap2} becomes
+  associated with a copy of the set/map/mv-map identified by \texttt{?SetMap}.  
+\item \texttt{?SetMap[tolist->?List]@\bs{}set} --- binds \texttt{?List} to
+  the sorted list of elements in the set/map/mv-map identified by
+  \texttt{?SetMap}. In case of maps and mv-maps, the members of the
+  list have the form \texttt{key=value}.  For a set, the members in
+  the list are simply the elements of the set.
+\item \texttt{?SetMap[type->?Type]@\bs{}set} --- binds \texttt{?Type} to
+  the type of the structure indetified by \texttt{?SetMap}. The possible
+  values are \texttt{set}, \texttt{map},    and \texttt{mvm} (for mv-maps). 
+\end{itemize}
+%% 
+
+\subsubsection{API for Working with Sets} \label{sec-api-set}
+
+%% 
+\begin{itemize}
+\item  \texttt{?Set[insert(?Element)]@\bs{}set} --- \texttt{?Element} gets
+  inserted in \texttt{?Set}. If \texttt{?Element} exists in the set already,
+  the insertion simply succeeds without changing the set.
+  If \texttt{?Element} is a list, all the elements in the list are inserted
+  (except those that are already in \texttt{?Set}).  
+
+  Note that \texttt{?Element} can have variables. 
+  For example, \texttt{set123[insert([p(a),q(1,?X)])]@\bs{}set}. 
+\item \texttt{?Set[delete(?Element)]@\bs{}set} --- \texttt{?Element} gets
+  deleted from \texttt{?Set}. If \texttt{?Element} is not in the set,
+  the deletion simply succeeds without changing the set.
+  If \texttt{?Element} is a list, all the elements in the list are deleted
+  (except those that were not in \texttt{?Set} to begin with). 
+  
+  Note that \texttt{?Element} can have variables. In that case,
+  \texttt{?Element} will be non-deterministically
+  unified with \emph{some} member of the set (if
+  at all), and that member will be deleted.  
+  \index{\bs{}in operator}
+  \index{operator!\bs{}in}
+\item \texttt{?Set[member->?Element]@\bs{}set} --- true if
+  \texttt{?Element} is bound to a term that unifies with some member of the
+  set identified by \texttt{?Set}.
+  \\
+  \ERGO provides a convenient shortcut for this method: \texttt{?Element
+    \bs{}in ?Set}.  
+\end{itemize}
+%% 
+
+\subsubsection{API for Working with Maps} \label{sec-api-map}
+
+%% 
+\begin{itemize}
+\item  \texttt{?Map[mapinsert(?Key=?Value)]@\bs{}set} --- insert the
+  corresponding key-value pair into the map. 
+
+  If \texttt{?Key} already has a value then: if that value unifies with
+  \texttt{?Value} then the above call succeeds; otherwise, it fails.
+  For example, \texttt{map123[mapinsert(foo=23)]@\bs{}set}. 
+\item \texttt{?Map[mapreplace(?Key=?Value)]@\bs{}set} --- like
+  \texttt{mapinsert} but if the key has a value already,
+  that old value is removed and \texttt{?Value} is associated with
+  \texttt{?Key} instead. This call always succeeds.
+\item \texttt{?Map[mapdelete(?Key)]@\bs{}set} --- delete the value
+  associated with \texttt{?Key}. If a key-pair with that key exists,
+  the call fails.
+\item \texttt{?Map[maperase(?Key)]@\bs{}set} --- like \texttt{mapdelete}, but
+  this call succeeds in all cases, whether the key in question exists or
+  not.
+\item \texttt{?Map[mapfind(?Key)->?Value]@\bs{}set} --- \texttt{?Value}
+  gets bound to the value associated with \texttt{?Key} in \texttt{?Map}.
+  Fails if no such key exists in the map.
+\end{itemize}
+%% 
+
+\subsubsection{API for Working with MV-Maps} \label{sec-api-mvmap}
+
+%% 
+\begin{itemize}
+\item  \texttt{?MV[mvminsert(?Key=?Value)]@\bs{}set} --- insert the
+  corresponding key-value pair into the mv-map. 
+
+  If \texttt{?Key} already has a value then: if that value unifies with
+  \texttt{?Value} then the above call succeeds; otherwise, it fails.
+  For example, \texttt{mv123[mvminsert(foo=23)]@\bs{}set}. 
+\item \texttt{?MV[mvmdelete(?Key=?Value)]@\bs{}set} --- delete a
+  \texttt{?Value} 
+  associated with \texttt{?Key}. If a key-pair with that key exists,
+  does nothing and succeeds.
+\item \texttt{?MV[mvmerase(?Key)]@\bs{}set} --- like \texttt{mvmdelete},  but
+  deletes all values associated with \texttt{?Key}. Succeeds regardless
+  of whether \texttt{?Key} exists in the mv-map or not.
+\item \texttt{?MV[mvmfind(?Key)->?Value]@\bs{}set} --- \texttt{?Value}
+  gets bound to a value associated with \texttt{?Key} in \texttt{?MV}.
+  Fails if no such key exists in the mv-map.
+\end{itemize}
+%% 
+
+
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

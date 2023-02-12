@@ -1,0 +1,526 @@
+/* File:      flora_errors.flh -- Ergo errors
+**
+** Author(s): Guizhen Yang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018;
+**      and Vulcan, Inc., 2008-2013.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+#include "flora_terms.flh"
+
+#mode standard Prolog
+
+
+/**********************************************************
+  errors reported by the Flora-2 Lexer
+**********************************************************/
+#define UNEXP_UNPRINT	 'unexpected unprintable character'
+#define UNEXP_DEL_ISO	 'unexpected non-ASCII character:\n\t\tbeware of Unicode look-alikes of space, '', ", and comma'
+#define UNEXP_EOF	 'unexpected end of file'
+#define UNEXP_PRINT	 'unexpected printable character'
+#define HEX_EXPECTED     'hexadecimal digit is expected in string'
+#define DEC_EXPECTED     'decimal digit is expected in string'
+#define UNICODE_TOO_LONG 'Unicode symbols must have 1 to 6 hexadecimal digits and the decimal value cannot exceed 1114112'
+#define ALPHA_EXPECTED   'alphanumeric symbol is expected'
+#define AFTER_RADIX	 'invalid symbol after radix'
+#define INVALID_RADIX	 'invalid radix'
+#define ERROR_EXPONENT	 'syntax error in exponent'
+#mode save
+#mode nocomment "%"
+#define ERROR_DBLPERCENT   'invalid symbol after %'
+#mode restore
+#define AFTER_UNDERSCORE   'invalid symbol after \\'
+#define VARIABLE_EXPECTED  'variable name is expected after ?'
+#define QUAZIVAR_EXPECTED  'quasi-variable is expected at ?'
+
+#define ERROR_USE_STRUCTDB_EXECDIRECT 'use_rule_structure_db{Module,Flag} directive: Module and Flag must be Prolog atoms, Flag = on/off'
+
+#define WARN_NULLCHAR_IN_STRING  'null character (x0) in quoted symbol; symbol will be truncated'
+
+/**********************************************************
+  warnings reported by the Flora-2 Composer
+**********************************************************/
+#define OP_AMBIGUITY	 'ambiguous operator definitions'
+
+
+/*****************************************************
+  errors reported by the Flora-2 Composer
+*****************************************************/
+#mode save
+#mode nostring "\!#'"
+#define UNKNOWN_ERROR    'internal error -- please report this problem using the bug tracking system at FLTRACKER_UNQ'
+#mode restore
+
+#define UNEXP_EOR	 'rule delimiter is expected'
+#define UNEXP_OPERAND    'unexpected operand:\n\t\t'','', ''.'', or some other operator may be missing just before the indicated location'
+#define UNEXP_OPERATOR   'unexpected operator:\n\t\t'','', ''.'', or some other operator may be missing just before the indicated location'
+#define UNEXP_LEFT       'unexpected left parenthesis/brace/bracket'
+#define UNEXP_RIGHT      'unexpected right parenthesis/brace/bracket/end-of-clause'
+#define UNEXP_END        'unexpected end of rule'
+#define UNEXP_ENDCLAUSE	 'unexpected end of clause'
+#define WRONG_PRECEDENCE 'precedence definitions violated'
+#define WRONG_ASSOCIATE  'operators around this point cannot be meaningfully composed'
+#define UNMATCHED_LEFT   'unmatched left parenthesis/brace/bracket'
+#define UNMATCHED_RIGHT  'unmatched right parenthesis/brace/bracket'
+
+
+/*****************************************************
+  errors reported by the Flora-2 Parser
+*****************************************************/
+#define ERROR_OPDEF	        'invalid operator associativity definition'
+#define ERROR_OPERATOR	        'invalid operator'
+#define ERROR_PRED_ARITY_PAIR	'invalid predicate/arity pair in compiler directive'
+#define ERROR_SKELETON          'invalid functor/arity skeleton'
+#define ERROR_RESERVED_ARITY    'reserved symbol used with wrong number of arguments'
+#define ERROR_RESERVED_SYMBOL   'redefinition of a reserved symbol' 
+#define NO_REDEFOP	        'redefinition of standard operators is illegal'
+
+#mode save
+#mode nostring "\!#'"
+/*
+#define ERROR_ARGTYPE	'invalid argument type specification: FL_OID/FL_BODYFORMULA is expected'
+*/
+#mode restore
+
+/*
+#define ERROR_ARGUMENTS	'invalid arguments directive'
+*/
+#define ERROR_AGGREGT	'syntax error in aggregate body'
+#define ERROR_BDLITERAL	'invalid construct in a predicate/molecule in rule/query body'
+#define ERROR_EMBEDDED_IMPLY 'embedded :- is not allowed in a rule head, body, or a query.\n\t\tThis is likely a rule where a query is expected, e.g. at the prompt'
+#define ERROR_HDLITERAL 'invalid construct in a predicate/molecule in rule head'
+#define ERROR_TEMPLATE  'invalid construct in a predicate/molecule template'
+#define ERROR_SYMBOL_CONTEXT_DIR 'invalid construct in the :- symbol_context directive'
+#define ERROR_SYMBOL_CONTEXT_STAR_ARG 'a symbol context template of the form sym(*) cannot have arguments other than `*'''
+#define ERROR_ANONVAR_HEAD  'don''t care variables are not allowed in this context in rule heads'
+#define ERROR_PRLGLIT	        'invalid PROLOG literal'
+#define ERROR_HILGTERM	        'invalid HiLog term'
+#define ERROR_TERM_FOR_CONTEXT	'this type of term is not allowed here'
+#mode save
+#mode nocomment "%"
+#define ERROR_TERM_NAME	        'invalid predicate or Boolean method name: cannot start with a %'
+#mode restore
+#define ERROR_WSNAME	        'invalid module name'
+#define ERROR_WSQUASI_VAR 'using the quasi-variable \\?C as direct module specification is not yet supported: use ?var = \\?C, ...@?var instead'
+#define ERROR_BOOLSIG	'invalid boolean signature'
+#define ERROR_TRANS_DEFAULT_VALUE 'default transactional methods are not supported'
+#define ERROR_PATHEXP	'this kind of path expression is invalid here'
+#define ERROR_PURE_PATHEXP_ONLY	'truth-valued path expressions (e.g., pathexp[...]) are not allowed here'
+#define ERROR_NONBOOLPATHEXP  'non-Boolean path expression used as a formula'
+#define ERROR_EXPINHEAD 'invalid path expression in rule head'
+#define ERROR_LOADLIST	'invalid list of loading commands'
+#define ERROR_LOADITEM	'invalid loading command'
+#define ERROR_LOADFILE	'invalid file name in load{...}'
+#define ERROR_INSERT	'invalid literal in insert{...}'
+#define ERROR_DELETE	'invalid literal in delete{...}'
+#define ERROR_REFRESH	'invalid literal in refresh{...}'
+#define ERROR_CLAUSELIT	'invalid literal in clause{...}'
+#define ERROR_REFOP_IN_DB 'no path expressions are allowed in insert{...} & delete{...}'
+#define ERROR_CLAUSEMOD	'the form clause{...}@module is not supported'
+#define ERROR_TAGPRIMITIVEMOD	'the form tag{...}@module is not supported'
+#define ERROR_TAGPRIMITIVEARITY 'the primitive tag{Label,Head} must have two arguments'
+#define ERROR_PREFIXPRIMITIVEARITY 'the primitive prefix{Prefix,Expansion} has two arguments'
+#define ERROR_PREFIXPRIMITIVESYNTAX 'the argument of the primitive prefix{Prefix} must be a name or a variable'
+#define ERROR_EXPINSERT 'invalid path expression in insert{...}'
+#define ERROR_EXPDELETE 'invalid path expression in delete{...}'
+#define ERROR_EXPREFRESH 'invalid path expression in refresh{...}'
+#define ERROR_EXPCLAUSE 'invalid path expression in clause{...}'
+#define ERROR_INDXDIREC	'invalid indexing directive'
+#define ERROR_VERBATIM_DIRECT	'invalid argument in verbatim{...} directive'
+#define ERROR_ENCODING_DIRECT	'invalid argument in encoding{...} directive'
+#define ERROR_COMPILETIME_DIRECTIVE_ONLY 'this is a compiler directive (:- ...), not an executable primitive'
+#define ERROR_EXECUTABLE_DIRECTIVE_ONLY 'this is an executable primitive (?- ...), not a compiler directive'
+#define ERROR_NEWOID	'invalid use of a Skolem constant: Skolems are meaningless in rule bodies or queries'
+/*
+#define ERROR_FUNCTOR	'invalid functor (atom or variable is expected)'
+*/
+#define ERROR_ARITY	'invalid arity (non-negative integer or variable is expected)'
+#define ERROR_SEMOPT	'invalid option in a semantics{...} directive'
+#define ERROR_SETSEMOPT	'invalid option in a setsemantics{...} directive'
+#define ERROR_RUNTIMEOPT 'invalid option in a setruntime{...} directive'
+
+#define ERROR_UPDATEOP	'invalid use of an update operator where an oid is expected'
+#define ERROR_SETNOTE	'invalid use of the set notation {...}'
+#define ERROR_GPP	'problem while parsing the output from the preprocessor'
+#define ERROR_CMPOPT	'invalid compiler option'
+#define ERROR_CLAUSE    'invalid syntax in clause{...}'
+#define ERROR_NAMEDVAR  'invalid use of a named variable'
+#define ERROR_VAR       'invalid use of a variable'
+#define ERROR_ADDFILE   'invalid file name in add{...}'
+
+#define EXP_POSINTEGER	'positive integer (>= 0) is expected'
+#define EXP_VARIABLE	'variable is expected'
+#define EXP_ATOMICFUNCT	'atomic functor is expected'
+#define EXP_VARORATOM   'variable or atom is expected'
+#define EXP_AGGREGVAR	'aggregate variable is expected'
+#define EXP_AGGRGRPVAR	'aggregate & grouping variables are expected.\n\t\tIf one wants aggregates of the form aggr{expression|condition}\n\t\tuse aggr{NewVar|condition, NewVar = expression}\n\t\t(or NewVar \\is expression, to evaluate the expression)'
+#define EXP_AGGRRESSORT	'unexpected sort specification for aggregate grouping'
+#define EXP_AGGRSORTSPC	'invalid sort specification for aggregate result or grouping'
+#define EXP_AGGRUNIQSPC	'invalid uniquification specification for aggregate result'
+#define UNEXP_SORTSPEC	'sorting specification is allowed only in setof & bagof aggregates'
+#define EXP_ARGS	'arguments are expected'
+#define EXP_RULES	'a rule, a latent query, a variable, or a list of these statements is expected'
+#define NO_REIFICATION	'no reification in this context: a rule, a latent query, a variable, or a list of these statements is expected'
+#define EXP_OPTLIST	'a list of Prolog compiler options is expected'
+#define EXP_SPECLIST	'a list of hilog predicate specifications is expected'
+#define EXP_ANONYVAR	'an anonymous variable is expected'
+#define EXP_TERMSLIST	'a list of terms is expected'
+#define NO_LISTTAIL	'list tail specification is illegal in this context'
+#define NO_DISJUNCTION	'only conjunctions of literals are allowed in rule heads & facts:\n\t\t\\or, ==>, and even more general forms are supported\n\t\tby the Ergo reasoner'
+#define NO_DISJUNCTION_STEALTH	'only conjunctions are allowed as stealth update literals'
+#define NO_OMNIFORM	'this is an omniform rule - a very advanced feature;\n\t\tif this is intended, enable the compiler option omni (=on)'
+#define ONLY_TRANSACTIONAL_IN_STEALTH	'stealth literals must be transactional'
+#define NO_NEGATION	'default negation in rule head is illegal'
+#define NO_NAF_IMPLY	'~~>, <~~, <~~> in rule head are illegal'
+#define NO_NEG_IMPLY	'==>, <==, <==> in rule head are illegal'
+
+#define UNKNOWN_QUANTIFIER 'unknown quantifier type'
+#define NO_QUANTIFIERS_IN_RULE_HEAD  'no quantifiers are allowed in rule head'
+#define NO_LOG_QUANTIFIERS	     'no logical quantifiers are allowed here'
+#define NO_QUANTIFIERS	             'no quantifiers are allowed here'
+#define ONLY_EXISTENTIALS 'only existential quantifiers are allowed here'
+#define VARLIST_ERROR   'non-variable found where variables are expected'
+#define NO_QUANTTYPEDVAR_ERROR   'quantified typed variables are disabled'
+#define HEAD_QUANT_TYPED_VAR   'quantified typed variables are supported in rule bodies only'
+#define DELAY_QUANT_UNDER_NEGATION 'no delay quantifiers are allowed under negation'
+
+#define ILLEGAL_NEGHEAD 'illegal use of explicit negation (NEG) in rule head or in an update operator'
+/*
+%% Unused
+#define NEG_NEGATE_HEAD	'NEG in rule head cannot negate conjunction'
+#define NEG_NEGATE_DB	'NEG in an update statement cannot negate conjunction'
+*/
+#define NO_WORKSPACE	'invalid use of the term@module specification; try explicit reification'
+#define NO_WS_VAR	'module variables (@?Var) in facts & rule heads are illegal'
+#define NO_PRED_VAR	'naked variables or negated variables inside reifications in facts & rule heads are not allowed; if this is intended, use modules as in p(${?X@ \\@}) or  p(${neg ?X@foo}'
+#define NO_REIFY_VAR	'reification of a naked variable or of negated variable is not allowed; if this is intended, use modules as in p(${?X@ \\@}) or p(${neg ?X@foo}'
+#define NO_WSINRULEHEAD	'term@module in arguments in rule heads & facts is illegal unless explicitly reified'
+#define NO_WSASRULEHEAD	'term@module as a rule head or fact is illegal'
+#define NO_WSNESTING	'invalid nesting of module specifications'
+#define NO_WSNESTING_IN_IO  'invalid nesting of module specifications in an I/O primitive; if this is not an error, reify the offending literal'
+#define NO_REDEFINITION 'redefinition of a built-in in rule head'
+#define UNKNOWN_PRIMITIVE_HEAD	'unsupported primitive in a head predicate/molecule'
+#define NO_AGGINHEAD	'aggregation in rule heads is illegal'
+#define NO_INSERT	'insertion into built-in predicates or attributes is illegal'
+#define NO_DELETE	'deletion from a built-in predicates or attributes is illegal'
+#define NO_INSERTDISJUN	'disjunction in insert{Head|...} is illegal'
+#define NO_DELETEDISJUN	'disjunction in delete{Head|...} is illegal'
+#define NO_INSERTNEG	'default negation in insert{...} is illegal'
+#define NO_DELETENEG	'default negation in delete{...} is illegal'
+#define NO_PROLOG       'update operations on predicates declared as Prolog or sensors are not permitted'
+#define UNKNOWN_AGGREGT 'unknown aggregate operator'
+#define UNKNOWN_BRACE_BUILTIN 'unknown or out-of-context primitive of the form <name>{...}'
+#define UNKNOWN_DIRECT	'unknown compiler directive'
+#define DISALLOWED_DIRECT 'this compile-time directive does not have the @module form'
+#define UNREG_SYSMOD	'unregistered system module'
+#define ERROR_BUILTIN   'invalid operation on a built-in'
+#define ERROR_IFHEAD	'invalid if-statement in rule head'
+#define ERROR_THENHEAD	'invalid then-statement in rule head'
+#define ERROR_ELSEHEAD	'invalid else-statement in rule head'
+#define ERROR_THENBODY	'invalid then-statement'
+#define ERROR_ELSEBODY	'invalid else-statement'
+#define MISSING_THEN	'missing then-statement in if-then-else'
+#define UNEXPECTED_THEN	'unexpected then-statement'
+#define UNEXPECTED_ELSE	'unexpected else-statement'
+#define UNEXPECTED_CONTROL 'unexpected control statement'
+#define NO_UPDATEIF	'update with an if-statement is illegal'
+#define NO_UPDATETHEN	'update with a then-statement is illegal'
+#define NO_UPDATEELSE	'update with an else-statement is illegal'
+#define REIFY_WRONG_ARGNUM 'reification operator takes at most 1 argument'
+
+#define ERROR_IMPORTMODULE	'syntax error in the importmodule directive'
+#define ERROR_IMPORT_MODULE_SYNTAX 'invalid module name in the importmodule directive'
+
+#define ERROR_EXPORT_PATH	'export of an invalid expression'
+#define ERROR_EXPORT_SPEC	'export of an invalid F-logic frame type'
+#define ERROR_EXPORT_ATOM	'atom occurs where variable is expected'
+#define ERROR_EXPORT_MODULE	'invalid module specification in the export directive'
+#define ERROR_EXPORT_ATOM_ATTR	'variable occurs where term is expected'
+
+#define ERROR_SIGCONSTR		'error in signature cardinality constraint'
+#define ERROR_SIGCONSTR_LOW	'the lower bound of signature cardinality constraint should be an integer or a variable'
+#define ERROR_SIGCONSTR_HIGH	'the higher bound of signature cardinality constraint should be non-negative integer, a variable, or *'
+
+#define ERROR_UNALLOWED_PROP    'unallowed property in a frame expression'
+
+#define ERROR_TRUTHVALUED_OP	'true{...}, false{...}, unknown{...} can appear in top-level queries only'
+#define ERROR_PREFIX_DEF	'invalid iriprefix/irilocalprefix definition'
+#define ERROR_PREFIX_HEAD	'identifier is expected as a name of a prefix macro'
+#mode save
+#mode nocomment "%"
+#define ERROR_PREFIX_BODY	'a quoted string, identifier, or atom is expected as a prefix macro expansion; it cannot start with a %'
+#mode restore
+
+#define ERROR_CURI_PREFIX	'an identifier is expected as a prefix in a compact URI'
+#define ERROR_CURI_LOCAL	'a quoted string, identifier, or atom is expected as a local name in a compact URI'  
+
+#define DESCRIPTOR_CONSTR_RULEHEAD 'descriptors can appear only at the top level of a rule or a fact'
+#define INVALID_RULE_DESCRIPTOR 'invalid rule descriptor syntax'
+
+#define DESCRIPTOR_IN_DIRECTIVE 'rule Ids or other descriptors are not allowed in compiler directives'
+
+#define INVALID_ID_DESCRIPTOR    'syntax error in rule Id descriptor'
+#define INVALID_BOOL_DESCRIPTOR  'syntax error in a Boolean descriptor'
+#define INVALID_TAG_DESCRIPTOR      'syntax error in a tag descriptor'
+#define INVALID_FILE_DESCRIPTOR_PROP  'the ''file'' descriptor property can be used only for querying descriptors'
+#define INVALID_MODULE_DESCRIPTOR_PROP  'the ''module'' descriptor property can be used only for querying descriptors'
+#define INVALID_TYPE_DESCRIPTOR_PROP  'the ''type'' descriptor property can be used only for querying descriptors'
+
+#define MULTIPLE_RULE_IDS       'multiple Ids for the same rule not allowed'
+#define MULTIPLE_RULE_DEFEASIBILITY_INDICATORS  'more than one defeasibility indicator in rule descriptor'
+#define LATENT_Q_MUST_HAVE_ID   'latent queries must have explicit Ids'
+#define DEFEASIBLE_RULE_BUT_NO_ARGUMENTATION_THEORY '@@defeasible is specified but document has no :- use_argumentation_theory directive'
+#define SIMPLE_FRAMES_IN_RULE_DESCRIPTORS  'rule descriptors can be only simple terms & frames: no path expressions, UDFs, or builtins'
+#define NO_INTEGERS_AS_RULEID   'positive integers cannot be used as explicit rule Ids; they are reserved for system use'
+#define NO_NULL_AS_RULEID   'the symbol null cannot be used as a rule Id'
+
+#define RULEID_TOKEN_NOT_IN_RULE    'rule id quasi-constant \\@! in non-rule context'
+
+#mode save
+#mode nocomment "%"
+#define ERROR_TRANSACTIONAL_SYMBOL     'unexpected transactional symbol'
+#mode restore
+
+#define ERROR_TRANSACTIONALVARLIT      'transactional variables cannot appear as standalone literals'
+#define DISALLOWED_UPDATE_IN_HYPOTHETICAL 'only transactional updates are allowed inside hypotheticals'
+
+#define MISSING_DESCRIPTOR_IN_LATENT_QUERY 'missing identifier in latent query'
+
+#define ERROR_NL_TEMPLATE_NOT_FOUND 'cannot find the requested ErgoText template'
+#define ERROR_TEXTGEN_LOAD_FAILED   'cannot load text generation templates'
+
+/********************************* Datatype errors ***************/
+#define ERROR_TIME_LITERAL             'invalid time constant'
+#define ERROR_DATETIME_LITERAL         'invalid dateTime constant'
+#define ERROR_DATE_LITERAL             'invalid date constant'
+#define ERROR_DURATION_LITERAL         'invalid duration constant'
+#define ERROR_CURRENCY_LITERAL         'invalid currency constant'
+#define ERROR_CURRENCY_VALUE           'non-numeric currency value'
+#define ERROR_CURRENCY_UNIT            'unknown currency unit'
+#define ERROR_IRI                      'invalid IRI constant'
+#define ERROR_INTEGER                  'invalid integer constant'
+#define ERROR_REAL                     'invalid real number constant'
+#define ERROR_NUMBER                   'invalid number constant'
+#define ERROR_STRING                   'invalid string constant'
+#define ERROR_CHARLIST                 'invalid character list constant'
+#define ERROR_LISTTYPE                 'invalid list constant'
+#define ERROR_BOOLEAN                  'invalid Boolean constant'
+#define ERROR_SYMBOL                   'invalid abstract symbol constant'
+
+#define ERROR_DATATYPE_LITERAL         'invalid datatype constant'
+#define ERROR_DATATYPE_LITLIST         'invalid list of datatype constant'
+#define ERROR_DATATYPE_NAME            'invalid datatype name specification'
+
+/********************************** Sensor parsing errors ****************/
+#define INVALID_SENSOR_MOD             'invalid module in sensor declaration'
+#define INVALID_SENSOR_DECL 	       'invalid sensor declaration'
+#define INVALID_SENSOR_CALL            'invalid sensor template in sensor declaration'
+#define INVALID_SENSOR_COND            'invalid sensor condition in sensor declaration'
+#define SENSOR_VARS_ERROR    	       'condition variables must be a subset of template variables in sensor declarations'
+#define INVALID_CANONICAL_TERM         'invalid term'
+#define INVALID_CANONICAL_ARGLIST      'invalid argment list'
+#define SENSOR_FILE_LINE_VARS	       'first & second variables in sensor template must be anonymous'
+
+
+/*********************************** Sensor compilation errors ************/
+#define MIXED_HEAD_SENSORS     	       'mixed sensor/non-sensor heads not allowed in the same rule'
+
+/*****************************************************
+  warnings reported by the Flora-2 compiler
+*****************************************************/
+#define SINGLETON_VAR	        'singleton variable: use ?_Var instead of ?Var, if not an error'
+#define UNBOUND_VAR	        'unsafe variable in rule head (does not occur in rule body): use ?_Var, if not an error'
+#define UNBOUND_VAR_IN_FACT     'unsafe variable in a fact: use ?_Var, if not an error'
+#define UNBOUND_VAR_IN_LATENT_QUERY 'unsafe variable in the descriptor of a latent query'
+#define UNBOUND_UDF_VAR	        'unsafe variable in function definition: use ?_Var, if not an error'
+#define NO_QUANTIFIED_ANONVARS  'don''t care variables must not be quantified'
+#define QUANT_VARS_NOT_SUBSET   'each quantified variable must occur in the formula being quantified'
+#define GROUPING_LEFT_OF 'grouping variable found in rule body left of the aggregation\n\t\t  where it was declared - a likely mistake: rename or rewrite'
+
+#define INVALID_LITERAL_RULE_HEAD 'invalid literal in rule head'
+#define TAGGED_RULE_BUT_NO_ARGUMENTATION_THEORY '@tag or :- default_is_defeasible is given but document has no :- use_argumentation_theory directive'
+
+#define WARN_TEXTIT_EXTRA_GOAL_VARS 'textit{Goal,Text,Substitutions[,Condition]}: Goal has variables that are not in Substitutions or Condition; make them into silent variables (_Var) to get rid of this warning'
+
+/**************************************************
+  support for numbered Skolem constants
+***************************************************/
+#define SINGLETON_OID	'singleton numbered/named Skolem constant in clause'
+#define INVALID_GLOBAL_QUASICONST  'invalid global quasi-constant \\##N'
+
+
+/************************************************
+  errors reported by the Flora-2 compiler
+************************************************/
+#define REPEATED_GVAR	'repeated grouping variables in aggregates are illegal'
+#define GVAR_NOTIN	'grouping variable not in aggregate body'
+#define AVAR_NOTIN	'aggregate variable not in aggregate body'
+#define ERROR_GVAR	'invalid grouping variable'
+#define ERROR_AVAR	'invalid aggregate variable'
+#define AVAR_ASGVAR	'aggregation variables cannot be grouped by'
+#define UNIQVAR_NOTIN	'a variable used for duplicate control is not in aggregate body'
+#define VARWSINHEAD	'variable module in a rule head argument: unimplemented feature'
+#define ILLEGAL_NEGBODY	  'illegal use of explicit negation (NEG) in rule body'
+#define ILLEGAL_NEGSYSLIB 'explicit negation (NEG) of system library calls is not allowed'
+#define UNIMPLEMENTED_NEG 'this use of explicit negation (NEG) has not been implemented yet'
+#define READING_NONREIFIED_MOLECULE 'attempt to read non-reified molecule from external source'
+#define ANNOTATED_TRANSACTION_NOT_ALLOWED 'rule tags are illegal in rules that produce side-effects'
+
+#define NO_PROLOG_IN_DYNRULE_HEAD    'Prolog predicates or sensors cannot be in the head of a dynamic rule'
+
+/* unclear if INVALIDHEAD_IN_DYNRULE is a reachable error */
+#define INVALIDHEAD_IN_DYNRULE    'only conjunctions are supported in dynamically constructed rule heads'
+
+#define NO_EXEC_PROLOG_DIRECTIVE  'executable :- prolog directive is not supported'
+#define NO_EXEC_TABLE_DIRECTIVE   'executable :- table directive is not supported'
+
+%%#define NO_PROLOG_WITH_VARMODULE  'predicates declared as :- prolog cannot have a variable module specification'
+
+#define UNSUPPORTED_SPECIAL_TOKEN 'unsupported quasi-variable; supported quasi-variables are \\?L, \\?F, \\?C'
+
+#define NO_NESTED_DESCRIPTOR_FRAME 'unsupported construct (e.g., disjunction, nested frame, module variable) in rule descriptor or descriptor query'
+#define NO_DISJUNCTS_DESCRIPTOR_FRAME 'disjunction is not allowed in rule descriptors'
+
+#define RULE_IN_PLACE_OF_QUERY 'rule appears where query is expected:\n\t\tif you meant to insert that rule, use insertrule{...}.'
+#define SPURIOUS_SYMBOL 'spurious operator'
+
+#define ERROR_EXPERT_SYNTAX    'this syntax is permitted in expert mode only'
+#define ERROR_EXPERT_SYNTAX_ISA 'embedded operators : and :: in rule heads are permitted in expert mode only'
+#define ERROR_UDF_HEAD_ISA     'embedded operators : and :: in UDF heads are not allowed'
+
+#define ERROR_INVALID_TERM_THIS_CONTEXT 'invalid term in this context'
+#define ERROR_SYNTAX_MAYBE_PARENS 'syntax error; perhaps missing parentheses'
+
+#define ERROR_PROP_PROLOGALL 'const@\\prologall & const@\prologall(module) make no sense; use const@\\prolog instead'
+
+#define ERR_TEXTIT_EXTRA_SUBST_VARS 'textit{Goal,Text,Substitutions[,Condition]}: Substitutions has variables not in Goal or Condition; this makes no sense'
+#define ERR_TEXTIT_WRONG_ARGS 'textit{Goal,Text,Substitutions[,Condition]}: either Text is not an atom or Substitutions is not a list'
+#define ERR_NEWOID_IN_METAUNIV 'local Skolem constant \\#NNN in the =.. operator makes no sense. Perhaps use \\##NNN (consult the manual about global Skolem constants)'
+#define UNALLOWED_SPEC_IN_SYMBOL_CONTEXT  'unsupported context specification in :- symbol_context directive; check with the manual'
+
+#define ERR_UNEQUATABLE_DATATYPE  'builtin datatypes must not be equated via :=:; use UDF instead'
+
+#mode save
+#mode nocomment "%"
+#define ERR_TEXTIT_SUBST_MISMATCH 'textit{Goal,Text,Substitutions[,Condition]}: number of provided substitutions does not match the number of substitution points (%s) in Text'
+#mode restore
+
+#define ERROR_TEXTIT_PATTERN  'this kind of goal pattern or argument is not supported by textit{...}'
+
+/**********************************************************
+  errors reported by the Flora-2 Coder
+**********************************************************/
+#define MOD_NODEFPREFIX		'prefix is not defined in the specified module'
+#define FILE_NODEFPREFIX	'prefix is not defined in this file'
+#define INVALID_MOD_CURI        'invalid module specification in prefix#suffix@Mod'
+
+/******************************************************
+  Misc warnings 
+******************************************************/
+
+#define WARN_TABLED_FLLOAD  'a tabled subgoal depends on ~w.~n\t\t  The program might not function correctly.~n\t\t  Indicator: ~w~n\t\t  Offending module:  ~w~n\t\t  Offending predicate: ~w~n'
+
+/******************************************************
+ User defined function errors 
+******************************************************/
+
+#define ERROR_UDF		'invalid function definition'
+#define ERROR_UDF_LIT		'function definitions not allowed here'
+#define ERROR_UDF_COMPILE	'error while trying to compile user-defined function into predicate'
+#define ERROR_UDF_ARGUMENTS	'invalid arguments in function definition: only variables are alowed'
+#define ERROR_UDF_RETURN_VALUE	'invalid return value in function definition'
+#define ERROR_UDF_TERM		'invalid term in function definition'
+#define ERROR_USEFUNCTION_IN_SHELL_ONLY 'executable ?- usefunction directive is allowed interactively only'
+
+
+/******************************************************
+ Symbols usage errors/warnings 
+******************************************************/
+#define ERROR_UDF_SYMBOL		'user-defined function was used prior to its declaration'
+#define WARN_UDF_PREDICATE_SYMBOL	'user-defined function was also used as a predicate'
+#define WARN_UDF_PREDICATE_ARITY_SYMBOL  'user-defined function was also used as a predicate with a different number of arguments'
+#define WARN_UDF_FUNC_SYMBOL	'user-defined function was also used as a HiLog function symbol'
+#define WARN_UDF_FUNC_ARITY_SYMBOL  'user-defined function was also used as a HiLog function symbol with a different number of arguments'
+#define WARN_UDF_PROLOG_SYMBOL       'user-defined function was also used as a symbol defined as :- prolog'
+#define WARN_UDF_SENSOR_SYMBOL       'user-defined function was also used as a sensor'
+#define WARN_SUPPRESS_SYMBOL    '\n\t\t  If this is not an error, use the :- symbol_context directive to suppress this warning'
+
+
+#define WARN_PREDICATE_UDF_SYMBOL	'predicate symbol was also declared as user-defined function'
+#define WARN_SENSOR_UDF_SYMBOL	'sensor predicate was also declated as a user-defined function'
+#define ERROR_PROLOG_UDF_SYMBOL	        'a symbol declared here as Prolog predicate was also declared as a user-defined function'
+#define WARN_PREDICATE_UDF_ARITY_SYMBOL  'predicate symbol was also declared as a user-defined function with a different number of arguments'
+#define WARN_PREDICATE_FUNC_SYMBOL	'predicate symbol was also used as a HiLog function symbol'
+#define ERROR_PREDICATE_SENS_SYMBOL	'predicate symbol was also declared as a sensor predicate'
+#define WARN_SENSOR_FUNC_SYMBOL	'sensor predicate was also used as a HiLog function symbol'
+#define ERROR_PROLOG_FUNC_SYMBOL	'a symbol declared here as Prolog predicate was also used as a HiLog function symbol'
+#define ERROR_SENSOR_PREDICATE_SYMBOL	'sensor predicate was also used as a HiLog predicate symbol'
+#define ERROR_SENSOR_PROLOG_SYMBOL	'sensor predicate was also used as a Prolog predicate symbol'
+#define ERROR_PROLOG_PREDICATE_SYMBOL	'a symbol declared here as Prolog predicate was also used as a HiLog predicate symbol'
+#define WARN_PROLOG_PREDICATE_ARITY_SYMBOL	'a symbol declared here as Prolog predicate was also used as a HiLog predicate symbol with a different number of arguments'
+#define ERROR_PREDICATE_PROLOG_SYMBOL	'a HiLog predicate symbol was also used as a Prolog predicate'
+#define WARN_PREDICATE_PROLOG_ARITY_SYMBOL	'a HiLog predicate symbol was also used as a Prolog predicate with a different number of arguments'
+#define WARN_PROLOG_ARITY_SYMBOL	'a Prolog predicate symbol was also used with a different number of arguments'
+#define ERROR_OVERRIDING_UDF            'overriding prior definitions of user-defined functions is not allowed'
+#define ERROR_UDF_WITHOUT_DEFINITION    'user-defined function used without prior definition'
+#define ERROR_SENSOR_WITHOUT_DEFINITION 'sensor used without prior definition'
+#define WARN_PREDICATE_ARITY_SYMBOL	'predicate symbol was also used with a different number of arguments'
+#define WARN_SENSOR_ARITY_SYMBOL	'sensor predicate was also used with a different number of arguments'
+#define WARN_FUNC_UDF_SYMBOL		'HiLog function symbol was also declared as a user-defined function'
+#define WARN_FUNC_UDF_ARITY_SYMBOL	'HiLog function symbol was also declared as a user-defined function with a different number of arguments'
+#define WARN_FUNC_PREDICATE_SYMBOL	'HiLog function symbol was also used as a predicate symbol'
+#define WARN_FUNC_PROLOG_SYMBOL	'HiLog function symbol was also used as a Prolog predicate symbol'
+#define WARN_FUNC_SENS_SYMBOL	'HiLog function symbol was also declared as a sensor predicate'
+#define WARN_FUNC_ARITY_SYMBOL	'HiLog function symbol was also used with a different number of arguments'
+#define WARN_BUILTIN_SYMBOL		'a builtin symbol exists with the same name & number of arguments'
+#define WARN_BUILTIN_ARITY_SYMBOL	'a builtin symbol exists with the same name but a different number of arguments'
+#define WARN_TRANSACTIONAL_SYMBOL	'transactional symbol was also used as nontransactional'
+#define WARN_NONTRANSACTIONAL_SYMBOL	'nontransactional symbol was also used as transactional'
+#define ERROR_HILOG_UDF                 'user-defined function conflicts with a HiLog term of the same arity in a previously loaded file'
+
+#define ERROR_RESERVED_SYMBOL_CONTEXT   'reserved symbol used outside of its proper context'
+
+/******************************************************
+ Delay quantifier errors 
+******************************************************/
+#define ERROR_DELAY_QUANT_CONDITION	'invalid delay condition in a must/wish specification'
+#define ERROR_DELAY_QUANT_IN_HEAD	'delay quantifiers cannot occur in rule heads'
+#define DELAY_QUANT_VARS_NOT_IN_GOAL    'a variable in delay quantifier not found in the corresponding delayed subgoal'
+#define STOP_DELAY_OP_SYNTAX            '!!(...) is not a valid syntax for the primitive for immediate execution of delayed literals: use !!{...}'
+#define NO_IMMEDIATE_EXECUTION_OF_DELAY 'the operation of immediate execution of delayed literals is not allowed in reifications'
+
+/******************************************************
+  Runtime errors
+******************************************************/
+#define VARHEAD_IN_DYNRULE       'variable head in dynamically inserted rule, '
+#define NEWMOD_VAR_MODNAME       'newmodule{?modname}: uninstantiated module name in newmodule{...}'
+#define ERASE_VAR_MODNAME        'erasemodule{?modname}: uninstantiated module name'
+#define INSERTRULE_VAR_OBJ       'uninstantiated object in the rule list of insertrule{...}'
+#define INSERTRULE_NONRULE       'a non-rule element in insertrule{...}, '
+#define DELETERULE_NONRULE       'a non-rule item in deleterule{...}, '
+#define MOD_ALREADY_LOADED       ': module already loaded'
+#define GROUPING_VAR_GROUND      ': grouping variables cannot be ground'
+
+
+/*
+%%% Local Variables: 
+%%% eval: (auto-fill-mode 0)
+%%% End:
+*/

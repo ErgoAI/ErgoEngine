@@ -1,0 +1,20 @@
+
+
+// 2 - stderr
+%test :-
+	(File[exists(export_compile_test_old)]@\io -->> File[unlink(export_compile_test_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(export_compile_test_flora_old,export_compile_test_old)]@\io
+	;  File[link(export_compile_test_ergo_old,export_compile_test_old)]@\io
+        ),
+	file_reopen(temp,w,2,?_)@\plg(file_io),
+	compile{encap_syntax_check},
+	\+ compile{error_dynmod},
+	\+ compile{error_nonvar},
+	\+ compile{error_nonvar2},
+	\+ compile{error_nonvar3},
+	\+ compile{error_invalidsym},
+	file_close(2)@\plg(file_io).
+
+
+

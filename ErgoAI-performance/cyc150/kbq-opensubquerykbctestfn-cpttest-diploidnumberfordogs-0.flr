@@ -1,0 +1,92 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ: ( : $OpenSubqueryKBCTestFn  : $CPTTest-DiploidNumberForDogs) (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Explicit Background Facts
+istAsserted(BiologyMt, relationAllInstance(organismDiploidNumber, Dog, 78)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260308', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260308', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-SpermCell-260309', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260308', MtTimeDimFn(Now)), isa('HYP-SpermCell-260309', SpermCell)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260308', MtTimeDimFn(Now)), isa('HYP-SpermCell-260309', AnimalCell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Dog-260310', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260308', MtTimeDimFn(Now)), isa('HYP-Dog-260310', Dog)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260308', MtTimeDimFn(Now)), cellHasNumberOfChromosomes('HYP-SpermCell-260309', 39)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260308', MtTimeDimFn(Now)), cellSource('HYP-SpermCell-260309', 'HYP-Dog-260310')).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260308')).
+//REMOVED TITLE('KBQ ( : $OpenSubqueryKBCTestFn  : $CPTTest-DiploidNumberForDogs) 0').
+%pretest :- organismDiploidNumber('HYP-Dog-260310', ?N), %write_results('SUCCESS ( : $OpenSubqueryKBCTestFn  : $CPTTest-DiploidNumberForDogs) 0').
+
+// Debugging
+proof(4913, 0) :- organismDiploidNumber('HYP-Dog-260310', 78).
+proof(4913, 1) :- organismDiploidNumber('HYP-Dog-260310', 78).
+
+proof(4913, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(4913, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(4913, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(4913, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(4913, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(4913, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(4913, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(4913, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-260308', 1, genlMt).
+proof(4913, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-260308', 2, genlMt).
+proof(4913, 2002) :- admittedArgument(SecondFn(47, MinuteFn(38, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(4913, 2003) :- admittedArgument(SecondFn(47, MinuteFn(38, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(4913, 2004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260308'), UniversalVocabularyMt).
+proof(4913, 2005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260308'), BaseKB).
+proof(4913, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260308'), BiologyMt).
+proof(4913, 2007) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260308'), MtSpace('Hypothesis-HypotheticalContext-260308', MtTimeDimFn(Now))).
+proof(4913, 2008) :- isa('HYP-Dog-260310', Dog). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

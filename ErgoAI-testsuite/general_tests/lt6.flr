@@ -1,0 +1,89 @@
+
+#include "standard.h"
+
+
+p({1,2}).
+q({1,2,3},{a,b}).
+q(1,c).
+
+q2dom(?Z) :- q(?,?Z).
+
+?- %start_recording.
+
+%tst1 :- write('Subgoal1: ')@\plg, writeln('forall(?X)^exists(?Z)^(q(?X,?Z)~~>p(?X))')@\plg,
+        forall(?X)^exists(?Z)^(q(?X,?Z)~~>p(?X)),
+        !!, truthvalue{?TT},
+        writeln(test1=?TT)@\plg.
+?- %tst1.
+
+%tst2 :- write('Subgoal2: ')@\plg, writeln('forall(?X)^exists(?Z)^(q2dom(?Z),(q(?X,?Z)~~>p(?X)))')@\plg,
+        forall(?X)^exists(?Z)^(q2dom(?Z),(q(?X,?Z)~~>p(?X))),
+        !!, truthvalue{?TT},
+        writeln(test2=?TT)@\plg.
+?- %tst2.
+
+%tst3 :- write('Subgoal3: ')@\plg, writeln('forall(?X)^(q2dom(?Z),(q(?X,?Z)~~>p(?X)))')@\plg,
+        forall(?X)^(q2dom(?Z),(q(?X,?Z)~~>p(?X))),
+        !!, truthvalue{?TT}, writeln(test3=?TT)@\plg.
+?- %tst3.
+
+%tst4 :- write('Subgoal4: ')@\plg,writeln('forall(?X)^(q(?X,?Z)~~>p(?X))')@\plg,
+        forall(?X)^(q(?X,?_Z)~~>p(?X)),
+        !!, truthvalue{?TT}, writeln(test4=?TT)@\plg.
+?- %tst4.
+
+%tst5 :- write('Subgoal5: ')@\plg, writeln('forall(?X)^(exists(?Z)^q(?X,?Z)~~>p(?X))')@\plg,
+        \naf forall(?X)^(exists(?Z)^q(?X,?Z)~~>p(?X)),
+        !!, truthvalue{?TT}, writeln(test5=?TT)@\plg.
+?- %tst5.
+
+/*
+   This one gives "free vars under \naf" warning but evaluates to true because
+   it translates into
+       \naf (?X \in [1, 2], \naf (\naf q(?X,?Z)), \naf p(?X))
+   and \naf p(1), \naf p(2) are false and the entire thing is true. So
+   \naf q(1,?Z) and \naf q(2,?Z) are undefined and give warnings, but it
+   does not matter, since \naf p(?X) makes the inner conjunction false.
+   But it is still better to bind ?Z to a domain, as in test 7.
+*/
+%tst6 :- write('Subgoal6: ')@\plg, writeln('forall(?X)^(?X\in [1,2] ~~> exists(?Z)^((q(?X,?Z)~~>p(?X))))')@\plg,
+   forall(?X)^(?X\in [1,2] ~~> exists(?Z)^((q(?X,?Z)~~>p(?X)))),
+        !!, truthvalue{?TT}, writeln(test6=?TT)@\plg.
+?- %tst6.
+
+%tst7 :- write('Subgoal7: ')@\plg, writeln('forall(?X)^(?X\in [1,2,3] ~~> exists(?Z)^(q2dom(?Z),(q(?X,?Z)~~>p(?X))))')@\plg,
+        forall(?X)^(?X\in [1,2,3] ~~> exists(?Z)^(q2dom(?Z),(q(?X,?Z)~~>p(?X)))),
+        !!, truthvalue{?TT}, writeln(test7=?TT)@\plg.
+?- %tst7.
+
+?- %end_recording.
+
+
+/*
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7.
+%test :-
+        %start_recording,
+	%pretest,
+        %end_recording.
+*/
+
+%test :-
+        \true.
+
+%start_recording :-
+        (File[exists(lt6_old)]@\io -->> File[unlink(lt6_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(lt6_flora_old,lt6_old)]@\io
+	;  File[link(lt6_ergo_old,lt6_old)]@\io
+        ),
+        tell(temp)@\plg,
+        file_reopen(temp1,w,STDWARN,?_)@\plg(file_io).
+%end_recording :-
+	file_close(STDWARN)@\plg(file_io),
+	told@\plg,
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp)@\plg,append,?Port2)@\plg,
+	copyIOport(?Port1,?Port2)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	flora_file_op(unlink,temp1)@\plg(flrporting).

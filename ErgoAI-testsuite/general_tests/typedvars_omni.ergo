@@ -1,0 +1,54 @@
+
+// quantified_typed_variables - now always on; the switch is not used
+//:- compiler_options{omni=on,quantified_typed_variables=on}.
+:- compiler_options{omni=on}.
+
+forall(?X^^foo)^p(?X,?_Y) <== q(?_Y).
+qqqq(?_Y) ==> forall(?X^^foo)^p(?X,?_Y).
+
+\neg p(a0,c).
+\neg p(a,c).
+\neg p(a0,f).
+{a0,a}:foo.
+\neg p(aa,b).
+\neg p(aa,d).
+
+%tst1 :- ?L=setof{?P|\neg q(?P)}, writeln(test1=?L)@\plg.
+%tst1b :- ?L=setof{?P|\neg qqqq(?P)}, writeln(test1b=?L)@\plg.
+
+// adding explicit ?X:foo to bind to a domain and avoid a warning -- a test
+exists(?X^^foo)^(?X:foo, pp(?X,?_Y)) <== qq(?_Y).
+exists(?X^^foo)^(pp(?X,?_Y)) <== qq2(?_Y).
+qqq(?_Y) ==> exists(?X^^foo)^pp(?X,?_Y).
+
+\neg pp(a0,c).
+\neg pp(a,c).
+\neg pp(aa0,c).
+\neg pp(a,f).
+\neg pp(aa,d).
+aa0:foo.
+
+%tst2 :-  ?L=setof{?P|?P \in [c,f,d], \neg qq(?P)}, writeln(test2=?L)@\plg.
+%tst2c :-
+        setruntime{unsafe_naf(ignoreonce)},
+        ?L=setof{?P|?P \in [c,f,d], \neg qq2(?P)}, writeln(test2c=?L)@\plg.
+%tst2b :-
+        setruntime{unsafe_naf(ignoreonce)},
+        ?L=setof{?P|?P \in [c,f,d], \neg qqq(?P)}, writeln(test2b=?L)@\plg.
+
+q(111).
+
+forall(?X^^foo)^rr(?X,?Y) :- q(?Y).
+
+%tst3 :- rr(a,111), \naf rr(aa,111), writeln(test3=ok)@\plg.
+
+
+%pretest :- %tst1, %tst1b, %tst2c, %tst2, %tst2b, %tst3.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.
+

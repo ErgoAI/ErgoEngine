@@ -1,0 +1,82 @@
+/* File:      pkgs/persistentmodules.flr
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- compiler_options{production=on}.
+
+:- nontabled_module.
+
+:- suppress_rule_signatures.
+
+:- prolog{checkModule/2}.
+
+?- consult(flrpm)@\plg(consult).
+
+:- export{
+        set_field_type(?),
+	?[attach(?,?,?,?)],
+	?[attachNew(?,?,?,?)],
+	?[detach],
+	?[loadDB]
+    }.
+
+
+// Module to an existing database
+?Module[attach(?DSN,?DB,?User,?Password)] :-
+	checkModule(?Module,'Cannot attach database to module'),
+	fllibpm_connect(?DSN,?DB,?User,?Password,?Module)@\plg(flrpm),
+        // rules are always loaded from DB.
+        fllibpm_dbrules_to_memory(?Module)@\plg(flrpm).
+
+
+// create a new DB and attach Module to it
+?Module[attachNew(?DSN,?DB,?User,?Password)] :-
+        (isatom{?DSN} -->>
+          fllibpm_create_db(?DSN,?DB,?User,?Password)@\plg(flrpm)
+        ; ?DSN = ?DSN1+?DSN2, isatom{?DSN1}, isatom{?DSN2} -->>
+          fllibpm_create_db(?DSN1,?DB,?User,?Password)@\plg(flrpm)
+        ; 
+          flora_abort([?DSN, ': invalid DSN expression in attachNew'],FLORA_ABORT_NOTRACE)@\plg(flrporting)
+        ),
+	fllibpm_connect(?DSN,?DB,?User,?Password,?Module)@\plg(flrpm).
+
+?Module[detach] :-
+	checkModule(?Module,'Cannot dettach database from module'),
+	fllibpm_disconnect(?Module)@\plg(flrpm).
+
+?Module[loadDB] :-
+	checkModule(?Module,'Cannot load database facts for module'),
+	fllibpm_dbfacts_to_memory(?Module)@\plg(flrpm),
+        fllibpm_dbrules_to_memory(?Module)@\plg(flrpm).
+
+
+checkModule(?Module,?ErrMsg) :-
+	(\+ isatom{?Module} ; ?Module = []),
+	flora_abort([?ErrMsg, ': invalid module name ', ?Module],FLORA_ABORT_NOTRACE)@\plg(flrporting).
+checkModule(?Module,?ErrMsg) :-
+	\+ \isloaded(?Module)@\prolog(flora2),
+	flora_abort([?ErrMsg, ': module ', ?Module, ' is not loaded'],FLORA_ABORT_NOTRACE)@\plg(flrporting).
+
+checkModule(?_Module,?_ErrMsg) :- \true.
+
+set_field_type(?Type) :- set_custom_field_type(?Type)@\prolog(flrpm).

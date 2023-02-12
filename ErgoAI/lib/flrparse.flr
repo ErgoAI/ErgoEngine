@@ -1,0 +1,121 @@
+/* File:      flrparse.flr
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options{production=on}.
+
+:- nontabled_module.
+:- suppress_rule_signatures.
+
+:- symbol_context{readAll/?, read/?}.
+
+:- export{
+           read(?,?),
+           read(?)(?,?),
+           ?[read(?,?)],
+           ?[read(?)(?,?)],
+           readAll(?,?),
+           readAll(?)(?,?),
+           ?[readAll(?,?)],
+           ?[readAll(?)(?,?)],
+           ?[readAll(?)],
+           ?[readAll(?)(?)]
+         }.
+/*
+    Reads a term from standard input, parses, compiles, and builds it.
+    Term can also be a reification.
+    Molecules or rules not allowed unless reified.
+    Reads only one term and always succeeds.
+
+    Code: the code of the term read. 
+          If the thing read is not a term then Code is left unbound
+    Status: [OutcomeFlag, EOF_flag|ErrorList]
+            OutcomeFlag = null/or/error
+	       null  - a blank line was read, no code generated 
+	              (Code will remain unbound)
+	       ok    - good code was generated, no errors
+	       error - parsing/compilation errors
+	    EOF_flag = eof/not_eof
+               not_eof -  end-of-file has not been reached
+	       eof     -  if it has been reached. 
+            ErrorList - if OutcomeFlag=null/ok, then this list would be empty.
+                        if OutcomeFlag=error, then this would be a list of the
+			form [error(N1,N2,Message), ...]
+			N1, N2 encode the line and character number, which is
+			largely irrelevant in this context. Message is an error
+			message that explains the problem. Error messages are 
+			also printed to stderr.
+*/
+read(?Code,?Stat) :-
+	flora_read_parse_compile_build_term_errwarn(?Code,?_Mod,?Stat,?_NoPrint)@\prolog(flrutils).
+read(?Mod)(?Code,?Stat) :-
+	flora_read_parse_compile_build_term_errwarn(?Code,?Mod,?Stat,?_NoPrint)@\prolog(flrutils).
+
+?Stream[read(?Code,?Stat)] :- ?Stream[read(?_Mod)(?Code,?Stat)].
+?Stream[read(?Mod)(?Code,?Stat)] :-
+        (seeing(?OldStream),
+          see(?Stream)
+        )@\io,
+        (read(?Mod)(?Code,?Stat) -->> see(?OldStream)@\io
+         ; see(?OldStream)@\io, ?Code = null, ?Stat = [null,eof]
+        ).
+
+/*
+   Used for reading terms one-by-one and returning answers interactively. 
+   Under one-at-a-time solution (\one), will wait for input, return parsed code,
+   then wait for input again, if the user types ";". If the user types
+   RET then succeeds and exits.
+   Under all-solutions semantics (\all), will wait for inputs and process them,
+   but will not return answers unless the file is closed (e.g., Ctl-D at
+   standard input).
+*/
+readAll(?Code,?Stat) :-
+	flora_read_parse_compile_build_loop(?Code,?,?Stat)@\prolog(flrutils).
+readAll(?Mod)(?Code,?Stat) :-
+	flora_read_parse_compile_build_loop(?Code,?Mod,?Stat)@\prolog(flrutils).
+
+// like readAll(?Code,?Stat) but uses ?Stream as input stream.
+?Stream[readAll(?Code,?Stat)] :-
+	flora_read_parse_compile_build_loop(?Stream,?Code,?,?Stat)@\prolog(flrutils).
+?Stream[readAll(?Mod)(?Code,?Stat)] :-
+	flora_read_parse_compile_build_loop(?Stream,?Code,?Mod,?Stat)@\prolog(flrutils).
+
+/*
+   Collects all answers from the source (string(Str) or file(FileName)
+   and returns them in a list, CodeList, of the form code(TermCode,Status).
+   TermCode is the compiled code of a term in ?Source, and ?Status is the
+   status of the compilation for this term.
+*/
+?Source[readAll(?CodeList)] :- ?Source[readAll(?)(?CodeList)].
+
+?Source[readAll(?Mod)(?CodeList)] :-
+	?Source = string(?Str),
+	!,
+	?PlgSrc = atom(?Str)@\prolog,
+	flora_read_parse_compile_build_term_list(?PlgSrc,?CodeList,?Mod)@\prolog(flrutils),
+	!.
+?Source[readAll(?Mod)(?CodeList)] :-
+	p2h{?PlgSrc,?Source},
+	flora_read_parse_compile_build_term_list(?PlgSrc,?CodeList,?Mod)@\prolog(flrutils),
+	!.

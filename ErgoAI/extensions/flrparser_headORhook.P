@@ -1,0 +1,177 @@
+/* File:      extensions/flrparser_headORhook.P  -- the Ergo head parser hook
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2013-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+
+
+/*
+%% We convert both A<==B and B==>A into B==>A
+flnegimply_struct(FL_LEFTNEGIMPLY,LCodeList,RCodeList,FLNEGIMPLY(RCodeList,LCodeList)).
+flnegimply_struct(FL_RIGHTNEGIMPLY,LCodeList,RCodeList,FLNEGIMPLY(LCodeList,RCodeList)).
+flnegimply_struct(FL_NEGIFF,LCodeList,RCodeList,Code) :-
+	flnegimply_struct(FL_LEFTNEGIMPLY,LCodeList,RCodeList,Code1),
+	flnegimply_struct(FL_RIGHTNEGIMPLY,LCodeList,RCodeList,Code2),
+	flconjunct_struct(Code1,Code2,Code).
+*/
+
+%% disjunct in the head
+parse_head(CANOTERM(Funct,2,FL_PARENTHESIS,[L,R],_IdxFun,_Ip),[Code],Status) :-
+	get_atom(Funct,FL_OR_CONNECTIVE),
+	!,
+	parse_head(L,LCodeList,S),
+	(S == NO_ERRORS ->
+	    parse_list2flconjunct(LCodeList,LCodeConj),
+	    parse_head(R,RCodeList,Status),
+	    (Status == NO_ERRORS ->
+		parse_list2flconjunct(RCodeList,RCodeConj),
+		fldisjunct_struct(LCodeConj,RCodeConj,Code)
+	    ; true
+	    )
+	;
+	    Status = S
+	).
+
+%% ==>, <==, <==> in rule head
+parse_head(CANOTERM(Funct,2,FL_PARENTHESIS,[If,Then],_IdxFun,_Ip),[Code],Status) :-
+	get_atom(Funct,FL_RIGHTNEGIMPLY),
+	!,
+	head_rightNEG_implication(If,Then,Code,Status).
+
+parse_head(CANOTERM(Funct,2,FL_PARENTHESIS,[Then,If],_IdxFun,_Ip),[Code],Status) :-
+	get_atom(Funct,FL_LEFTNEGIMPLY),
+	!,
+	head_rightNEG_implication(If,Then,Code,Status).
+
+%% TODO: REWRITE to avoid double parsing of both Left and Right
+parse_head(CANOTERM(Funct,2,FL_PARENTHESIS,[Left,Right],IdxFun,_Ip),[Code1,Code2],Status) :-
+	get_atom(Funct,FL_NEGIFF),
+	!,
+	((has_compiler_persistentoption(FL_EXPERT)
+	 ; has_context(CONTEXT_PARSER_NL_TEMPLATES)
+	 ; has_context(CONTEXT_PARSER_USING_NL_TEMPLATE)
+	 )
+	->
+	    head_rightNEG_implication(Left,Right,Code1,S1),
+	    (S1 == NO_ERRORS ->
+		head_rightNEG_implication(Right,Left,Code2,Status)
+	    ;
+		Status = S1
+	    )
+	;  parsing_error(IdxFun,ERROR_EXPERT_SYNTAX,Status)
+	).
+
+head_rightNEG_implication(If,Then,Code,Status) :-
+	parse_head(If,IfCodeList,S),
+	( S == NO_ERRORS ->
+	    parse_head(Then,ThenCodeList,Status),
+	    ( Status == NO_ERRORS ->
+		parse_list2flconjunct(IfCodeList,IfCode),
+		parse_list2flconjunct(ThenCodeList,ThenCode),
+		get_index(If,Idx),
+		propagate_neg(IfCode,Idx,NegIfCode,_),
+		fldisjunct_struct(NegIfCode,ThenCode,Code)
+	    ;
+		true
+	    )
+	;
+	    Status = S
+	).
+
+parse_dbliteral(Mode,CANOTERM(Funct,2,FL_PARENTHESIS,[If,Then],_IdxFun,_Ip),DWS,[Code],Status) :-
+	get_atom(Funct,FL_RIGHTNEGIMPLY),
+	!,
+	db_rightNEG_implication(If,Then,Mode,DWS,Code,Status).
+
+parse_dbliteral(Mode,CANOTERM(Funct,2,FL_PARENTHESIS,[Then,If],_IdxFun,_Ip),DWS,[Code],Status) :-
+	get_atom(Funct,FL_LEFTNEGIMPLY),
+	!,
+	db_rightNEG_implication(If,Then,Mode,DWS,Code,Status).
+
+parse_dbliteral(Mode,CANOTERM(Funct,2,FL_PARENTHESIS,[Left,Right],IdxFun,_Ip),DWS,[Code1,Code2],Status) :-
+	get_atom(Funct,FL_NEGIFF),
+	!,
+	((has_compiler_persistentoption(FL_EXPERT)
+	 ; has_context(CONTEXT_PARSER_NL_TEMPLATES)
+	 ; has_context(CONTEXT_PARSER_USING_NL_TEMPLATE)
+	 )
+	->
+	    db_rightNEG_implication(Left,Right,Mode,DWS,Code1,S1),
+	    (S1 == NO_ERRORS ->
+		db_rightNEG_implication(Right,Left,Mode,DWS,Code2,Status)
+	    ;
+		Status = S1
+	    )
+	; parsing_error(IdxFun,ERROR_EXPERT_SYNTAX,Status)
+	).
+
+db_rightNEG_implication(If,Then,Mode,DWS,Code,Status) :-
+	parse_dbliteral(Mode,If,DWS,IfCode,S),
+	parse_list2flconjunct(IfCode,IfCodeConj),
+	get_index(If,Idx),
+	propagate_neg(IfCodeConj,Idx,NegIfCode,_),
+	(S == NO_ERRORS ->
+	    parse_dbliteral(Mode,Then,DWS,ThenCode,Status),
+	    parse_list2flconjunct(ThenCode,ThenCodeConj),
+	    fldisjunct_struct(NegIfCode,ThenCodeConj,Code)
+	; Status = S
+	).
+
+
+%% For heads of dynamic rules in insertrule.
+parse_dynhead(CANOTERM(Funct,2,FL_PARENTHESIS,[If,Then],_IdxFun,_Ip),DWS,[Code],Status) :-
+	get_atom(Funct,FL_RIGHTNEGIMPLY),
+	!,
+	dynhead_rightNEG_implication(If,Then,DWS,Code,Status).
+
+parse_dynhead(CANOTERM(Funct,2,FL_PARENTHESIS,[Then,If],_IdxFun,_Ip),DWS,[Code],Status) :-
+	get_atom(Funct,FL_LEFTNEGIMPLY),
+	!,
+	dynhead_rightNEG_implication(If,Then,DWS,Code,Status).
+
+parse_dynhead(CANOTERM(Funct,2,FL_PARENTHESIS,[Left,Right],IdxFun,_Ip),DWS,[Code1,Code2],Status) :-
+	get_atom(Funct,FL_NEGIFF),
+	!,
+	((has_compiler_persistentoption(FL_EXPERT)
+	 ; has_context(CONTEXT_PARSER_NL_TEMPLATES)
+	 ; has_context(CONTEXT_PARSER_USING_NL_TEMPLATE)
+	 )
+	->
+	    dynhead_rightNEG_implication(Left,Right,DWS,Code1,S1),
+	    (S1 == NO_ERRORS ->
+		dynhead_rightNEG_implication(Right,Left,DWS,Code2,Status)
+	    ;
+		Status = S1
+	    )
+	;  parsing_error(IdxFun,ERROR_EXPERT_SYNTAX,Status)
+	).
+
+dynhead_rightNEG_implication(If,Then,DWS,Code,Status) :-
+	parse_dynhead(If,DWS,IfCodeList,S),
+	parse_list2flconjunct(IfCodeList,IfCodeConj),
+	get_index(If,Idx),
+	propagate_neg(IfCodeConj,Idx,NegIfCode,_),
+	( S == NO_ERRORS ->
+	    parse_dynhead(Then,DWS,ThenCodeList,Status),
+	    parse_list2flconjunct(ThenCodeList,ThenCodeConj),
+	    fldisjunct_struct(NegIfCode,ThenCodeConj,Code)
+	; Status = S
+	).
+

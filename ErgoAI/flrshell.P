@@ -1,0 +1,501 @@
+/* File:      flrshell.P  -- The Flora interactive shell
+**
+** Author(s): Guizhen Yang
+**            Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2020;
+**      Coherent Knowledge Systems, LLC, 2014-2020.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "extensions_xsb.h"
+
+#include "flora_exceptions.flh"
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "flora_extensions.flh"
+#include "flora_status_codes.flh"
+
+
+/*********************************************************************/
+flora_shell_loop :-
+	flora_init_shell,
+	flora_subshell_loop.
+
+flora_subshell_loop :-
+	repeat,
+	catch(flora_shell_loop_body,
+	      Exception,
+	      flora_shell_loop_handler(Exception)).
+
+flora_shell_loop_body :-
+	(flora_banner_control(noprompt) -> true ; flora_shell_prompt),
+	flora_process_shell_command(Status),
+	flora_loop_guard(Status).
+
+flora_embedded_shell_loop :-
+	flora_init_embedded_shell,
+	repeat,
+	catch(flora_embedded_shell_loop_body,
+	      Exception,
+	      flora_shell_loop_handler(Exception)).
+
+flora_embedded_shell_loop_body :-
+	%%flora_set_counter(FL_QUERY_PREDICATE0,0),
+	%%retractall(FL_QUERY_PREDICATE0(_)),
+	flora_process_shell_command(Status),
+	flora_embedded_loop_guard(Status).
+
+flora_process_shell_command(Status) :-
+	flora_shell_command_line(Code,Options,Status),
+	( flora_good_command(Status) ->
+	    findall(SysLibOp,member(FLSYSLIB(SysLibOp),Options),SysLibList),
+	    flora_load_library(SysLibList),
+	    findall(SysModOp,member(FLSYSMOD(SysModOp),Options),SysModList),
+	    flora_load_system_module(SysModList),
+            flrutils:check_if_studio_probe(Code),
+            flora_status_msg(run),
+	    %% The code is usually fllibshellans(Query).
+	    %% fllibshellans usually calls flora_print_all/2 and
+	    %% flora_print_one/2 in flranswer.P, which
+	    %% always fail (to release the XSB stack). So, we need to
+	    %% provide the ; true alternative below
+            %%DBGOUTLN(Code),
+	    (call(Code)
+	    ; true
+	    )
+	;
+	  true
+        ).
+
+
+?- assert((
+    flora_query_permitted_during_pause :-
+            flora_get_break_level(BL),
+            (BL == 0 -> true
+            ; throw(FLORA_BAD_QUERY_IN_BREAK)
+            )
+          )).
+
+
+/*********************************************************************/
+flora_init_shell :-
+	consult(flrundefhook),
+	consult(flrutils),
+	flora_load_library(FLLIBSHELLANS),
+	flora_load_library(FLLIBLOAD),
+	flora_load_library(FLLIBDISPLAY),
+	flora_load_library(FLLIBIMPORTEDCALLS),
+	flora_load_library(FLLIBUNIFYHANDLERS),
+	flora_get_counter(flora_rc_file_loaded,LoadFlag),
+	(LoadFlag == 1 -> true
+	; flloadtrailer([FL_EQUALITY(NONE)],FLORA_DEFAULT_WORKSPACE)
+	),
+	(flora_banner_control(nobanner) -> true ; flora_welcome_msg),
+	'\\all',
+	flora_chatter_control(on),
+	flora_set_counter(flora_shell_loaded,1),
+	flora_set_counter(flora_shell_first_loop,1),
+	flora_clear_runtime_uriprefixes,  %% just a precaution
+	flora_reset_oid_related_counters,
+	!.
+
+flora_init_embedded_shell :-
+	flloadtrailer([FL_EQUALITY(NONE)],FLORA_DEFAULT_WORKSPACE),
+	'\\all',
+	flora_chatter_control(off).
+
+/*********************************************************************/
+:- import
+	flora_message_line_noheader/2,
+	flora_message_line_noheader/1
+   from flrprint.
+
+flora_welcome_msg :-
+	flora_configuration(version,V),
+	flora_configuration(build,B),
+	flora_configuration(releasedate,D),
+	flora_configuration(name,N),
+	xsb_configuration(host_os,OS),
+	xsb_configuration(word_size,OSbits),
+	flora_message_line_noheader('~nErgoAI Reasoner ~w (~w) of ~w (~w x~w; rev: ~w)',[V,N,D,OS,OSbits,B]),
+	%%xsb_configuration(version,XSBversion),
+	%%xsb_configuration(codename,XSBname),
+	%%xsb_configuration(release_date,date(Yr,Mo,Day)),
+	%%flora_stdmsg_string('XSB Version ~w (~w) of ~w (~w, x~w)~n',[XSBversion,XSBname,Build,OS,OSbits]),
+	flora_stdmsg_nl,
+        flora_stdmsg_line('For basic commands:  type  \\help.  then <Enter>'),
+	flora_stdmsg_line('Documentation:       http://coherentknowledge.com/ergo-documentation/'),
+	flora_stdmsg_nl,
+        path_sysop(cwd,CWD),
+        flora_stdmsg_line('Current folder:      ~w',[CWD]),
+	flora_stdmsg_nl,
+        (OSbits == '32' ->
+            flora_error_line('this is a 32 bit version of Ergo, which is no longer supported'),
+            flora_stderr_nl,
+            halt
+        ; true
+	).
+
+
+:- import set_omniform_mode/1 from flrcompiler.
+%% Set FL_OMNIFORM: mode in which omnis are allowed
+'\\omni'(Switch) :- 
+        Switch \= on,
+        Switch \= off,
+	!,
+	flora_stderr_nl,
+	flora_error_line('invalid omniform option: valid options are on/off'), 
+	flora_stderr_nl,
+	fail.
+'\\omni'(Switch) :- set_omniform_mode(Switch).
+
+
+/*********************************************************************/
+%% On the first loop Flora gets []-list of tokens and returns no code
+%% with the noop status. This causes an extra prompt to be output.
+%% The flora_shell_first_loop trick eliminates this extra prompt.
+flora_shell_prompt :-
+	(flora_configuration(uimode,studio) ->
+            set_ergo_studio_state(idle)
+        ; true
+        ),
+        flora_shell_prompt_aux.
+flora_shell_prompt_aux :-
+        reset_lexer_waits_for_input,
+	flora_get_counter(flora_shell_first_loop,1),
+	!,
+	flora_stdfdbk_string('~n'),
+	flora_set_counter(flora_shell_first_loop,0).
+flora_shell_prompt_aux :-
+	flora_get_counter(flora_prompt_control,C), C > 0,
+	!,
+	flora_increment_counter(flora_prompt_control,-1,_,_).
+flora_shell_prompt_aux :-
+	flora_prompt_string(FLRPROMPT).
+
+
+/*********************************************************************/
+%% Check for end of input
+flora_loop_guard(Status) :-
+	( flora_end_of_input(Status) ->
+	    %% don't exit if EOF came from the -e option or the
+	    %% "unexpected end of file"
+	    ((pop_stdin(cmd_line_argument) ; memberchk(FLORA_FAILURE,Status)) ->
+		%% end of input from -e option string to XSB
+		(flora_banner_control(nofeedback) -> true
+		; flora_stdfdbk_string('~n')
+		),
+		throw(FLORA_CMD_LINE_ARGUMENT_DONE)
+	    ;
+	      flora_end_internal
+	    )
+	;
+	    %% We have to throw -- can't fail -- because we don't want
+	    %% backtracking over the executed goals. Instead, we want
+	    %% to return to FLORA's top level
+	    throw(FLORA_TOP_LEVEL)
+	).
+
+flora_embedded_loop_guard(Status) :-
+	( flora_end_of_input(Status) -> throw(END_OF_FLORA_SHELL)
+	;
+	    throw(FLORA_TOP_LEVEL)
+	).
+
+/*********************************************************************/
+#mode save
+#mode nostring "\!#'"
+'\\help' :-
+	flora_stdmsg_line('\n'),
+	flora_stdmsg_line('FLSYSTEM_UNQ shell commands:\n'),
+	flora_stdmsg_line('o \\help'),
+	flora_stdmsg_line('    show this info'),
+	flora_stdmsg_line('o compile{FILE}'),
+	flora_stdmsg_line('    compile FILE.FLORA_FILE_PREFERRED_EXT for module `main'''),
+	flora_stdmsg_line('o compile{FILE>>Module}'),
+	flora_stdmsg_line('    compile FILE.FLORA_FILE_PREFERRED_EXT for Module'),
+	flora_stdmsg_line('o compileadd{FILE}'),
+	flora_stdmsg_line('    compile FILE.FLORA_FILE_PREFERRED_EXT for adding to module `main'''),
+	flora_stdmsg_line('o compileadd{FILE>>Module}'),
+	flora_stdmsg_line('    compile FILE.FLORA_FILE_PREFERRED_EXT for adding to Module'),
+	flora_stdmsg_line('o load{FILE>>Module}  OR  [FILE >> Module,...]'),
+	flora_stdmsg_line('    load FILE.FLORA_FILE_PREFERRED_EXT into Module'),
+	flora_stdmsg_string('    specifying FILE.~w or FILE.~w loads these files;',
+			    [PROLOG_PFILE_EXT,PROLOG_OBJFILE_EXT]),
+	flora_stdmsg_nl,
+	flora_stdmsg_line('    the [...] version can load a list of files'),
+	flora_stdmsg_line('o load{FILE}  OR  [FILE,...]'),
+	flora_stdmsg_line('    load FILE.FLORA_FILE_PREFERRED_EXT into module `main'''),	
+	flora_stdmsg_line('    again, [...] can load a list of files'),
+	flora_stdmsg_line('o save{Module>>FILE}'),
+	flora_stdmsg_line('    save Module into FILE.FLORA_FILE_PREFERRED_EXT'),
+	flora_stdmsg_line('    if FILE exsits it will be replaced otherwise new FILE will be created;'),
+	flora_stdmsg_line('o save{FILE}'),
+	flora_stdmsg_line('    save `main'' into FILE.FLORA_FILE_PREFERRED_EXT'),	
+	flora_stdmsg_line('o add{FILE>>Module}  OR  [+FILE >> Module,...]'),
+	flora_stdmsg_line('    add FILE.FLORA_FILE_PREFERRED_EXT to Module'),
+	flora_stdmsg_line('    the [...] version can add a list of files'),
+	flora_stdmsg_line('o add{FILE}  OR  [+FILE,...]'),
+	flora_stdmsg_line('    add FILE.FLORA_FILE_PREFERRED_EXT to module `main'''),
+	flora_stdmsg_line('    one can mix adding and loading: [+FILE1>>Module1, FILE2]'),
+	flora_stdmsg_line('o demo{FILE}'),
+	flora_stdmsg_line('    run a demo from FLSYSTEM_UNQ demos directory'),
+	flora_stdmsg_line('o setmonitor{Secs,Type}'),
+	flora_stdmsg_line('    monitor execution every Secs seconds; Type: heartbeat/performance/extended'),
+	flora_stdmsg_line('o \\all'),
+	flora_stdmsg_line('    show all solutions (default)'),
+	flora_stdmsg_line('o \\one'),
+	flora_stdmsg_line('    show solutions one-by-one'),
+	flora_stdmsg_line('o \\trace and \\notrace'),
+	flora_stdmsg_line('    turn on/off FLSYSTEM_UNQ trace'),
+	flora_stdmsg_line('o chatter{on} and chatter{off}'),
+	flora_stdmsg_line('    Turn on/off display of the number of solutions when query finishes'),
+	flora_stdmsg_line('o setwarnings{TYPE}'),
+	flora_stdmsg_line('    control warnings: all/off - enable/disable all warnings'),
+	flora_stdmsg_line('                      compiler=on/off: set compiler warnings on/off'),
+	flora_stdmsg_line('                      dependency=on/off: set dependency warnings on/off'),
+	flora_stdmsg_line('                      runtime=on/off: set runtime warnings on/off'),
+	flora_stdmsg_line('o warnings{?Type}'),
+	flora_stdmsg_line('    show the warning control options that are currently in effect'),
+	flora_stdmsg_line('o \\end'),
+	flora_stdmsg_line('    say Ciao to FLSYSTEM_UNQ, but stay in Prolog'),
+	flora_stdmsg_line('o \\halt'),
+	flora_stdmsg_line('    quit both FLSYSTEM_UNQ and Prolog').
+#mode restore
+
+
+/*********************************************************************/
+flora_reset(X) :-
+	var(X),
+	!,
+	flora_error_line('invalid argument to flora_reset'),
+	fail.
+
+flora_reset(FL_OP) :- !, flora_shreset_operator.
+
+flora_reset(_) :-
+	flora_error_line('invalid argument to flora_reset'),
+	!,
+	fail.
+
+/*********************************************************************/
+'\\all' :- flora_set_switch(all).
+
+'\\one' :- flora_clear_switch(all).
+
+
+/*********************************************************************/
+'\\end' :-
+	flora_configuration(uimode,studio),
+	flora_get_break_level(0),
+	!,
+	flora_stdwarn_nl,
+	flora_warning_line('\\end at the top pause-level is ignored in the studio mode~n').
+'\\end' :- flora_end_internal.
+
+'\\toplevel' :- throw(FLORA_ABORT_PARENT).
+'\\resume' :-
+    	( flora_get_break_level(0) ->
+	    flora_stdmsg_nl,
+	    throw(FLORA_TOP_LEVEL)
+	;
+            flora_stdmsg_nl,
+	    flora_message_line('resuming the paused operation'),
+            flora_stdmsg_nl,
+	    throw(END_OF_FLORA_SHELL)
+	).
+
+flora_end_internal :-
+	flora_call_hooks(_Module,EXITFLORA,_Param,before,_ResultFromHooks,_AroundHookLink),
+	(flora_protected_break_level,
+	    flora_get_break_level(0) ->
+            unstrap_flora, %% should NOT unstrap before that
+            throw(FLORA_TOP_LEVEL)
+	;
+            (flora_configuration(uimode,[ergo2java,_]),
+                flora_get_break_level(0)
+            ->
+                catch((interprolog:kill_java ; true),_,true)
+            ; true
+            ),
+            (flora_get_break_level(0) ->
+                catch(flrterminyzer:cleanup_terminyzer,_,true)
+            ; true
+            ),
+            unstrap_flora,
+            throw(END_OF_FLORA_SHELL)
+	).
+
+'\\halt' :-
+	flora_configuration(uimode,studio),
+	!,
+	flora_stdwarn_nl,
+	flora_warning_line('\\halt is ignored in Ergo Studio~n').
+'\\halt' :-
+        catch(flrterminyzer:cleanup_terminyzer,_,true),
+	flora_configuration(uimode,[ergo2java,_]),
+	!,
+	catch((interprolog:kill_java ; true),_,true),
+	realhalt.
+'\\halt' :-
+        realhalt.
+
+realhalt :-
+        call_xsb_hook(xsb_exit_hook(_),all),
+        halt.
+
+
+/*********************************************************************/
+%% Enable Flora high-level debugging
+'\\trace' :- flora_trace.
+'\\notrace' :- flora_notrace.
+
+%% Dumps profile into File
+'\\trace'(File)     :- flora_trace(File).
+%% Dumps trace in Flora queriable form
+'\\trace'(File,log) :- flora_trace(File,log).
+
+%% Enable ctrace for tabled predicates
+%% Dumps ctrace into output stream or File 
+'\\logforestlow' :- flora_logforestlow_start.
+'\\logforestlow'(FileOrList) :- flora_logforestlow_start(FileOrList).
+'\\logforestlow'(File,List) :- flora_logforestlow_start(File,List).
+%% Dumps ctrace into ouput stream or File in Flora queriable form
+'\\logforest' :- flora_logforest_start.
+'\\logforest'(FileOrList) :- flora_logforest_start(FileOrList).
+'\\logforest'(File,List) :- flora_logforest_start(File,List).
+'\\nologforest' :- flora_logforest_end.
+
+%% Enables low-level Prolog debugging
+'\\tracelow' :- flora_tracelow.
+'\\tracelow'(File) :- flora_tracelow(File).
+%% Dumps trace in Prolog queriable form
+'\\tracelow'(File,log) :- flora_tracelow(File,log).
+'\\traceverylow' :- flora_traceverylow.
+'\\traceverylow'(File) :- flora_traceverylow(File).
+%% Dumps trace in Prolog queriable form
+'\\traceverylow'(File,log) :- flora_traceverylow(File,log).
+
+
+/*********************************************************************/
+'\\demo'(FileSpec) :-
+        (FileSpec = (+OrigFile >> Mod) -> Add = true, ToMod = true
+        ; FileSpec = +(OrigFile) -> Add = true, ToMod = fail
+        ; FileSpec = (OrigFile >> Mod) -> ToMod = true, Add = fail
+        ; File = FileSpec, Add = fail, ToMod = fail
+        ),
+	flora_check_filename(OrigFile,File),
+	flora_configuration(installdir,FloraDir),
+	flora_slash(Slash),
+	%% Add the demo directory to the module search path
+	flora_concat_atoms([FloraDir,Slash,'demos'],DemoDir),
+	flora_concat_atoms([DemoDir,Slash,FLORA_HIDDEN_DIR],DemoDirLib),
+	( flora_module_path_get(DemoDirLib) -> true
+	; flora_module_path_add(DemoDirLib)
+	),
+	cwd(CurrWorkingDir),
+	cd(DemoDir),
+        %% use FL_LOAD instead
+	%%flora_load_module_util(File,FL_SHELL_FICTITIOUS_FILENAME),
+        (Add,ToMod -> FL_ADD(File>>Mod)
+        ; Add -> FL_ADD(File)
+        ; ToMod -> FL_LOAD(File>>Mod)
+        ; FL_LOAD(File)
+        ),
+	cd(CurrWorkingDir),
+	flora_module_path_removeall(DemoDir).
+/*********************************************************************/
+
+
+%% For debugging: check the real tabling regime in each module
+'\\tabling' :-
+	flora_stdmsg_line('Tabling regimes in various loaded modules:'),
+	(flrregistry:flora_trailer_registry(Mod,FL_TABLING(Meth)),
+	    flrregistry:flora_user_module_registry(Mod),
+	    flora_stdmsg_line('    Module ~w: ~w',[Mod,Meth]),
+	    flrwrapper:flora_module_predicate(WRAP_SUB,[_,_,_],Mod,SubPred),
+	    flrwrapper:flora_module_predicate(WRAP_IMVD,[_,_,_,_],Mod,MvdPred),
+	    flrwrapper:flora_module_predicate(WRAP_IMVDSIG,[_,_,_,_],Mod,MvdSigPred),
+	    flrwrapper:flora_module_predicate(WRAP_TABLED_HILOG,[_,_],Mod,Hilog2Pred),
+	    flrwrapper:flora_module_predicate(WRAP_TABLED_HILOG,[_,_,_],Mod,Hilog3Pred),
+	    flrwrapper:flora_module_predicate(WRAP_DIFFOBJEQL,[_,_,_],Mod,ObjeqlPred),
+	    (SubPred -> true ; true),
+	    tables:get_calls(SubPred,SubHandle,_),
+	    tables:table_state(SubHandle,TablingSub,_,_),
+	    flora_stdmsg_line('    ~w: ~w',[SubPred,TablingSub]),
+
+	    (MvdPred -> true ; true),
+	    tables:get_calls(MvdPred,MvdHandle,_),
+	    tables:table_state(MvdHandle,TablingMvd,_,_),
+	    flora_stdmsg_line('    ~w: ~w',[MvdPred,TablingMvd]),
+
+	    (MvdSigPred -> true ; true),
+	    tables:get_calls(MvdSigPred,MvdSigHandle,_),
+	    tables:table_state(MvdSigHandle,TablingMvdSig,_,_),
+	    flora_stdmsg_line('    ~w: ~w',[MvdSigPred,TablingMvdSig]),
+
+	    (Hilog2Pred -> true ; true),
+	    tables:get_calls(Hilog2Pred,Handle2,_),
+	    tables:table_state(Handle2,Tabling2,_,_),
+	    flora_stdmsg_line('    ~w: ~w',[Hilog2Pred,Tabling2]),
+
+	    (Hilog3Pred -> true ; true),
+	    tables:get_calls(Hilog3Pred,Handle3,_),
+	    tables:table_state(Handle3,Tabling3,_,_),
+	    flora_stdmsg_line('    ~w: ~w',[Hilog3Pred,Tabling3]),
+
+	    (ObjeqlPred -> true ; true),
+	    tables:get_calls(ObjeqlPred,HandleEql,_),
+	    tables:table_state(HandleEql,TablingEql,_,_),
+	    flora_stdmsg_line('    ~w: ~w',[ObjeqlPred,TablingEql]),
+
+	    fail
+	;
+	    flora_abolish_nonincremental_tables
+	).
+
+%% Set FL_PRODUCTION: no tracing info is preserved
+'\\production'(Switch) :- 
+        Switch \= on,
+        Switch \= off,
+	!,
+	flora_stderr_nl,
+	flora_error_line('invalid production mode: valid options are on/off'), 
+	flora_stderr_nl,
+	fail.
+'\\production'(Switch) :- set_production_mode(Switch).
+
+%% Set FL_EXPERT: mode in which the syntax "..." is allowed
+'\\expert'(Switch) :- 
+        Switch \= on,
+        Switch \= off,
+	!,
+	flora_stderr_nl,
+	flora_error_line('invalid expert mode: valid options are on/off'), 
+	flora_stderr_nl,
+	fail.
+'\\expert'(Switch) :- set_expert_mode(Switch).
+

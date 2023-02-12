@@ -1,0 +1,522 @@
+\chapter[Importing Tabular Data (DSV, TSV, etc.)]
+{Importing Tabular Data (.csv, .tsv, etc., files)\\
+  {\Large by Michael Kifer}}
+
+
+This chapter describes the \ERGO API for importing tabular data from
+\emph{delimiter separated values} files (DSV).  
+
+A DSV file consists of rows of values that are separated by a \emph{separator}.
+This is the standard format for exporting tabular data from spreadsheets
+and other formats. Usually the separator is either a comma or a tab, but
+could be another character or a sequence of characters.
+If a field contains spaces, commas, or some other spacial characters,
+the field is enclosed in \emph{delimiters}. The default is a double quote,
+e.g., \texttt{"a,b| c"}, but can be changed.   
+
+\section{API for Loading and Saving Tabular Data}
+
+First, the DSV package (\texttt{e2dsv}) must be loaded into an \ERGO
+module, say \texttt{dsv}.
+One can choose a different name, say
+\texttt{mydata}, but then \texttt{@dsv} in the examples below would need to
+be changed to \texttt{@mydata}.
+%% 
+\begin{verbatim}
+   ?- [e2dsv>>dsv].     // load the e2dsv package
+\end{verbatim}
+%% 
+After that, the following predicates become available in the module
+\texttt{dsv}:
+%% 
+\begin{itemize} \label{pg-dsvload}
+\item  \texttt{dsv\_load}(\emph{?Infile,?Spec,?Format})\texttt{@dsv}: 
+  The rows of the DSV file, say \texttt{'example.csv'}, will be loaded into
+  the predicate specified by \emph{?Spec}. The form of this specification
+  is described below.
+  \emph{?Format} indicates the format of the input file: \texttt{csv},
+  \texttt{tsv}, \texttt{psv}, or something else, as described below.
+\item
+  \texttt{dsv\_save}(\emph{?Infile,?Spec,?OutFile,?Format})\texttt{@dsv}:
+  The rows from the CVS \emph{Infile} are converted into the \ERGO format
+  (according to \emph{Spec}, which is the same as in \texttt{dsv\_load})  
+  and then saved in \emph{OutFile}. 
+  \emph{?Format} is the same as in \texttt{dsv\_load} --- see below. 
+\end{itemize}
+%% 
+  In the above, \emph{?Infile} is either an atom representing a local file name 
+  or has the form \texttt{url}(\emph{WebDocAddress}), where
+  \emph{WebDocAddress} must be an atom (e.g.,
+  \texttt{url('http:foo.com/bar')}).
+  The Web page should \emph{not} be protected by passwords or SSL.
+  Also, CSV/DSV files produced in the \underline{\emph{old}} 
+  format of Mac Classic
+  are \underline{not} supported.  
+
+  The import specification, \emph{?Spec}, in the above calls can have
+  several forms:
+%% 
+\begin{itemize}
+\item  \emph{predname/arity}: The rows are imported and the predicate
+  \emph{predname/arity} is populated with them. The \emph{arity} piece must
+  equal the number of columns in the typical row of the DSV file.
+  If the DSV file has longer lines, the extra columns will be ignored and
+  warnings will be issued.
+  If the file has shorter lines than the arity, 
+  the extra arguments in \emph{predname} will be padded with
+  null values \texttt{\bs@?}.
+  All values are imported as general \ERGO constant symbols (Prolog atoms).
+\item  \emph{predname}(\emph{ArgSpec1}, ..., \emph{ArgSpecN}):   
+  In this form, the user can indicate how the values in the DSV file should
+  be converted. The previous form of \emph{Spec} was importing everything
+  as Prolog atoms, but if the items in the imported spreadsheet
+  are numbers, dates, currencies, etc., then this is not very
+  satisfactory. The possible values for an \emph{ArgSpec} are:
+  %% 
+  \begin{itemize}
+  \item    \texttt{atom} or \texttt{?}: the corresponding items from the
+    DSV file are converted into Prolog atoms.
+  \item   \texttt{integer}: the corresponding spreadsheet items are
+    converted into integers. If an
+    item cannot be converted into an integer, a warning is issued
+    and the item is converted into an atom.
+    The warning does not abort the computation and is only intended to alert the
+    user.
+  \item \texttt{float}: the corresponding items from the
+    DSV file are converted into floating
+    point/decimal numbers. If an item
+    cannot be converted into a floating point number, a warning
+    is issued and the value is converted into an atom.
+    Again, the warning is intended to merely alert the user.
+  \item \texttt{string}: the corresponding items from the
+    DSV file are converted into lists of characters.
+  \item \texttt{date}: the corresponding items in the DSV file
+    are expected to be in the canonical lexical form for
+    \texttt{\bs{}date} literals in \FLSYSTEM (i.e., \texttt{YYY-MM-DD};
+    e.g., \texttt{2017-11-26}). They are then
+    converted into proper \texttt{\bs{}date} constants (i.e., into
+    \texttt{"2017-11-26"$\hat{~}\hat{~}$\bs{}date}).
+  \item \texttt{time}: the corresponding items from the
+    spreadsheet are expected to be in the canonical lexical form for a
+    \texttt{\bs{}time}  literal (\texttt{HH:MM:SS} or
+    \texttt{HH:MM:SS.XXXX}). They are converted to proper \FLSYSTEM
+    \texttt{\bs{}time} constants.
+  \item \texttt{dateTime}:  the corresponding items from the
+    spreadsheet are expected to be in the canonical lexical form for a
+    \texttt{\bs{}dateTime}  literal (e.g., \texttt{2017-12-03T09:23:01}).
+    They are converted to  proper \FLSYSTEM \texttt{\bs{}dateTime}
+    constants.
+    See the section  \emph{Primitive Data Types} in the \FLSYSTEM  
+    Reasoner's User Manual for the details of the \texttt{\bs{}dateTime} type.
+  \item \texttt{duration}:   the corresponding items from the
+    DSV file are expected to be in the canonical lexical form for a
+    \texttt{\bs{}duration}  literal (e.g., \texttt{P22Y2M10DT1H2M3S}).
+    They are converted to proper \FLSYSTEM \texttt{\bs{}duration}
+    constants.
+    See the section  \emph{Primitive Data Types} in the \FLSYSTEM  
+    Reasoner's User Manual for the details of the \texttt{\bs{}duration}
+    type.
+  \item \texttt{currency}:   the corresponding items from the
+    DSV file are expected to be in the canonical lexical form for a
+    \texttt{\bs{}currency}  literal (e.g., \texttt{USD 20,666.55}).
+    These items are converted to proper \FLSYSTEM \texttt{\bs{}currency}
+    constants.
+    See the section  \emph{Primitive Data Types} in the \FLSYSTEM  
+    Reasoner's User Manual for the details of the \texttt{\bs{}currency}
+    type.
+  \item \texttt{currency}(\emph{Unit}): where \emph{Unit} is a currency
+    unit like USD, GBP, EUR, etc. In this case, the corresponding items in the
+    spreadsheet are assumed to be numbers (integer, decimal, float), which
+    are then converted into \ERGO \texttt{\bs{}currency} constants
+    with \emph{Unit} as the currency unit. 
+  \item \texttt{term}: the corresponding
+    items in the spreadsheet are expected to
+    have the form of a canonical Prolog term.
+    They are converted to Prolog terms.
+    If an item does not parse as a term, an
+    atom is returned with a warning.
+  \item \texttt{hilog}: the items must have the form of a canonical Prolog
+    term, and they are converted to the corresponding 
+    HiLog terms. If an item does not parse as a term, an
+    atom is returned with a warning.
+  \end{itemize}
+  %% 
+  Note: \texttt{p/3} is equivalent to the specification
+  \texttt{p(atom,atom,atom)} or \texttt{p(?,?,?)}.
+  \item \emph{predname}, where \emph{predname} is an atom. In this case, a
+    unary predicate \emph{predname} is populated from the spreadsheet.
+    The predicate will contain lists of values corresponding to each row.
+    The values are all imported as atoms.
+
+    This option is useful when rows are irregular and
+    have different sizes, so it will avoid
+    truncation or padding of the rows during the input.
+\end{itemize}
+%% 
+
+The argument \emph{?Format} used in the above calls can be either
+\begin{itemize}
+\item \texttt{csv} --- for comma-separated files
+\item \texttt{tsv} --- for tab-separated files
+\item \texttt{psv} --- for $\mid$-separated files
+\item \texttt{...+titles} --- ignore the first line in file (assumed
+  to be the column header). The ... part here must be \texttt{csv},
+  \texttt{psv}, or \texttt{tsv}.   
+\item \texttt{...+titles(N)} --- like \texttt{...+titles} except that
+  $N\geq 0$ first lines in the tabular file will be ignored.
+\item \texttt{...+pad(N)} --- pad each line in the input file with $N$
+  variables (if $N>0$) or cut $N$ columns from each line (if $N<0$).
+  The ... part here stands for any of the earlier listed combinations.
+\item \texttt{...+error} --- normally, if problems are encountered (such as
+  the inability to convert to integer or float, wrong line length, etc.),
+  a warning is issued. This option forces errors instead of warnings. Once
+  an error is thrown, the loading stops. As before, the ... part represents any of
+  the earlier listed combinations.
+\item or it can be a list of options, each having one of these forms:
+%% 
+\begin{itemize}
+\item  \texttt{separator="\textnormal{\emph{chars}}"$\hat{~}\hat{~}$\bs{}charlist}; the default is
+  \texttt{","$\hat{~}\hat{~}$\bs{}charlist}. This is the separator between the fields.
+\item 
+  \texttt{delimiter="\textnormal{\emph{chars}}"$\hat{~}\hat{~}$\bs{}charlist}; the
+  default is \texttt{"\bs{}""$\hat{~}\hat{~}$\bs{}charlist}. This is the field delimiter
+  for the fields that contain special characters like commas, spaces, etc.
+  This option is used only if some fields contain double quotes and so the
+  default delimiter will not work.
+\item \texttt{titles} or \texttt{titles(N)} --- tells to skip the first
+  line---or $N>=0$ lines---in the input file, which 
+  are assumed to be the header that contains column names or some other
+  non-tabular information.
+\item \texttt{pad(N)} --- pad each line with $N$ variables (if $N>0$) or
+  cut $N$ columns from each line  (if $N<0$).
+  If line length does not match the number of arguments specified in the
+  \texttt{Format} argument then an error or warning is issued. This option
+  helps avoid this.
+\item \texttt{error} --- if conversion problems, wrong line length,
+  or similar issues are
+  found, warnings are given. With the \texttt{error} option, a stricter
+  policy is assumed and errors are issued instead. If an error is issued,
+  loading of the data stops immediately.  
+\end{itemize}
+%%
+Here is an example of a use of a complex options list, where
+\texttt{salary.dsv} is assumed to be a spreadsheet in which fields are
+separated with the pair of characters \texttt{\bs{}>}:  
+%% 
+\begin{verbatim}
+ ?- dsv_load('salary.dsv',q,[separator="\\>"^^\charlist, titles(3)])@dsv.
+\end{verbatim}
+%% 
+\end{itemize}
+%% 
+
+To query the predicate that is created as a result of the import, the
+following must be taken into account:
+%% 
+\begin{itemize}
+\item  The predicate must be queried using the idiom
+  \emph{predname}(...)@\emph{module}, where \emph{module} is the module
+  into which \texttt{e2dsv} was loaded (\texttt{dsv} in our 
+  example).
+  The number of the arguments must match the specification {\it Spec}---see
+  above. For instance, as a result of the above \texttt{dsv\_load} command,
+  the predicate \texttt{q/1} will be created, and the imported data
+  should be queried as 
+  %% 
+\begin{verbatim}
+     ?- q(?X)@dsv.  
+\end{verbatim}
+  %% 
+\item  \textbf{The previous contents of the aforesaid predicate
+  \emph{predname}(...)@\emph{module}
+  will be wiped out when
+  the DSV data is loaded into that predicate.}
+\item For efficiency, the aforesaid predicate
+  \emph{predname}(...)@\emph{module} is created in a special way as a
+  Prolog predicate, \emph{not} as a HiLog predicate.  This implies that a
+  HiLog query (HiLog due to a variable in the predicate position) such as
+  %% 
+\begin{verbatim}
+     ?- ?pred(?X)@dsv.  
+\end{verbatim}
+  %% 
+  will \emph{not} bind \texttt{?pred} to \texttt{q} in our example
+  and the imported tabular data cannot be queried this way: the desired
+  predicate name (i.e., \texttt{q} here) must be named explicitly.  
+\item  If the aforesaid predicate \emph{predname}(...)@\emph{module}
+  is queried from within a file (e.g., appears in the
+  body of a rule in a file) rather than from the command line in the \ERGO
+  shell, it must be declared there as
+  %% 
+\begin{alltt}
+    :- prolog\{\textnormal{\emph{predname}}/\textnormal{\emph{arity}}\}.  
+\end{alltt}
+  %% 
+  because, as explained above, the predicate in question is special.
+\end{itemize}
+%% 
+
+
+For instance, if the DSV file \texttt{example.csv} has the form
+%% 
+\begin{verbatim}
+    Name,Age,Parent 
+    Bob,13,Mary
+    Bill,23
+\end{verbatim}
+%% 
+and we import it as follows:
+%% 
+\begin{verbatim}
+    ?- [e2dsv>>dsv].
+    ?- dsv_load('example.csv',p/3,csv)@dsv.
+\end{verbatim}
+%% 
+then the following facts will be added to \texttt{p}:
+%% 
+\begin{verbatim}
+    ?- p(?X,?Y,?Z)@dsv.
+    ?X = Bill
+    ?Y = '13'
+    ?Z = ?
+
+    ?X = Bob
+    ?Y = '13'
+    ?Z = Mary
+
+    ?X = Name
+    ?Y = Age
+    ?Z = Parents
+\end{verbatim}
+%% 
+A warning will be issued regarding Row 3 because it has only two items,
+while \texttt{p} has three arguments. 
+%% 
+\begin{verbatim}
+    ?- dsv_load('example.csv',q,csv)@dsv. // the spec is just an atom
+    ?- q(?X)@dsv.
+    ?X = [Bill,'13']
+
+    ?X = [Bob,'13',Mary]
+
+    ?X = [Name,Age,Parents]
+\end{verbatim}
+%% 
+No warnings will be issued in this case.
+
+If the specification of the output predicate were 
+\begin{verbatim}
+    ?- dsv_load('example.csv',p(?,integer,?),csv)@dsv.
+\end{verbatim}
+%%
+then the query \texttt{p(?X,?Y,?Z)@dsv} would return the result similar to
+the first example, but \texttt{'13'} would be \texttt{13} because the
+numbers in the second column would be imported as numbers rather than atoms.
+There will be a warning that \texttt{Age} in the first row cannot  
+be converted into a number and also a warning concerning the shorter last
+line in the DSV file.
+
+More examples of dealing with spreadsheets can be found in the \ERGO
+Examples Bank (see \emph{Importing tabular data})
+\url{https://sites.google.com/a/coherentknowledge.com/ergo-suite-tutorial/example-bank-of-advanced-uses}.
+
+\section{Loading Multiple Spreadsheets into the Same Module}
+This package allows one to load multiple spreadsheets into the same \ERGO
+module at the same time, but then the predicates into which these
+spreadsheets are loaded must be different (either the name or the arity
+must differ). For instance,
+suppose we have \texttt{example1.csv} and \texttt{example2.psv}, both
+containing tables with only two fields. Then
+%% 
+\begin{verbatim}
+   ?- [e2dsv>>dsv].
+   ?- dsv_load('example1.csv',p/2,csv)@dsv,
+      dsv_load('example2.psv',q/2,psv)@dsv.
+\end{verbatim}
+%% 
+will load the first spreadsheet into the predicate \texttt{p(?X,?Y)@dsv}
+and the second into \texttt{q(?X,?Y)@dsv}. Both spreadsheets will be
+queriable via these respective predicates. In contrast, if the chosen
+predicates are the same, as in
+%% 
+\begin{verbatim}
+   ?- dsv_load('example1.csv',p/2,csv)@dsv,
+      dsv_load('example2.psv',p/2,psv)@dsv.
+\end{verbatim}
+%% 
+then \texttt{example1.csv} will  first be loaded into \texttt{p(?X,?Y)@dsv}
+and then this will be immediately overwritten by the contents of
+\texttt{example2.psv}. As a result, only the data in the second spreadsheet
+will be accessible through \texttt{p(?X,?Y)@dsv}, and nothing will be
+loaded into \texttt{q(?X,?Y)@dsv}.
+
+Note: the command \texttt{[e2dsv>>\textnormal{\emph{datamodule}}]} should
+be executed only once per target module, i.e., regardless of how many
+spreadsheets are loaded into \emph{datamodule}
+(\emph{datamodule}=\texttt{dsv} in our examples).
+
+\section{Accessing Tabular Data via Frames}
+
+The previous discussion centered around accessing spreadsheet data via
+predicates, but this is not always convenient. Tabular data often has
+rows composed of dozens of columns and useful columns may be interspersed
+with those of no interest. For instance, if the first two columns are of
+interest, the next 20 are of no interest, and columns 23, 24 are again of
+interest, the method discussed so far
+would force us to access the data via a predicate that has 24 arguments---a
+serious inconvenience. The frame-based access method solves this problem,
+as it lets one query the data using the frames of the form
+%% 
+\begin{alltt}
+    ?rowId[arg(\textnormal{\emph{argNumber}}) -> ?Value]@dsv
+\end{alltt}
+%% 
+For instance, in case we only want to see columns 1, 2, 23, 24, we can ask
+this query:
+%% 
+\begin{verbatim}
+    ?- ?[arg(1)->?V1, arg(2)->?V2, arg(23)->?V23, arg(24)->?V24]@dsv.
+\end{verbatim}
+%% 
+So long as one is dealing with just one spreadsheet in the data module
+\texttt{\bs{}dsv}, the form of the object Id of the frame is of no
+importance, so in the above example we simply used the don't care variable
+\texttt{?}. If, however, one loads more than one spreadsheet into the same
+module, it often becomes necessary to query a particular spreadsheet
+instead of all of them at once.
+When access to the tabular data is done via predicates, this is not a
+issue---one simply uses the desired predicate to focus the query to that
+predicate. In case of the frame access, this is done by restricting the
+form of the object Id of the frame. The general form of such an object Id is
+%% 
+\begin{alltt}
+    \bs{}e2dsv(\textnormal{\emph{PredName}},\textnormal{\emph{PredArity}},\textnormal{\emph{RowId}})
+\end{alltt}
+%% 
+\paragraph{What is \texttt{RowId}?}
+The \texttt{RowId} field in the above object Id specification is used
+to make sure the OIDs of different rows in spreadsheets
+imported into \ERGO are distinct. It is either generated automatically or
+is a user-supplied primary key can be used.
+
+By default,
+\emph{RowId} is generated automatically by \ERGO;
+it is \emph{not} the same as the line number
+in a spreadsheet. The user does not usually deal with
+that component.
+Alternatively, the user can specify \emph{primary key} information
+by calling the predicate
+%% 
+\begin{alltt}
+   ?- add_key_info(\textnormal{\emph{PredName}},\textnormal{\emph{PredArity}},\textnormal{\emph{KeyPositionsList}})@dsv.
+\end{alltt}
+%% 
+For instance, if we are importing data into a 30-ary predicate \texttt{foo}
+that has a natural primary key consisting for a pair of arguments in positions
+2 and 4 then
+calling \texttt{add\_key\_info(foo,30,[2,4])@dsv} (in advance)
+will cause  \emph{RowId} to look like this:
+\texttt{(}\emph{2nd-arg-in-foo},\emph{4th-arg-in-foo}\texttt{)};  the overall object Id
+will then look like this:
+%% 
+\begin{alltt}
+    \bs{}e2dsv(foo,30,(\textnormal{\emph{2nd-arg-in-foo},\emph{4th-arg-in-foo}})) \hspace{5mm} //\textnormal{\emph{note}: (...) \emph{around key columns}}
+\end{alltt}
+%% 
+When primary keys are used, the user is likely to deal with \emph{RowId}s
+directly, as these would be meaningful values. 
+Note: \ERGO does not check that the given sequence of columns is indeed a
+key of the table. If multiple keys are specified, one is chosen randomly, so
+the user should define at most one key.
+
+The predicate name and the arity in the above object Ids are there
+in order to
+distinguish objects that came from different tables/spreadsheets. They can be used
+to focus queries so that they would retrieve the rows of a particular
+spreadsheet.
+Here \emph{PredName} and \emph{PredArity}   are the same as what was used
+as part of the \emph{?Spec} argument to \texttt{dsv\_load}   
+on page \pageref{pg-dsvload}.
+For instance, suppose that two sheets were loaded into
+the module \texttt{dsv}: one into the predicate \texttt{foo/30} and
+the other into \texttt{bar/55} (i.e., \texttt{foo} has 30 arguments and
+\texttt{bar} 55), and suppose we want to use frames to query \texttt{foo/30}
+and to extract columns 1, 2, 23, and 24. One can do this using
+the following frame query:
+%% 
+\begin{verbatim}
+?- \e2dsv(foo,30,?)[arg(1)->?V1,arg(2)->?V2,arg(23)->?V23,arg(24)->?V24]@dsv.
+\end{verbatim}
+%% 
+Note that we used \texttt{?} in the \emph{RowId} argument of the above
+object Id expression,
+as we assume here that the user does not want this information.
+However, one can
+also put a normal variable there, if desired.
+
+\subsection{Accessing via Frames and Meta Data}
+
+The frame-based interface to tabular data that was just described requires
+one to use column numbers, and this is often inconvenient and error-prone.
+In many cases, tabular data comes with each column having a name, and it
+might be desirable to be able to access the data via the column names
+rather than numbers. Fortunately, this is easy to achieve as follows.
+
+%% 
+\begin{enumerate}
+\item 
+  Suppose we are importing tabular data that has three columns, where the
+  first is named \texttt{Id}, the second \texttt{Name}, and the third
+  \texttt{Age}.   
+  Create a file, say \texttt{metainfo.ergo}, with information like this:
+  %% 
+\begin{verbatim}
+     :- export{column_name(?,?)}.
+     column_name(Id,1).  
+     column_name(Name,2).  
+     column_name(Age,3).  
+\end{verbatim}
+  %% 
+  The reason for the export statement is that the next step adds this
+  information to the module \texttt{dsv} into which we previously loaded
+  the package \texttt{e2dsv}. That package is encapsulated and only the
+  explicitly exported predicates and frames can be accessed from other
+  modules.   We will see in Step 3 that indeed \texttt{column\_name}
+  is accessed from another module (\texttt{main}), and this is why it
+  needs to be exported.
+\item \emph{Add} this information to the module that contains the imported
+  tabular data (\texttt{dsv}  in our example):
+  %% 
+\begin{verbatim}
+     ?- [+metainfo>>dsv].   // or add{metainfo>>dsv}. 
+\end{verbatim}
+  %% 
+  \item Insert the \emph{bridge rule} 
+    %% 
+\begin{verbatim}
+     ?rowId[?property->?val] :-
+                (
+                  column_name(?property,?colNum),
+                  ?rowId[arg(?colNum)->?val]
+                )@dsv.
+              
+\end{verbatim}
+    %% 
+    into the module(s) from where you intend to access the tabular data.
+\end{enumerate}
+%% 
+For instance, if one inserts the above bridge rule into module
+\texttt{main} then, in that module, one can ask queries such as 
+%% 
+\begin{verbatim}
+   ?- ?[Id->?i,Age->?a].
+\end{verbatim}
+%% 
+
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora-packages"
+%%% End: 

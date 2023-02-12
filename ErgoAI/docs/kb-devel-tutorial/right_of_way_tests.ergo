@@ -1,0 +1,91 @@
+/*
+   THIS FILE IS IN THE PUBLIC DOMAIN.
+
+   IT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+   IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+   OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+   OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+// Tests for right_of_way_KB.ergo
+
+
+// Uncommenting the next statement will get rid of the feedback statements
+// like the time used etc.
+//?- feedback{off}.
+
+// ------------- Test 1 tests the illegal_drive rule ---------------
+P1 : DrivingEntity. 
+P2 : DrivingEntity.
+D1 : Drive[agent -> P1, follows -> S1]. 
+S1 : DrivingSituation[participant -> {P1, P2}, rightOfWay -> P2].
+
+// exercise: check the difference with using ?Result instead of ?_Result
+// (while keeping feedback{off} commented out; if feedback is off then
+// there is no difference).
+?- \if D1:IllegalDrive  // expected: Yes
+   \then ?_Result=OK
+   \else ?_Result=FAILED,
+   writeln(test1result=?_Result)@\io.
+
+
+// --------------- Test 2 tests the rule right_of_way_safe_drive ---------------
+S2:DrivingSituation[participant -> P3:DrivingEntity]. 
+D2: SafeDrive[ follows -> S2, agent -> P3].
+
+// exercise: check the difference with using ?x instead of ?_x
+?- S2[rightOfWay -> ?_x],  // expected: ?_x = P3
+    writeln(test2result=?_x)@\io.
+
+
+// --------------- Test 3 tests the rule violates_ROW ---------------
+S3 : DrivingSituation[participant -> {P4, P5}:Person]. 
+I1 : FailToStopAtTrafficSign[agent -> P4, follows -> S3].
+
+?- I1[violatesRightOfWay -> ?_x],  // expected: ?_x=P5
+    writeln(test3result=?_x)@\io.
+
+// --------------- Test 4 tests the rule right_of_way_pedestrian ---------------
+S4 : DrivingSituation[location -> C1:CrossWalk, participant -> P6:Pedestrian].
+
+?- S4[rightOfWay -> ?_x],  // expected: ?_x=P6
+    writeln(test4result=?_x)@\io.
+
+// Test 4_2, expands Test 4: fails if uncomment line 4 in the illegal_drive rule
+S4 : DrivingSituation[participant -> P6_2:DrivingEntity].
+D4_2 : Drive[agent -> P6_2, follows -> S4]. 
+?- \if D4_2:IllegalDrive  // fails, if we tighten illegal_drive rule
+   \then ?_Result=OK
+   \else ?_Result=FAILED,
+   writeln(test4_2result=?_Result)@\io.
+
+
+/************************ Additional tests ************************************/
+
+// Test 5: A car and pedestrian are stopped at a corner.
+//         If the car proceeds whose right of way will it violate
+S6 : DrivingSituation[location -> C3:StreetCorner,
+                      participant -> {P7:Car, P8:Pedestrian}].
+D3 : Drive[agent -> P7, follows -> S6].
+
+?- D3[violatesRightOfWay -> ?_x], // expected: ?_x = P8
+    writeln(test5result=?_x)@\io.
+
+// Test 6: If I do not stop at a traffic sign,
+//         do I violate somebody's right of way?
+S7 : DrivingSituation[participant -> {P9, P10}:Entity].
+F1 : FailToStopAtTrafficSign[agent -> P9, follows -> S7].
+
+?- F1[violatesRightOfWay -> ?_x], // expected: ?_x = P10 
+    writeln(test6result=?_x)@\io.
+
+
+?- <>(tinsert{\#1:DrivingSituation[participant->{\#2, \#3}:Entity],
+              \#4:FailToStopAtTrafficSign[agent->\#2, follows-> \#1]},
+      \#4[violatesRightOfWay->?_x],
+      writeln(test7result=?_x)@\io
+     ).
+

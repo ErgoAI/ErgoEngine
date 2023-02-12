@@ -1,0 +1,193 @@
+/***************************************************************************
+  file: genincludes/flrdyncleanup.fli - A template for the include file for
+                                  retracting everything from the dynamic
+  				  hilog and f-logic predicates
+  Author(s): Michael Kifer
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018
+       and Vulcan, Inc., 2013.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+***************************************************************************/
+
+#include "flora_wspredicates.flh"
+
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_WORKSPACE'.
+%% the ones below must not be quoted in this directive!!!
+:- WRAP_COPY_UNQUOTED FLDYNAPREFIX(WRAP_NONTABLED_HILOG).
+:- WRAP_COPY_UNQUOTED FLDYNZPREFIX(WRAP_NONTABLED_HILOG).
+:- WRAP_COPY_UNQUOTED FLDYNAPREFIX(WRAP_TABLED_HILOG).
+:- WRAP_COPY_UNQUOTED FLDYNZPREFIX(WRAP_TABLED_HILOG).
+:- WRAP_COPY_UNQUOTED FLNEGDYNAPREFIX(WRAP_TABLED_HILOG).
+:- WRAP_COPY_UNQUOTED FLNEGDYNZPREFIX(WRAP_TABLED_HILOG).
+
+:- import for/3 from basics.
+
+/*******************************************************************
+ Hilog
+*******************************************************************/
+
+%% We must retractall dynamic predicates when a module is reloaded
+?- (
+     for(I,2,22),
+     functor(AtmA,'FLORA_THIS_WORKSPACE'(FLDYNAPREFIX(WRAP_NONTABLED_HILOG)),I),
+     functor(AtmZ,'FLORA_THIS_WORKSPACE'(FLDYNZPREFIX(WRAP_NONTABLED_HILOG)),I),
+     retractall(AtmA),
+     retractall(AtmZ),
+     fail
+     ;
+     true
+     ).
+
+
+?- (
+     for(I,2,22),
+     functor(AtmA,'FLORA_THIS_WORKSPACE'(FLDYNAPREFIX(WRAP_TABLED_HILOG)),I),
+     functor(AtmZ,'FLORA_THIS_WORKSPACE'(FLDYNZPREFIX(WRAP_TABLED_HILOG)),I),
+     retractall(AtmA),
+     retractall(AtmZ),
+     fail
+     ;
+     true
+     ).
+
+?- (
+     for(I,2,22),
+     functor(AtmA,'FLORA_THIS_WORKSPACE'(FLNEGDYNAPREFIX(WRAP_TABLED_HILOG)),I),
+     functor(AtmZ,'FLORA_THIS_WORKSPACE'(FLNEGDYNZPREFIX(WRAP_TABLED_HILOG)),I),
+     retractall(AtmA),
+     retractall(AtmZ),
+     fail
+     ;
+     true
+     ).
+
+/******************************************************************
+   Cleanup for F-logic predicates
+******************************************************************/
+?- retractall(FLDYNAPREFIX(WRAP_ISA)(_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_SUB)(_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_METH)(_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_IMETH)(_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_BOOLSIG)(_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_IBOOLSIG)(_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_TRANSIG)(_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_ITRANSIG)(_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_MVD)(_,_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_IMVD)(_,_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_MVDSIG)(_,_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_IMVDSIG)(_,_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_MVDCONDEF)(_,_,_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_IMVDCONDEF)(_,_,_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_MVDSIGDEF)(_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_IMVDSIGDEF)(_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_MVDDEF)(_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_IMVDDEF)(_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_TRAN)(_,_,_)),
+    retractall(FLDYNAPREFIX(WRAP_EXISTS)(_,_)),
+    retractall(FLDYNAPREFIX(WRAP_OBJEQL)(_,_,_)).
+
+?- retractall(FLDYNZPREFIX(WRAP_ISA)(_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_SUB)(_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_METH)(_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_IMETH)(_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_BOOLSIG)(_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_IBOOLSIG)(_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_TRANSIG)(_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_ITRANSIG)(_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_MVD)(_,_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_IMVD)(_,_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_MVDSIG)(_,_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_IMVDSIG)(_,_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_MVDCONDEF)(_,_,_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_IMVDCONDEF)(_,_,_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_MVDSIGDEF)(_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_IMVDSIGDEF)(_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_MVDDEF)(_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_IMVDDEF)(_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_TRAN)(_,_,_)),
+    retractall(FLDYNZPREFIX(WRAP_EXISTS)(_,_)),
+    retractall(FLDYNZPREFIX(WRAP_OBJEQL)(_,_,_)).
+
+/******************************************************************
+   Cleanup for negated F-logic predicates
+******************************************************************/
+?- retractall(FLNEGDYNAPREFIX(WRAP_ISA)(_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_SUB)(_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_METH)(_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_IMETH)(_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_BOOLSIG)(_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_IBOOLSIG)(_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_MVD)(_,_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_IMVD)(_,_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_MVDSIG)(_,_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_IMVDSIG)(_,_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_MVDSIGDEF)(_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_IMVDSIGDEF)(_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_MVDDEF)(_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_IMVDDEF)(_,_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_EXISTS)(_,_)),
+    retractall(FLNEGDYNAPREFIX(WRAP_OBJEQL)(_,_,_)).
+
+?- retractall(FLNEGDYNZPREFIX(WRAP_ISA)(_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_SUB)(_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_METH)(_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_IMETH)(_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_BOOLSIG)(_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_IBOOLSIG)(_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_MVD)(_,_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_IMVD)(_,_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_MVDSIG)(_,_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_IMVDSIG)(_,_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_MVDSIGDEF)(_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_IMVDSIGDEF)(_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_MVDDEF)(_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_IMVDDEF)(_,_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_EXISTS)(_,_)),
+    retractall(FLNEGDYNZPREFIX(WRAP_OBJEQL)(_,_,_)).
+
+
+/******************************************************************
+  Cleanup of dynamic versions of
+  FL_OVERRIDES, FL_OPPOSES, FL_CANCEL
+******************************************************************/
+
+?- retractall(FLDYNAPREFIX(FL_OVERRIDES_UNQUOTED)(_,_,_,_,_)),
+   retractall(FLDYNAPREFIX(FL_OVERRIDES_UNQUOTED)(_,_,_)),
+   retractall(FLDYNAPREFIX(FL_OPPOSES_UNQUOTED)(_,_,_,_,_)),
+   retractall(FLDYNAPREFIX(FL_OPPOSES_UNQUOTED)(_,_,_)),
+   retractall(FLDYNAPREFIX(FL_CANCEL_UNQUOTED)(_,_,_)),
+   retractall(FLDYNAPREFIX(FL_CANCEL_UNQUOTED)(_,_)).
+
+?- retractall(FLDYNZPREFIX(FL_OVERRIDES_UNQUOTED)(_,_,_,_,_)),
+   retractall(FLDYNZPREFIX(FL_OVERRIDES_UNQUOTED)(_,_,_)),
+   retractall(FLDYNZPREFIX(FL_OPPOSES_UNQUOTED)(_,_,_,_,_)),
+   retractall(FLDYNZPREFIX(FL_OPPOSES_UNQUOTED)(_,_,_)),
+   retractall(FLDYNZPREFIX(FL_CANCEL_UNQUOTED)(_,_,_)),
+   retractall(FLDYNZPREFIX(FL_CANCEL_UNQUOTED)(_,_)).
+
+?- retractall(FLNEGDYNAPREFIX(FL_OVERRIDES_UNQUOTED)(_,_,_,_,_)),
+   retractall(FLNEGDYNAPREFIX(FL_OVERRIDES_UNQUOTED)(_,_,_)),
+   retractall(FLNEGDYNAPREFIX(FL_OPPOSES_UNQUOTED)(_,_,_,_,_)),
+   retractall(FLNEGDYNAPREFIX(FL_OPPOSES_UNQUOTED)(_,_,_)),
+   retractall(FLNEGDYNAPREFIX(FL_CANCEL_UNQUOTED)(_,_,_)),
+   retractall(FLNEGDYNAPREFIX(FL_CANCEL_UNQUOTED)(_,_)).
+
+?- retractall(FLNEGDYNZPREFIX(FL_OVERRIDES_UNQUOTED)(_,_,_,_,_)),
+   retractall(FLNEGDYNZPREFIX(FL_OVERRIDES_UNQUOTED)(_,_,_)),
+   retractall(FLNEGDYNZPREFIX(FL_OPPOSES_UNQUOTED)(_,_,_,_,_)),
+   retractall(FLNEGDYNZPREFIX(FL_OPPOSES_UNQUOTED)(_,_,_)),
+   retractall(FLNEGDYNZPREFIX(FL_CANCEL_UNQUOTED)(_,_,_)),
+   retractall(FLNEGDYNZPREFIX(FL_CANCEL_UNQUOTED)(_,_)).

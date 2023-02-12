@@ -1,0 +1,390 @@
+/* File:      prettyprint.flr
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+/*   To pretty print an object do (where pp is assumed to be the name
+**   of the module where this package isloaded.
+**	?- obj[pp_self]@pp.
+**	?- obj[pp_self(module)]@pp.
+**   To save it in a file:
+**	?- obj[pp_self(module,outfile)]@pp.
+**   To pretty print a class:
+**      ?- class[pp_class]@pp.
+**      ?- class[pp_class(module)]@pp.
+**   To save result of a pretty-printed class in a file:
+**      ?- class[pp_class(module,outfile)]@pp.
+**   To print the information about class membership:
+**      ?- class[pp_isa]@pp.
+**      ?- class[pp_isa(module)]@pp.
+**   To save it in a file:
+**      ?- class[pp_isa(module,outfile)]@pp.
+*/
+
+:- compiler_options{production=on}.
+
+:- nontabled_module.
+:- suppress_rule_signatures.
+
+:- ignore_depchk{fmt_write(?,?)@\io, write(?)@\prolog, write(?)@\io}.
+
+:- symbol_context{
+        pp_class,
+        pp_self,
+        pp_isa,
+        pp_class(?),
+        pp_self(?),
+        pp_self(?,?),
+        pp_isa(?,?)}.
+
+:- export{
+        ?[pp_class(?,?)],
+	?[pp_class(?)],
+	?[pp_class],
+        ?[pp_self(?,?)],
+	?[pp_self(?)],
+	?[pp_self],
+        ?[pp_isa(?,?)],
+	?[pp_isa(?)],
+	?[pp_isa]}.
+	
+
+// Need to add signature printing!!!
+
+
+// Methods to ignore during pretty printing
+flora_print_ignore('________') :- \true.
+
+// Pretty print the class info and save in outfile
+?Class[pp_class(?Module,?Outfile)] :-
+	tell(?Outfile)@\plg,
+    	?Class[pp_class(?Module)],
+	told@\plg.
+// Print class in Module
+?Class[pp_class(?Module)] :-
+	flora_pp_immediate_superclasses(?Class,?Module),
+    	?Class[pp_self(?Module)],
+	(?X : ?Class)@?Module,
+	isground{?X},  // to ground X, if non-ground
+	?X[pp_self(?Module)],
+	\false.
+?_Class[pp_class(?_)] :- \true.
+
+?Class[pp_class] :- caller{?Mod}, ?Class[pp_class(?Mod)].
+
+// Print obj from Module
+// class info
+?X[pp_self(?Module)] :-
+	flora_pp_immediate_classes(?X,?Module),
+	flora_pp_write_header(?X),
+	print_class(?X,?Module),
+	flora_pp_write_header(?X),
+	print_object(?X,?Module).
+print_class(?X,?Module) :-
+	writeln('[|')@\plg,
+	flora_pp_write_body_iset(?X,?Module),
+	flora_pp_write_comma_conditional(${(?X[|?->?|], ?X[|?|])@?Module}),
+	flora_pp_write_body_ibool(?X,?Module),
+	nl@\plg, writeln('|].')@\plg, nl@\plg.
+// object info
+print_object(?X,?Module) :-
+	writeln('[')@\plg,
+	flora_pp_write_body_set(?X,?Module),
+	flora_pp_write_comma_conditional(${(?X[?->?], ?X[?])@?Module}),
+	flora_pp_write_body_bool(?X,?Module),
+	flora_pp_write_comma_conditional(${(?X[?], ?X[%?])@?Module}),
+	flora_pp_write_body_tran(?X,?Module),
+	nl@\plg, writeln('].')@\plg, nl@\plg.
+
+// Print obj in Module to an Outfile
+?X[pp_self(?Module,?Outfile)] :-
+	tell(?Outfile)@\prolog,
+	?X[pp_self(?Module)],
+	told@\plg.
+
+?X[pp_self] :- caller{?Mod}, ?X[pp_self(?Mod)].
+
+// Print all the isa info in one shot.
+?Class[pp_isa(?Module)] :-
+	flora_pp_immediate_isa(?Class,?Module),
+	flora_pp_subclasses_isa(?Class,?Module).
+// Same, but save in a file
+?Class[pp_isa(?Module,?File)] :-
+	tell(?File)@\plg,
+	?Class[pp_isa(?Module)],
+	told@\plg.
+
+?Class[pp_isa] :- caller{?Mod}, ?Class[pp_isa(?Mod)].
+
+
+flora_pp_write_header(?X) :-
+    	atom(?X)@\prolog,
+	!,
+    	fmt_write('''%s''',?X)@\io.
+flora_pp_write_header(?X) :-
+    	is_charlist(?X)@\plg,
+	!,
+    	fmt_write('"%s"',?X)@\io.
+flora_pp_write_header(?X) :- write(?X)@\io.
+
+// Print out scalar methods
+flora_pp_write_body_scalar(?Obj,?Module) :-
+    	?MethLst1 = collectset{?SM | ?Obj[?SM -> ?_]@?Module},
+	sort(?MethLst1, ?MethLst2)@\plg,
+	flora_pp_write_body_scalar1(?Obj, ?MethLst2,?Module).
+
+// Test if method is to be ignored and either skip it or print it.
+flora_pp_write_body_scalar1(?_, [], ?_Module) :- \true.
+flora_pp_write_body_scalar1(?Obj, [?MethInv|?MethInvs],?Module) :-
+        ?MethInv = [?M|?_Args],
+	flora_print_ignore(?M),
+	!,
+	// skip this method
+	flora_pp_write_body_scalar1(?Obj, ?MethInvs,?Module).
+flora_pp_write_body_scalar1(?Obj, [?MethInv|?MethInvs],?Module) :-
+	?Obj[?MethInv -> ?Val]@?Module,
+	write('    ')@\plg, flora_pp_write_method_invocation(?MethInv),
+	write(' -> ')@\plg, flora_pp_write_value(?Val),
+	flora_pp_write_comma_maybe(?MethInvs),
+	flora_pp_write_body_scalar1(?Obj, ?MethInvs,?Module).
+
+// Print out inheritable scalar ->
+flora_pp_write_body_iscalar(?Obj,?Module) :-
+    	?MethLst1 = collectset{?SM | ?Obj[|?SM -> ?_|]@?Module},
+	sort(?MethLst1, ?MethLst2)@\plg,
+	flora_pp_write_body_iscalar1(?Obj, ?MethLst2,?Module).
+
+// Test if method is to be ignored and either skip it or print it.
+flora_pp_write_body_iscalar1(?_, [], ?_Module) :- \true.
+flora_pp_write_body_iscalar1(?Obj, [?MethInv|?MethInvs],?Module) :-
+        ?MethInv = [?M|?_Args],
+	flora_print_ignore(?M),
+	!,
+	// skip this method
+	flora_pp_write_body_iscalar1(?Obj, ?MethInvs,?Module).
+flora_pp_write_body_iscalar1(?Obj, [?MethInv|?MethInvs],?Module) :-
+	?Obj[|?MethInv -> ?Val|]@?Module,
+	write('    ')@\plg, flora_pp_write_method_invocation(?MethInv),
+	write(' -> ')@\prolog, flora_pp_write_value(?Val),
+	flora_pp_write_comma_maybe(?MethInvs),
+	flora_pp_write_body_iscalar1(?Obj, ?MethInvs,?Module).
+
+// Print set-valued
+flora_pp_write_body_set(?Obj,?Module) :-
+    	?MethLst1 = collectset{?MM | ?Obj[?MM -> ?_]@?Module},
+	sort(?MethLst1, ?MethLst2)@\plg,
+	flora_pp_write_body_set1(?Obj, ?MethLst2,?Module).
+
+flora_pp_write_body_set1(?_Obj, [],?_Module) :- \true.
+flora_pp_write_body_set1(?Obj, [?MethInv|?MethInvs],?Module) :-
+        ?MethInv = [?M|?_Args],
+	flora_print_ignore(?M),
+	!,
+	// skip this method
+	flora_pp_write_body_set1(?Obj, ?MethInvs,?Module).
+flora_pp_write_body_set1(?Obj, [?MethInv|?MethInvs],?Module) :-
+	?Vals = collectset{?V| ?Obj[?MethInv -> ?V]@?Module},
+	write('    ')@\plg, flora_pp_write_method_invocation(?MethInv),
+	write(' -> ')@\prolog, flora_pp_write_set(?Vals),
+	flora_pp_write_comma_maybe(?MethInvs),
+	flora_pp_write_body_set1(?Obj, ?MethInvs,?Module).
+
+// Inheritable ->
+flora_pp_write_body_iset(?Obj,?Module) :-
+    	?MethLst1 = collectset{?MM | ?Obj[|?MM -> ?_|]@?Module},
+	sort(?MethLst1, ?MethLst2)@\plg,
+	flora_pp_write_body_iset1(?Obj, ?MethLst2,?Module).
+
+flora_pp_write_body_iset1(?_Obj, [],?_Module) :- \true.
+flora_pp_write_body_iset1(?Obj, [?MethInv|?MethInvs],?Module) :-
+        ?MethInv = [?M|?_Args],
+	flora_print_ignore(?M),
+	!,
+	// skip this method
+	flora_pp_write_body_iset1(?Obj, ?MethInvs,?Module).
+flora_pp_write_body_iset1(?Obj, [?MethInv|?MethInvs],?Module) :-
+	?Vals = collectset{?V| ?Obj[|?MethInv -> ?V|]@?Module},
+	write('    ')@\plg, flora_pp_write_method_invocation(?MethInv),
+	write(' -> ')@\plg, flora_pp_write_set(?Vals),
+	flora_pp_write_comma_maybe(?MethInvs),
+	flora_pp_write_body_iset1(?Obj, ?MethInvs,?Module).
+
+// Transactions %p(...)
+flora_pp_write_body_tran(?Obj,?Module) :-
+    	?MethLst1 = collectset{?Tran | ?Obj[%?Tran]@?Module},
+	sort(?MethLst1, ?MethLst2)@\plg,
+	flora_pp_write_body_tran1(?Obj, ?MethLst2,?Module).
+
+flora_pp_write_body_tran1(?_Obj, [],?_Module) :- \true.
+flora_pp_write_body_tran1(?Obj, [?MethInv|?MethInvs],?Module) :-
+        ?MethInv = [?M|?_Args],
+	flora_print_ignore(?M),
+	!,
+	flora_pp_write_body_tran1(?Obj, ?MethInvs,?Module).
+flora_pp_write_body_tran1(?Obj, [?MethInv|?MethInvs],?Module) :-
+	write('    %')@\plg, flora_pp_write_method_invocation(?MethInv),
+	flora_pp_write_comma_maybe(?MethInvs),
+	flora_pp_write_body_tran1(?Obj, ?MethInvs,?Module).
+
+// Boolean p(...)
+flora_pp_write_body_bool(?Obj,?Module) :-
+    	?MethLst1 = collectset{?Bool | ?Obj[?Bool]@?Module},
+	sort(?MethLst1, ?MethLst2)@\plg,
+	flora_pp_write_body_bool1(?Obj, ?MethLst2,?Module).
+
+flora_pp_write_body_bool1(?_Obj, [],?_Module) :- \true.
+flora_pp_write_body_bool1(?Obj, [?MethInv|?MethInvs],?Module) :-
+        ?MethInv = [?M|?_Args],
+	flora_print_ignore(?M),
+	!,
+	flora_pp_write_body_bool1(?Obj, ?MethInvs,?Module).
+flora_pp_write_body_bool1(?Obj, [?MethInv|?MethInvs],?Module) :-
+	write('    ')@\plg, flora_pp_write_method_invocation(?MethInv),
+	flora_pp_write_comma_maybe(?MethInvs),
+	flora_pp_write_body_bool1(?Obj,?MethInvs,?Module).
+
+// Inheritable Boolean [|p(...)|]
+flora_pp_write_body_ibool(?Obj,?Module) :-
+    	?MethLst1 = collectset{?Bool | ?Obj[|?Bool|]@?Module},
+	sort(?MethLst1, ?MethLst2)@\plg,
+	flora_pp_write_body_ibool1(?Obj, ?MethLst2,?Module).
+
+flora_pp_write_body_ibool1(?_Obj, [],?_Module) :- \true.
+flora_pp_write_body_ibool1(?Obj, [?MethInv|?MethInvs],?Module) :-
+        ?MethInv = [?M|?_Args],
+	flora_print_ignore(?M),
+	!,
+	flora_pp_write_body_ibool1(?Obj, ?MethInvs,?Module).
+flora_pp_write_body_ibool1(?Obj, [?MethInv|?MethInvs],?Module) :-
+	write('    ')@\plg, flora_pp_write_method_invocation(?MethInv),
+	flora_pp_write_comma_maybe(?MethInvs),
+	flora_pp_write_body_ibool1(?Obj,?MethInvs,?Module).
+
+
+// Write comma, if List is not empty 
+flora_pp_write_comma_maybe([]) :- !.
+flora_pp_write_comma_maybe([?_First| ?_Rest]) :- writeln(',')@\plg.
+
+// The cut here is iffy, because it cuts a tables predicate Cond.
+// However, the table must have been completed here because tables 
+// predicates don't depend on flora_pp_write_comma_conditional/1.
+// So it might be OK.
+flora_pp_write_comma_conditional(?Cond) :-
+	\if ?Cond \then writeln(',')@\plg,
+        !.
+
+
+
+flora_pp_write_method_invocation(?M) :-
+	?M =.. ?ML,
+	ground_list(?ML),
+	write(?M)@\io.
+
+flora_pp_write_set(?L) :-
+    	write('{')@\plg,
+	flora_pp_write_set1(?L),
+	write('}')@\plg.
+
+flora_pp_write_set1([]) :- \true.
+flora_pp_write_set1([?Elt]) :- flora_pp_write_value(?Elt).
+flora_pp_write_set1([?Elt, ?Elt2 | ?Rest]) :-
+    	flora_pp_write_value(?Elt), write(',')@\prolog,
+	flora_pp_write_set1([?Elt2|?Rest]).
+        
+flora_pp_write_value(?Val) :-
+	atom(?Val)@\prolog,
+	!,
+	fmt_write('%s', ?Val)@\io.
+flora_pp_write_value(?Val) :-
+	is_charlist(?Val)@\prolog,
+	!,
+	fmt_write('"%s"', ?Val)@\io.
+flora_pp_write_value(?Val) :-
+	write(?Val)@\io.
+
+flora_pp_immediate_isa(?Class,?Module) :-
+	//(?X : ?Class)@?Module, 
+	//isground{[?X,?Class]},
+	//\naf flora_in_between_isa(?X,?Class,?Module),
+        immediate_isa(?X,?Class,?Module)@\sub,
+	flora_pp_write_value(?X), write('		:  ')@\prolog,
+	flora_pp_write_value(?Class),
+	writeln('.')@\prolog,
+	\false.
+flora_pp_immediate_isa(?_,?_) :- \true.
+
+/*
+// There is an intermediate class between X and Class
+flora_in_between_isa(?X,?Class,?Module) :-
+	(?X:?C1)@?Module, ?C1 \= ?Class, (?C1::?Class)@?Module.
+*/
+
+
+flora_pp_subclasses_isa(?Class,?Module) :-
+	//(?Sub :: ?Class)@?Module,
+	//?Sub \= ?Class,
+	//\naf flora_in_between_sub(?Sub,?Class,?Module),
+        immediate_sub(?Sub,?Class,?Module)@\sub,
+	flora_pp_immediate_isa(?Sub,?Module),
+        flora_pp_subclasses_isa(?Sub,?Module),
+	\false.
+flora_pp_subclasses_isa(?_,?_) :- \true.
+
+/*
+flora_in_between_sub(?Sub,?Class,?Module) :-
+	(?Sub :: ?Sub1)@?Module,
+	?Sub \= ?Sub1, ?Sub1 \= ?Class,
+	(?Sub1 :: ?Class)@?Module.
+*/
+	
+// immediate classes of Obj
+flora_pp_immediate_classes(?Obj,?Module) :-
+	//(?Obj : ?Class)@?Module,
+	//isground{[?Obj,?Class]},
+	//\naf flora_in_between_isa(?Obj,?Class,?Module),
+	isground{?Obj},
+        immediate_isa(?Obj,?Class,?Module)@\sub,
+	flora_pp_write_value(?Obj), write('	:  ')@\prolog,
+	flora_pp_write_value(?Class),
+	write('.')@\prolog, nl@\prolog,
+	\false.
+flora_pp_immediate_classes(?_Obj,?_Module) :- \true.
+
+flora_pp_immediate_superclasses(?Class,?Module) :-
+	//(?Class :: ?Super)@?Module, isground{?Super},
+	//?Class \= ?Super,
+	//\naf flora_in_between_sub(?Class,?Super,?Module),
+        immediate_sub(?Class,?Super,?Module)@\sub,
+	flora_pp_write_value(?Class),
+	write('	:: ')@\prolog,
+	flora_pp_write_value(?Super),
+	write('.')@\prolog, nl@\prlg,
+	\false.
+flora_pp_immediate_superclasses(?_,?_) :- \true.
+
+// Replaces each var with atom '?' for nicer output
+ground_list([]) :- !.
+ground_list([?H|?T]) :-
+	(isvar{?H}, !, ?H='?VAR' ; \true),
+	ground_list(?T).

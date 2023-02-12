@@ -1,0 +1,355 @@
+/* File:      flrlibman.P -- Flora includes and libraries definitions
+**
+** Author(s): Guizhen Yang
+**            Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+:- import
+        enable_all_tripwires/0,
+        disable_all_tripwires/0
+   from flrerrhandler.
+
+
+/**********************************************************************
+  flora_register_syslib(+LibBaseFile)
+**********************************************************************/
+flora_register_syslib(LibBaseFile) :-
+	assert(flora_syslib_loaded(LibBaseFile)).
+
+
+/**********************************************************************
+  flora_load_library(+List)
+  flora_load_library(+LibID)
+
+  Note: This predicate always succeeds.
+**********************************************************************/
+flora_load_library(LibID) :-
+	var(LibID),
+	!,
+	flora_error_line('Uninstantiated ~w system library name! Loading failed!',[FLSYSTEM]).
+
+flora_load_library([]) :- !.
+
+flora_load_library([H|T]) :-
+	!,
+	flora_load_library(H),
+	flora_load_library(T).
+
+flora_load_library(LibID) :-
+	( flora_library_file(LibID,BaseFileName,SubDir) ->
+	    ( flora_syslib_loaded(BaseFileName) -> true
+	    ;
+		flora_configuration(installdir,FloraDir),
+		flora_slash(S),
+		flora_concat_atoms([FloraDir,S,SubDir,S,BaseFileName,'.P'],
+				   FullLibPath),
+                disable_all_tripwires,
+		%% Because LibID implies BaseFilename, we register base
+		%% filename rather than the library name
+		%% (several LibID can correspond to one file).
+		consult(FullLibPath),
+		flora_register_syslib(BaseFileName),
+                enable_all_tripwires
+	    )
+	;
+	  flora_error_line('<Loader> invalid ~w system library name ~w: loading failed',
+			   [FLSYSTEM,LibID])
+	),
+	!.
+
+flora_load_library(_LibID).
+
+
+/**********************************************************************
+  flora_register_sysmod(+SysModID)
+  flora_unregister_sysmod(+SysModID)
+**********************************************************************/
+flora_register_sysmod(SysModID) :-
+	assert(flora_sysmod_loaded(SysModID)).
+flora_unregister_sysmod(SysModID) :-
+	retractall(flora_sysmod_loaded(SysModID)).
+
+
+/**********************************************************************
+  flora_load_system_module(+List)
+  flora_load_system_module(+SysModID)
+
+  Note: This predicate always succeeds.
+**********************************************************************/
+flora_load_system_module(SysModID) :-
+	var(SysModID),
+	!,
+	flora_error_line('Uninstantiated ~w system module ID! Loading failed!',[FLSYSTEM]).
+
+flora_load_system_module([]) :- !.
+
+flora_load_system_module([H|T]) :-
+	!,
+	flora_load_system_module(H),
+	flora_load_system_module(T).
+
+flora_load_system_module(SysModID) :-
+	( flora_sysmod_loaded(SysModID) -> true
+	;
+            disable_all_tripwires,
+	    %% Register the Flora system module ID
+	    flora_register_sysmod(SysModID),
+	    %% unregister on error
+	    catch(flora_load_system_module_util(SysModID),
+                  Ball,
+                  load_system_module_errhandler(SysModID,Ball)),
+            enable_all_tripwires
+	),
+	!.
+
+flora_load_system_module(_SysModID).
+
+load_system_module_errhandler(SysModID,Ball) :-
+	flora_error_line('Error loading system module ~w', [SysModID]),
+        flora_unregister_sysmod(SysModID),
+        enable_all_tripwires,
+        throw(Ball).
+
+
+
+/********************************************************************
+  flora_include(+ID,+FilePath)
+  indicates which file to be included in the output file. The file
+  path contains the subdir relative to the Flora home dir.
+********************************************************************/
+flora_include(ID,IncFile) :-
+	atom(ID),
+	flora_slash(S),
+	flora_library_file(ID,BaseFilename,SubDir),
+	!,
+	flora_concat_atoms([SubDir,'inc',S,BaseFilename,'_inc.flh'], IncFile).
+
+
+/****************************************************************************
+  flora_library_file(+LibName,+BaseFileName,+SubDir)
+
+  These libraries implement:
+  * Flora aggregation syntax
+  * Flora shell commands
+  * module specification with variables
+  * control structure such as if-then-else and while-loop
+*****************************************************************************/
+flora_library_file_base(FLLIBMIN,flraggmin,syslib) :- !.
+flora_library_file_base(FLLIBMAX,flraggmax,syslib) :- !.
+flora_library_file_base(FLLIBSUM,flraggsum,syslib) :- !.
+flora_library_file_base(FLLIBAVG,flraggavg,syslib) :- !.
+flora_library_file_base(FLLIBCOUNT,flraggcount,syslib) :- !.
+flora_library_file_base(FLLIBSUMDISTINCT,flraggsum,syslib) :- !.
+flora_library_file_base(FLLIBAVGDISTINCT,flraggavg,syslib) :- !.
+flora_library_file_base(FLLIBCOUNTDISTINCT,flraggcount,syslib) :- !.
+flora_library_file_base(FLLIBCOLLECTSET,flraggcolset,syslib) :- !.
+flora_library_file_base(FLLIBCOLLECTBAG,flraggcolbag,syslib) :- !.
+flora_library_file_base(FLLIBSORTBY,flraggsortby,syslib) :- !.
+flora_library_file_base(FLLIBSETSORTBY,flraggsortby,syslib) :- !.
+flora_library_file_base(FLLIBBAGSORTBY,flraggsortby,syslib) :- !.
+flora_library_file_base(FLLIBLOAD,flrload,syslib) :- !.
+flora_library_file_base(FLLIBADD,flrload,syslib) :- !.
+flora_library_file_base(FLLIBADDNEW,flrload,syslib) :- !.
+flora_library_file_base(FLLIBANSWER,flranswer,syslib) :- !.
+flora_library_file_base(FLLIBSHELLANS,flranswer,syslib) :- !.
+flora_library_file_base(FLLIBPROGRAMANS,flranswer,syslib) :- !.
+flora_library_file_base(FLLIBDISPLAY,flrdisplay,syslib) :- !.
+flora_library_file_base(FLLIBDBOP,flrdbop,syslib) :- !.
+flora_library_file_base(FLLIBINSERT,flrdbop,syslib) :- !.
+flora_library_file_base(FLLIBEXPORT,flrexport,syslib) :- !.
+flora_library_file_base(FLLIBINSERTALL,flrdbop,syslib) :- !.
+flora_library_file_base(FLLIBDELETE,flrdbop,syslib) :- !.
+flora_library_file_base(FLLIBDELETEALL,flrdbop,syslib) :- !.
+flora_library_file_base(FLLIBERASE,flrdbop,syslib) :- !.
+flora_library_file_base(FLLIBERASEALL,flrdbop,syslib) :- !.
+flora_library_file_base(FLLIBBTDBOP,flrbtdbop,syslib) :- !.
+flora_library_file_base(FLLIBBTINSERT,flrbtdbop,syslib) :- !.
+flora_library_file_base(FLLIBBTINSERTALL,flrbtdbop,syslib) :- !.
+flora_library_file_base(FLLIBBTDELETE,flrbtdbop,syslib) :- !.
+flora_library_file_base(FLLIBBTDELETEALL,flrbtdbop,syslib) :- !.
+flora_library_file_base(FLLIBBTERASE,flrbtdbop,syslib) :- !.
+flora_library_file_base(FLLIBBTERASEALL,flrbtdbop,syslib) :- !.
+flora_library_file_base(FLLIBREFRESH,flrtables,syslib) :- !.
+flora_library_file_base(FLLIBTABLES,flrtables,syslib) :- !.
+flora_library_file_base(FLLIBSHDIRECT,flrshdirect,syslib) :- !.
+flora_library_file_base(FLLIBDYNMOD,flrdynmod,syslib) :- !.
+flora_library_file_base(FLLIBMODLIT,flrdynmod,syslib) :- !.
+flora_library_file_base(FLLIBMODOBJ,flrdynmod,syslib) :- !.
+flora_library_file_base(FLNEGLIBMODLIT,flrdynmod,syslib) :- !.
+flora_library_file_base(FLNEGLIBMODOBJ,flrdynmod,syslib) :- !.
+flora_library_file_base(FLLIBSEMANTICS,flrsemantics,syslib) :- !.
+flora_library_file_base(FLLIBSETSEMANTICS,flrsemantics,syslib) :- !.
+flora_library_file_base(FLLIBPREFIXDEF,flrprefixdef,syslib) :- !.
+
+%%flora_library_file_base(FLLIBDYNRULE,flrdynrule,syslib) :- !.
+flora_library_file_base(FLSYSRULEUPDATE,flrdynrule,syslib) :- !.
+flora_library_file_base(FLLIBNEWMODULE,flrdynrule,syslib) :- !.
+flora_library_file_base(FLLIBERASEMODULE,flrdynrule,syslib) :- !.
+flora_library_file_base(FLLIBINSERTRULE_A,flrdynrule,syslib) :- !.
+flora_library_file_base(FLLIBINSERTRULE_Z,flrdynrule,syslib) :- !.
+flora_library_file_base(FLLIBDELETERULE_A,flrdynrule,syslib) :- !.
+flora_library_file_base(FLLIBDELETERULE_Z,flrdynrule,syslib) :- !.
+flora_library_file_base(FLLIBDELETERULE,flrdynrule,syslib) :- !.
+
+flora_library_file_base(FLLIBCLAUSE,flrclause,syslib) :- !.
+flora_library_file_base(FLLIBINSRULESIG,flrclause,syslib) :- !.
+
+flora_library_file_base(FLLIBINSQUERYSIG,flrdynrule,syslib) :- !.
+flora_library_file_base(FLLIBDELQUERYSIG,flrdynrule,syslib) :- !.
+flora_library_file_base(FLSYSINSQUERYSIG,flrdynrule,syslib) :- !.
+flora_library_file_base(FLSYSDELQUERYSIG,flrdynrule,syslib) :- !.
+
+flora_library_file_base(FLLIBTAGPRIMITIVE,flrrulesigops,syslib) :- !.
+flora_library_file_base(FLLIBPREFIXPRIMITIVE,flrprefixdef,syslib) :- !.
+
+flora_library_file_base(FLLIBSENSOR,FLDELAYSUPPORTMOD,syslib) :- !.
+flora_library_file_base(FLLIBRECORDSENSORS,FLDELAYSUPPORTMOD,syslib) :- !.
+
+flora_library_file_base(FLLIBCONTROL,flrcontrol,syslib) :- !.
+flora_library_file_base(FLLIBIFTHENELSE,flrcontrol,syslib) :- !.
+flora_library_file_base(FLLIBIFTHEN,flrcontrol,syslib) :- !.
+flora_library_file_base(FLLIBUNLESSDO,flrcontrol,syslib) :- !.
+flora_library_file_base(FLLIBWHILEDO,flrcontrol,syslib) :- !.
+flora_library_file_base(FLLIBDOUNTIL,flrcontrol,syslib) :- !.
+flora_library_file_base(FLLIBWHILELOOP,flrcontrol,syslib) :- !.
+flora_library_file_base(FLLIBLOOPUNTIL,flrcontrol,syslib) :- !.
+
+flora_library_file_base(FLLIBMETAOPS,flrmetaops,syslib) :- !.
+flora_library_file_base(FLLIBUNIVEQFORM,flrmetaops,syslib) :- !.
+%% This handles both =.. and ~..
+flora_library_file_base(FLLIBMETAUNIV,flrmetaops,syslib) :- !.
+
+flora_library_file_base(FLLIBUNIFYHANDLERS,flrunify_handlers,syslib) :- !.
+
+flora_library_file_base(FLLIBIMPORTEDCALLS,flrimportedcalls,syslib) :- !.
+
+flora_library_file_base(FLLIBHYPOTHETICAL,flrhypothetical,syslib) :- !.
+
+flora_library_file_base(FLLIBCATCH,flrerrhandler,syslib) :- !.
+flora_library_file_base(FLLIBTHROW,flrerrhandler,syslib) :- !.
+flora_library_file_base(FLLIBSETRUNTIME,flrerrhandler,syslib) :- !.
+flora_library_file_base(FLLIBERRHANDLER,flrerrhandler,syslib) :- !.
+
+flora_library_file_base(FLLIBNEWOID,flrnewoid,syslib) :- !.
+flora_library_file_base(FLLIBTRUTHVALUE,flrtruthvalue,syslib) :- !.
+
+
+/**************************************************************************
+  Flora headers and trailers inclusion files
+***************************************************************************/
+flora_library_file_base(FLHEADER,flrheader,header) :- !.
+flora_library_file_base(FLHEADER_PROG,flrheader_prog,header) :- !.
+flora_library_file_base(FLHEADER2,flrheader2,header) :- !.
+flora_library_file_base(FLHEADER3,flrheader3,header) :- !.
+flora_library_file_base(FLTRAILER,flrtrailer,header) :- !.
+flora_library_file_base(FLTRAILERREGISTRY,flrtrailerregistry,header) :- !.
+flora_library_file_base(FLDEFINITION,flrdefinition,header) :- !.
+flora_library_file_base(FLDEFINITION_ADD,flrdefinition_add,header) :- !.
+flora_library_file_base(FLPATCH,flrpatch,header) :- !.
+%%flora_library_file_base(FLABOLISH,flrabolish,header) :- !.
+
+%% support for undefinedness
+flora_library_file_base(FLPREDDEF,flrpreddef,header) :- !.
+flora_library_file_base(FLINDEX_P,flrindex_P,header) :- !.
+
+%% for dynamically inserted rules
+flora_library_file_base(FLDYNALIB,flrdyna,header) :- !.
+flora_library_file_base(FLDYNZLIB,flrdynz,header) :- !.
+%% flrdyndeclare_inc.flh is now included by flrutils.P
+flora_library_file_base(FLDYNDECLARE,flrdyndeclare,header) :- !.
+flora_library_file_base(FLSTATICHEADLIB,flrhead_dispatch,header) :- !.
+
+%% for refreshing tables
+flora_library_file_base(FLREFRESHTABLE,flrrefreshtable,header) :- !.
+flora_library_file_base(FLDYN_CONNECTORS,flrdynamic_connectors,header) :- !.
+
+flora_library_file_base(FLLIBIMPORTEDCALLS,flrimportedcalls,header) :- !.
+
+%% basic axioms for explicit negation
+flora_library_file_base(FLOPPOSESBASELIB,flropposes,header) :- !.
+
+/**************************************************************************
+  Flora system modules use the system libraries mechanism to include
+  their header files, but use different mechanism to load.
+***************************************************************************/
+flora_library_file(SysModID,BaseFile,SubDir) :-
+        flora_library_file_base(SysModID,BaseFile,SubDir).
+flora_library_file(SysModID,BaseFile,SubDir) :-
+	flora_sysmod_file(SysModID,BaseFile,SubDir),
+	!.
+flora_library_file(S,F,_) :-
+	flora_error_line('Unknown library ID `~w'' or file `~w''', [S,F]),
+	flora_abort.
+
+%%%% is_flora_library/1 %%%%%
+is_flora_library(LibName) :- flora_library_file_base(LibName,_,_).
+
+
+/*****************************************************************************
+  flora_sysmod_file(+SysModID,+BaseFileName,+SubDir).
+
+  Flora system modules accessible by the @\mod syntax
+*****************************************************************************/
+flora_sysmod_file(FLSYSMODIO,flrio,lib) :- !.
+flora_sysmod_file(FLSYSMODSYSTEM,flrsystem,lib) :- !.
+flora_sysmod_file(FLSYSMODTYPECHECK,flrtypeconstraint,lib) :- !.
+flora_sysmod_file(FLSYSMODBASETYPE,flrbasetype,lib) :- !.
+flora_sysmod_file(FLSYSMODPARSE,flrparse,lib) :- !.
+flora_sysmod_file(FLSYSMODDATABASE,flrstorage,lib) :- !.
+flora_sysmod_file(FLSYSMODSHOW,flrshow,lib) :- !.
+flora_sysmod_file(FLSYSMODSUB,flrsub,lib) :- !.
+flora_sysmod_file(FLCHANGEMODULE,flrchange_module,lib) :- !.
+
+flora_sysmod_file(FLSYSMODGCLP,flrgclp,'AT') :- !.
+
+flora_sysmod_file(FLSYSMODXML,flrxmllib,pkgs) :- !.
+
+
+flora_sysmod_file(ERGO2JAVA,ergo2java,ergo_lib) :- !.
+flora_sysmod_file(ERGO2HTTP,ergo2http,ergo_lib) :- !.
+flora_sysmod_file(ERGO2SPARQL,ergo2sparql,ergo_lib) :- !.
+flora_sysmod_file(ERGO2OWL,ergo2owl,ergo_lib) :- !.
+flora_sysmod_file(ERGO2SQL,ergo2sql,ergo_lib) :- !.
+flora_sysmod_file(ERGO2JSON,ergo2json,ergo_lib) :- !.
+flora_sysmod_file(ERGOEXPLAIN,ergo_explain,ergo_lib) :- !.
+flora_sysmod_file(ERGOSET,ergo_set,ergo_lib) :- !.
+flora_sysmod_file(ERGO_STUDIO_MODULE,fidjiUtils,ergo_lib) :- !.
+
+
+flora_system_module(SysModID) :-
+	flora_sysmod_file(SysModID,_BaseFileName,_SubDir).
+
+flora_nonnegatable_system_module(SysModID) :-
+        %% Can negate argumentation theory calls because of the
+        %% status(...)[howDefeated->...] API. Need to find a better
+        %% way to support this API without making exceptions here
+        SysModID \= FLSYSMODGCLP,
+        flora_system_module(SysModID).

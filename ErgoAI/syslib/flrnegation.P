@@ -1,0 +1,792 @@
+/* File:      flrnegation.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "trie_defs.h"
+#include "celltags_xsb.h"
+#include "table_status_defs.h"
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "flora_prefix.flh"
+#include "flora_exceptions.flh"
+
+#include "flora_tabling_methods.flh"
+
+%%#define NEGATION_DEBUG_STATS 1
+
+#define DELAY_REG  2
+%% negated calls trie
+#define NEG_MGT_TRIE  FLORA_SYMBOL('neg_mgt_trie')
+
+:- ensure_loaded('flrdynmod.P'). %% for FLLIBMODOBJ/2
+
+:- import
+        %% copy term, ignore attrs of attvars
+	copy_term_nat/2,
+	length/2,
+	memberchk/2
+   from basics.
+:- import
+	%%xwam_state/2,
+	call0/1,
+	is_cyclic/1,
+	term_arg/3
+   from machine.
+:- import
+        %%u_not/1,
+        is_tabled/1,
+        table_status/5,
+        abolish_table_call/1,
+        abolish_table_subgoal/1,
+        get_calls/3,
+        get_returns/2
+   from tables.
+
+:- import check_cyclic/3 from error_handler.
+
+:- import incr_invalidate_call/1 from increval.
+
+:- import variant/2 from subsumes.
+:- import predicate_property/2 from curr_sym.
+:- import
+	flora_has_incomplete_incr_dependent_table_plain/1,
+	flora_abolish_table_call/1
+   from flrtables.
+:- import
+	flora_abort/2,
+	%%flora_concat_atoms/2,
+	flora_match_substring/3
+   from flrporting.
+:- import
+	negate_predicate/2,
+	flora_get_symbol_module/2,
+	flora_is_transactional_call/1,
+	%%flora_decode_predicate/7,
+	flora_module_predicate/4
+   from flrwrapper.
+:- import
+        flora_decode_goal_list_as_mainless_atom_list_substitute_vars/2,
+        flora_decode_goal_as_atom_substitute_vars/2
+   from flrdecode.
+
+:- import convert_to_head_literal/2 from flrcanon.
+
+:- import strip_delay_checker/2 from flrdelaysupport.
+
+%% need to import that to match the error's module
+:- import
+	FLLIBMODOBJ/2,
+	FLLIBDELAYEDLITERAL/4,
+	error/2
+   from usermod.
+
+:- import
+	storage_delete_fact/3,
+	storage_find_fact/2
+   from storage.
+:- import
+	flrterm_vars/3
+   from flora_ground.
+
+:- import
+	flora_storage_fast_insert_fact/3
+   from flrstoragebase.
+
+:- import
+	flora_simple_primitive/4,
+	flora_simple_delayed_primitive/3
+   from flrsimpleprimitive.
+
+:- import
+        flora_get_update_counter/1
+   from flrupdatecounter.
+
+
+:- dynamic unsafe_NAF_warning_cache/4.
+:- table neg_implies_naf_check/4 as HILOG_TABLING_TYPE.
+
+:- export
+	flora_unwrap_negation/2,
+        flora_strip_naf_delay/2,
+	flora_unwrap_negation_strip_delay/2,
+	flora_apply_negation_wrapper/3,
+        flora_reconstruct_naf_call/3,
+        flora_reconstruct_naf_call_without_delay_checker/3,
+	FLORA_NAF_PREDICATE/4,
+	FLORA_NAF_PREDICATE/1.
+:- export
+        flr_truth_value/2.
+:- export
+        peek_unnumbercall/1,
+        peek_unnumbercall/2,
+        invalidate_unnumbercall/0,
+        invalidate_unnumbercall/1,
+        abolish_unnumbercall/0,
+        abolish_unnumbercall/1,
+        silent_abolish_unnumbercall/1.
+:- export
+        cleanup_negation/1,
+        register_negated_call/1.
+
+
+%% Simulates not exists. The workhorse is the predicate my_not_exists/1.
+%% tables created while computing negation. Also, tries to deal with
+%% various builtins, like var, integer, =, directly.
+
+%% Gives existential semantics to nonground negative calls. That is
+%%	...:- FLORA_NAF_PREDICATE(p(X)),...
+%% is like
+%%	... :- tnot(pp),...
+%%	pp :- p(X).
+%% where pp is a new proposition.
+FLORA_NAF_PREDICATE(Goal) :-
+	FLORA_NAF_PREDICATE(Goal,[],NULL,NULL).
+
+FLORA_NAF_PREDICATE(Goal,_FreeVars,_Line,_File) :-
+	is_cyclic(Goal),
+	!,
+	fail.
+
+/*
+   exists_not implementation:
+      neg Goal
+      naf_exists Goal
+      u_not Goal
+
+   We need to do neg Goal because if it comes after naf_exists Goal
+   then the following can happen:
+
+      naf_exists Goal may be undefined. Then an undefined answer will
+      be returned even though neg Goal might be true.
+*/
+
+/*
+%% Trying neg Goal. 
+%% Maybe add a catch(call0) here later once we understand
+%% what kind of errors might arise
+
+exists_not(_Vars,Goal):- neg(Goal).
+*/
+%% Try neg Goal
+FLORA_NAF_PREDICATE(Goal,_FreeVars,_Line,_File) :-
+	neg_implies_naf_check(Goal,_FreeVars,_Line,_File).
+
+neg_implies_naf_check(Goal,_FreeVars,_Line,_File) :-
+	%%DBGOUTLN(initial_goal2=Goal),
+	flora_unwrap_negation_strip_delay(Goal,UnwrappedGoal),
+	%%DBGOUTLN(unwrapped_goal=UnwrappedGoal),
+	%% UnwrappedGoal might be a FLLIBMODLIT - materialize
+	FLLIBMODOBJ(UnwrappedGoal,MaterializedUnwrappedGoal),
+	%% neg Goal
+	%%DBGOUTLN(non_negated_goal=MaterializedUnwrappedGoal),
+	negate_predicate(MaterializedUnwrappedGoal,NegUnwrappedGoal),
+	%%DBGOUTLN(negated_goal=NegUnwrappedGoal),
+	call0(NegUnwrappedGoal),
+	%%machine:xwam_state(DELAY_REG,_XX), DBGOUTLN(neg_succeeded_goal=_XX+Goal),
+	%%machine:xwam_state(DELAY_REG,_XX), _XX=0,  %% this is NOT sound - do NOT use
+	true.
+
+%% Trying naf_exists
+FLORA_NAF_PREDICATE(Goal,_FreeVarsTerm,Line,File) :-
+	%%DBGOUTLN(initial_goal=Goal),
+	%%machine:xwam_state(DELAY_REG,_YY), DBGOUTLN(naf_succeeded=_YY),
+	/* Uncommenting the tnot below breaks the tian.ergo test.
+	   But commenting it breaks naf_test in explicit_negation.flr
+	   See also these tests:
+	       tian.ergo
+	       negnaftest.flr - broken
+	*/
+	%%tnot(neg_implies_naf_check(Goal,_FreeVarsTerm,Line,File)),
+	naf_exists(Goal,Line,File),
+	%%flrdecode:flora_decode_goal_as_atom(Goal,GoalAtm), DBGOUTLN(initial_goal=GoalAtm),
+	%%machine:xwam_state(DELAY_REG,_XX), DBGOUTLN(naf_succeeded=_XX+Goal),
+	%%machine:xwam_state(DELAY_REG,_XX), _XX=0, %% this is NOT sound - do NOT use
+	true.
+
+
+/*
+%% Finally trying naf exists forall Vars Goal. At a high level, this does:
+exists_not(Vars,Goal):- 
+	Vars \= [],
+        // the next one says:
+        //     if forall Vars Goal is true then exists_not(Vars,Goal) is false
+	not_exists(myforall(Vars,Goal)),
+	u_not(Goal).
+*/
+FLORA_NAF_PREDICATE(Goal,FreeVarsTerm,Line,File) :-
+	%%machine:xwam_state(DELAY_REG,_XX), DBGOUTLN(naf_2=_XX+Goal),
+	%%DBGOUTLN(initial_goal3=Goal),
+	/* The my_not_exists below is needed for the following test to work:
+               \neg p(1).
+               ?- \naf p(?X).
+           Without this we get 2 answers: ?X=1 & ?X=_  - undefined
+	   See also these tests:
+	       tian.ergo
+	       negnaftest.flr - broken
+           So, if neg_implies_naf_check is true, it means we already got
+           an answer from the 1st case of FLORA_NAF_PREDICATE and we
+           don't need to continue here.
+	*/
+        %% using my_not_exists/1 - the main trick.
+	my_not_exists(neg_implies_naf_check(Goal,FreeVarsTerm,Line,File)),
+	flora_unwrap_negation_strip_delay(Goal,UnwrappedGoal),
+	functor(Goal,FL_Tabled_Unnumber_Call_PredName,_),
+	flora_get_symbol_module(FL_Tabled_Unnumber_Call_PredName,Module),
+	%% FreeVarsTerm was originally a varlist, but may have been instantiated
+	flrterm_vars(FreeVarsTerm,FreeVarList,0), %% 0: include vars under naf
+	%%DBGOUTLN(freevars_=FreeVarList),
+	%%DBGOUTLN(unwrappedgoal=UnwrappedGoal+FreeVarList+FreeVarsTerm),
+	FreeVarList \== [],
+	flora_apply_negation_wrapper(quasi_forall(FreeVarList,UnwrappedGoal),Module,QuaziForallGoal),
+	naf_exists(QuaziForallGoal,Line,File),
+	%%flrdecode:flora_decode_goal_as_atom(Goal,GoalAtm), DBGOUTLN(initial_goal2=GoalAtm),
+	%%DBGOUTLN(quasigoal=QuaziForallGoal),
+	%%DBGOUTLN(goal=Goal),
+	%%DBGOUTLN(unwrapped=UnwrappedGoal),
+	flr_u_not(UnwrappedGoal,UNOT_TV),
+        (
+          flrerrhandler:unsafe_naf_warning_enabled,
+          %%DBGOUTLN(unot_tv=UNOT_TV+FreeVarList+UnwrappedGoal),
+          UNOT_TV == undefined,
+          flr_truth_value(Goal,G_TV),
+          %%DBGOUTLN(g_tv1=G_TV+FreeVarList+Goal),
+          G_TV \== false,
+          \+nowarn_freevar_pred(UnwrappedGoal),
+          is_varlist(FreeVarList),
+          %%DBGOUTLN(varlist_tx=UNOT_TV+FreeVarList),
+          %%DBGOUTLN(g_tv2=G_TV+Goal),
+          %%(G_TV == undefined ; G_TV == true),  %% indeterminable is excluded
+          true
+        ->
+          unsafe_NAF_warning(File,Line,Goal,UnwrappedGoal,FreeVarList)
+        ; true
+        ),
+        %%DBGOUTLN(unot_succeeded=UNOT_TV+G_TV+Goal),
+	true.
+
+naf_exists(Goal,Line,File) :-
+	%%DBGOUTLN(initial_goal5=Goal),
+        %% if Flora body literal, convert to head (which is tabled, unlike body)
+	(convert_to_head_literal(Goal,TabledGoal) -> true
+        ; TabledGoal = Goal
+        ),
+	%%DBGOUTLN(initial_goal5_2=TabledGoal),
+	%% acyclicity of the goal is checked upfront
+	flora_unwrap_negation_strip_delay(Goal,UnwrappedGoal),
+	%%DBGOUTLN(initial_goal5_3=UnwrappedGoal),
+	make_negated_goal(UnwrappedGoal,TabledGoal,NewGoal),
+	%%DBGOUTLN(initial_goal5_4=NewGoal),
+	%%call0(NewGoal).   %% this one is for debugging
+        ErrorBall = error(typed_table_error(incremental_tabling),_Context),
+	%%flrdecode:flora_decode_goal_as_atom(NewGoal,GoalAtm), DBGOUTLN(initial_goal=GoalAtm),
+	catch(call0(NewGoal),
+	      ErrorBall,
+	      incr_tabling_error_handler(Line,File,UnwrappedGoal,ErrorBall)).
+
+	
+%% Delete tables for FLORA_THIS_WORKSPACE(FL_TABLED_NAF_CALL)/1, which
+%% is defined in closure/flrcommon.fli
+cleanup_negation(Call) :-
+	donot_cleanup_negation(Call),
+	!.
+/*
+   Calling incr_invalidate_call here EVEN if Call is incremental in case
+   Call has a non-update side effects, like writing something.
+   For instance,
+       foo(?X) :- write(?X)@\plg.
+       ?- \naf foo(abc), \naf foo(abc).
+   Maybe we should not allow this, ie, such predicates will have the side
+   effect only once under \naf just like when they are called positively?
+      
+   TODO: When incr tabling is fixed, we will allow donot_cleanup_negation
+   to trivially succeed and then we won't get here in incremental cases.
+*/
+cleanup_negation(Call) :-
+	(predicate_property(Call,incremental) ->
+            /*  TODO: When incremental tabling is fixed, comment the next
+                3 lines out. We should not be doing any invalidation in
+                the incremental tabling case.
+            */
+            ( flora_has_incomplete_incr_dependent_table_plain(Call) -> true
+            ; catch(incr_invalidate_call(Call),
+                    _Ball,
+                    %%(PRINTLN(2,call=Call),PRINTLN(2,ball=_Ball))
+                    true
+                   )
+            ),
+            true
+	;
+	    flora_abolish_table_call(Call)
+	).
+
+
+%% unwrap Call = FLORA_THIS_WORKSPACE(FL_TABLED_NAF_CALL)(Unwrapped)
+flora_unwrap_negation(Call,Unwrapped) :-
+        nonvar(Call),
+	functor(Call,F,1),
+	flora_match_substring(FL_TABLED_NAF_CALL,F,_),
+	!,
+	term_arg(Call,1,Unwrapped).
+flora_unwrap_negation(Call,Call).
+
+flora_unwrap_negation_strip_delay(Call,Unwrapped) :-
+        nonvar(Call),
+	flora_unwrap_negation(Call,UnwrappedGoal_pre1),
+	strip_delay_checker(UnwrappedGoal_pre1,UnwrappedGoal_pre2),
+	flora_strip_naf_delay(UnwrappedGoal_pre2,UnwrappedGoal_pre3),
+        %% keep unwrapping until no effect
+        (var(UnwrappedGoal_pre3) ; UnwrappedGoal_pre3 \= Call),
+        !,
+	(flora_unwrap_negation_strip_delay(UnwrappedGoal_pre3,Unwrapped) -> true
+        ; Unwrapped = UnwrappedGoal_pre3
+        ).
+flora_unwrap_negation_strip_delay(Call,Call).
+
+flora_strip_naf_delay(Call,Goal) :-
+        nonvar(Call),
+        Call = FLLIBNAFDELAY(FLORA_NAF_PREDICATE(Goal,_,_,_)),
+        !.
+flora_strip_naf_delay(Goal,Goal).
+
+%% reconstruct naf call with new positive subgoal
+flora_reconstruct_naf_call(NafCall,ReplacementPosSubgoal,NafCallOut) :-
+        nonvar(NafCall),
+        NafCall=FLLIBNAFDELAY(FLORA_NAF_PREDICATE(IntermedTabledPredIn,X,Y,Z)),
+        IntermedTabledPredIn =.. [Pred,(_PosGoalIn,DelayChecker)],
+        IntermedTabledPredOut =.. [Pred,(ReplacementPosSubgoal,DelayChecker)],
+        NafCallOut=FLLIBNAFDELAY(FLORA_NAF_PREDICATE(IntermedTabledPredOut,X,Y,Z)).
+flora_reconstruct_naf_call_without_delay_checker(NafCall,ReplacementPosSubgoal,NafCallOut) :-
+        nonvar(NafCall),
+        NafCall=FLLIBNAFDELAY(FLORA_NAF_PREDICATE(IntermedTabledPredIn,_,_,_)),
+        IntermedTabledPredIn =.. [Pred,(_PosGoalIn,_DelayChecker)],
+        IntermedTabledPredOut =.. [Pred,(ReplacementPosSubgoal,_)],
+        NafCallOut=FLLIBNAFDELAY(FLORA_NAF_PREDICATE(IntermedTabledPredOut,_,_,_)).
+
+
+/*
+flora_unwrap_negation_nocheck(Call,Unwrapped) :-
+	%%arg(1,Call,Unwrapped).
+	term_arg(Call,1,Unwrapped).
+*/
+
+
+%% GoalWrapped is in usermod because flora_module_predicate/4 uses =..
+%% to construct calls.
+flora_apply_negation_wrapper(Goal,Workspace,GoalWrapped) :-
+	flora_module_predicate(FL_TABLED_NAF_CALL,[Goal],Workspace,GoalWrapped).
+
+
+%% debugging: this lets one handle exceptions in Goal by just failing them
+%% to disable the below abort, jusy execute
+%%               assert(aaaa(1)@\plg(flrnegation))@\plg,
+/*
+:- dynamic incr_table_error_action/1.
+incr_table_error_action(fail).
+incr_tabling_error_handler(_Line,_File,_Goal,_Ball) :-
+        incr_table_error_action(Action),
+        !,
+        DBGOUTLN('typed_table_error(incremental_tabling),context(context( An incremental update is trying to invalidate the goal... - and the call is failed'),
+        %%retractall(incr_table_error_action(_)),
+        call(Action).
+*/
+
+incr_tabling_error_handler(Line,File,Goal,_Ball) :-
+        DBGOUTLN(sideeffectful=_Ball),
+	((Line == NULL ; var(Line)) -> LineMsg = FL_UNKNOWN_OBJECT
+	; LineMsg = Line
+	),
+	((File == NULL ; var(File)) -> FileMsg = FL_UNKNOWN_OBJECT
+	; FileMsg = File
+	),
+        %%throw(errorball(_Ball)),  %% for debugging only; use raw error ball
+	((var(Line) ; var(File)) -> EndingMsg = ' (The offending statement may have been created dynamically and passed down as an argument.)'
+	; EndingMsg = ''
+	),
+	MainMsg1 = 'attempt to perform a side-effectful action\n\t\t    ',
+	MainMsg2 = '\n\t\tin an \\if or \\unless-condition, or under \\naf or forall.\n\t\tTry to reformulate using the hypotheticals <> or ~<>.',
+	flora_decode_goal_as_atom_substitute_vars(Goal,GoalAtm),
+        ((FileMsg == '<unknown>' ; var(FileMsg)) ->
+            flora_abort([MainMsg1, GoalAtm, MainMsg2, EndingMsg],
+                        FLORA_ABORT_NOTRACE)
+	; flora_abort(['line ', LineMsg, ', file ', FileMsg, ': \n\t\t',
+		     MainMsg1, GoalAtm, MainMsg2, EndingMsg],
+		    FLORA_ABORT_NOTRACE)
+        ).
+
+%% Optimizations for common cases. More to be added as needed
+%%
+%% NOT pushing through conjunctions and disjunctions,
+%% as it might be unsound when variables are shared
+
+%% First safeguard against unbound or attr variables. Test case:
+%% ?- ?X ~ \naf ?(?)@?,   ?X.
+make_negated_goal(UnwrappedGoal,OrigGoal,my_not_exists(OrigGoal)) :-
+        var(UnwrappedGoal),
+        !,
+#ifdef NEGATION_DEBUG_STATS
+	flrporting:flora_increment_counter(neggenerl,1,_,_),
+#endif
+        usermod:FLORA_DELAY_CHECKER([UnwrappedGoal],[]).
+
+make_negated_goal('='(Left,Right),   _OrigGoal, '\='(Left,Right))   :- !.
+make_negated_goal('!='(Left,Right),   _OrigGoal, '='(Left,Right))   :- !.
+make_negated_goal('\='(Left,Right),  _OrigGoal, '='(Left,Right))    :- !.
+make_negated_goal('=='(Left,Right),  _OrigGoal, '\=='(Left,Right))  :- !.
+make_negated_goal('\=='(Left,Right), _OrigGoal, '=='(Left,Right))   :- !.
+make_negated_goal('<'(Left,Right),   _OrigGoal, '>='(Left,Right))   :- !.
+make_negated_goal('=<'(Left,Right),  _OrigGoal, '>'(Left,Right))    :- !.
+make_negated_goal('>'(Left,Right),   _OrigGoal, '=<'(Left,Right))   :- !.
+make_negated_goal('>='(Left,Right),  _OrigGoal, '<'(Left,Right))    :- !.
+make_negated_goal('@<'(Left,Right),  _OrigGoal, '@>='(Left,Right))  :- !.
+make_negated_goal('@=<'(Left,Right), _OrigGoal, '@>'(Left,Right))   :- !.
+make_negated_goal('@>'(Left,Right),  _OrigGoal, '@=<'(Left,Right))  :- !.
+make_negated_goal('@>='(Left,Right), _OrigGoal, '@<'(Left,Right))   :- !.
+make_negated_goal(FL_ISSKOLEM(V),    _OrigGoal, \+FL_ISSKOLEM(V))   :- !.
+make_negated_goal(FL_ISBASEFACT(V),  _OrigGoal, \+FL_ISBASEFACT(V)) :- !.
+make_negated_goal(FLLIBMETAUNIV(L,R),_OrigGoal, \+FLLIBMETAUNIV(L,R)) :- !.
+make_negated_goal(\+(V),             _OrigGoal, V)                  :- !.
+make_negated_goal(var(V),            _OrigGoal, nonvar(V))          :- !.
+make_negated_goal(nonvar(V),         _OrigGoal, var(V))             :- !.
+make_negated_goal(integer(V),        _OrigGoal, \+integer(V))       :- !.
+make_negated_goal(float(V),          _OrigGoal, \+float(V))         :- !.
+make_negated_goal(number(V),         _OrigGoal, \+number(V))        :- !.
+make_negated_goal(is_list(V),        _OrigGoal, \+is_list(V))       :- !.
+make_negated_goal(is_charlist(V),    _OrigGoal, \+is_charlist(V))   :- !.
+make_negated_goal(is(V,W),           _OrigGoal, \+is(V,W))          :- !.
+make_negated_goal(true,              _OrigGoal, fail)               :- !.
+make_negated_goal(fail,              _OrigGoal, true)               :- !.
+make_negated_goal(false,             _OrigGoal, true)               :- !.
+make_negated_goal(flrground(G),   _OrigGoal, flora_ground:flrnonground(G)) :- !.
+make_negated_goal(_:flrground(G), _OrigGoal, flora_ground:flrnonground(G)) :- !.
+make_negated_goal(write_canonical(X), _OrigGoal, \+write_canonical(X)) :- !.
+make_negated_goal(write(X),          _OrigGoal, \+write(X))         :- !.
+make_negated_goal(writeln(X),        _OrigGoal, \+writeln(X))       :- !.
+make_negated_goal(nl,                _OrigGoal, \+nl)               :- !.
+make_negated_goal(write_canonical(P,X), _OrigGoal, \+write_canonical(P,X)) :- !.
+make_negated_goal(write(P,X),        _OrigGoal, \+write(P,X))       :- !.
+make_negated_goal(writeln(P,X),      _OrigGoal, \+writeln(P,X))     :- !.
+make_negated_goal(nl(P),             _OrigGoal, \+nl(P))            :- !.
+/*
+%% NOT pushing through AND/OR: it might be unsound, if variables are shared
+make_negated_goal((G1,G2), OrigGoal, (G11;G22)) :-
+	make_negated_goal(G1,OrigGoal,G11),
+	make_negated_goal(G2,OrigGoal,G22),
+	!.
+make_negated_goal((G1;G2), OrigGoal, (G11,G22)) :-
+	make_negated_goal(G1,OrigGoal,G11),
+	make_negated_goal(G2,OrigGoal,G22),
+	!.
+*/
+
+%% handle primitives
+make_negated_goal(Mod:Goal,_OrigGoal, \+(Mod:Goal)) :-
+	functor(Goal,Fun,Arity),
+	flora_simple_primitive(_,Arity,Fun,Mod),
+	!.
+make_negated_goal(Goal,_OrigGoal, \+(Goal)) :-
+	functor(Goal,Fun,Arity),
+	flora_simple_primitive(_,Arity,Fun,usermod),
+	!.
+make_negated_goal(FLLIBDELAYEDLITERAL(Builtin,File,Line,Args),_OrigGoal, \+(Goal)) :-
+	length(Args,Arity),
+	flora_simple_delayed_primitive(_,Arity,Builtin),
+	!,
+	Goal = FLLIBDELAYEDLITERAL(Builtin,File,Line,Args).
+
+make_negated_goal(FLLIBHYPOTHETICAL(Type,Goal), _OrigGoal, FLLIBHYPOTHETICAL(NegType,Goal)) :-
+	!,
+#ifdef NEGATION_DEBUG_STATS
+	flrporting:flora_increment_counter(neghypo,1,_,_),
+#endif
+	(Type == FL_POSSIBLE -> NegType = FL_IMPOSSIBLE
+	; NegType = FL_POSSIBLE
+	).
+
+make_negated_goal(FLLIBMODLIT(LIBMOD_WRAPPER,
+                              FLLIBHYPOTHETICAL(Type,Goal),Module,Context),
+                  _OrigGoal,
+                  FLLIBMODLIT(LIBMOD_WRAPPER,
+                              FLLIBHYPOTHETICAL(NegType,Goal),Module,Context)) :-
+        	!,
+#ifdef NEGATION_DEBUG_STATS
+	flrporting:flora_increment_counter(neghypo,1,_,_),
+#endif
+	(Type == FL_POSSIBLE -> NegType = FL_IMPOSSIBLE
+	; NegType = FL_POSSIBLE
+	).
+
+
+%% TRANSACTIONAL: This is more rare than TABLED, so it comes after
+make_negated_goal(UnwrappedGoal,_OrigGoal,\+(UnwrappedGoal)) :-
+	flora_is_transactional_call(UnwrappedGoal),
+#ifdef NEGATION_DEBUG_STATS
+	flrporting:flora_increment_counter(negtransactional,1,_,_),
+#endif
+	!.
+	
+%% General case
+make_negated_goal(_UnwrappedGoal,OrigGoal,my_not_exists(OrigGoal)) :-
+#ifdef NEGATION_DEBUG_STATS
+	flrporting:flora_increment_counter(neggenerl,1,_,_),
+#endif
+	%% cleanup_negation/1 checks if incomplete tables are safe
+	cleanup_negation(OrigGoal),
+	%% register_negated_call MUST come after cleanup_negation
+	register_negated_call(OrigGoal),
+	!.
+
+
+%% tells when not to clean up tables for FL_TABLED_NAF_CALL
+/*
+%% TODO: uncomment this when incremental tabling works again for the
+%%       original reason_by_cases3.ergo.
+%% seems like there is a bug in incremental,
+%% and cleaning up negation is still needed even for incremental
+donot_cleanup_negation(Call) :-
+	predicate_property(Call,incremental),
+        !.
+*/
+donot_cleanup_negation(Call) :-
+        flora_get_update_counter(Counter),
+        copy_term(Call,CallCopy),
+	(storage_find_fact(NEG_MGT_TRIE,negated_calls_cache(CallCopy,CallFlag))
+	-> Counter = CallFlag
+	; true
+	).
+
+
+/*
+   If Call is incremental, we do not need to save any calls.
+   For inscremental ones, remember the calls so we'll be able to know
+   when NOT to abolish tables for FL_TABLED_NAF_CALL
+*/
+/*
+%% TODO: uncomment this when incremental tabling works again for the
+%%       original reason_by_cases3.ergo.
+%% seems like there is a bug in incremental,
+%% and cleaning up negation is still needed even for incremental
+%% so need to save negated calls
+register_negated_call(Call) :-
+	predicate_property(Call,incremental),
+        !.
+*/
+%% saves Call in a trie-cache
+register_negated_call(Call) :-
+	%% get current flag
+        flora_get_update_counter(CurrFlag),
+        copy_term(Call,CallCopy),
+	(storage_find_fact(NEG_MGT_TRIE,negated_calls_cache(CallCopy,CurrFlag))
+	-> true
+	;
+	    delete_all_matching_facts_from_cache(CallCopy),
+	    flora_storage_fast_insert_fact(NEG_MGT_TRIE,
+					   NON_INCREMENTAL_TRIE,
+					   negated_calls_cache(CallCopy,CurrFlag))
+	).
+
+
+:- export quasi_forall/2.  %% just so we could catch it in flrdecode.P
+quasi_forall(Vars,Goal):- 
+        %% copy term, ignore attrs of attvars
+	copy_term_nat(Vars,Vars1),
+	call(Goal),
+	variant(Vars,Vars1).
+
+
+#ifdef NEGATION_DEBUG_STATS
+:- export get_negation_stats/0.
+get_negation_stats :-
+	gensym:conget(negtransactional,Trans),
+	gensym:conget(neghypo,Hypo),
+	gensym:conget(neggenerl,Gen),
+	Builtins is Total-Tabled-Ground-Trans-Hypo-Gen,
+	DBGOUTLN('Statistics for negation use:'),
+	DBGOUTLN(transl=Trans),
+	DBGOUTLN('hypo  '=Trans),
+	DBGOUTLN(generl=Gen).
+#endif
+
+
+%% my_not_exists/1 - the new version! Does not require numbervar!
+my_not_exists(Goal) :-
+        (Goal, fail
+        ; tnot(Goal)
+        ).
+
+
+delete_all_matching_facts_from_cache(Call) :-
+        !,
+        storage_delete_fact(NEG_MGT_TRIE,negated_calls_cache(Call,_),_).
+%% These clauses are for debugging
+delete_all_matching_facts_from_cache(Call) :-
+        storage_delete_fact(NEG_MGT_TRIE,negated_calls_cache(Call,_),_),
+        fail.
+delete_all_matching_facts_from_cache(_Call).
+
+
+%% exported, unused
+peek_unnumbercall(Call) :- peek_unnumbercall(Call,main).
+peek_unnumbercall(Call,Module) :-
+        flora_apply_negation_wrapper(Call,Module,GoalWrapped),
+        get_calls(GoalWrapped,SF,Return),
+        get_returns(SF,Return),
+        write('\nin table: '), writeq(GoalWrapped), nl.
+%% exported, unused
+abolish_unnumbercall :- abolish_unnumbercall(main).
+abolish_unnumbercall(Module) :-
+        flora_apply_negation_wrapper(_,Module,GoalWrapped),
+        write('\nabolishing: '), writeq(GoalWrapped), nl,
+        abolish_table_call(GoalWrapped),
+        (predicate_property(GoalWrapped,Prop),
+            PRINTLN('   pred property' = Prop),
+            fail
+        ; true
+        ).
+%% exported, unused
+silent_abolish_unnumbercall(Module) :-
+        flora_apply_negation_wrapper(_,Module,GoalWrapped),
+        abolish_table_call(GoalWrapped).
+
+%% exported, unused
+invalidate_unnumbercall :- invalidate_unnumbercall(main).
+invalidate_unnumbercall(Module) :-
+        flora_apply_negation_wrapper(_,Module,GoalWrapped),
+        increval:incr_invalidate_call(GoalWrapped).
+
+/*****/
+unsafe_NAF_warning(File,_Line,_Goal,_GoalStripped,_FreeVar) :-
+        %% do not give warnings on argumentation theories
+        memberchk(File,['flrgclp.flr','ogclp.flr','sgclp.flr','refute_clp.flr',
+                        'gclpe.flr','ogclpe.flr',
+                        'atck1alt.flr', 'atck2.flr','atck3.flr',
+                        'atco2.flr','atco3.flr', 'atco.flr',
+                        'flrtypeconstraint.flr']),
+        !.
+unsafe_NAF_warning(File,Line,_Goal,GoalStripped,FreeVar) :-
+        (unsafe_NAF_warning_cache(GoalStripped,FreeVar,File,Line) ; File == NULL),
+        !.
+unsafe_NAF_warning(File,Line,Goal,GoalStripped,FreeVarList) :-
+        assert(unsafe_NAF_warning_cache(GoalStripped,FreeVarList,File,Line)),
+        sort(FreeVarList,FreeVarListNoDups),
+	flora_decode_goal_list_as_mainless_atom_list_substitute_vars([Goal,FreeVarListNoDups],[GoalAtm,FreeVarListNoDupsAtm]),
+        (Line == NULL -> RealLine = unknown
+        ; RealLine = Line
+        ),
+#mode save
+#mode nostring "\!#'"
+	flrprint:flora_warning_line('File: ~w, line: ~w\n\t\t Subgoal: ~w\n\t\t Unbound variables: ~w\n\t\t The subgoal has unbound variables under \\naf or \'forall\'.\n\t\t FLSYSTEM_UNQ is unlikely to evaluate this to true or false.\n\t\t Try to bind free & quantified variables to finite domains.\n\t\t If everything is correct, this warning can be suppressed with\n\t\t    setruntime{unsafe_naf(ignore)} or\n\t\t    setruntime{unsafe_naf(ignoreonce)}.',
+                                    [File,RealLine,GoalAtm,FreeVarListNoDupsAtm]).
+#mode restore
+/*****/
+
+
+flr_u_not(Goal,Undefined) :-
+        (flora_ground:flrground_cyc(Goal) ->
+            Undefined = defined,
+            my_not_exists(Goal)
+        ; check_cyclic(Goal,'flr_u_not/1',1),
+            Undefined = undefined,
+            undefined
+        ).
+
+flr_truth_value(Goal,TV):- 
+        copy_term(Goal,Goal1),
+	(is_tabled(Goal1) -> 
+   	   flr_truth_value_tp(Goal1,TV)
+         ; flr_truth_value_ntp(Goal1,TV) ).
+
+flr_truth_value_tp(Goal,TV):- 	
+	(Goal,fail ; true),
+	flr_truth_value_1(Goal,TV).
+
+flr_truth_value_ntp(Goal,TV):- 	
+	abolish_table_subgoal(flr_truth_value_ntp_1(Goal)),
+	(flr_truth_value_ntp_1(Goal),fail ; true),
+	flr_truth_value_1(flr_truth_value_ntp_1(Goal),TV).
+
+:- table flr_truth_value_ntp_1/1 as variant, opaque.
+flr_truth_value_ntp_1(Goal):- Goal.
+
+flr_truth_value_1(Goal,TV):- 
+ 	table_status(Goal,_PredTypeCode,_CallTypeCode,AnsSetStatusCode,_SF),
+	(AnsSetStatusCode == COMPLETED_ANSWER_SET -> 
+	    ( (\+ \+ Goal) -> 
+		variant_get_residual(Goal,Resid),
+		(Resid == [] -> TV = true ; TV = undefined)
+            ;  TV = false
+            )
+        %%; tv_answer_set_status_code(AnsSetStatusCode, Obj_type),
+        %%  permission_error(obtain_models_truth_value,Obj_type,Goal,model_tv/2)
+        ;  TV = indeterminable  %% Flora-2 change
+        ).
+
+%%tv_answer_set_status_code(INCR_NEEDS_REEVAL,  incremental_needs_reeval).
+%%tv_answer_set_status_code(UNDEFINED_ANSWER_SET,  non_tabled_subgoal).
+%%tv_answer_set_status_code(COMPLETED_ANSWER_SET,  complete).
+%%tv_answer_set_status_code(INCOMPLETE_ANSWER_SET, incomplete_subgoal).
+
+is_varlist([]) :- !.
+is_varlist([V|R]) :-
+        var(V),
+        is_varlist(R).
+
+
+nowarn_freevar_pred('='(_,_)).
+nowarn_freevar_pred('!='(_,_)).
+nowarn_freevar_pred('\='(_,_)).
+nowarn_freevar_pred('=='(_,_)).
+nowarn_freevar_pred('\=='(_,_)).
+nowarn_freevar_pred('=\='(_,_)).
+nowarn_freevar_pred('=:='(_,_)).
+nowarn_freevar_pred('<'(_,_)).
+nowarn_freevar_pred('=<'(_,_)).
+nowarn_freevar_pred('>'(_,_)).
+nowarn_freevar_pred('>='(_,_)).
+nowarn_freevar_pred('@<'(_,_)).
+nowarn_freevar_pred('@=<'(_,_)).
+nowarn_freevar_pred('@>'(_,_)).
+nowarn_freevar_pred('@>='(_,_)).
+nowarn_freevar_pred(FL_ISSKOLEM(_)).
+nowarn_freevar_pred(FL_ISBASEFACT(_)).
+nowarn_freevar_pred(FLLIBMETAUNIV(_,_)).
+nowarn_freevar_pred(\+(_)).
+nowarn_freevar_pred(var(_)).
+nowarn_freevar_pred(nonvar(_)).
+nowarn_freevar_pred(integer(_)).
+nowarn_freevar_pred(float(_)).
+nowarn_freevar_pred(number(_)).
+nowarn_freevar_pred(is_list(_)).
+nowarn_freevar_pred(is_charlist(_)).
+nowarn_freevar_pred(is(_,_)).
+nowarn_freevar_pred(flrground(_)).
+nowarn_freevar_pred(_:_).
+nowarn_freevar_pred(write_canonical(_)).
+nowarn_freevar_pred(write(_)).
+nowarn_freevar_pred(writeln(_)).
+nowarn_freevar_pred(write_canonical(_,_)).
+nowarn_freevar_pred(write(_,_)).
+nowarn_freevar_pred(writeln(_,_)).
+nowarn_freevar_pred(nl(_)).

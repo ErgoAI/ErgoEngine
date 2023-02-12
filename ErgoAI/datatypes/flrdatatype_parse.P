@@ -1,0 +1,1034 @@
+/* File:      flrdatatype_parse.P  -- Parser for builtin data types
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2021.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_characters.flh"
+#include "flora_terms.flh"
+#include "flora_errors.flh"
+#include "flora_exceptions.flh"
+#include "flora_status_codes.flh"
+
+:- import
+        reverse/2,
+        memberchk/2
+   from basics.
+
+:- import
+	%% is_digit/1,
+	is_alpha_or_underscore/1
+   from flrlexer.
+
+:- import
+	is_prdatatypelist/2,
+	is_prdatatypelist/1
+   from flrcoder.
+
+:- import
+	flora_read_from_source/2,
+	flora_read_parse_compile_build_term/4
+   from flrutils.
+
+:- import
+        flora_toUpper/2,
+	flora_second_repr/2,
+	flora_cut_off_trailing_zeros/2
+   from flrdatatype_utils.
+
+:- import
+	flora_canonical_type_name/2
+   from flrdatatype.
+
+:- import
+	%%flora_dt_add_duration_to_datetime/3,
+	flora_atom_to_number/2,
+	flora_dt_maxDayInMonthFor/3
+   from flrtime_arith.
+
+:- import
+	flora_concat_atoms/2,
+	flora_concat_strings/2,
+	flora_abort/2
+   from flrporting.
+
+:- import
+	parsing_error/3
+   from flrparser.
+
+:- import currency/3 from flrcurrency.
+
+:- import
+        decode_list_add_separator/4,
+        decode_commalist_add_separator/4,
+	flora_decode_oid_as_atom/2
+   from flrdecode.
+
+:- export
+	complex_type_numeric_value/3,
+	flora_parse_datatype/4,
+	flora_make_datatype/4,
+	flora_make_datatype/3.
+
+:- dynamic FLORA_DATATYPE_CACHE/2, FLORA_DATATYPE_CACHE/3.
+:- index(FLORA_DATATYPE_CACHE/2,trie).
+:- index(FLORA_DATATYPE_CACHE/3,trie).
+
+
+flora_parse_datatype(DT,_Idx,ParsedDT,[]) :-
+	nonvar(DT),
+	FLORA_DATATYPE_CACHE(DT,ParsedDT),
+	!.
+flora_parse_datatype(DT,Idx,ParsedDT,Status) :-
+	catch(flora_parse_datatype_internal(DT,Idx,ParsedDT,Status),
+	      _,
+	      dt_syntax_error_handler(DT,Idx,Status)
+	     ).
+
+flora_parse_datatype_internal(DATATYPE(FL_TIME,LitChars),Idx,ParsedDT,Status) :-
+	!,
+	(LitChars=VARIABLE(VarName)
+	-> ParsedDT = FL_TIME(FLVAR(VarName,Idx)), Status=[]
+	;
+	    parse_time(LitChars,Idx,ERROR_TIME_LITERAL,
+		       Hr,Min,Sec,ZSign,ZH,ZM,Status),
+	    (Status==[]
+	    -> make_datatype(FL_TIME,(Hr,Min,Sec,ZSign,ZH,ZM),ParsedDT)
+	    ;  true
+	    )
+	;  parsing_error(Idx,ERROR_TIME_LITERAL,Status)
+	).
+
+flora_parse_datatype_internal(DATATYPE(FL_DATE,LitChars),Idx,ParsedDT,Status) :-
+	!,
+	(LitChars=VARIABLE(VarName)
+	-> ParsedDT = FL_DATE(FLVAR(VarName,Idx)), Status=[]
+	;
+	    parse_date(LitChars,Idx,ERROR_DATE_LITERAL,
+		       DSign,Yr,Mo,D,ZSign,ZH,ZM,Status),
+	    (Status==[]
+	    -> make_datatype(FL_DATE,(DSign,Yr,Mo,D,ZSign,ZH,ZM),ParsedDT)
+	    ;  true
+	    )
+	;  parsing_error(Idx,ERROR_DATE_LITERAL,Status)
+	).
+
+flora_parse_datatype_internal(DATATYPE(FL_DATETIME,LitChars),Idx,ParsedDT,Status) :-
+	!,
+	(LitChars=VARIABLE(VarName)
+	-> ParsedDT = FL_DATETIME(FLVAR(VarName,Idx)), Status=[]
+	;
+	    parse_datetime(LitChars,Idx,DSign,Yr,Mo,D,Hr,Min,Sec,ZSign,ZH,ZM,Status),
+	    (Status==[]
+	    -> make_datatype(FL_DATETIME,
+			     (DSign,Yr,Mo,D,Hr,Min,Sec,ZSign,ZH,ZM),
+			     ParsedDT)
+	    ; true
+	    )
+	).
+
+
+flora_parse_datatype_internal(DATATYPE(FL_DURATION,LitChars),Idx,ParsedDT,Status) :-
+	!,
+	(LitChars=VARIABLE(VarName)
+	-> ParsedDT = FL_DURATION(FLVAR(VarName,Idx)), Status=[]
+	;
+	    parse_duration(LitChars,Idx,DSign,Yr,Mo,D,Hr,Min,Sec,Status),
+	    (Status==[]
+	    -> make_datatype(FL_DURATION,
+			     (DSign,Yr,Mo,D,Hr,Min,Sec),
+			     ParsedDT)
+	    ; true
+	    )
+	).
+
+flora_parse_datatype_internal(DATATYPE(FL_CURRENCY,LitChars),Idx,ParsedDT,Status) :-
+	!,
+	(LitChars=VARIABLE(VarName)
+	-> ParsedDT = FL_CURRENCY(FLVAR(VarName,Idx)), Status=[]
+	;
+	    parse_currency(LitChars,Idx,Value,Unit,Status),
+	    (Status==[]
+	    -> make_datatype(FL_CURRENCY,(Value,Unit),ParsedDT)
+	    ;  true
+	    )
+	;  parsing_error(Idx,ERROR_CURRENCY_LITERAL,Status)
+	).
+
+
+%% Add prefix, localName
+flora_parse_datatype_internal(DATATYPE(FL_IRI,LitChars),Idx,ParsedDT,Status) :-
+	!,
+	(LitChars=VARIABLE(VarName)
+	-> ParsedDT = FL_IRI(FLVAR(VarName,Idx)), Status=[]
+	;
+	    parse_iri(LitChars,Idx,Scheme,Separator,User,Host,Port,Path,Query,Fragm,Status),
+	    (Status==[]
+	    -> make_datatype(FL_IRI,
+			     (Scheme,Separator,User,Host,Port,Path,Query,Fragm),
+			     ParsedDT)
+	    ; true
+	    )
+	).
+
+flora_parse_datatype_internal(DATATYPE(FL_LONG,LitChars),Idx,ParsedDT,Status) :-
+	!,
+	(LitChars=VARIABLE(VarName)
+	-> ParsedDT = FL_LONG(FLVAR(VarName,Idx)), Status=[]
+	;
+	    parse_long(LitChars,Idx,Value,Status),
+	    (Status==[]
+	    -> make_datatype(FL_LONG,(Value),ParsedDT)
+	    ;  true
+	    )
+	).
+
+flora_parse_datatype_internal(DATATYPE(FL_DOUBLE,LitChars),Idx,ParsedDT,Status) :-
+	!,
+	(LitChars=VARIABLE(VarName)
+	-> ParsedDT = FL_DOUBLE(FLVAR(VarName,Idx)), Status=[]
+	;
+	    parse_double(LitChars,Idx,Value,Status),
+	    (Status==[]
+	    -> make_datatype(FL_DOUBLE,(Value),ParsedDT)
+	    ;  true
+	    )
+	).
+
+flora_parse_datatype_internal(DATATYPE(FL_STRING,LitChars),Idx,ParsedDT,Status) :-
+	!,
+	(LitChars=VARIABLE(VarName)
+	-> ParsedDT = FL_STRING(FLVAR(VarName,Idx)), Status=[]
+	;
+	    parse_string(LitChars,Idx,Value,Status),
+	    (Status==[]
+	    -> make_datatype(FL_STRING,(Value),ParsedDT)
+	    ;  true
+	    )
+	).
+
+flora_parse_datatype_internal(DATATYPE(FL_CHARLIST,LitChars),Idx,ParsedDT,Status) :-
+	!,
+	(LitChars=VARIABLE(VarName)
+	-> ParsedDT = FL_CHARLIST(FLVAR(VarName,Idx)), Status=[]
+	;
+	    parse_charlist(LitChars,Idx,Value,Status),
+	    (Status==[]
+	    -> make_datatype(FL_CHARLIST,(Value),ParsedDT)
+	    ;  true
+	    )
+	).
+
+
+flora_parse_datatype_internal(DATATYPE(FL_LISTTYPE,LitChars),Idx,ParsedDT,Status) :-
+	!,
+	(LitChars=VARIABLE(VarName)
+	-> ParsedDT = FL_LISTTYPE(FLVAR(VarName,Idx)), Status=[]
+	;
+	    parse_list(LitChars,Idx,Value,Status),
+	    (Status==[]
+	    -> make_datatype(FL_LISTTYPE,(Value),ParsedDT)
+	    ;  true
+	    )
+	).
+
+flora_parse_datatype_internal(DATATYPE(FL_BOOL,LitChars),Idx,ParsedDT,Status) :-
+	!,
+	(LitChars=VARIABLE(VarName)
+	-> ParsedDT = FL_BOOL(FLVAR(VarName,Idx)), Status=[]
+	;
+	    parse_bool(LitChars,Idx,Value,Status),
+	    (Status==[]
+	    -> make_datatype(FL_BOOL,(Value),ParsedDT)
+	    ;  true
+	    )
+	).
+
+%% Catchall
+flora_parse_datatype_internal(DATATYPE(TypeName,DTLiteral),Idx,ParsedDT,Status) :-
+	(DTLiteral=VARIABLE(VarName)
+	-> ParsedDT = FL_DATATYPE(TypeName, FLVAR(VarName,Idx)),
+	    Status = []
+	; is_charlist(DTLiteral)
+	->
+	    make_datatype(TypeName,(DTLiteral),ParsedDT),
+	    Status = []
+	; is_prdatatypelist(DTLiteral)
+	->
+	    datatype_litlist_value(DTLiteral,LitListVal),
+	    make_datatype(TypeName,LitListVal,ParsedDT),
+	    Status = []
+	).
+
+
+%% We leave SecChars in the list form to avoid having floats in the internal
+%% representation of the data types. The same float can be a different number
+%% depending on the time etc., and having them as internal things is undesirable
+parse_time(LitChars,Idx,ErrorMsg,H,M,SecAtm,ZSign,ZH,ZM,Status) :-
+	(get_part(LitChars,":",HrChars,LitChars1),
+	    get_part(LitChars1,":",MinChars,Rest),
+	    (get_part(Rest,"-", SecChars1,ZoneChars) -> ZSign = -1
+	    ; get_part(Rest,"+", SecChars1,ZoneChars) -> ZSign = 1
+	    ; get_part(Rest,"Z", SecChars1,"")  %% UTC time
+	    -> ZSign = 1,
+		ZoneChars="00:00"
+	    ; %% Rest must be the second part: ss.sss or empty ss
+		SecChars1 = Rest,
+                %% ZSign=0 means local time, no time zone
+		ZoneChars="",  ZSign=0
+	    ),
+	    (SecChars1 = [S1,S2|RestSec1]
+	    -> flora_cut_off_trailing_zeros(RestSec1,RestSec),
+		SecChars = [S1,S2|RestSec]
+	    ; SecChars1 = [S1|RestSec1]
+	    -> flora_cut_off_trailing_zeros(RestSec1,RestSec),
+		SecChars = [S1|RestSec]
+	    ; SecChars = [CH_0,CH_0]
+	    ),
+	    atom_codes(SecAtm,SecChars),
+	    (ZoneChars == ""
+	    -> ZHChars = "0", ZMChars = "0"
+	    ; get_part(ZoneChars,":",ZHChars,ZMChars)
+	    )
+	-> Status1 = []
+	; parsing_error(Idx,ErrorMsg,Status1)
+	),
+	(Status1 == [] %% check time zone, Hr, Min, etc.
+	-> (number_codes(H,HrChars), number_codes(M,MinChars),
+	       number_codes(S,SecChars),
+	       number_codes(ZH, ZHChars), number_codes(ZM, ZMChars),
+	       H < 24, H >= 0,
+	       M < 60, M >= 0,
+	       0 =< S, S < 60,
+	       ZH < 24, ZM < 60, 0 =< ZH, 0 =< ZM
+	   -> Status = []
+	   ; parsing_error(Idx,ErrorMsg,Status)
+	   )
+	; Status = Status1
+	),
+	!.
+
+parse_date(LitChars,Idx,ErrorMsg,DSign,Yr,Mo,D, ZSign, ZH, ZM, Status) :-
+	(LitChars = [CH_MINUS|LitChars1]
+	-> DSign = -1
+	; LitChars = [CH_PLUS|LitChars1]
+	-> DSign = 1
+	;  DSign = 1, LitChars1 = LitChars
+	),
+	(get_part(LitChars1,"-",YrChars,LitChars2),
+	    get_part(LitChars2,"-",MonChars,LitChars3),
+	    (get_part(LitChars3,"-",DayChars,ZoneChars) -> ZSign = -1
+	    ; get_part(LitChars3,"+",DayChars,ZoneChars) -> ZSign = 1
+	    ; get_part(LitChars3,"Z", DayChars,"")  %% UTC time
+	    -> ZSign = 1,
+		ZoneChars="00:00"
+            %% ZSign=0 means local time, no time zone
+	    ; LitChars3 = DayChars, ZSign = 0, ZoneChars = ""
+	    ),
+	    (ZoneChars == "" -> ZHChars = "0", ZMChars = "0"
+	    ; get_part(ZoneChars,":",ZHChars,ZMChars)
+	    )
+	-> Status1 = []
+	; parsing_error(Idx,ErrorMsg,Status1)
+	),
+	(Status1 == [] %% check time zone, Month, Day, etc.
+	->  (number_codes(Mo,MonChars), number_codes(D,DayChars),
+		number_codes(Yr,YrChars),
+		number_codes(ZH,ZHChars), number_codes(ZM,ZMChars),
+		ZH < 24, ZM < 60, Mo < 13,
+		0 =< ZH, 0 =< ZM, 0 < Mo,
+		0 =< Yr,
+		flora_dt_maxDayInMonthFor(Yr,Mo,MaxDay),
+		0 < D, D =< MaxDay
+	    -> Status = []
+	    ;  parsing_error(Idx,ErrorMsg,Status)
+	    )
+	; Status = Status1
+	),
+	!.
+
+parse_datetime(LitChars,Idx,
+	       DSign,Yr,Mo,D,Hr,Min,Sec,ZSign,ZH,ZM, Status) :-
+	( get_part(LitChars,"T",DatePart,TimePart)
+	-> parse_date(DatePart,Idx,ERROR_DATETIME_LITERAL,
+		      DSign,Yr,Mo,D, _ZSign, _ZH, _ZM, DStatus),
+	    (DStatus==[]
+	    -> parse_time(TimePart,Idx,ERROR_DATETIME_LITERAL,
+			  Hr,Min,Sec,ZSign,ZH,ZM,Status)
+	    ; Status=DStatus
+	    )
+	; parse_date(LitChars,Idx,ERROR_DATETIME_LITERAL,
+		      DSign,Yr,Mo,D, ZSign, ZH, ZM,Status),
+	    Hr=0, Min=0, Sec='0'
+	-> true
+	;  parsing_error(Idx,ERROR_DATETIME_LITERAL,Status)
+	),
+	!.
+
+parse_duration(LitChars,_Idx,DSign,Yr,Mo,D,Hr,Min,SecAtm,[]) :-
+	(LitChars = [CH_MINUS,CH_P|LitChars1] -> DSign = -1
+	; LitChars = [CH_PLUS,CH_P|LitChars1] -> DSign = 1
+	;  DSign = 1, LitChars = [CH_P|LitChars1]
+	),
+	(get_part(LitChars1,"T",DateChars,TimeChars) -> Tseparator = 1
+	; TimeChars="", DateChars=LitChars1,
+	    (get_part(LitChars1,"H",_,_) -> fail
+	    %%; get_part(LitChars1,"M",_,_) -> fail
+	    ; get_part(LitChars1,"S",_,_) -> fail
+	    ; true
+	    )
+	),
+	(get_part(DateChars,"Y",YrChars,DateChars1), YrChars \== ""
+	-> number_codes(Yr,YrChars)
+	; Yr=0, DateChars1 = DateChars
+	),
+	(get_part(DateChars1,"M",MoChars,DateChars2), MoChars \== ""
+	 -> number_codes(Mo,MoChars)
+	; Mo=0, DateChars2 = DateChars1
+	),
+	(get_part(DateChars2,"D",DChars,DateChars3), DChars \== ""
+	-> number_codes(D,DChars)
+	; D=0, DateChars3 = DateChars2
+	),
+        %% training symbols after date
+        (DateChars3 \= [] -> fail
+        ; true
+        ),
+	(get_part(TimeChars,"H",HrChars,TimeChars1), HrChars \== ""
+	-> number_codes(Hr,HrChars)
+	; Hr=0, TimeChars1 = TimeChars
+	),
+        %% no T separator, but hours given
+        (HrChars \= [], var(Tseparator) -> fail
+        ; true
+        ),
+	(get_part(TimeChars1,"M",MinChars,TimeChars2), MinChars \== ""
+	 -> number_codes(Min,MinChars)
+	; Min=0, TimeChars2 = TimeChars1
+	),
+        %% no T separator, but mins given
+        (MinChars \= [], var(Tseparator) -> fail
+        ; true
+        ),
+	(get_part(TimeChars2,"S",SecChars1,""), SecChars1 \== ""
+	-> number_codes(Sec,SecChars1), Sec >= 0
+	; SecChars1 = ""
+	),
+        %% no T separator, but seconds given
+        (SecChars1 \= [], var(Tseparator) -> fail
+        %% no seconds, but leftover from hours and mins
+        ; SecChars1 == [], TimeChars2 \= [] -> fail
+        ; true
+        ),
+	(SecChars1 = [S1,S2|RestSec1]
+	-> flora_cut_off_trailing_zeros(RestSec1,RestSec),
+	    SecChars = [S1,S2|RestSec]
+	; SecChars1 = [S1|RestSec1]
+	-> flora_cut_off_trailing_zeros(RestSec1,RestSec),
+	    SecChars = [S1|RestSec]
+	; SecChars = ""
+	),
+	atom_codes(SecAtm,SecChars).
+
+parse_duration(_LitChars,Idx,_DSign,_Yr,_Mo,_D,_Hr,_Min,_Sec,Status) :-
+	parsing_error(Idx,ERROR_DURATION_LITERAL,Status).
+
+parse_currency(LitChars,Idx,Value,Unit,Status) :-
+        remove_commas_and_spaces(LitChars,LitCharsNoCommas),
+        (LitCharsNoCommas=[S1,S2,S3|ValueChars],
+            atom_codes(Unit1,[S1,S2,S3]),
+            flora_toUpper(Unit1,Unit),
+            currency(Unit,_,_) -> true
+        ; reverse(LitCharsNoCommas,LitCharsNoCommasRev),
+            LitCharsNoCommasRev=[S3,S2,S1|ValueCharsRev],
+            atom_codes(Unit1,[S1,S2,S3]),
+            flora_toUpper(Unit1,Unit),
+            currency(Unit,_,_) -> reverse(ValueCharsRev,ValueChars)
+        ; parsing_error(Idx, ERROR_CURRENCY_UNIT, Status)
+        ),
+        catch((number_codes(Value,ValueChars), Status=NO_ERRORS),
+              _,
+              parsing_error(Idx,ERROR_CURRENCY_VALUE,Status)).
+
+parse_currency(_LitChars,Idx,_Value,_Unit,Status) :-
+	parsing_error(Idx,ERROR_CURRENCY_LITERAL,Status).
+
+
+%% scheme://user@host:port/path?query#fragm
+parse_iri(LitChars,_Idx,Scheme,Separator,User,Host,Port,Path,Query,Fragm,[]) :-
+	(startsWith_list(FL_IRI_TYPE_PREFIX_LIST,LitChars,LitCharsSansIRIprefix)
+	-> true
+	; LitCharsSansIRIprefix = LitChars
+	),
+	get_part(LitCharsSansIRIprefix,":",SchemeChars,Rest),
+	(SchemeChars=="urn"
+	-> parse_urn_uri(Rest,SeparatorChars,UserChars,HostChars,PortChars,
+			 PathChars,QueryChars,FragmChars)
+	; SchemeChars=="mailto"
+	-> parse_mailto_uri(Rest,SeparatorChars,UserChars,HostChars,PortChars,
+			    PathChars,QueryChars,FragmChars)
+	;  parse_default_uri(Rest,SeparatorChars,UserChars,HostChars,PortChars,
+			     PathChars,QueryChars,FragmChars)
+	),
+	atom_codes(Scheme,SchemeChars),
+	atom_codes(Separator,SeparatorChars),
+	atom_codes(User,UserChars),
+	atom_codes(Host,HostChars),
+	atom_codes(Port,PortChars),
+	atom_codes(Path,PathChars),
+	atom_codes(Query,QueryChars),
+	atom_codes(Fragm,FragmChars),
+	!.
+parse_iri(_Lits,Idx,_Scheme,_Separator,_User,_Host,_Port,_Path,_Query,_Fragm,Status) :-
+	parsing_error(Idx,ERROR_IRI,Status).
+
+parse_urn_uri(LitChars,Separator,User,Host,Port,Path,Query,Fragm) :-
+	LitChars = [Char|_],
+	is_alpha_or_underscore(Char),
+	Separator=":", User=[], Host=[], Port=[], Path=LitChars,
+	Query=[], Fragm=[].
+
+parse_mailto_uri(LitChars,Separator,User,Host,Port,Path,Query,Fragm) :-
+	LitChars = [Char|_],
+	is_alpha_or_underscore(Char),
+	get_part(LitChars,"@",User,Host),
+	User \== [], Host \== [],
+	Separator=":", Port=[], Path=[], Query=[], Fragm=[].
+
+parse_default_uri(LitChars,Separator,User,Host,Port,Path,Query,Fragm) :-
+	( get_part(LitChars,"//",[],Rest1) -> Separator="://"
+	; Rest1 = LitChars, Separator=":"
+	),
+	(get_part(Rest1,"@",User,Rest2), !
+	; User = [], Rest2 = Rest1
+	),
+	(get_part(Rest2,":",Host,Rest3) 
+	-> ( get_part(Rest3,"/",Port,Rest4) -> true
+	   ; Port = Rest3, Rest4 = []
+	   )
+	; get_part(Rest2,"/",Host,Rest4) -> Port=[]
+	; Host=Rest2, Port = [], Rest4 = []  %% no path
+	),
+	(Rest4 == [] -> Rest5 = []
+	; Rest5 = [CH_SLASH|Rest4]
+	),
+	(get_part(Rest5,"?",Path,Rest6),
+	get_part(Rest6,"#",Query,Fragm)
+	-> true
+	; get_part(Rest5,"?",Path,Query)
+	-> Fragm=[]
+	; get_part(Rest5,"#",Path,Fragm)
+	-> Query=[]
+	; Rest5 = Path, Query=[], Fragm=[]
+	),
+	!.
+
+parse_string(LitChars,_Idx,Value,[]) :-
+	atom_codes(Value,LitChars),
+	!.
+parse_string(_LitChars,Idx,_Value,Status) :-
+	parsing_error(Idx,ERROR_STRING,Status).
+
+parse_long(LitChars,_Idx,Value,[]) :-
+	number_codes(Value,LitChars),
+	integer(Value),
+	!.
+parse_long(_LitChars,Idx,_Value,Status) :-
+	parsing_error(Idx,ERROR_INTEGER,Status).
+
+parse_double(LitChars,_Idx,Value,[]) :-
+	number_codes(Value,LitChars),
+	(real(Value); integer(Value)),
+	!.
+parse_double(_LitChars,Idx,_Value,Status) :-
+	parsing_error(Idx,ERROR_REAL,Status).
+
+parse_bool(LitChars,_Idx,Value,[]) :-
+	atom_codes(Value,LitChars),
+	(Value==true; Value=false),
+	!.
+parse_bool(_LitChars,Idx,_Value,Status) :-
+	parsing_error(Idx,ERROR_BOOLEAN,Status).
+
+parse_charlist(LitChars,_Idx,LitChars,[]) :-
+	is_charlist(LitChars),
+	!.
+parse_charlist(_LitChars,Idx,_Value,Status) :-
+	parsing_error(Idx,ERROR_CHARLIST,Status).
+
+parse_list(LitChars,Idx,Value,Status) :-
+	is_charlist(LitChars),
+	!,
+	flora_concat_strings([LitChars,'.'],LitStr),
+	(flora_read_parse_compile_build_term(atom(LitStr),Value,_M,LStat)
+	-> (LStat = [ok,_] -> Status=[]
+	   ; parsing_error(Idx,ERROR_LISTTYPE,Status)
+	   )
+	; %% cannot fail unless bug
+	    parsing_error(Idx,ERROR_LISTTYPE,Status)
+	).
+parse_list(_LitChars,Idx,_Value,Status) :-
+	    parsing_error(Idx,ERROR_LISTTYPE,Status).
+
+
+/******************************************************************************
+       flora_make_datatype(+TypeName,+Args,-TypeObject,+AbortFlag)
+
+       The difference between this and make_datatype is that the arguments
+       here have the type that the user uses, not charlists produced by parsing.
+       Since user parameters might be incorrect, we need to check them.
+       AbortType: if true then bark on invalid argument. Otherwise just fail.
+******************************************************************************/
+
+flora_make_datatype(TypeName,Args,TypeObject) :-
+	flora_make_datatype(TypeName,Args,TypeObject,fail).
+flora_make_datatype(TypeName,Args,TypeObject,_AbortFlag) :-
+	nonvar(TypeName),
+	nonvar(Args),
+	FLORA_DATATYPE_CACHE(TypeName,Args,TypeObject),
+	!.
+flora_make_datatype(TypeName,Args,TypeObject,AbortFlag) :-
+	flora_canonical_type_name(TypeName,CanTypeName),
+	convert_dt_arguments_if_necessary(CanTypeName,Args,ArgsNew),
+	check_and_make_datatype(CanTypeName,ArgsNew,TypePreObject,AbortFlag),
+	decode_supported_types(TypePreObject,TypeName,TypeObject),
+	%%TypeObject = FL_DATATYPE(TypePreObject,TypeName),
+	assert(FLORA_DATATYPE_CACHE(TypeName,Args,TypeObject)).
+
+check_and_make_datatype(FL_DATE,Args,TypeObject,AbortFlag) :-
+	!,
+	( Args = (DSign,Yr,Mo,D,ZSign,ZH,ZM),
+	    (DSign == 1 ; DSign == -1),
+	    integer(Yr), 0 < Mo, Mo < 13, 0 < D,
+	    flora_dt_maxDayInMonthFor(Yr,Mo,MaxDay),
+	    D =< MaxDay,
+	    (ZSign == 1; ZSign == -1 ; ZSign == 0),
+	    0=<ZH, ZH<24, 0=<ZM, ZM<60
+	->  make_datatype(FL_DATE,Args,TypeObject)
+	;  (atom(Args)->atom_codes(Args,ArgsChars) ; ArgsChars=Args)
+	-> flora_parse_datatype(DATATYPE(FL_DATE,ArgsChars),NO_INDEX,TypeObject,Status),
+	    abort_or_fail_on_status(Status,AbortFlag)
+	;
+	    abort_or_fail_on_invalid_argument(FL_DATE,AbortFlag)
+	).
+
+check_and_make_datatype(FL_TIME,Args,TypeObject,AbortFlag) :-
+	!,
+	( Args = (Hr,Min,SecAtm,ZSign,ZH,ZM),
+	    0=<Hr, Hr<24, 0=<Min, Min<60,
+	    flora_atom_to_number(SecAtm,Sec), 0=<Sec, Sec<60,
+	    (ZSign == 1; ZSign == -1 ; ZSign == 0),
+	    0=<ZH, ZH<24, 0=<ZM, ZM<60
+	-> make_datatype(FL_TIME,Args,TypeObject)
+	; (atom(Args)->atom_codes(Args,ArgsChars) ; ArgsChars=Args)
+	-> flora_parse_datatype(DATATYPE(FL_TIME,ArgsChars),NO_INDEX,TypeObject,Status),
+	    abort_or_fail_on_status(Status,AbortFlag)
+	;
+	    abort_or_fail_on_invalid_argument(FL_TIME,AbortFlag)
+	).
+
+check_and_make_datatype(FL_DATETIME,Args,TypeObject,AbortFlag) :-
+	!,
+	( Args = (DSign,Yr,Mo,D,Hr,Min,SecAtm,ZSign,ZH,ZM),
+	    (DSign == 1 ; DSign == -1),
+	    integer(Yr), 0 < Mo, Mo < 13, 0 < D,
+	    flora_dt_maxDayInMonthFor(Yr,Mo,MaxDay),
+	    D =< MaxDay,
+	    0=<Hr, Hr<24, 0=<Min, Min<60,
+	    flora_atom_to_number(SecAtm,Sec), 0=<Sec, Sec<60,
+	    (ZSign == 1; ZSign == -1 ; ZSign == 0),
+	    0=<ZH, ZH<24, 0=<ZM, ZM<60
+	-> make_datatype(FL_DATETIME,Args,TypeObject)
+	;  (atom(Args)->atom_codes(Args,ArgsChars) ; ArgsChars=Args)
+	-> flora_parse_datatype(DATATYPE(FL_DATETIME,ArgsChars),NO_INDEX,TypeObject,Status),
+	    abort_or_fail_on_status(Status,AbortFlag)
+	;
+	    abort_or_fail_on_invalid_argument(FL_DATETIME,AbortFlag)
+	).
+
+check_and_make_datatype(FL_DURATION,Args,TypeObject,AbortFlag) :-
+	!,
+	( Args = (DSign,Yr,Mo,D,Hr,Min,SecAtm),
+	    (DSign == 1 ; DSign == -1),
+	    integer(Yr), integer(Mo), integer(D),
+	    integer(Hr), integer(Min),
+	    flora_atom_to_number(SecAtm,Sec),
+	    0 =< Yr, 0 =< Mo, 0 =< D, 0=<Hr, 0=<Min, 0=<Sec
+	-> make_datatype(FL_DURATION,Args,TypeObject)
+	;  (atom(Args)->atom_codes(Args,ArgsChars) ; ArgsChars=Args)
+	-> flora_parse_datatype(DATATYPE(FL_DURATION,ArgsChars),NO_INDEX,TypeObject,Status),
+	    abort_or_fail_on_status(Status,AbortFlag)
+	;
+	    abort_or_fail_on_invalid_argument(FL_DURATION,AbortFlag)
+	).
+
+check_and_make_datatype(FL_CURRENCY,Args,TypeObject,AbortFlag) :-
+        !,
+        (Args = (Value,Unit), number(Value), atom(Unit) ->
+            make_datatype(FL_CURRENCY,(Value,Unit),TypeObject)
+        ; Args = (Unit,Value), number(Value), atom(Unit) ->
+            %% the user mixed up unit and value - correct
+            make_datatype(FL_CURRENCY,(Value,Unit),TypeObject)
+        ;  (atom(Args)->atom_codes(Args,ArgsChars) ; ArgsChars=Args)
+	-> flora_parse_datatype_internal(DATATYPE(FL_CURRENCY,ArgsChars),NO_INDEX,TypeObject,Status),
+	    abort_or_fail_on_status(Status,AbortFlag)
+        ; abort_or_fail_on_invalid_argument(FL_CURRENCY,AbortFlag)
+        ).
+
+check_and_make_datatype(FL_IRI,Args,TypeObject,AbortFlag) :-
+	!,
+	( Args = (Scheme,User,Host,Port,Path,Query,Fragm),
+	    OutArgs = (Scheme,':',User,Host,Port,Path,Query,Fragm),
+	    atom(Scheme), atom(User), atom(Host),
+	    atom(Port), atom(Path), atom(Query), atom(Fragm)
+	-> make_datatype(FL_IRI,OutArgs,TypeObject)
+	;  (atom(Args)->atom_codes(Args,ArgsChars) ; ArgsChars=Args)
+	-> flora_parse_datatype_internal(DATATYPE(FL_IRI,ArgsChars),NO_INDEX,TypeObject,Status),
+	    abort_or_fail_on_status(Status,AbortFlag)
+	;
+	    abort_or_fail_on_invalid_argument(FL_IRI,AbortFlag)
+	).
+
+check_and_make_datatype(FL_LONG,(Value),TypeObject,AbortFlag) :-
+	!,
+	( integer(Value)
+	-> make_datatype(FL_LONG,(Value),TypeObject)
+	; atom(Value),
+	    flora_concat_atoms([Value,' .'],Val1),
+	    flora_read_from_source(atom(Val1),TermVal),
+	    integer(TermVal)
+	-> make_datatype(FL_LONG,(TermVal),TypeObject)
+	;
+	    abort_or_fail_on_invalid_argument(FL_LONG,AbortFlag)
+	).
+
+
+check_and_make_datatype(FL_DOUBLE,(Value),TypeObject,AbortFlag) :-
+	!,
+	( (float(Value) ; integer(Value))
+	-> make_datatype(FL_DOUBLE,(Value),TypeObject)
+	; atom(Value),
+	    flora_concat_atoms([Value,' .'],Val1),
+	    flora_read_from_source(atom(Val1),TermVal),
+	    (float(TermVal) ; integer(TermVal))
+	-> make_datatype(FL_DOUBLE,(TermVal),TypeObject)
+	;
+	    abort_or_fail_on_invalid_argument(FL_DOUBLE,AbortFlag)
+	).
+
+check_and_make_datatype(FL_STRING,(Value),TypeObject,_AbortFlag) :-
+	!,
+	( atom(Value) -> make_datatype(FL_STRING,(Value),TypeObject)
+	;
+	    flora_decode_oid_as_atom(Value,ValAtm),
+	    make_datatype(FL_STRING,(ValAtm),TypeObject)
+	%%;
+	    %%abort_or_fail_on_invalid_argument(FL_STRING,AbortFlag)
+	).
+
+check_and_make_datatype(FL_CHARLIST,(Value),TypeObject,AbortFlag) :-
+	!,
+	( is_charlist(Value) ->
+	    make_datatype(FL_CHARLIST,(Value),TypeObject)
+	; atom(Value) -> atom_codes(Value,ValChars),
+	    make_datatype(FL_CHARLIST,(ValChars),TypeObject)
+	;
+	    abort_or_fail_on_invalid_argument(FL_CHARLIST,AbortFlag)
+	).
+
+check_and_make_datatype(FL_BOOL,(Value),TypeObject,AbortFlag) :-
+	!,
+	( memberchk(Value,[FL_TRUECONST,FL_TRUE]) ->
+	    make_datatype(FL_BOOL,(FL_TRUECONST),TypeObject)
+	; memberchk(Value,[FL_FALSECONST,FL_FALSE2,FL_FALSE]) ->
+	    make_datatype(FL_BOOL,(FL_FALSECONST),TypeObject)
+	;
+	    abort_or_fail_on_invalid_argument(FL_BOOL,AbortFlag)
+	).
+
+check_and_make_datatype(FL_LISTTYPE,(Value),TypeObject,AbortFlag) :-
+	!,
+	( is_list(Value) ->
+	    make_datatype(FL_LISTTYPE,(Value),TypeObject)
+	; atom(Value) -> atom_codes(Value,ValChars),
+	    make_datatype(FL_LISTTYPE,(ValChars),TypeObject)
+	;
+	    abort_or_fail_on_invalid_argument(FL_LISTTYPE,AbortFlag)
+	).
+
+%% catchall case for non-standard data types
+check_and_make_datatype(Type,Args,TypeObject,_AbortFlag) :-
+	flora_canonical_type_name(Type,CanTypeName),
+	%% MK: Unclear why the next statement is here - check
+	%%Type \= CanTypeName,
+	(is_charlist(Args) -> ArgChars = Args
+	; atom(Args) -> atom_codes(Args,ArgChars)
+	; number(Args) -> number_codes(Args,ArgChars)
+	),
+	!,
+	make_datatype(CanTypeName,ArgChars,TypeObject).
+
+/*
+%% MK: this case seems fishy
+%% Rest: foo"bar"^^foo represented as _datatype(_datatype(foo,[98,97,114]),foo)
+check_and_make_datatype(Type,Args,TypeObject,_AbortFlag) :-
+	Args = (Arg),
+	atomic(Arg),
+	!,
+	make_datatype(Type,Args,TypeObject).
+*/
+
+%% error: if the number of args is > 1 and type is unknown
+check_and_make_datatype(Type,Args,_TypeObject,_AbortFlag) :-
+        (Args = (_,_) ->
+            decode_commalist_add_separator(Args,ArgsOut,_=_,',')
+        ; is_list(Args) ->
+            decode_list_add_separator(Args,ArgsOut,_=_,',')
+        ; ArgsOut = Args
+        ),
+	flora_abort(['In ',Type,'[toType(',ArgsOut,') -> ...]: invalid argument(s), ', ArgsOut],FLORA_ABORT_NOTRACE).
+
+
+%%%%%%%%%%%%%%%%%%%% Utils
+
+
+%% gets the part of charlist that precedes Pattern.
+%% Returns Part and the remainder of Chars after the pattern
+%% Fails if pattern not found
+get_part(Chars,Pattern,Part,Rest) :-
+	get_part_aux(Chars,Pattern,Part1,Rest),
+	(Part1==[] -> Part = []
+	; Part = Part1
+	).
+get_part_aux(Chars,Pattern,[],Rest) :-
+	startsWith_list(Pattern,Chars,Rest),
+	!.
+get_part_aux([C|Chars],Pattern,[C|Part],Rest) :-
+	get_part_aux(Chars,Pattern,Part,Rest).
+
+startsWith_list([],List,List) :- !.
+startsWith_list([C|Pattern],[C|Chars],Rest) :-
+	startsWith_list(Pattern,Chars,Rest).
+
+
+
+/*************************************************************************
+    make_datatype(+TypeName,+Args,-TypeObject)
+
+    This is an internal predicate that takes whatever parsing produces
+    and creates the corresponding data type.
+    The external predicate is flora_make_datatype/3
+*************************************************************************/
+
+make_datatype(FL_TIME,
+	      (Hr,Min,Sec,ZSign,ZH,ZM),
+	      FL_TIME(Hr,Min,Sec,ZSign,ZH,ZM,NumValue)) :-
+	complex_type_numeric_value(FL_TIME,(Hr,Min,Sec,ZSign,ZH,ZM),NumValue),
+	!.
+
+make_datatype(FL_DATE,
+	      (DSign,Yr,Mo,D,ZSign,ZH,ZM),
+	      FL_DATE(DSign,Yr,Mo,D,ZSign,ZH,ZM,NumValue)) :-
+	complex_type_numeric_value(FL_DATE,(DSign,Yr,Mo,D,ZSign,ZH,ZM),NumValue),
+	!.
+
+make_datatype(FL_DATETIME,
+	      (DSign,Yr,Mo,D,Hr,Min,Sec,ZSign,ZH,ZM),
+	      FL_DATETIME(DSign,Yr,Mo,D,Hr,Min,Sec,ZSign,ZH,ZM,NumValue)) :-
+	complex_type_numeric_value(FL_DATETIME,
+				   (DSign,Yr,Mo,D,Hr,Min,Sec,ZSign,ZH,ZM),
+				   NumValue),
+	!.
+
+make_datatype(FL_DURATION,
+	      (DSign,Yr,Mo,D,Hr,Min,Sec),
+	      FL_DURATION(DSign,Yr,Mo,D,Hr,Min,Sec,NumValue)) :-
+	complex_type_numeric_value(FL_DURATION,(DSign,Yr,Mo,D,Hr,Min,Sec),NumValue),
+	!.
+
+make_datatype(FL_CURRENCY, (Value,Unit), FL_CURRENCY(Value,Unit,NumValue)) :-
+	complex_type_numeric_value(FL_CURRENCY,(Value,Unit),NumValue),
+	!.
+
+make_datatype(FL_IRI,
+	      (Scheme,Separator,User,Host,Port,Path,Query,Fragm),
+	      FL_IRI(Scheme,Separator,User,Host,Port,Path,Query,Fragm)) :-
+	!.
+
+make_datatype(FL_LONG,(Value),FL_LONG(Value)) :- !.
+make_datatype(FL_DOUBLE,(Value),FL_DOUBLE(Value1)) :-
+	Value1 is float(Value),
+	!.
+make_datatype(FL_STRING,(Value),FL_STRING(Value)) :- !.
+make_datatype(FL_CHARLIST,(Value),FL_CHARLIST(Value)) :- !.
+make_datatype(FL_BOOL,(Value),FL_BOOL(Value)) :- !.
+make_datatype(FL_LISTTYPE,(Value),FL_LISTTYPE(Value)) :- !.
+make_datatype(TypeName,(LitChars),FL_DATATYPE(TypeName,LitChars)) :- !.
+
+decode_supported_types(FL_LONG(Value),_TypeName,Value) :- !.
+decode_supported_types(FL_DOUBLE(Value),_TypeName,Value) :- !.
+decode_supported_types(FL_STRING(Value),_TypeName,Value) :- !.
+decode_supported_types(FL_CHARLIST(Value),_TypeName,Value) :- !.
+decode_supported_types(FL_BOOL(Value),_TypeName,Value) :- !.
+decode_supported_types(FL_LISTTYPE(Value),_TypeName,Value) :- !.
+decode_supported_types(Value,TypeName,FL_DATATYPE(Value,TypeName)).
+
+
+/*****************************************************************************
+          complex_type_numeric_value(+TypeName,+Args,-NumericValue)
+
+   Compute the numeric value of a complex data type.
+   Used for comparison with lessThan
+*****************************************************************************/
+
+%% IGNORES time zone because time is with respect to UTC
+%% The time zone is used only to produce local time (where required)
+complex_type_numeric_value(FL_TIME,
+			   (H,M,SAtm,_ZSign,_ZH,_ZM),
+			   NumericValue) :-
+	NumericTM is M + 60 * H,  %% # of mins in time
+        %% IGNORE the time zone!
+	%%NumericValueTZ is 60*_ZH + _ZM, %% # of mins in TZ
+	%%NumericT is NumericTM - _ZSign*NumericValueTZ,
+	NumericT is NumericTM,
+        flora_second_repr(SAtm,SAtmNorm),
+	NumericValue = (NumericT, SAtmNorm),
+	!.
+
+%% IGNORE time zone: TZ is used only to compute the local time out of UTC.
+complex_type_numeric_value(FL_DATE,
+			   (DSign,Y,Mo,D,_ZSign,_ZH,_ZM),
+			   NumericValue) :-
+	NumericD is DSign * (D + 31 * (Mo + 12 * Y)),
+	%%NumericValueTZ is DSign * _ZSign * 60 * _ZH + _ZM,
+	NumericValue = (NumericD, 0, '00'),
+	!.
+
+complex_type_numeric_value(FL_DATETIME,
+			   (DSign,Yr,Month,Day,Hr,Min,Sec,ZSign,ZH,ZM),
+			   NumericValue) :-
+	(
+          /*
+	  ZoneOp is -ZSign,
+	  %% first adjust the date for its timezone
+	  flora_dt_add_duration_to_datetime((DSign,Yr,Month,Day,Hr,Min,Sec,1,0,0),
+					    (ZoneOp,0,0,0,ZH,ZM,''),
+					    (DSign1,Yr1,Month1,Day1,Hr1,Min1,Sec1,ZSign1,ZH1,ZM1)),
+          */
+          DSign=DSign1, Yr=Yr1, Month=Month1, Day=Day1,
+          Hr=Hr1, Min=Min1, Sec=Sec1,
+          ZSign=ZSign1, ZH=ZH1, ZM=ZM1,
+	  complex_type_numeric_value(FL_DATE,
+				     (DSign1,Yr1,Month1,Day1,1,0,0),
+				     (DNumValue,_,_)),
+	  complex_type_numeric_value(FL_TIME,
+				     (Hr1,Min1,Sec1,ZSign1,ZH1,ZM1),
+				     (MinValue,SecValue))
+	-> NumericValue = (DNumValue,MinValue,SecValue)
+	; NumericValue = 0
+	),
+	!.
+
+%% Reuse FL_DATE and FL_TIME with zone info = 0:0
+complex_type_numeric_value(FL_DURATION,
+			   (DSign,Yr,Mo,Day,Hr,Min,Sec),
+			   (DNumVal,MinValue,SecValue)) :-
+	complex_type_numeric_value(FL_DATE,(DSign,Yr,Mo,Day,1,0,0),(DNumVal,_)),
+	complex_type_numeric_value(FL_TIME,(Hr,Min,Sec,1,0,0),(MinValue1,SecValueAtm)),
+        MinValue is DSign*MinValue1,
+        atom_codes(SecValueAtm,SecCodes), number_codes(SecValue1,SecCodes),
+        SecValue2 is DSign*SecValue1,
+        number_codes(SecValue2,SecCodes2),
+        atom_codes(SecValue,SecCodes2).
+
+complex_type_numeric_value(FL_CURRENCY,(Value,_Unit),Value) :- !.
+
+
+%% Convert arguments when needed. For instance, Second numbers must be
+%% converted into atoms, because this is what is expected
+convert_dt_arguments_if_necessary(FL_CURRENCY,Args,(Value,UpUnit)) :-
+        (Args = (Value,Unit), atom(Unit), number(Value) -> flora_toUpper(Unit,UpUnit)
+        ; Args = (Unit,Value), atom(Unit), number(Value) -> flora_toUpper(Unit,UpUnit)
+        ; Args = (_,_) ->
+            flora_abort(['Invalid parameters in ',FL_CURRENCY,': ',Args],FLORA_ABORT_NOTRACE)
+        ).
+
+convert_dt_arguments_if_necessary(FL_DATETIME,
+				  (DSign,Yr,Month,Day,Hr,Min,Sec,ZSign,ZH,ZM),
+				  ArgsNew) :-
+	!,
+	(atom(Sec) -> SecAtm=Sec
+	; flora_second_repr(Sec,SecAtm)
+	),
+	ArgsNew = (DSign,Yr,Month,Day,Hr,Min,SecAtm,ZSign,ZH,ZM).
+	
+convert_dt_arguments_if_necessary(FL_TIME,
+				  (H,M,Sec,ZSign,ZH,ZM),
+				  ArgsNew) :-
+	!,
+	(atom(Sec) -> SecAtm=Sec
+	; flora_second_repr(Sec,SecAtm)
+	),
+	ArgsNew = (H,M,SecAtm,ZSign,ZH,ZM).
+	
+convert_dt_arguments_if_necessary(FL_DURATION,
+				  (DSign,Yr,Mo,D,Hr,Min,Sec),
+				  ArgsNew) :-
+	!,
+	(atom(Sec) -> SecAtm=Sec
+	; flora_second_repr(Sec,SecAtm)
+	),
+	ArgsNew = (DSign,Yr,Mo,D,Hr,Min,SecAtm).
+	
+
+convert_dt_arguments_if_necessary(_Type,Args,Args).
+
+
+datatype_litlist_value(LitListDT,FL_DATATYPELIST(LitList)) :-
+	is_prdatatypelist(LitListDT,LitList).
+
+
+abort_or_fail_on_invalid_argument(DType,AbortFlag) :-
+	AbortFlag == true
+	-> flora_abort([DType,'[toType(...) -> ...]: invalid parameter(s)'],FLORA_ABORT_NOTRACE).
+
+abort_or_fail_on_status(Status,AbortFlag) :-
+	    (  Status == [], !
+	    ;  AbortFlag == true
+	    ->  Status = [error(_,Msg)|_],
+		flora_abort(Msg,FLORA_ABORT_NOTRACE)
+	    ).
+
+dt_syntax_error_handler(DATATYPE(Type,Val),Idx,Status) :-
+	flora_decode_oid_as_atom(Val,Vatm),
+        flora_concat_atoms([Vatm,': syntax error in datatype ', Type],ErrAtm),
+	parsing_error(Idx,ErrAtm,Status).
+
+remove_commas_and_spaces([],[]).
+remove_commas_and_spaces([C|R],NC) :-
+    ((C =:= 0', ; C =:= 0' ) ->	NC = NC1
+     ;	NC = [C|NC1]
+    ),
+    remove_commas_and_spaces(R,NC1).

@@ -1,0 +1,71 @@
+
+/*
+?- Method[mustDefine(off,${_:(_,_)})]@\sys.
+?- Method[mustDefine(off,${_:(_;_)})]@\sys.
+?- Method[mustDefine(off,${_:(_-_)})]@\sys.
+?- Method[mustDefine(off,${_::(_,_)})]@\sys.
+?- Method[mustDefine(off,${_::(_;_)})]@\sys.
+?- Method[mustDefine(off,${_::(_-_)})]@\sys.
+*/
+
+:- symbol_context{p/?}.
+
+?- setsemantics{class_expressions=on}.
+
+a[|m->am|].
+b[|m->bm, k->bk|].
+o::p(a,b).
+
+(a;b)[|pp->ab|].
+ooo::(a,b).
+uuu::a.
+vvv::(a-b).
+
+dd::a.
+
+p::q.
+
+1:a.
+2:a.
+2:b.
+3:b.
+
+%tst1 :- write('tst1: ')@\plg(), ooo::a, ooo::b,
+	writeln(success)@\plg().
+%tst2 :- write('tst2: ')@\plg(), \naf (a,b)::(a,b), \naf (a;b)::(a;b),
+	writeln(success)@\plg().
+%tst3 :- ooo[|?M->?V|],
+	(write('tst3: '), write(meth=?M), write(' '), writeln(val=?V))@\plg(),
+	\false.
+%tst3 :- \true.
+%tst4 :- uuu[|?M->?V|],
+	(write('tst4: '), write(meth=?M), write(' '), writeln(val=?V))@\plg(),
+	\false.
+%tst4 :- \true.
+%tst5 :- vvv[|?M->?V|],
+	(write('tst5: '), write(meth=?M), write(' '), writeln(val=?V))@\plg(),
+	\false.
+%tst5 :- \true.
+%tst6 :- ?X:(a,b), (write('tst6: '), writeln(?X))@\plg(),
+	\false.
+%tst6 :- \true.
+%tst7 :- ?X:(a;b), (write('tst7: '), writeln(?X))@\plg(),
+	\false.
+%tst7 :- \true.
+%tst8 :- ?X:(a-b), (write('tst8: '), writeln(?X))@\plg(),
+	\false.
+%tst8 :- \true.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8.
+
+%test :- tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	!,
+	Method[mustDefine(off)]@\sys,
+	\abolishtables,
+	%pretest,
+	told@\plg().
+
+
+

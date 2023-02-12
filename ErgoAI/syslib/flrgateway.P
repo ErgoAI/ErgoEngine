@@ -1,0 +1,68 @@
+/* File:     flrgateway.P  - Bridge rules from various
+**                           syslib/ Prolog modules to usermod
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2011-2018;
+**      and Vulcan, Inc., 2011-2013.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+/*
+   These bridge rules are needed because of the various design and
+   implementation bugs in XSB, which make it hard to reliably predict
+   what the various symbols mean and in which XSB module they belong.
+   Flora-2 compiler should avoid generating symbols that belong to
+   XSB modules (I.e., module:predicate). Instead, it should generate
+   the usermod predicates/function symbols defined here (in usermod).
+*/
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+
+:- import
+	flora_delayed_literal_wrapper/4,
+	flora_defeat_delay_wrapper/6,
+	flora_NAF_delay_wrapper/1,
+	flora_execute_delayed_calls/2,
+	flora_register_sensor/2
+   from FLDELAYSUPPORTMOD.
+
+FLLIBDELAYEDLITERAL(Builtin,FileN,Line,Args) :-
+	flora_delayed_literal_wrapper(Builtin,FileN,Line,Args).
+
+FLLIBDEFEATDELAY(File,Line,DefeatCond,DynHd,HdVars,HdVarNamL) :-
+	flora_defeat_delay_wrapper(File,Line,DefeatCond,DynHd,HdVars,HdVarNamL).
+
+FLLIBNAFDELAY(Goal) :- flora_NAF_delay_wrapper(Goal).
+
+FLORA_DELAY_CHECKER(InstantiatedBodyVars,HeadVars) :-
+	flora_execute_delayed_calls(InstantiatedBodyVars,HeadVars).
+
+FLLIBREGISTERSENSOR(SensorCall,DelayCondition) :-
+	flora_register_sensor(SensorCall,DelayCondition).
+
+FL_TRUECONST :- true.
+FL_FALSECONST :- fail.
+:- table FL_UNDEFCONST/0 as opaque.
+FL_UNDEFCONST :- tnot(FL_UNDEFCONST).
+

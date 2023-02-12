@@ -1,0 +1,191 @@
+
+#include "flora_exceptions.flh"
+
+%tst1 :- write('tst1: ')@\plg(),
+	?W= ${(a:- b,c)@foo},
+	flora_write_goal_substitute_vars('W'=?W)@\plg(flrdecode),
+	 nl@\plg().
+%tst2 :- write('tst2: ')@\plg(),
+	?W= ${(a:- b,c)@foo, (f(?X):-e(?X),k(?X,?_V))@foo },
+	?X = 'X', ?_V = '_V',
+	//numbervars(?W)@\plg(num_vars),
+	flora_write_goal_substitute_vars('W'=?W)@\plg(flrdecode),
+	 nl@\plg().
+%tst3 :- write('tst3: ')@\plg(),
+	?W= ${(a:-b,c), (f(?X):-e(?X),k(?X,?_V))},
+	?X = 'X', ?_V = '_V',
+	//numbervars(?W)@\plg(num_vars),
+	flora_write_goal_substitute_vars('W'=?W)@\plg(flrdecode),
+	 nl@\plg().
+%tst4 :- write('tst4: ')@\plg(),
+	?W = ${ a, (a :- b,c) , d},
+	flora_write_goal_substitute_vars('W'=?W)@\plg(flrdecode),
+        nl@\plg().
+%tst5 :- write('tst5: ')@\plg(),
+	?W = ${ a, (a :- b,c)@foo , d},
+	flora_write_goal_substitute_vars('W'=?W)@\plg(flrdecode),
+        nl@\plg().
+
+%tst6 :- write('tst6: ')@\plg(),
+	?W= ${(a:- b,c)@ \@, ((c:-d), (e:-fff))@foo},
+	flora_write_goal_substitute_vars('W'=?W)@\plg(flrdecode),
+        nl@\plg().
+%tst7 :- write('tst7: ')@\plg(),
+	?W= ${(a:- b,c)@ \@, ((c:-d), (e:-fff))},
+	flora_write_goal_substitute_vars('W'=?W)@\plg(flrdecode),
+        nl@\plg().
+
+%tst8 :- write('tst8: ')@\plg(),
+	?W= ${a:- b,c},
+	flora_write_goal_substitute_vars('W'=?W)@\plg(flrdecode),
+        nl@\plg().
+%tst9 :- write('tst9: ')@\plg(),
+	insertrule{(a:- b,c)}, insert{b,c},
+	\if a \then writeln(success)@\plg() \else writeln(failure)@\plg().
+%tst10 :-
+	\if \+ isloaded{foo10} \then newmodule{foo10},
+	insertrule{(a10:- b10,c10)@ \@, ((c10 :-d10 ), (e10 :-fff10 ))@foo10},
+	insert{b10,c10, d10@foo10, fff10@foo10},
+	write('tst10: ')@\plg(),
+	\if (a10@ \@, (c10, e10)@foo10)
+        \then writeln(success)@\plg()
+        \else writeln(failure)@\plg().
+%tst11 :- write('tst11: ')@\plg(),
+	insertrule{(a11 :- b11, c11 )@ \@, (f11 :-d11), (e11 :-fff11)},
+	insert{b11,c11,d11,fff11},
+	\if (a11, f11, e11)
+        \then writeln(success)@\plg()
+        \else writeln(failure)@\plg().
+
+%tst12 :- write('tst12: ')@\plg(),
+	?X= ${a12:-b12}, insertrule{?X}, insert{b12},
+	\if a12
+        \then writeln(success)@\plg()
+        \else writeln(failure)@\plg().
+
+%tst13 :-
+	\if \+ isloaded{foo13} \then newmodule{foo13},
+	?W= ${(a13:- b13,c13)@foo13}, insertrule{?W}, insert{(b13,c13)@foo13},
+	!,
+	write('tst13: ')@\plg(),
+	\if a13@foo13
+        \then writeln(success)@\plg()
+        \else writeln(failure)@\plg().
+
+%tst14 :- \if \+ isloaded{foo14} \then newmodule{foo14},
+	?W= ${(a14:- b14,c14)@foo14, (f14(?X):-e14(?X),k14(?X,?_))@foo14 },
+	insertrule{?W}, insert{(b14,c14)@foo14, (e14(a), k14(a,b))@foo14},
+	!,
+	write('tst14: ')@\plg(),
+	\if (a14, f14(a))@foo14
+        \then writeln(success)@\plg()
+        \else writeln(failure)@\plg().
+
+
+
+%tst15 :-
+	?W = ${ a, (a :- b,c) , d},
+	write('tst15: ')@\plg(),
+	catch{insertrule{?W},?E,(arg(1,?E,?X)@\plg,writeln(?X)@\plg)}.
+	//catch{insertrule{?W},FLORA_ABORT(?X,?_),writeln(?X)@\plg()}.
+
+%tst16 :-
+	?W = ${ a, (a :- b,c)@foo , d},
+	write('tst16: ')@\plg(),
+	catch{insertrule{?W},?E,(arg(1,?E,?X)@\plg,writeln(?X)@\plg)}.
+	//catch{insertrule{?W},FLORA_ABORT(?X,?_),writeln(?X)@\plg()}.
+
+%tst17 :- ?W= ${(a17:- b17,c17)@ \@,
+	       ((c17:-d17),(e17:-fff17))@foo17,
+	       ((f17:-d17), (e17:-fff17))},
+	 \if \+ isloaded{foo17} \then newmodule{foo17},
+	 insertrule{?W}, insert{b17,c17,(d17,fff17)@foo17, (d17,fff17)},
+	 !,
+	 write('tst17: ')@\plg(),
+	 \if (a17, f17, e17, (c17,e17)@foo17)
+         \then writeln(success)@\plg()
+         \else writeln(failure)@\plg().
+
+
+%tst18 :- (a,b :- c,d) ~ (?_X:-?_Y),
+	 write('tst18: ')@\plg(),
+	 flora_write_goal_substitute_vars('X'=?_X)@\plg(flrdecode),
+	 write(' ')@\plg(),
+	 flora_write_goal_substitute_vars('Y'=?_Y)@\plg(flrdecode),
+	 nl@\plg().
+
+
+%tst19 :- ${ a:-b(?_Y)} ~ ${a:-?_X},
+	 //numbervars(?_X)@\plg(num_vars),
+	?_Y = '_Y',
+	 write('tst19: ')@\plg(),
+	 flora_write_goal_substitute_vars('X'=?_X)@\plg(flrdecode),
+	 nl@\plg().
+
+%tst20 :- ?A ~ ${p(p) :- p(k)}, ?_X=p(p), ?_Y=p(k),
+	 write('tst20: ')@\plg(),
+	 flora_write_goal_substitute_vars('A'=?A)@\plg(flrdecode),
+	 nl@\plg().
+
+%tst21 :- // this is a questionable one: ?X,?Y have no modules,
+	  // so can't insert such a rule
+	 ?A ~ ${?X :- ?Y}, ?X=p(p), ?Y=p(k),
+	 write('tst21: ')@\plg(),
+	 flora_write_goal_substitute_vars('A'=?A)@\plg(flrdecode),
+	 nl@\plg().
+
+%tst22 :- ${(a:-b)@foo} ~ ${(a:-b)@?_X},
+	 write('tst22: ')@\plg(),
+	 writeln(?_X)@\plg().
+
+%tst23 :- ${(a:-b)@foo} ~ ${(a:-?_Y)@?_X},
+	 write('tst23: ')@\plg(),
+	 write(x=?_X)@\plg(),
+	 write(' ')@\plg(),
+	 flora_write_goal_substitute_vars('Y'=?_Y)@\plg(flrdecode),
+	 nl@\plg().
+
+%tst24 :- ${(a,?_A:-b)@foo} ~ ${(?_B,b :-?_Y)@?_X},
+	 write('tst24: ')@\plg(),
+	 flora_write_goal_substitute_vars('A'=?_A)@\plg(flrdecode),
+	 write(' ')@\plg(),
+	 flora_write_goal_substitute_vars('B'=?_B)@\plg(flrdecode),
+	 write(' ')@\plg(),
+	 flora_write_goal_substitute_vars('Y'=?_Y)@\plg(flrdecode),
+	 writeln(?_X)@\plg().
+
+%tst25 :- 
+        write('tst25: ')@\plg,
+        writeln(${clause{@!{aaa[bbb->ccc, foo]}  head, body}})@\io.
+
+%tst26 :- 
+        write('tst26: ')@\plg,
+        writeln(${@!{aaa[bbb->ccc, foo]}  head :- body})@\io.
+
+%tst27 :- 
+        write('tst27: ')@\plg,
+        ?X = ${@!{aaa[bbb->ccc, foo]}  head :- body}, writeln(?X)@\io.
+
+%tst28 :- 
+        write('tst28: ')@\plg,
+        ?_X = ${@!{aaa[bbb->ccc, foo, tag->rrr]}  !- body}, writeln(?_X)@\io.
+
+%tst29 :- 
+        write('tst29: ')@\plg,
+         writeln(${@!{aaa[bbb->ccc, foo, tag->rrr]}  !- body})@\io.
+
+%pretest :-
+	%tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9,
+	%tst10, %tst11, %tst12, %tst13, %tst14, %tst15, %tst16, %tst17,
+	%tst18, %tst19, %tst20, %tst21, %tst22, %tst23, %tst24,
+        %tst25, %tst26, %tst27, %tst28,%tst29.
+
+%test :- tell(temp)@\plg(),
+	%pretest,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	told@\plg().
+
+
+

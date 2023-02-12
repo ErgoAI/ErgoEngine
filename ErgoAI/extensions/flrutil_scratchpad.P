@@ -1,0 +1,60 @@
+/* File:  extensions/flrutil_scratchpad.P -- in studio, open srcratchpad editor
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2015-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+
+:- import
+        ipListenerWindow/1
+   from usermod.
+:- import
+        java/2,
+        java/3
+   from interprolog.
+:- import
+        flora_message_line/1,
+	flora_stdmsg_nl/0
+   from flrprint.
+
+save_user_clauses(FlrFile) :-
+	flora_configuration(uimode,studio),
+	!,
+        (initialize_java ; true),
+	flora_feedback_control(tempoff),
+        flora_stdmsg_nl,
+	flora_message_line('Type into the scratchpad window then save & destroy the window'),
+	flora_message_line('Ergo will wait until the scratchpad window is destroyed.'),
+        tell(FlrFile),
+        InitText = '// This is a scratchpad window. Please type Ergo statements below\n// then save the contents and destroy this window.\n// Ergo will be blocked until the scratchpad window is destroyed.\n',
+        write(InitText), nl,
+        told,
+        atom_length(InitText,TxtLen),
+        TxtLen1 is TxtLen+1,
+        ipListenerWindow(LW),
+        java('com.declarativa.fiji.LogicProgramEditor',Window,showEditor(string(FlrFile),null,LW)),
+        java(Window,Editor,getEditor),
+        java(Editor,mySetCaretPosition(int(TxtLen1))),
+        wait_for_scratchpad(Window).
+
+%% wait until the scratchpad is killed
+wait_for_scratchpad(Window) :-
+        sleep(1),
+        gui_object_visible(Window),
+        flora_disable_keyboard_interrupts,
+        wait_for_scratchpad(Window).
+wait_for_scratchpad(_).

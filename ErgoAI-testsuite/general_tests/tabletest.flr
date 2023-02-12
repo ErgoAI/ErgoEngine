@@ -1,0 +1,58 @@
+
+?- Method[mustDefine(off,${?X(?Y,?Z)@\@})]@\sys.
+// The above is needed because later there is a rule ?F(?X,?Y) :- ?X(?F,?Y)
+// which can invoke any term as a predicate
+
+// path(X,Y)(Z): a path from X to Y through Z
+// path(X,Y)(null) means there is an edge from X to Y through something
+edge(a,b).
+edge(b,a).
+edge(b,c).
+edge(b,d).
+edge(c,e).
+edge(e,f).
+
+path(?X,?Y)(null) :- edge(?X,?Y).
+path(?X,?Y)(?Z) :- path(?X,?Z)(?_P1), path(?Z,?Y)(?_P2).
+
+// if path/2/1 is not tabled, this is not going to terminate
+%tst1 :- path(?X,?Y)(?Z), ?Z\=null,
+	write(?X)@\io, write(' ')@\plg(),
+	write(?Y)@\io, write(' ')@\plg(),
+	writeln(?Z)@\io, \false.
+%tst1 :- \true.
+
+// tst2 shows that nt/1 is not tabled which means path/2/1 is tabled
+// without tabling X/1.
+%tst2 :- %nt(a),
+	%nt(a),
+	t,
+	t.
+
+%nt(a) :- writeln('This line will be printed multiple times')@\plg().
+
+t :- writeln('This line will be printed only once')@\plg().
+
+// tst3 shows the use of variable functor in the table directive. All
+// hilog predicates in the form are tabled.
+// without tabling X/2, it's not going to terminate.
+?F(?X,?Y) :- ?X(?F,?Y).
+p(?X,?Y) :- q(?X,?Y).
+
+q(a1,b1).
+q(a2,b2).
+
+%tst3 :- p(?X,?Y), write(?X)@\plg(), write(' ')@\plg(),
+	writeln(?Y)@\plg(), \false.
+%tst3 :- \true.
+
+%pretest :- %tst1, %tst2, %tst3.
+
+%test :- tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.
+
+

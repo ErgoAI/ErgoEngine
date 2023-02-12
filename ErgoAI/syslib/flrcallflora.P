@@ -1,0 +1,415 @@
+/* File:      flrcallflora.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018;
+**      Coherent Knowledge Systems, LLC, 2014 - 2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+#include "flora_status_codes.flh"
+#include "flora_contexts.flh"
+
+#define MAX_NUMBER_CACHED_QUERIES  500
+
+:- import 
+        flora_shell_command_line/3,
+        flloadtrailer/2
+   from flrutils.
+:- import
+        flora_load_library/1,
+        flora_load_system_module/1
+   from flrlibman.
+
+:- import
+        flora_replace_last/3,
+        flora_bind_last/2
+   from flrtrim.
+
+:- import
+        flora_stderr_nl/0,
+        flora_error_writeln/1,
+        flora_abort_writeln/1,
+        flora_stderr_nl/0
+   from flrprint.
+
+:- import
+        set_variable_rename_index/1,
+        flora_match_substring/3,
+        flora_abort/2
+   from flrporting.
+
+:- import
+        is_flora_callable_literal/1,
+        flora_decode_module_name/2
+   from flrwrapper.
+
+:- import
+        flora_set_compilation_context/1,
+        flora_clear_compilation_context/1
+   from flrcompiler.
+
+:- import
+        %%get_prop_descriptor_info/6,
+        get_tag_descriptor_info_with_rulehead/6
+   from flrdescriptor_support.
+
+:- import flora_handle_notrace/0 from flrdebugger.
+:- import flora_call/3 from usermod(flranswer).
+:- import FLLIBCLAUSE/6 from usermod(flrclause).
+
+:- import is_charlist/1 from machine.
+
+:- import
+        memberchk/2,
+        member/2
+   from basics.
+
+:- import
+        flora_print_backtrace/1,
+        flora_backtrace_enabled/0,
+        flora_shell_loop_message/3
+   from flrshell_loop_handler.
+
+:- import flora_clear_update_flag/0 from flrupdatecounter.
+:- import flora_call_hooks/6 from flrhooks.
+
+:- ensure_loaded(flranswer).
+
+:- export
+        get_called_rule_info/5,
+        get_calling_rule_info/5,
+        flora_good_command/1,
+        flora_bad_command/1,
+        flora_noop_command/1,
+        traced_call/4,
+        flora_get_message_from_errorball/2,
+        flora_string_command_line/4,
+        flora_call_string_command2prolog/5,
+        flora_call_string_command/5.
+
+:- dynamic
+        flora_query_cache/3,
+        cache_index/2,
+        last_cached_query_index/1.
+:- index(flora_query_cache/3,trie).
+:- index(cache_index/2,trie).
+
+
+/*************************************************************************
+   flora_call_string_command(+String,+Vars,-Status,-XWamState,-Exception)
+
+   Execute a query specified in String.
+
+   String: A query string
+   Vars:   A list of the form [Name1=Var1, Name2=Var2,...].
+           Name is a name of a variable mentioned in String, for instance, 
+           '?X' (note: must be quoted, since it is a name).
+           Var is a variable where you want the binding for the variable 
+           Name in String to be returned. For instance, 
+           if String is 'p(?X,?Y).'
+           Vars can be ['?X' = Xyz, '?Y' = Qpr]
+           Then Xyz will be bound to the value of ?X in p(?X,?Y) after
+           the execution and Qpr will be bound to the value of ?Y in p(?X,?Y).
+   Status: indicates the status of compilation of the command in String.
+   XWamState: If =:=0, the answer is true. Otherwise undefined
+   Exception: is a possible exception during the runtime execution 
+              of the command in String.
+*************************************************************************/
+
+flora_call_string_command(String,_UserVars,Status,_XWamState,_Exception) :-
+        set_variable_rename_index(0),
+        \+ atom(String),
+        \+ is_charlist(String),
+        !,
+        Status = [FLORA_INVALID_INPUT, FLORA_FAILURE].
+/*
+%% NEW: If UserVars is a var -- return the bindings for all vars in the query
+flora_call_string_command(_String,UserVars,Status,_XWamState,_Exception) :-
+        \+ is_list(UserVars),
+        !,
+        Status = [FLORA_INVALID_VARLIST, FLORA_FAILURE].
+*/
+
+flora_call_string_command(String,UserVars,Status,XWamState,Exception) :-
+        %% use stored query
+        flora_query_cache(String,QueryCode,ArgList),
+        !,
+        Status = [FLORA_SUCCESS],
+        exec_saved_query(QueryCode,ArgList,UserVars,XWamState,Exception).
+        
+flora_call_string_command(String,UserVars,Status,XWamState,Exception) :-
+        flora_string_command_line(String,Code,Options,Status),
+        %% there may be import directives
+        handle_import_directive(Code,ShellCode),
+        %% strip FLLIBSHELLANS from code and extract variables - we
+        %% want to control delivery of answers by an external caller
+        ShellCode = FLLIBSHELLANS(Code1,Vars),
+        ( flora_good_command(Status) ->
+            findall(SysLibOp,member(FLSYSLIB(SysLibOp),Options),SysLibLst),
+            findall(SysModOp,member(FLSYSMOD(SysModOp),Options),SysModLst),
+            save_query(String,Code1,Vars,SysModLst,SysLibLst),
+            exec_saved_query(Code1,Vars,UserVars,XWamState,Exception)
+        ;
+            Exception = compilation_failed
+        ).
+
+
+/*************************************************************************
+   flora_string_command_line(+String,-Code,-Options,-Status)
+
+   Read, parse, then compile a query from a string
+*************************************************************************/
+flora_string_command_line(String,Code,Options,Status) :-
+        %% Note: oprn(atom(String),...) permits String to be
+        %% a list of characters or an atom
+        see_source(atom(String),IOPort,OldStdin),
+        !,
+        flora_set_compilation_context(CONTEXT_COMPILER_STRING_COMMAND),
+        flora_shell_command_line(Code,Options,Status),
+        flora_clear_compilation_context(CONTEXT_COMPILER_STRING_COMMAND),
+        seen_source(IOPort,OldStdin).
+
+
+
+save_query(QString,QCode,QArgs,SysModList,SysLibList) :-
+        %% because flora_query_cache/3 is trie indexed, the next query
+        %% does not save anything, but is pure overhead
+        %%\+ flora_query_cache(QString,_,_),
+        store_query_in_cache(QString,QCode,QArgs),
+        flora_init_for_external_calls,
+        flora_load_library(SysLibList),
+        flora_load_system_module(SysModList).
+
+
+exec_saved_query(QueryCode,QArgs,UserVars,XWamState,FlorifiedException) :-
+        bind_q_variables(UserVars,QArgs),
+        flora_call_hooks(_Mod,QUERYHOOK,QueryCode,before,_ResultFromHooks,AroundHookLink),
+        catch(flora_call(QueryCode,UserVars,XWamState),
+              Exception,
+              string_command_handler(Exception,FlorifiedException)),
+        (var(Exception) ->
+            Exception = FLORA_NORMAL,
+            FlorifiedException = Exception
+        ;
+            true
+        ),
+        flora_clear_update_flag,
+        flora_call_hooks(_Mod,QUERYHOOK,QueryCode,after,_ResultFromHooks,AroundHookLink).
+
+
+flora_init_for_external_calls :-
+        flora_load_library(FLLIBLOAD),
+        flora_load_library(FLLIBDISPLAY),
+        %% this seems to not import flrimportedcalls.P into usermod,
+        %% so we also load it in bootstrap_flora/0.
+        flora_load_library(FLLIBIMPORTEDCALLS),
+        flora_load_library(FLLIBUNIFYHANDLERS),
+        flloadtrailer([],FLORA_DEFAULT_WORKSPACE).
+
+%% The error handler for executing commands read from strings.
+string_command_handler(Exception,FlorifiedException) :-
+        seen,
+        flora_handle_notrace,
+        %%(Exception = error(_Error,context(_,Backtrace)) ->
+        (flora_shell_loop_message(Exception,Message,Backtrace) ->
+            flora_stderr_nl,
+            (Message = abort(RealMsg) -> flora_abort_writeln(RealMsg)
+            ; flora_error_writeln(Message)
+            ),
+            ( flora_backtrace_enabled -> flora_print_backtrace(Backtrace)
+            ; true
+            ),
+            FlorifiedException = error(Message,Backtrace)
+        ; Exception == FLORA_EXIT_BREAK ->
+            throw(FLORA_EXIT_BREAK)
+        ;
+            FlorifiedException = Exception
+        ).
+
+flora_get_message_from_errorball(error(Msg,_),Msg) :- !.
+flora_get_message_from_errorball(Msg,Msg).
+
+%% NEW: If UserVars is a var -- return the bindings for all vars in the query
+bind_q_variables(UserVars,ResultVars) :-
+        var(UserVars),
+        !,
+        UserVars=ResultVars.
+bind_q_variables([],_ResultVars).
+%% special case for obtaining all bindings in 1-variable case in javaAPI
+bind_q_variables(['?'=Var|RestUserVars],ResultVars) :-
+        !,  %% the cut prevents unbound vars among answers
+        (member(_=Var, ResultVars) -> true ; true),
+        bind_q_variables(RestUserVars,ResultVars).
+bind_q_variables([Name=Var|RestUserVars],ResultVars) :-
+        ( atom(Name) -> AtomicName = Name
+        ; is_charlist(Name) -> atom_codes(AtomicName,Name)
+        ; flora_abort(['Bad variable specification in ',FLQUERYCMD,'/5: ', Name],
+                      FLORA_ABORT_NOTRACE)
+        ),
+        (flora_match_substring('?_',AtomicName,0) ->
+            flora_abort(['in ',FLQUERYCMD,'/5: silent variable ''', AtomicName, '''=Var in the binding list makes no sense; use a normal variable'],
+                        FLORA_ABORT_NOTRACE)
+        ; true
+        ),
+        (member(AtomicName=Var, ResultVars) -> true ; true),
+        bind_q_variables(RestUserVars,ResultVars).
+
+
+handle_import_directive(FLLIBSHELLANS(Code,Vars),FLLIBSHELLANS(Code,Vars)) :- !.
+handle_import_directive(','(ImportCode,Code),ShellCode) :- 
+        ImportCode = import(_),
+        call(ImportCode),
+        handle_import_directive(Code,ShellCode).
+
+
+/*************************************************************************
+  flora_good_command(+Status)
+  flora_bad_command(+Status)
+  flora_noop_command(+Status)
+*************************************************************************/
+flora_good_command(Status) :- memberchk(FLORA_SUCCESS,Status).
+flora_bad_command(Status) :- memberchk(FLORA_FAILURE,Status).
+flora_noop_command(Status) :- memberchk(FLORA_NOOP,Status).
+
+
+see_source(Source,IOPort,OldStdin) :-
+        seeing(OldStdin),
+        open(Source, read, IOPort),
+        see(IOPort).
+
+seen_source(IOPort,OldStdin) :-
+        seen,
+        see(OldStdin),
+        close(IOPort).
+
+
+%% We store only MAX_NUMBER_CACHED_QUERIES queries in a circular buffer
+store_query_in_cache(QString,QCode,QArgs) :-
+        (\+ last_cached_query_index(_) -> assert(last_cached_query_index(0))
+        ; true
+        ),
+        last_cached_query_index(Idx),
+        NextIdx is (Idx+1) mod MAX_NUMBER_CACHED_QUERIES,
+        assert(flora_query_cache(QString,QCode,QArgs)),
+        assert(cache_index(Idx,QString)),
+        (cache_index(NextIdx,NextQString)
+        ->
+            retractall(flora_query_cache(NextQString,_,_)),
+            retract(cache_index(NextIdx,NextQString))
+        ; true
+        ),
+        retract(last_cached_query_index(Idx)),
+        assert(last_cached_query_index(NextIdx)).
+
+
+/******************************************************************************
+            traced_call(+Goal,-CalledRuleId,-CalledFile,-CalledModule)
+
+   Calls a Flora-2 **primitive** subgoal and returns the Id,file,module
+   of the rule that matched.
+   If Goal is not a Flora-2 user goal, CalledRuleId is UNBOUND var & CalledFile,
+   CalledModule = NULL. The same is true if Goal is matched against a base
+   fact. But the latter case can be caught by further testing isbasefact{Goal}.
+
+   There can be some uncertainty regarding the file if different files
+   loaded into the same module happen to have a rule with the same local
+   id and unifiable heads, so multiple results will be returned in this case.
+   This can be solved only by adding the explicit file info to the tracing
+   arguments in FL_CONTEXT/3 in the Flora-2 calls.
+   We didn't do it because even the current tracing info slows XSB down by
+   a significant factor. So, adding file names to FL_CONTEXT/3 would
+   further slow it down.
+******************************************************************************/
+traced_call(Goal,CalledRuleId,CalledFile,Module) :-
+        is_flora_callable_literal(Goal),
+        !,
+        flora_bind_last(Goal,FWContext),
+        FWContext = FL_CONTEXT(CallingModule,_,_),
+        NewFWContext = FL_CONTEXT(CallingModule,_,_),
+        flora_replace_last(Goal,NewFWContext,OutGoal),
+        call(OutGoal),
+        get_called_rule_info(OutGoal,CalledRuleId,CalledFile,Module,_).
+traced_call(Goal,_,NULL,NULL) :-
+        call(Goal).
+
+%% gets goal's called/calling rule id, if available
+%% Mode: calledRule/callingRule
+%% RuleId: the Id of the called/calling rule depending on the mode.
+get_goal_called_or_calling_rule_id(Mode,Goal,RuleId) :-
+        flora_bind_last(Goal,FWContext),
+        (Mode==calledRule, FWContext = FL_CONTEXT(_Module,RuleId,_) -> true
+        ; Mode==callingRule, FWContext = FL_CONTEXT(_Module,_,RuleId) -> true
+        ; true
+        ).
+
+%% +Goal,-CalledRuleId,-CalledFile,-Module,-RuleHead
+%% If Goal has tracing info, get the rule Id of the rule that was called
+%% by that goal.
+%% For get_called_rule_info/5, RuleHead=Goal
+%% For get_calling_rule_info/5, RuleHead is head of the rule that called Goal
+%%     The -RuleHead parameter is returned for precision, in case the calling
+%%     rule's head is known (so we could drop the bindings corresponding to
+%%     other heads.
+get_called_rule_info(Goal,CalledRuleId,CalledFile,Module,RuleHead) :-
+        tracing_info_from_call(calledRule,Goal,CalledRuleId,CalledFile,Module,RuleHead).
+get_calling_rule_info(Goal,CallingRuleId,CalledFile,Module,RuleHead) :-
+        tracing_info_from_call(callingRule,Goal,CallingRuleId,CalledFile,Module,RuleHead).
+
+%% Mode: calledRule/callingRule
+%% RuleId may return unbound, if not found!
+tracing_info_from_call(Mode,Goal,RuleId,RuleFile,Module,RuleHead) :-
+        (nonvar(Module) -> true  %% module may be bound
+        ; flora_decode_module_name(Goal,Module) -> true
+        ; Module = NULL
+        ),
+        get_goal_called_or_calling_rule_id(Mode,Goal,RuleId),
+        (Mode==calledRule-> RuleHead = Goal
+        ; %%Mode==callingRule  %% ie, goal is in the body - don't know the head
+            %% In this case, Module better be bound or misidentification 
+            %% of RuleId+RuleFile is possible
+            RuleHead = _
+        ),
+        %% the next 2 statements ensure that rule file name and module are found
+        VarTerm = usermod:FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,RuleFile,Module,type,_,_),
+        (nonvar(RuleHead), FLLIBCLAUSE(RuleId,_,VarTerm,null,[RuleHead],_),
+            Module \= NULL, nonvar(RuleId),
+            get_tag_descriptor_info_with_rulehead(RuleId,RuleFile,Module,_,RuleHead,_)
+        -> true
+        ;  Module \= NULL, nonvar(RuleId),
+            get_tag_descriptor_info_with_rulehead(RuleId,RuleFile,Module,_,RuleHead,_)
+        -> true
+        ; RuleFile = NULL
+        ).
+
+%% flora_call_string_command2prolog(+String,-VarsOut,-Stat,-XWamState,-Exceptn)
+flora_call_string_command2prolog(String,VarsOut,Stat,XWamState,Exception) :-
+        flora_call_string_command(String,Vars,Stat,XWamState,ExceptionTerm),
+        (ExceptionTerm = error(Exception,_Trace) -> true
+        ; Exception = ExceptionTerm
+        ),
+        VarsOut=Vars.
+

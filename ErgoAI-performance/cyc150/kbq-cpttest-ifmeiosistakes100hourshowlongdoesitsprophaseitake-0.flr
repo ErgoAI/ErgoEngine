@@ -1,0 +1,87 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-IfMeiosisTakes100HoursHowLongDoesItsProphaseITake (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(MicrobiologyMt, durationOfType(ProphaseI, AFewDaysDuration)).
+
+// Implicit Background Rules
+forwardSentence(relationAllInstance(duration, ?COL1, ?COL2)) :- removalSentence(assertedSentence(durationOfType(?COL1, ?COL2))), removalSentence(durationOfType(?COL1, ?COL2)).
+
+// Explicit Background Facts
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260026', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260026', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Meiosis-260027', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260026', MtTimeDimFn(Now)), isa('HYP-Meiosis-260027', Meiosis)).
+istAsserted(UniversalVocabularyMt, isa('HYP-ProphaseI-260028', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260026', MtTimeDimFn(Now)), isa('HYP-ProphaseI-260028', ProphaseI)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260026', MtTimeDimFn(Now)), duration('HYP-Meiosis-260027', HoursDuration(100))).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260026', MtTimeDimFn(Now)), properSubEvents('HYP-Meiosis-260027', 'HYP-ProphaseI-260028')).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260026')).
+//REMOVED TITLE('KBQ  : $CPTTest-IfMeiosisTakes100HoursHowLongDoesItsProphaseITake 0').
+%pretest :- duration('HYP-ProphaseI-260028', ?P_DUR), %write_results('SUCCESS  : $CPTTest-IfMeiosisTakes100HoursHowLongDoesItsProphaseITake 0').
+
+// Debugging
+proof(4017, 0) :- duration('HYP-ProphaseI-260028', AFewDaysDuration).
+proof(4017, 1) :- duration('HYP-ProphaseI-260028', AFewDaysDuration).
+
+proof(4017, 1000) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(4017, 1001) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(4017, 1002) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(4017, 1003) :- relationAllInstance(duration, ProphaseI, AFewDaysDuration).
+
+proof(4017, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-260026', 1, genlMt).
+proof(4017, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-260026', 2, genlMt).
+proof(4017, 2002) :- admittedArgument(SecondFn(55, MinuteFn(28, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(4017, 2003) :- admittedArgument(SecondFn(55, MinuteFn(28, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(4017, 2004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260026'), UniversalVocabularyMt).
+proof(4017, 2005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260026'), BaseKB).
+proof(4017, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260026'), MicrobiologyMt).
+proof(4017, 2007) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260026'), MtSpace('Hypothesis-HypotheticalContext-260026', MtTimeDimFn(Now))).
+proof(4017, 2008) :- isa('HYP-ProphaseI-260028', ProphaseI). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

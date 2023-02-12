@@ -1,0 +1,21 @@
+
+#include "standard.h"
+
+
+%test :-
+	(File[exists(maxerr_old)]@\io -->> File[unlink(maxerr_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(maxerr_flora_old,maxerr_old)]@\io
+	;  File[link(maxerr_ergo_old,maxerr_old)]@\io
+        ),
+	file_reopen(temp,w,STDERR,?_)@\plg(file_io),
+	file_reopen(temp1,w,STDWARN,?_)@\plg(file_io),
+	(compile{maxerr_inc} ; \true),
+	file_close(STDWARN)@\plg(file_io),
+	file_close(STDERR)@\plg(file_io),
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp)@\plg,append,?Port2)@\plg,
+	copyIOport(?Port1,?Port2)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	flora_file_op(unlink,temp1)@\plg(flrporting).

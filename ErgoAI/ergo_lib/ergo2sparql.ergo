@@ -1,0 +1,170 @@
+/* File:      ergo_lib/ergo2sparql.ergo -- Ergo-SPARQL adaptor
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2018-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+#include "flora_terms.flh"
+
+:- compiler_options{expert=on,production=on}.
+:- nontabled_module.
+:- suppress_rule_signatures.
+
+:- symbol_context{open/4}.
+:- symbol_context{close/1}.
+:- symbol_context{update/2}.
+
+:- export{
+    ?[open(?, ?, ?, ?)],
+    ?[close(?)],
+    ?[connectionType(?) -> ?],
+    ?[connectionURL(?) -> ?],
+    ?[select(?, ?) -> ?],
+    ?[selectAll(?, ?) -> ?],
+    ?[construct(?, ?) -> ?],
+    ?[constructAll(?, ?) -> ?],
+    ?[ask(?, ?)],
+    ?[describe(?, ?) -> ?],
+    ?[describeAll(?, ?) -> ?],
+    ?[update(?, ?)],
+    ensure_loaded
+}.
+
+:- ignore_depchk{insert{?},deleteall{?}}.
+
+%initialize :-
+        flora_install_dir(?ErgoDir)@\prolog(flrporting),
+        flora_slash(?S)@\prolog(flrporting),
+        flora_concat_atoms([?ErgoDir,?S,ergosuite,?S,jena,?S,'JenaAllInOne.jar'],
+        ?_JenaJar)@\prolog(flrporting),
+        flora_concat_atoms([?ErgoDir,?S,ergo_lib,?S,ergo2sparql],
+        ?E2Sdir)@\prolog(flrporting),
+        flora_concat_atoms([?E2Sdir,?S, java,?S,'ergoSPARQL.jar'],
+        ?_SparqlJar)@\prolog(flrporting),
+        // add JenaAllInOne.jar & ergoSPARQL.jar; also load the ergo2java lib
+        ensure_loaded@\e2j,
+        // *** We now batch these Jars with the studio: no need to add them here
+        //System[addJar(?_JenaJar)]@\e2j,
+        //System[addJar(?_SparqlJar)]@\e2j,
+        // add ergo2sparql to library path
+        Libpath[add(?E2Sdir)]@\sys,
+        // load SPARQL API
+        [ergo_sparql].
+%initialize :- !.
+
+?-  // initialize
+        feedback{tempoff},
+        %initialize.
+    
+// calling ensure_loaded@\sparql ensures that the module \sparql is loaded
+ensure_loaded :- !.
+
+
+// Example: System[open(DBPEDIAConnectionID, 'http://dbpedia.org/sparql', '', '')]@\sparql.
+// Example: System[open(update(SomeConnId), 'http://dbpedia.org/sparql', '', '')]@\sparql.
+System[open(?Type(?ConnectionId),?EndpointURL,?Username,?Password)] :-
+        isatom{?Type}, ?Type \in [query,update],
+        isatom{?ConnectionId},
+        !,
+        sparqlOpen(?Type,?ConnectionId,?EndpointURL,?Username,?Password)@\prolog(ergo_sparql).
+System[open(?ConnectionId,?EndpointURL,?Username,?Password)] :-
+        isatom{?ConnectionId},
+        !,
+        sparqlOpen(query,?ConnectionId,?EndpointURL,?Username,?Password)@\prolog(ergo_sparql).
+
+// test if the connection is open and get its conection type: query/update
+System[connectionType(?ConnectionId) -> ?Type] :-
+        isatom{?ConnectionId},
+        !,
+        sparqlConnectionType(?ConnectionId,?Type)@\prolog(ergo_sparql).
+
+// test if the connection is open and get its conection type: query/update
+System[connectionURL(?ConnectionId) -> ?URL] :-
+        isatom{?ConnectionId},
+        !,
+        sparqlConnectionURL(?ConnectionId,?URL)@\prolog(ergo_sparql).
+
+// Example: System[close(DBPEDIAConnectionID)]@\sparql.
+System[close(?ConnectionId)] :-
+        sparqlClose(?ConnectionId)@\prolog(ergo_sparql).
+
+// ?Query: must be a SELECT query
+// Example: Query[select(DBPEDIAConnectionID,['SELECT * WHERE {?x ?r ?y} LIMIT 2'])->?Res]@\sparql.
+Query[select(?ConnectionId,?QueryList) -> ?Result] :-
+        (prepareSparqlQuery(?QueryList,?Query),
+         sparqlSelect(?ConnectionId,?Query,?Result)
+        )@\prolog(ergo_sparql).
+
+// ?Query: must be a SELECT query
+// Example: Query[selectAll(DBPEDIAConnectionID,['SELECT * WHERE {?x ?r ?y} LIMIT 2'])->?Res]@\sparql.
+Query[selectAll(?ConnectionId,?QueryList) -> ?ResultList] :-
+        (prepareSparqlQuery(?QueryList,?Query),
+         sparqlSelectAll(?ConnectionId,?Query,?ResultList)
+        )@\prolog(ergo_sparql).
+
+// ?Query: must be a CONSTRUCT query
+// Example: Query[construct(ConnId,['CONSTRUCT { <http://example3.org/person> ?r ?y } WHERE {?x ?r ?y}  LIMIT 2'])->?Res]@\sparql.
+Query[construct(?ConnectionId,?QueryList) -> ?Result] :-
+        (prepareSparqlQuery(?QueryList,?Query),
+         sparqlConstruct(?ConnectionId,?Query,?Result)
+        )@\prolog(ergo_sparql).
+
+// ?Query: must be a CONSTRUCT query
+// Example: Query[constructAll(ConnId,['CONSTRUCT { <http://example3.org/person> ?r ?y } WHERE {?x ?r ?y}  LIMIT 2'])->?Res]@\sparql.
+Query[constructAll(?ConnectionId,?QueryList) -> ?ResultList] :-
+        (prepareSparqlQuery(?QueryList,?Query),
+         sparqlConstructAll(?ConnectionId,?Query,?ResultList)
+        )@\prolog(ergo_sparql).
+
+// ?Query: must be a ASK query
+// Example: Query[ask(ConnId,['ASK {?x ?r ?y}'])]@\sparql.
+Query[ask(?ConnectionId,?QueryList)] :-
+        (prepareSparqlQuery(?QueryList,?Query),
+         sparqlAsk(?ConnectionId,?Query)
+        )@\prolog(ergo_sparql).
+
+// ?Query: must be a DESCRIBE query
+// Example: Query[describe(ConnId,['DESCRIBE ?y WHERE {?x ?r ?y} LIMIT 1'])->?Res]@\sparql.
+Query[describe(?ConnectionId,?QueryList) -> ?Result] :-
+        (prepareSparqlQuery(?QueryList,?Query),
+         sparqlDescribe(?ConnectionId,?Query,?Result)
+        )@\prolog(ergo_sparql).
+
+// ?Query: must be a DESCRIBE query
+// Example: Query[describeAll(ConnId,['DESCRIBE ?y WHERE {?x ?r ?y} LIMIT 1'])->?Res]@\sparql.
+Query[describeAll(?ConnectionId,?QueryList) -> ?ResultList] :-
+        (prepareSparqlQuery(?QueryList,?Query),
+         sparqlDescribeAll(?ConnectionId,?Query,?ResultList)
+        )@\prolog(ergo_sparql).
+
+// ?Query: must be a INSERT/DELETE query
+/*
+  Example: Note: use \\ because we want to pass \" to SPARQL
+  Query[update(someConnectId,
+       ['PREFIX dc: <http://purl.org/dc/elements/1.1/> INSERT DATA { <http://example/paul> dc:title \\"A new book\\" ; dc:creator  \\"A.N.Other\\" . }']
+              )]@\sparql
+  Query[update(someConnectId,
+       'PREFIX dc: <http://purl.org/dc/elements/1.1/> DELETE DATA { <http://example/paul> dc:title \\"A new book\\" ; dc:creator  \\"A.N.Other\\" . }'
+              )]@\sparql.
+*/
+Query[update(?ConnectionId,?UpdateList)] :-
+        (prepareSparqlQuery(?UpdateList,?Update),
+         sparqlUpdate(?ConnectionId,?Update)
+        )@\prolog(ergo_sparql).
+

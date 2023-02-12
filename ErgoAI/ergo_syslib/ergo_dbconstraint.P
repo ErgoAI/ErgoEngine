@@ -1,0 +1,201 @@
+/* File:      ergo_dbconstraint.P  -- DB-style constraint handling
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2016-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_prefix.flh"
+#include "flora_exceptions.flh"
+
+
+
+:- import
+        flora_add_hook/5,
+        flora_delete_hook/4
+   from flrhooks.
+
+:- import
+        flora_match_substring/3,
+        flora_abort/2
+   from flrporting.
+:- import
+        flora_raise_update_flag/0,
+        flora_get_update_counter/1
+   from flrupdatecounter.
+
+:- import
+        flora_decode_goal_as_mainless_atom_substitute_vars/2
+    from flrdecode.
+:- import flora_generalize_last/2 from flrtrim.
+
+:- import
+        flora_decode_predicate/7
+   from flrwrapper.
+
+:- export
+        ergo_constraint/5,
+        ergo_constraint/6.
+
+
+ergo_constraint(PlusMinus,Constraint,File,Module,_Line) :-
+        ergo_constraint(PlusMinus,Constraint,NULL,File,Module,_Line).
+
+ergo_constraint(_PlusMinus,Constraint,CallBack,File,Module,Line) :-
+        compound(Constraint),
+        (is_flora_callable(Constraint,Module),
+            (CallBack == NULL
+            ; is_hilog_predicate_with_atleast_one_argument(CallBack,Module)
+            )
+        -> fail
+        ; (nonvar(CallBack),
+              \+ is_hilog_predicate_with_atleast_one_argument(CallBack,Module),
+              CallBack \== NULL
+          ->
+              %% callback spec was wrong
+              flora_decode_goal_as_mainless_atom_substitute_vars(CallBack,CallBackAtm),
+              flora_abort([' ', CallBackAtm,
+                           ': callback must be a HiLog predicate with one or more arguments;\n\t\tthe error was in file ',
+                           File, ', line ', Line],
+                          FLORA_ABORT_NOTRACE)
+          ; %% not Ergo-callable
+              flora_decode_goal_as_mainless_atom_substitute_vars(Constraint,ConstraintAtm),
+              flora_abort([' invalid constraint activation in file ',
+                           File, ' line ', Line, ':\n\t\t',
+                           ConstraintAtm,
+                           ' must be a HiLog predicate of a frame in module ',
+                           Module],
+                          FLORA_ABORT_NOTRACE)
+          )
+        ).
+
+ergo_constraint(('+'),Constraint,CallBack,File,Module,Line) :-
+        !,
+        ergo_add_constraint(Constraint,CallBack,File,Module,Line).
+ergo_constraint(('-'),Constraint,_CallBack,File,Module,_Line) :-
+        !,
+        ergo_delete_constraint(Constraint,File,Module).
+
+ergo_constraint(_PlusMinus,Constraint,_CallBack,File,_Module,Line) :-
+        flora_decode_goal_as_mainless_atom_substitute_vars(Constraint,ConstraintAtm),
+        flora_abort([' constraint{', ConstraintAtm,
+                     ',...} is not a valid constraint specification:\n\t\t',
+                     'should be +constraint{...} or -constraint{...};\n\t\t',
+                     'the error was in file ', File, ' on line ', Line],
+                    FLORA_ABORT_NOTRACE).
+
+ergo_add_constraint(Constraint,CallBack,File,Module,Line) :-
+        %% raising the flag so that activating a constraint hook will
+        %% immediately check if a violation exists
+        flora_raise_update_flag,
+        catch(
+              flora_add_hook(Module,CONSTRAINTHOOK,after,0,
+                             constraint_hook(_Mod,_Trans,_Result,
+                                             Constraint,CallBack,
+                                             File,Module,Line)),
+              _,
+              flora_abort([' in file ', File, ' on line ', Line,
+                           ': this constraint has been activated before'],
+                          FLORA_ABORT_NOTRACE)
+             ).
+
+
+ergo_delete_constraint(Constraint,File,Module) :-
+        flora_delete_hook(Module,CONSTRAINTHOOK,after,
+                          constraint_hook(_Mod,_Trans,_Result,Constraint,_CallBack,File,Module,_)),
+        retractall(constraints_cache(File,Module,Constraint,_)).
+
+
+%% prints only one violation per constraint
+%% _Mod and Module - same thing - just a precaution
+constraint_hook(_Mod,Transaction,Result,Constraint,CallBack,File,Module,Line) :-
+        find_violators(Constraint,Violators),
+        (Violators == [] -> Result = _
+        ; have_reported_before(Violators,File,Module) ->
+            %% non-update query - don't report violations
+            Result = _
+        ; CallBack == NULL ->
+            Result = violation,
+            WARNOUT('\n*** A violation of the constraint activated on line '),
+            WARNOUT(Line),
+            WARNOUT(' in file '), WARNOUT(File),
+
+            flora_decode_goal_as_mainless_atom_substitute_vars(Transaction,TransAtm),
+            (flora_match_substring('constraint{ +',TransAtm,_) ->
+                WARNOUT('\n    existed prior to activation of this constraint')
+            ; WARNOUT('\n    is detected after the transaction '),
+                WARNOUT(TransAtm)
+            ),
+
+            WARNOUT('\n    The offending instances of the constraint are:\n'),
+            print_violators(Violators),
+            WARNNL
+
+        ; arg(2,CallBack,Violators), %% bind arg 1 of HiLog pred CallBack
+            call(CallBack)
+        ).
+constraint_hook(_Mod,_Trans,_Result,_Latent,_CallBack,_File,_Module,_Line).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+find_violators(Pred,ViolatorsSorted) :-
+        flora_generalize_last(Pred,PredG),
+        findall(PredGG,
+                (PredG,flora_generalize_last(PredG,PredGG)),
+                Violators),
+        sort(Violators,ViolatorsSorted).
+
+
+:- dynamic constraints_cache/4.
+:- index(constraints_cache/4,trie).
+
+have_reported_before(Constraint,File,Module) :-
+        flora_get_update_counter(CurrCounter),
+        constraints_cache(File,Module,Constraint,CurrCounter),
+        !.
+have_reported_before(Constraint,File,Module) :-
+        flora_get_update_counter(CurrCounter),
+        retractall(constraints_cache(File,Module,Constraint,_)),
+        assert(constraints_cache(File,Module,Constraint,CurrCounter)),
+        !,
+        fail.
+
+is_hilog_predicate_with_atleast_one_argument(Pred,Module) :-
+        %% Note: using _Context because Ergo-callable things always
+        %% have Context as the last argument.
+        flora_decode_predicate(Pred,hilog,Module1,_,_,_,[_PredName,_Arg1,_Context|_]),
+        Module1 == Module.
+
+is_flora_callable(Pred,Module) :-
+        flora_decode_predicate(Pred,_,Module1,_,_,_,_),
+        Module1 == Module .
+
+
+print_violators([]) :- !.
+print_violators([H|T]) :-
+        WARNOUT('\t'),
+        flora_decode_goal_as_mainless_atom_substitute_vars(H,H_atm),
+        WARNOUTLN(H_atm),
+        print_violators(T).
+

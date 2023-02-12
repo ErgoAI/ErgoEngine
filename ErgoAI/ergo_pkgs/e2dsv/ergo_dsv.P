@@ -1,0 +1,426 @@
+/* File:      ergo_pkgs/e2dsv/ergo_dsv.P -- CSV, PSV, DSV import
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2018-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+:- compiler_options([xpp_on]).
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+#define OID_STORE   '\\_$_$^e2dsv_oid'
+#define OID_SYM     rid
+
+#define REFRESHER_PREDICATE  '\\_$_$^e2dsv_refresher_predicate'
+
+%%#define DEBUG
+%%#define DEBUGBRIDGE
+
+:- import
+        add_cvt_type_hook/2,
+	load_dsv/3
+   from proc_files.
+
+:- import flora_define_modular_prolog/3 from flrprolog.
+
+:- import
+        flora_module_predicate/4,
+        flora_modularize_atom/3
+   from flrwrapper.
+
+:- import flora_locate_file_basic/2 from flrutils.
+
+:- import
+        %%flora_concat_items/2,
+        flora_abort/2
+   from flrporting.
+
+:- import gensym/2 from gensym.
+:- import numbervars/1 from num_vars.
+
+:- import
+        for/3,
+        reverse/2,
+        length/2
+   from basics.
+
+:- import
+        term_to_atom/2,
+        atom_to_term/2
+   from string.
+
+:- import
+        incr_retract/1,
+        incr_assert/1
+   from increval.
+
+:- import P2H_PREDICATE/4 from prolog2hilog.
+
+:- dynamic OID_STORE/3.
+:- index(OID_STORE/3,trie).
+
+%% dsv_predicate_registry(+Module,+PrlgHead,+Type). Type = predicate/frame
+:- dynamic dsv_predicate_registry/3.
+%% dsv_key_info(+Pred,+Arity,+KeyPositions)
+:- dynamic dsv_key_info/3.
+
+:- dynamic REFRESHER_PREDICATE/1 as incremental.
+
+:- import concat_atom/2 from string.
+
+:- export
+        save_dsv_as_ergo/4,
+        load_dsv_in_ergo/4.
+
+:- export
+        show_oid_store/0,
+        wipe_out_module_data/1,
+        wipe_out_predicate_oids/2.
+
+:- export
+        refresh_bridge_rules/0,
+        add_key_info/3.
+
+%% for testing
+:- export member_pluslist/2.
+
+
+%% Format: csv, tcv (tab separated), psv (|- separated), +-plussed
+%% with other options, like titles, pad; or a list of options:
+%% [separator = SeparatorChars, delimiter = DelimChar]
+%% Separator - field separator: ","; delimiter - """", which delineates
+%% complex fields that contain spaces, commas, etc.
+load_dsv_in_ergo(Infile,Spec,Module,Format) :-
+        flora_locate_file_basic(Infile,ActualFile),
+        !,
+        format_to_options(Format,Options),
+        ergoify_spec(Spec,Module,ESpec,Op,Arity),
+        %% Ergo predicate has one extra arg, so we tell load_dsv to disregard it
+#ifdef DEBUG
+        PRINTLN(load_command = load_dsv(ActualFile,ESpec,Options)),
+#endif
+        %%PRINTLN(spec=ESpec),
+        load_dsv(ActualFile,ESpec,Options),
+        refresh_bridge_rules,
+        wipe_out_predicate_oids(Module,Op/Arity),
+        flora_define_modular_prolog(Op,Arity,Module).
+load_dsv_in_ergo(Infile,_Spec,_Module,_Format) :-
+        flora_abort(['<e2dsv>: file `',Infile,''' not found'],FLORA_ABORT_NOTRACE).
+
+
+ergoify_spec(Pred/Arity,Module,CSVModPred/Arity,Pred,Arity) :-
+        !,
+        flora_modularize_atom(Pred,Module,ModPred),
+        modularize_dsv_atom(Pred,Module,CSVModPred),
+        length(Args,Arity),
+        PrlgHead =.. [CSVModPred|Args], %% CSVModPred - prolog pred used by dsv_load
+        reverse(Args,ArgsR), Args1R = [_|ArgsR], reverse(Args1R,Args1),
+        ErgHead =.. [ModPred|Args1], %% Ergo modularized interfacing predicate
+        add_predicate_bridge_rule(Module,ErgHead,PrlgHead),
+        add_frame_bridge_rule(Module,PrlgHead,Pred,Arity).
+ergoify_spec(Spec,Module,CSVModPred,Spec,1) :-
+        atom(Spec),
+        !,
+        flora_modularize_atom(Spec,Module,ModPred),
+        modularize_dsv_atom(Spec,Module,CSVModPred),
+        ErgHead =.. [ModPred,A1,_],
+        PrlgHead =.. [CSVModPred,A1],
+        add_predicate_bridge_rule(Module,ErgHead,PrlgHead),
+        add_frame_bridge_rule(Module,PrlgHead,Spec,1).
+ergoify_spec(Spec,Module,ESpec,Pred,Arity) :-
+        functor(Spec,Pred,Arity), %% Note: Spec is converted to Prolog in e2dsv
+        Spec =.. [Pred|Types],
+        flora_modularize_atom(Pred,Module,ModPred),
+        modularize_dsv_atom(Pred,Module,CSVModPred),
+        P2H_CONVERSION(PrologTypes,Types),
+        ESpec =.. [CSVModPred|PrologTypes], 
+        length(Args,Arity),
+        PrlgHead =.. [CSVModPred|Args], %% CSVModPred - prolog pred used by dsv_load
+        reverse(Args,ArgsR), Args1R = [_|ArgsR], reverse(Args1R,Args1),
+        ErgHead =.. [ModPred|Args1], %% Ergo modularized interfacing predicate
+        %% modify bridge rule so that if 'term' is specified as type,
+        %% it will be converted into HiLog. Need more comples version of
+        %% add_predicate_bridge_rule for this case
+        add_predicate_bridge_rule(Module,ErgHead,PrlgHead),
+        add_frame_bridge_rule(Module,PrlgHead,Pred,Arity).
+
+
+%% Format is like in load_dsv_in_ergo
+save_dsv_as_ergo(Infile,Spec,OutFile,Format) :-
+        flora_locate_file_basic(Infile,ActualFile),
+        format_to_options(Format,Options),
+        %% Ergo predicate has one extra arg, so we tell load_dsv to disregard it
+#ifdef DEBUG
+        PRINTLN(save_command = load_dsv(ActualFile,Spec,Options)),
+#endif
+        load_dsv(ActualFile,Spec,Options),
+        refresh_bridge_rules,
+        save_as_ergo(Spec,OutFile).
+
+save_as_ergo(Spec,OutFile) :-
+	mk_template(Spec,P,N,Template),
+	tell(OutFile),
+        %% output a suitable prolog directive
+        write(':- prolog{'),
+        writeq(P), write('/'), write(N),
+        PRINTLN('}.'),
+	!,
+	(Template,
+            %% bound Template should not have variables
+            %% or else they'll be considered constants in Ergo
+	    writeq(Template), write('.'), nl,
+	    fail
+	; told
+	),
+        abolish(Template).
+
+
+%% mk_template(+Spec,-P,-N,-Template)
+mk_template(P/N,P,N,Template) :-
+	!,
+	functor(Template,P,N).
+mk_template(Spec,P,N,Template) :-
+	functor(Spec,P,N),
+	functor(Template,P,N).
+
+modularize_dsv_atom(Pred,Module,CSVModPred) :-
+        concat_atom([Module,'$@dsv$'],CSVModule),
+        flora_modularize_atom(Pred,CSVModule,CSVModPred).
+
+add_predicate_bridge_rule(Module,_ErgHead,PrlgHead) :-
+        dsv_predicate_registry(Module,PrlgHead,predicate),
+        !.
+add_predicate_bridge_rule(Module,ErgHead,PrlgHead) :-
+        abolish(ErgHead),
+        abolish(PrlgHead),
+        assert(dsv_predicate_registry(Module,PrlgHead,predicate)),
+#if defined(DEBUG) || defined(DEBUGBRIDGE)
+        PRINTNL,
+        PRINTLN(registering = Module+PrlgHead),
+        PRINTLN(pred_bridge_rule = (ErgHead:-PrlgHead)),
+#endif
+        (dynamic ErgHead as incremental),
+        assert((ErgHead :- REFRESHER_PREDICATE(_), PrlgHead)).
+
+%% Format: csv, tcv (tab separated), psv (|- separated), +-plussed
+%% with other options, like titles, pad; or a list of options:
+%% [separator = SeparatorChars, delimiter = DelimChar]
+%% Separator - field separator: ","; delimiter - """", which delineates
+%% complex fields that contain spaces, commas, etc.
+format_to_options(Format,Format) :-
+        is_list(Format),
+        !.
+format_to_options(Format,Options) :-
+        nonvar(Format),
+        /*
+        (Format == csv -> Options = [separator= ","]
+        ; Format == csv+titles -> Options = [separator= ",",titles]
+        ; Format == psv -> Options = [separator= "|"]
+        ; Format == psv+titles -> Options = [separator= "|",titles]
+        ; Format == tsv -> Options = [separator= "\t"]
+        ; Format == tsv+titles -> Options = [separator= "\t",titles]
+        ; Options = Format
+        ).
+        */
+        (member_pluslist(Format,csv) -> SepOpt = [separator=","]
+        ; member_pluslist(Format,psv) -> SepOpt = [separator="|"]
+        ; member_pluslist(Format,tsv) -> SepOpt = [separator="\t"]
+        ),
+        (member_pluslist(Format,titles) -> TitlOpt = [titles|SepOpt]
+        ; member_pluslist(Format,WRAP_HILOG(titles,N)), integer(N), N>=0
+        -> TitlOpt = [titles=N|SepOpt]
+        ; TitlOpt = SepOpt
+        ),
+        (member_pluslist(Format,pad(N)), integer(N) -> PadOpt = [pad=N|TitlOpt]
+        ; PadOpt = TitlOpt
+        ),
+        (member_pluslist(Format,error) -> Options = [error|PadOpt]
+        ; Options = PadOpt
+        ),
+        !.
+
+format_to_options(Format,_Options) :-
+        flora_abort(['<e2dsv>: invalid tabular file format given, ', Format],
+                    FLORA_ABORT_NOTRACE).
+
+%% create or return an oid associated with term
+%% get_create_oid(+Mod,+Pred,-Oid)
+%% This is used if no primary key is specified with the spreadsheet.
+get_create_oid(Mod,Pred,Oid) :-
+        atom(Mod),
+        ground(Pred),
+        OID_STORE(Mod,Pred,Oid),
+        !.
+get_create_oid(Mod,Pred,Oid) :-
+        atom(Mod),
+        var(Oid),
+        %% Pred nonground? - numbervar it
+        copy_term(Pred,PredC),
+        numbervars(PredC),
+        (OID_STORE(Mod,PredC,Oid) -> true
+        ; gensym(OID_SYM,Oid),
+            assert(OID_STORE(Mod,PredC,Oid))
+        ),
+        !.
+
+%% get_oid_use_key(+Pred,+Arity,+PrlgHead,-Oid)
+%% This is used if a primary key IS specified with the spreadsheet.
+get_oid_use_key(Pred,Arity,PrlgHead,Oid) :-
+        dsv_key_info(Pred,Arity,KeyPositions),
+        sort(KeyPositions,KeyPositionsSorted),
+        select_key_args(KeyPositionsSorted,PrlgHead,Oid,Pred,KeyPositionsSorted).
+
+%% delete all oids in an Ergo module
+wipe_out_module_data(Module) :-
+        retractall(OID_STORE(Module,_,_)),
+        repeat,
+        (dsv_predicate_registry(Module,Pred,_),
+#ifdef DEBUG
+            PRINTLN(retracting = Pred),
+#endif
+            retractall(Pred),
+            fail
+        ; retractall(dsv_predicate_registry(Module,_,_))
+        ).
+
+%% delete all oids in an Ergo module for a particular predicate
+wipe_out_predicate_oids(Module,Pred) :-
+        nonvar(Pred),
+        !,
+        (Pred = P/N -> true
+        ; functor(Pred,P,N)
+        ),
+        %%flora_concat_items([P,'_',N],OidFunc),
+        functor(OidTerm,P,N),
+        retractall(OID_STORE(Module,OidTerm,_)).
+wipe_out_predicate_oids(_,_) :- !.
+
+                  
+add_frame_bridge_rule(Module,PrlgHead,_Pred,_Arity) :-
+        dsv_predicate_registry(Module,PrlgHead,frame),
+        !.
+add_frame_bridge_rule(Module,PrlgHead,Pred,Arity) :-
+        OidVar = WRAP_HILOG('\\e2dsv',Pred,Arity,OidSymbol),
+        flora_module_predicate(FLDYNAPREFIX(WRAP_MVD),
+                               [OidVar,WRAP_HILOG(arg,ArgNum),ValVar,_CtxtVar],
+                               Module,
+                               FrameBridgeHead),
+#if defined(DEBUG) || defined(DEBUGBRIDGE)
+        PRINTLN(frame_bridge_rule = 
+                (FrameBridgeHead :-
+                       PrlgHead,
+                       (get_oid_use_key(Pred,Arity,PrlgHead,OidSymbol) -> true
+                       ; get_create_oid(Module,PrlgHead,OidNew),
+                           %% get_create_oid expects Var in arg 3 (OidNew)
+                           OidNew=OidSymbol
+                       ),
+                       for(ArgNum,1,Arity),
+                       arg(ArgNum,PrlgHead,ValVar)
+                       
+                )),
+        PRINTNL,
+#endif
+        assert((FrameBridgeHead :-
+                       REFRESHER_PREDICATE(_),
+                       PrlgHead,
+                       (get_oid_use_key(Pred,Arity,PrlgHead,OidSymbol) -> true
+                       ; get_create_oid(Module,PrlgHead,OidNew),
+                           OidNew=OidSymbol
+                       ),
+                       %% for/3 because ArgNum may come unbound. In this case
+                       %% we want it to be bound to everything from 1 to Arity
+                       for(ArgNum,1,Arity),
+                       arg(ArgNum,PrlgHead,ValVar)
+                       
+              )),
+        assert(dsv_predicate_registry(Module,PrlgHead,frame)).
+
+
+%% check that arg1 is not a var beforehand
+member_pluslist(L+R,X) :-
+        !,
+        (member_pluslist(L,X) -> true
+        ; member_pluslist(R,X)
+        ).
+member_pluslist(L,L).
+
+
+%% select_key_args(+KeyPosList,+PredHead,-Selection,+Pred,+OrigKeyPosList)
+select_key_args([Pos],PrlgHead,KeyArg,Pred,OrigKeyPosList) :-
+        !,
+        (check_keyargs_for_errors(Pos,Pred,PrlgHead,OrigKeyPosList)
+        ; arg(Pos,PrlgHead,KeyArg)
+        ).
+select_key_args([Pos|RestPos],PrlgHead,(KeyArg,RestKey),Pred,OrigKeyPosList) :-
+        (check_keyargs_for_errors(Pos,Pred,PrlgHead,OrigKeyPosList)
+        ; arg(Pos,PrlgHead,KeyArg),
+            select_key_args(RestPos,PrlgHead,RestKey,Pred,OrigKeyPosList)
+        ).
+
+check_keyargs_for_errors(Pos,Pred,PrlgHead,OrigKeyPosList) :-
+        functor(PrlgHead,_,Arity),
+        (\+integer(Pos) ; Pos < 1 ; Pos > Arity),
+        term_to_atom(OrigKeyPosList,OrigKeyPosListAtm),
+        flora_abort(['<e2dsv>: dsv_key_info(predicate=',Pred,',arity=',Arity,
+                     ',key_positions=',OrigKeyPosListAtm,
+                     '): mismatch between predicate arity and key positions'],
+                    FLORA_ABORT_NOTRACE).
+
+%% Specifies a key for Pred/Arity as KeyPositions = [pos1,pos2,...,posn].
+%% Positions do not have to be sorted.
+%% Probably should check if another key for Pred/Arity already exists.
+add_key_info(Pred,Arity,KeyPositions) :-
+        assert(dsv_key_info(Pred,Arity,KeyPositions)).
+
+%% for debugging
+show_oid_store :-
+        OID_STORE(X,Y,Z),
+        PRINTLN(store = X+Y+Z),
+        fail.
+show_oid_store.
+
+refresh_bridge_rules :-
+        incr_retract(REFRESHER_PREDICATE(_)),
+        incr_assert(REFRESHER_PREDICATE(_)).
+
+?- incr_assert(REFRESHER_PREDICATE(_)).
+
+
+%% special data converters
+:- import flora_make_datatype/3 from flrdatatype_parse.
+cvt2date(In,Out) :- flora_make_datatype(FL_DATE,(In),Out).
+cvt2time(In,Out) :- flora_make_datatype(FL_TIME,(In),Out).
+cvt2dateTime(In,Out) :- flora_make_datatype(FL_DATETIME,(In),Out).
+cvt2duration(In,Out) :- flora_make_datatype(FL_DURATION,(In),Out).
+cvt2currency(In,Out) :- flora_make_datatype(FL_CURRENCY,(In),Out).
+cvt2currency(In,Out,Unit) :-
+        concat_atom([Unit,In],CurrencyIn),
+        flora_make_datatype(FL_CURRENCY,(CurrencyIn),Out).
+cvt2hilog('','') :- !.
+cvt2hilog(In,Out) :- atom_to_term(In,Mid), P2H_CONVERSION(Mid,Out).
+
+%% add date-time conversion hooks, hilog
+?- add_cvt_type_hook(time,cvt2time(_,_)),
+   add_cvt_type_hook(date,cvt2date(_,_)),
+   add_cvt_type_hook(dateTime,cvt2dateTime(_,_)),
+   add_cvt_type_hook(duration,cvt2duration(_,_)),
+   add_cvt_type_hook(currency,cvt2currency(_,_)),
+   add_cvt_type_hook(currency(Unit),cvt2currency(_,_,Unit)),
+   add_cvt_type_hook(hilog,cvt2hilog(_,_)).

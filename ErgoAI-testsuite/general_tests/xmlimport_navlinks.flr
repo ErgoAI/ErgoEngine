@@ -1,0 +1,97 @@
+/*
+   THIS FILE IS IN THE PUBLIC DOMAIN.
+
+   IT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+   IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+   OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+   OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+/*
+    This example shows import of XML data from a file (clients.xml).
+    Here we load XML including the parent/child/sibling navigation links.
+    Such a load is appropriate for more sophisticated applications that
+    must navigate in the XML documents. (Such navigation is not needed in
+    this example, and the navigational load is shown here just as an example.)
+*/
+
+:- symbol_context{credit/?}.
+
+
+// import XML document
+%import :-
+        // request all parent/child/etc. navigation links in the import
+        set_mode(navlinks)@\xml,
+        'auxfiles/clients.xml'[load_xml(clients_xml) -> ?Warnings]@\xml,
+        \if ?Warnings !== [] \then
+            warning(['Warnings issued during the XML import: '|?Warnings])@\sys,
+        // restore navlinks mode to the default (nonavlinks)
+        set_mode(nonavlinks)@\xml.
+
+/*
+    The following rules bridge the main module with the module clients_xml
+    into which we loaded the XML file. 
+    They provide a SEMANTIC view over the imported data, shortcutting
+    the navigational attributes contained in the imported XML data
+    (attributes like \text, \string, \child, \leftsibling, etc.).
+*/
+
+// this rule is for mandatory (#REQUIRED) elements and attributes
+?Client[id->?I, first->?F, last->?L] :-
+        (
+            ?[client->?Client],
+            ?Client.attribute(id) = ?I,
+            /*
+               Note: if XML is loaded withOUT the navigational links, the path
+               expressions below have NO \string. See xmlimport_nonavlinks.ergo.
+            */
+            ?Client.first.\text.\string = ?F,
+            ?Client.last.\text.\string = ?L
+        )@clients_xml.
+
+// these rules are for optional (#IMPLIED) attributes
+?Client[credit(limit)->?LimitNumber] :-
+        (
+            ?[client->?Client],
+            ?Client.credit.attribute(limit) = ?Limit
+        )@clients_xml,
+        // recall: XML parser coverts everything to symbols, including numbers
+        ?Limit[toNumber->?LimitNumber]@\basetype.
+?Client[credit(currency) -> ?Currency] :-
+        (
+            ?[client->?Client],
+            ?Client.credit.attribute(currency) = ?Currency
+        )@clients_xml.
+?Client[relatedclients->?R] :-
+        (
+            ?[client->?Client],
+            ?Client.attribute(related) = ?R
+        )@clients_xml.
+
+// Query: people whose related clients have credit limit above 5000
+// (in any currency)
+// Printing answers using a fail-loop.
+// Ask this query:  %query(5000).
+%query(?Threshold) :-
+        ?[id->?Id, relatedclients->?List, first->?F, last->?L],
+        has_someone_with_credit_limit_above(?List,?Threshold),
+        fmt_write('%s %s (client id: %S)\n', args(?F,?L,?Id))@\io,
+        \false.
+%query(?) :- \true.
+
+has_someone_with_credit_limit_above([],?) :- !, \false.  // didn't find any
+has_someone_with_credit_limit_above([?Id|?Tail],?Threshold) :-
+        ?[id->?Id, credit(limit) -> ?Limit],
+        \if ?Limit > ?Threshold \then \true
+        \else
+            has_someone_with_credit_limit_above(?Tail,?Threshold).
+
+// Another way to ask the same query: instead of printing using our own format,
+// let Ergo do the job in its usual way: show the variable bindings.
+// Ask this query: query2(5000,?id,?first,?last).
+query2(?Threshold,?id,?first,?last) :-
+        ?[id->?id, relatedclients->?List, first->?first, last->?last],
+        has_someone_with_credit_limit_above(?List,?Threshold).

@@ -1,0 +1,97 @@
+/* File:      family_rel.flr
+*/
+
+//  ======================================================================
+//  QUERYING THE PEDIGREE OF ``THE FALLERS'' 
+//  (German TV serial; see: www.swf.de/diefallers/stammbaum/index.html)
+//  
+//  This demo contains a purely RELATIONAL (= DATALOG) version
+// 
+//  ======================================================================
+
+//  ======================================================================
+//  DEFINE SOME BASE FACTS (EDB RELATIONS) ABOUT THE ``FATHERS'' 
+//  ======================================================================
+:- ignore_depchk{%?_(?_)}.
+
+// to table ancestor/2
+// :- table ancestor/2.
+// or
+// :- table X/2.
+
+//  Ladies first:
+%female(rita). 
+%female(johanna).
+%female(monique).
+%female(christina).
+%female(kati).
+%female(eva).
+
+//  Gentlemen:
+%male(wilhelm). 
+%male(franz).
+%male(heinz).
+%male(hermann).
+%male(bernhard).
+%male(karl).
+%male(albert).
+
+//  spouse(Husband, Wife); for a change in this order (male emancipation)
+spouse(wilhem,rita).
+spouse(hermann,johanna).
+spouse(karl,christina).
+
+//  compute symmetric closure of spouse:
+spouse(?X,?Y) :- spouse(?Y,?X).	// now spouse is an IDB (derived) relation!
+
+// child(Parent, Child)  -- read as ``child_of P is C''
+child(wilhelm,franz).
+child(wilhelm,heinz).
+child(wilhelm,hermann).
+
+child(hermann,bernhard).
+child(hermann,karl).
+child(hermann,kati).
+
+child(bernhard,albert).
+child(monique,albert).
+child(kati,eva).
+
+child(rita,?X) :- child(wilhelm,?X).	// rita & wilhelm have the same kids
+child(johanna,?X) :- child(hermann,?X).	// like above for johanna & hermann 
+
+// ======================================================================
+// DEFINE SOME DERIVED (IDB) RELATIONS
+// ======================================================================
+
+parent(?C,?P) :- child(?P,?C).		// read as ``parent_of C is P''
+
+father(?C,?P) :- child(?P,?C), %male(?P).	// use the child relation...
+mother(?C,?P) :- parent(?C,?P), %female(?P).	// ... or the parent relation
+
+brother(?X,?B) :- parent(?X,?P), parent(?B,?P), %male(?B), \+ ?X=?B.
+sister(?X,?S) :- parent(?X,?P), parent(?S,?P), %female(?S), \+ ?X=?S.
+
+// define a relation recursively:
+ancestor(?X,?Y) :- parent(?X,?Y).		// read as ``ancestor_of X is Y''
+ancestor(?X,?Y) :- ancestor(?X,?Z), ancestor(?Z,?Y).
+
+
+// ======================================================================
+// now ask some queries:
+// ======================================================================
+
+?- brother(?X,?Brother).
+?- ancestor(eva,?Ancestor).		// hmm, according to the bible...
+
+
+
+//  ======================================================================
+//  **EXERCISE**
+// 	Define: aunt, uncle, sister_in_law, brother_in_law, cousin !
+// 	(or have a look at the extended and OO version: family_obj.flp ;-)
+//  ======================================================================
+
+
+
+

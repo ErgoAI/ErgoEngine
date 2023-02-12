@@ -1,0 +1,418 @@
+/* File:      ergo_lib/ergo2java.ergo -- Ergo-Java interface
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2018-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+/*
+  Details on the Prolog-to-Java interface are at
+  http://interprolog.com/wiki/index.php?title=Java-Prolog_bridge
+*/
+
+#include "flora_terms.flh"
+
+#define DEFAULT_LETTER_PIXEL_HEIGHT  14
+#define DEFAULT_LETTER_PIXEL_WIDTH   8
+
+#define PRINTOUT(T)   write(T)@\prolog
+
+:- compiler_options{expert=on,production=on}.
+:- nontabled_module.
+:- suppress_rule_signatures.
+
+:- symbol_context{chooseFile/0,show/2,setSize/2}.
+:- ignore_depchk{writeln(?)@\prolog, write(?)@\prolog}.
+
+:- prolog{
+	    show_options_dialog/5,
+	    readline_chop_nl/1,
+    	    check_window/1,
+	    is_atomlist/1
+	 }.
+
+:- export{
+           ?[mode->?],
+           ?[path(?)->?],
+           ?[addJar(?)],
+           ?[open(?,?)->?],
+           ?[setSize(?,?,?)],
+           ?[show(?)->?],
+           ?[show(?,?)],
+           ?[showOptions(?,?,?)->?],
+           ?[chooseFile(?)->?],
+           ?[chooseFile->?],
+           ?[close(?)],
+           ?[clear(?)],
+           ?[print(?,?)],
+           ?[message(?)->?],
+           ?[setJavaFlags(?)],
+           ?[setJavaCP(?)],
+           ?[restart],
+           ?[alive(?)],   // finds out if a Window is alive
+           ?:?,           // find out if something is a Window (dead or alive)
+           ensure_loaded
+         }.
+
+:- ignore_depchk{insert{?},deleteall{?}}.
+
+?-  // initialize
+	feedback{tempoff},
+	%initialize.
+
+%initialize :- 
+	flora_install_dir(?ErgoDir)@\prolog(flrporting),
+	flora_slash(?S)@\prolog(flrporting),
+	flora_concat_atoms([?ErgoDir,?S,ergo_lib,?S,ergo2java],
+	                   ?EJdir)@\prolog(flrporting),
+	Libpath[add(?EJdir)]@\sys,
+	[ergo_java],
+	// Spawn Java process. This part executes, if we are not in the studio.
+	(flora_configuration(uimode,studio)@\prolog(flrregistry) -->> \true
+        ; initialize@\prolog(ergo_java)
+        ).
+
+// calling ensure_loaded@\e2j ensures that the module \e2j is loaded
+ensure_loaded :-
+	flora_configuration(uimode,studio)@\prolog(flrregistry),
+        !.
+ensure_loaded :- java_alive@\prolog(ergo_java).
+
+// Some useful interfaces -- to be extended
+// Work both with studio and ergo2java
+
+/*
+   Examples:
+      ergo> [pp,i(8),k(u,m)][message([1])->?P]@\e2j.
+      ?P = i(8)@\prolog
+      ergo> java(string(abcf),?R,getBytes)@\prologall(interprolog).
+      ?R = array(byte,"abcf"^^\charlist)
+      ergo> abcdf[message(getBytes)->?R]@\e2j.
+      ?R = "abcdf"^^\charlist
+      ergo> '123abc789'[message(split(abc))->?P]@\e2j.
+      ?P = ['123', '789']
+      ergo> abc23op[message(matches('.+23.*'))->?P]@\e2j.
+      ?P = \true
+      // This one uses String() constructor
+      ergo> class('java.lang.String')[message(String(array(byte,[119,111,114,108,100])))->?P]@\e2j.
+      ?P = world
+      // open a window: same as Window[open(...)->...]@\e2j.
+      class('com.coherentknowledge.fidji.CtrlStyledOutputPane')[message(makeOutputFrame(aaaa,mmm))->?W]@\e2j.
+      // call Java method that has variable number of arguments
+      ergo> java('java.lang.String', ?R, format(string('abc=%d %s'),long(12), string(iiii)))@\prologall(interprolog).
+      ?R = string('abc=12 iiii')
+      ergo> class('java.lang.String')[message(format('abc=%d %s',12,iiii))->?R]@\e2j.
+      ?R = 'abc=12 iiii'
+      // messaging a static variable
+      ergo> class('java.lang.System'+out)[message(println(aaaa))->?R]@\e2j.
+      aaaa
+      ?R = \@?
+      ergo> class('java.lang.System'+out)[message(printf('69.1 = %1.16g', 69.1))->?R]@\e2j.
+      69.1 = 69.10000000000000
+      ?R = oid(1)
+
+*/
+// If Java method returns void, ?Result is unbound.
+// Takes integers, atoms, floats, \true/\false, Lists --> arrays,
+//   byte(Int), array(Class,List), term(Term)
+// If ?Obj is a class (must be fully qualified), then wrap it with class(...)
+// If ?Obj is a *Java* object, then wrap it with oid(...)
+// Any argument can be asis(...). This is used to pass args encoded directly
+// using Interprolog conventions.
+?Obj[message(?MethodAndArgs) -> ?Result] :-
+        p2h{?ObjPlg,?Obj},
+        p2h{?MethodAndArgsPlg,?MethodAndArgs},
+        smart_java_call(?ObjPlg,?MethodAndArgsPlg,?Result1)@\prolog(ergo_java),
+        p2h{?Result1,?Result}.
+
+// ?Mode can be studio or [ergo2java,gui] or [ergo2java,nogui]
+System[mode->?Mode] :-
+	!,
+	flora_configuration(uimode,?Mode)@\prolog(flrregistry).
+
+System[restart] :- initialize@\prolog(ergo_java).
+
+// This method works only for Java 8 and is DEPRECATED. Taken out of the manual.
+System[addJar(?Jar)] :-
+	!,
+        warning('the method addJar has been deprecated because of the incompatible changes in Java 9+')@\sys,
+	(flora_file_op(exists,?Jar)@\prolog(flrporting) -->>
+	    java('com.declarativa.interprolog.AbstractPrologEngine', addSoftwareLibrary(string(?Jar)))@\prologall(interprolog)
+	; sysabort(['cannot add Java library: file ', = ''||?Jar, ' is not found'])@\sys
+	).
+
+// ?List: [ Classpath, JavaParams, MainMethodFlags ]
+// +Classpath - additional class path to use when spawning Java.
+//              On windows:  'jar-o-dir1;jar-or-dir2' etc.
+//              Linux/Mac:   'jar-o-dir1:jar-or-dir2' etc.
+// +JavaFlags - flags passed to Java proper
+// +MainMethodFlags - flags passed to the main method of the main class.
+// JavaFlags and MainMethodFlags are used fo development only.
+System[setJavaFlags(?List)] :-
+        set_java_flags(?List)@\prolog(ergo_java),
+        kill_java@\prolog(interprolog),
+        initialize@\prolog(ergo_java).
+System[setJavaCP(?CP)] :-
+        set_java_flags([?CP])@\prolog(ergo_java),
+        kill_java@\prolog(interprolog),
+        initialize@\prolog(ergo_java).
+
+
+// the following fails outside of the studio
+System[path(studioLogFile) -> ?File] :-
+	flora_configuration(uimode,studio)@\prolog(flrregistry),
+	!,
+	java('com.declarativa.fiji.FijiPreferences',
+	     string(?File),
+	     getLogFile
+	)@\prologall(interprolog).
+
+// Pops up dialog with an input field and OK/Cancel buttons
+// Fails, if cancel is pressed. Otherwise, ?Answer is bound to user input
+Dialog[show(?Question) -> ?Answer] :-
+	nogui_session,
+	!,
+	PRINTOUT(?Question),
+	PRINTOUT(' '),
+	readline_chop_nl(?Answer).
+Dialog[show(?Question) -> ?Answer] :-
+	!,
+        disable_all_tripwires@\prolog(flrerrhandler),
+	xjAskUser(?Question,?Answer)@\prolog,
+        enable_all_tripwires@\prolog(flrerrhandler).
+
+/*
+  Pop up a dialog window with title, message, and a list of buttons
+  to choose from. Return the chosen button.
+*/
+Dialog[showOptions(?Title,?Message,?Buttons) -> ?ChosenButton] :-
+	!,
+	(ipListenerWindow(?W)@\prolog -->> \true
+        ; ?W = NULL
+        ),
+	(isatom{?Title} -->> \true
+        ; sysabort(['dialog window''s title must be atomic string: ',
+	             = ''||?Title])@\sys
+        ),
+	(isatom{?Message} -->> \true
+        ; sysabort(['dialog window''s message must be atomic string: ',
+	            = ''||?Message])@\sys
+        ),
+	(islist{?Buttons}, is_atomlist(?Buttons) -->> \true
+        ; sysabort(['dialog window''s button list must be a list of atoms: ',
+	            = ''||?Buttons])@\sys
+        ),
+        disable_all_tripwires@\prolog(flrerrhandler),
+	show_options_dialog(?Title,?Message,?Buttons,?W,?ChosenButton),
+        enable_all_tripwires@\prolog(flrerrhandler).
+
+// This one just notifies and shows the OK button. Always succeeds.
+Dialog[show(?_Title,?Message)] :-
+	nogui_session,
+	!,
+	PRINTOUT(?Message),
+	PRINTOUT(' (OK?) '),
+	readline_chop_nl(?).
+Dialog[show(?Title,?Message)] :-
+	!,
+        disable_all_tripwires@\prolog(flrerrhandler),
+	xjNotifyUser(?Title,?Message)@\prolog,
+        enable_all_tripwires@\prolog(flrerrhandler).
+
+
+Dialog[chooseFile(?_FileExtensions) -> ?File] :-
+	nogui_session,
+	!,
+	PRINTOUT('Please type in a file name: '),
+	readline_chop_nl(?File).
+Dialog[chooseFile(?FileExtensions) -> ?File] :-
+	!,
+	(is_atomlist(?FileExtensions) -->>
+            disable_all_tripwires@\prolog(flrerrhandler),
+	    xjPickFile(?FileExtensions,Done,?File)@\prolog,
+            enable_all_tripwires@\prolog(flrerrhandler)
+	; sysabort(['Dialog[chooseFile(?Extensions) -> ?]: ?Extensions must be bound to a list of desired extensions, ', = '' || ?FileExtensions])@\sys
+        ).
+
+
+Dialog[chooseFile -> ?File] :-
+	nogui_session,
+	!,
+	PRINTOUT('Please type in a file name: '),
+	readline_chop_nl(?File).
+Dialog[chooseFile -> ?File] :-
+	!,
+        disable_all_tripwires@\prolog(flrerrhandler),
+	xjPickFile([],Done,?File)@\prolog,
+        disable_all_tripwires@\prolog(flrerrhandler).
+
+
+Window[open(?,?) -> ?Window] :-
+	nogui_session,
+	!,
+	?Window = NULL.
+Window[open(?WindTitle,?Tooltip) -> ?Window] :-
+	!,
+	(isatom{?WindTitle}, isatom{?Tooltip} -->> \true
+         ;
+	    sysabort('Window[open(?Title,?Tooltip)->?]: the title and tooltip must be atomic strings')@\sys
+	),
+	(isvar{?Window} -->> \true
+        ;
+	    sysabort('Window[open(...)->?Window]: the ?Window parameter must be an unbound variable')@\sys
+	),
+        open_gui_window(?Window,?WindTitle,?Tooltip)@\prolog(flrutils),
+	(isvar{?Window} -->> \false
+        ; insert{?Window:Window},
+	  Window[setSize(?Window,80,25)]
+        ).
+
+Window[setSize(?Win,?,?)] :-
+	?Win == NULL,
+	!.
+Window[setSize(?Win,?Columns,?Rows)] :-
+	check_window(?Win),
+	!,
+	?WPixels \is ?Columns*DEFAULT_LETTER_PIXEL_WIDTH,
+	?HPixels \is ?Rows*DEFAULT_LETTER_PIXEL_HEIGHT,
+	java(?Win,setSize(int(?WPixels),int(?HPixels)))@\prologall(interprolog).
+
+Window[close(?Window)] :-
+	?Window == NULL,
+	!.
+Window[close(?Window)] :-
+	!,
+	check_window(?Window),
+	java(?Window,dispose)@\prolog(interprolog).
+        // don't delete: we want to keep track of dead windows.
+        // besides, the user may kill a window by clicking on an X,
+        // and this will then bypass our own close/1 method anyway.
+	//deleteall{?Window:Window}.
+
+
+Window[clear(?Window)] :-
+	?Window == NULL,
+	!.
+Window[clear(?Window)] :-
+	!,
+	check_window(?Window),
+	java(?Window,clear)@\prolog(interprolog).
+
+Window[alive(?Window)] :-
+	?Window == NULL,
+	!.
+Window[alive(?Window)] :-
+	!,
+	check_window(?Window),
+        gui_object_visible(?Window)@\prolog(flrutils).
+
+/*
+  Main interface we use:
+      java(W,print(string('\n\x01|2What\x01|3 a\x01|7 colorful\x01|8 text'))).
+
+  Might use the following to create new styles (but probably not):
+      java(W,setStyle(int(2),int(0),int(0),int(255))),
+      java(W,setStyle(int(8),int(255),int(0),int(0))), 
+
+    General form:
+      java(W,setStyle(Index,int(Red),int(Green),int(Blue))). 
+      See CtrlStyledOutputPane.initializeOutputStyles for acceptable Index:
+      0..9, :,;,<,=, etc.
+
+  Syntax of ?Text: txtitem | [item1,...,itemN].
+     Each item: atom | color(atom) | fontface(atom)
+	 color: black|red|brown|green|purple|blue|magenta|orange
+      fontface: bold|italic|boldital
+     Note: bold/italic does not exist in all font families
+
+  Example:
+     Window[print(1,[red('colorful '),orange('text '),blue(foobar),
+                         ' nocolor ',italic(italic),'\n'])]@\e2j.
+*/
+Window[print(?Window,?Text)] :-
+	?Window == NULL,
+	!,
+	process_text(?Text,nogui,?TextOut)@\prolog(flrprint),
+	PRINTOUT(?TextOut).
+Window[print(?Window,?Text)] :-
+	!,
+	//check_window(?Window),  // the liveness test below already checks this
+	// if window is not alive, don't pump into the window
+	(Window[alive(?Window)] -->>
+	    process_text(?Text,gui,?TextOut)@\prolog(flrprint),
+	    java(?Window,print(string(?TextOut)))@\prologall(interprolog)
+	;
+	    // If window was killed, switch to stdout
+	    // TODO: maybe then stop the output completely?
+	    process_text(?Text,nogui,?TextOut)@\prolog(flrprint),
+	    write(?TextOut)@\prolog
+        ).
+
+check_window(?Window) :-
+	isnonvar{?Window},
+	?Window:Window,
+	!.
+check_window(?_Window) :-
+	sysabort('attempt to perform a window operation on a non-window object')@\sys.
+
+is_atomlist([]) :- !.
+is_atomlist([?H|?L]) :-
+	isatom{?H},
+	is_atomlist(?L).
+
+/*
+  Some potential ops on the Prolog engine:
+
+  ?- (ipPrologEngine(?_E), java(?_E,string(?R),toString))@\prologall(interprolog).
+  ?R = 'com.declarativa.interprolog.OnTopSubprocessEngine\ngoalsToExecute:[GoalToExecute (true,true,false), called by null: timestamp==1, goal==gfj( ( dummyGoal ), ( _ ), (null) )\ntimestamp:1\n[]]\nmessagesExecuting:[MessageExecuting (false):toString]'
+*/
+
+
+/*
+  After executing
+  ?- (ipPrologEngine(?E),
+      java('com.declarativa.interprolog.gui.ListenerWindow',
+           initializeVisualizationObjects(?E))
+          )@\prologall.
+  one can use the predicates at
+     http://interprolog.com/wiki/index.php?title=Java-Prolog_bridge#Visualization_of_Prolog_data
+*/
+
+
+
+nogui_session :- System[mode -> [?,nogui]].
+
+show_options_dialog(?,?Message,?Buttons,?,?ChosenButton) :-
+	nogui_session,
+	!,
+	PRINTOUT(= ?Message || '\nPossible choices: ' || ?Buttons || ' '),
+	readline_chop_nl(?ChosenButtonTry),
+	(?ChosenButtonTry \in ?Buttons -->> ?ChosenButton = ?ChosenButtonTry
+        ; PRINTOUT('+++ Invalid choice.\n'),
+	  show_options_dialog(?,?Message,?Buttons,?,?ChosenButton)
+        ).
+show_options_dialog(?Title,?Message,?Buttons,?W,?ChosenButton) :-
+        disable_all_tripwires@\prolog(flrerrhandler),
+	xjShowOptionDialog(?Title,?Message,?Buttons,?W,?ChosenButton)@\prolog,
+        disable_all_tripwires@\prolog(flrerrhandler).
+
+readline_chop_nl(?L) :-
+	readline(atom,?L1)@\io,
+	flora_get_substring(?L1,0,-2,?L)@\prolog(flrporting).
+
+// Testing:  runflora -e "Window[open(aaaa,bbb)->?P]@\e2j."

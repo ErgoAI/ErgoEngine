@@ -1,0 +1,114 @@
+?- insertrule_a{tc(?X,?Y) :- %e(?X,?Y)}.
+?- insertrule_a{tc(?X,?Y) :- tc(?X,?Z),%e(?Z,?Y)}.
+
+?- newmodule{w}.
+?- ['../datafiles/clause_data' >> bar].
+
+?- 	insertrule{(\neg c[d] :- h, qq)@w},
+	insertrule{\neg rr[d] :- rr, qq},
+	insertrule{\neg e[f->?X] :- p(?X)},
+	insertrule{((\neg ppp(?X) :- p(?X)),
+	             (\neg qqq(?X) :- rrr(?X)),
+		     (\neg pppp :- rr))@w}.
+
+\neg aaa(a) :- \neg bbb(b),c.
+eee(a) :- \neg bbb,c(d,k).
+
+
+// %tst1, %tst2: simple rule in the current module
+%tst1 :- 
+        write('tst1: ')@\plg(),
+        clause{?H,?B},
+        ?H ~ tc(?X,?Y), ?B ~ %e(?X,?Y), 
+        writeln('yes')@\plg().
+
+%tst2 :- 
+        write('tst2: ')@\plg(),
+        clause{?H,?B},
+        ?H ~ tc(?X,?Y), ?B = (?B1,?B2), ?B1 ~ tc(?X,?Z), ?B2 ~ %e(?Z,?Y), 
+        writeln('yes')@\plg().
+
+// %tst3, %tst4: simple rule in another module
+?- newmodule{foo}.
+?- insertrule_a{(tc(?X,?Y) :- %e(?X,?Y)@\@)@foo}.
+?- insertrule_a{(tc(?X,?Y) :- tc(?X,?Z),%e(?Z,?Y)@\@)@foo}.
+
+%tst3 :-
+        write('tst3: ')@\plg(),
+        clause{tc(?X,?Y)@foo, ?B},
+        ?B ~ %e(?X,?Y),
+        writeln('yes')@\plg().
+
+%tst4 :-
+        write('tst4: ')@\plg(),
+        clause{tc(?X,?Y)@foo, ?B},
+        ?B = (?B1,?B2), ?B1 ~ tc(?X,?Z)@foo, ?B2 ~ %e(?Z,?Y),
+        writeln('yes')@\plg().
+
+// %tst5, %tst6: conjunction in rule head
+?- insertrule{o[a1->?V1,a2->?V2]:- something(?V1,?V2)}.
+?- insertrule{o[a2->a,a4->b]:- something(a,b)}.
+?- insertrule{o[a1->?V1,a3->?V2]:- somethingelse(?V1,?V2)}.
+
+%tst5 :-
+        write('tst5: ')@\plg(),
+        clause{o[a1->?_V1,a3->?_V2],?Y},
+        ?Y ~ somethingelse(?_,?_),
+        writeln('yes')@\plg().
+
+%tst6 :-
+        write('tst6: ')@\plg(),
+        \if clause{o[a1->a,a4->b], ?}
+	\then writeln('error: succeeded when it should have failed')@\plg
+        \else writeln('failed, as expected')@\plg.
+
+// %tst7: built-in and control in rule body
+?- insertrule{fib(?N,?M) :- \if ?N<0 \then ?M=0 \else \if ?N==1 \then ?M=1 \else (?N1 \is ?N-1, ?N2 \is ?N-2, fib(?N1,?M1), fib(?N2,?M2), ?M \is ?M1+?M2)}.
+
+%tst7 :-
+        write('tst7: ')@\plg(),
+        clause{fib(?_,?_), ?_},
+        clause{fib(?_,?_), \if ?_ \then ?_ \else ?_},
+        clause{fib(?_,?_), \if ?_ \then ?_ \else \if ?_ \then ?_ \else ?_},
+        writeln('yes')@\plg().
+
+%tst8 :-
+        write('tst8: ')@\plg(),
+        clause{\neg aaa(?), ?X},
+        ?X ~ (\neg bbb(?),c),
+        write(?X)@\io, nl@\plg().
+
+%tst9 :-
+        write('tst9: ')@\plg(),
+        clause{eee(a), ?X},
+        ?X ~ (\neg bbb,c(?,?)),
+        write(?X)@\io, nl@\plg().
+
+%tst10 :-
+        write('tst10: ')@\plg(),
+        clause{\neg uuu[? ->xxx]@bar, (foo(?X), ?Y)@bar},
+        write(?X+?Y)@\io, nl@\plg().
+
+fjw :- \naf opaque@?_M.
+%fjw2 :- \naf %opaque2@?_M.
+
+%tst11 :-
+        write('tst11: ')@\plg(),
+	?H = ${fjw},
+	clause{?H,?B}, flora_decode_rule(?H,?B,?HA,?BA)@\plg(flrdecode),
+	?H1 = ${%fjw2},
+	clause{?H1,?B1}, flora_decode_rule(?H1,?B1,?HA1,?BA1)@\plg(flrdecode),
+	writeln(?HA+?BA+?HA1+?BA1)@\plg.
+
+%pretest :-
+	%tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8,
+	%tst9, %tst10, %tst11.
+
+%test :- tell(temp)@\plg(),
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        %pretest,
+        told@\plg().
+
+

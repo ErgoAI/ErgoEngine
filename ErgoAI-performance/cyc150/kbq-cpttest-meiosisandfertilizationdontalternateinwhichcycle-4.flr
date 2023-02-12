@@ -1,0 +1,76 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-MeiosisAndFertilizationDONTAlternateInWhichCycle (query 4)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28derived_from.29_Biology_Chapter_13_Review
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, transitiveViaArgInverse(phasesAlternateInCycleType, genls, 1)).
+istAsserted(UniversalVocabularyMt, genls(DiplonticLifeCycle, SexualLifeCycle)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ContextOfPCWFn(NthEditionOfWorkFn('Biology-TheTextbook', 6)))).
+istAsserted(ContextOfPCWFn('FertilizationAndMeiosisAlertnateInSexualLifeCycles-CandR6thEd'), phasesAlternateInCycleType(SexualLifeCycle, ReproductiveFertilizationEvent, Meiosis)).
+istAsserted(UniversalVocabularyMt, genlMt(ContextOfPCWFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 13)), ContextOfPCWFn('MeiosisReducesChromosomeNumberFromDiploidToHaploidACloserLook-CandR6thEd'))).
+istAsserted(UniversalVocabularyMt, genlMt(ContextOfPCWFn('MeiosisReducesChromosomeNumberFromDiploidToHaploidACloserLook-CandR6thEd'), ContextOfPCWFn('FertilizationAndMeiosisAlertnateInSexualLifeCycles-CandR6thEd'))).
+istAsserted(UniversalVocabularyMt, genlMt(ContextOfPCWFn(NthEditionOfWorkFn('Biology-TheTextbook', 6)), ContextOfPCWFn('UnitThree-CandR6thEd'))).
+istAsserted(UniversalVocabularyMt, genlMt(ContextOfPCWFn('UnitThree-CandR6thEd'), ContextOfPCWFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 13)))).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-MeiosisAndFertilizationDONTAlternateInWhichCycle 4').
+%pretest :- phasesAlternateInCycleType(DiplonticLifeCycle, ReproductiveFertilizationEvent, Meiosis), %write_results('SUCCESS  : $CPTTest-MeiosisAndFertilizationDONTAlternateInWhichCycle 4').
+
+// Debugging
+proof(6466, 0) :- phasesAlternateInCycleType(DiplonticLifeCycle, ReproductiveFertilizationEvent, Meiosis).
+
+proof(6466, 1000) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(6466, 1001) :- genlMt(ContextOfPCWFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 13)), ContextOfPCWFn('MeiosisReducesChromosomeNumberFromDiploidToHaploidACloserLook-CandR6thEd')).
+proof(6466, 1002) :- genlMt(ContextOfPCWFn('MeiosisReducesChromosomeNumberFromDiploidToHaploidACloserLook-CandR6thEd'), ContextOfPCWFn('FertilizationAndMeiosisAlertnateInSexualLifeCycles-CandR6thEd')).
+proof(6466, 1003) :- genlMt(ContextOfPCWFn(NthEditionOfWorkFn('Biology-TheTextbook', 6)), ContextOfPCWFn('UnitThree-CandR6thEd')).
+proof(6466, 1004) :- genlMt(ContextOfPCWFn('UnitThree-CandR6thEd'), ContextOfPCWFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 13))).
+
+proof(6466, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(6466, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(6466, 2002) :- admittedArgument(SecondFn(51, MinuteFn(56, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(6466, 2003) :- admittedArgument(SecondFn(51, MinuteFn(56, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(6466, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(6466, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(6466, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), ContextOfPCWFn('FertilizationAndMeiosisAlertnateInSexualLifeCycles-CandR6thEd')).
+proof(6466, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(6466, 2008) :- phasesAlternateInCycleType(DiplonticLifeCycle, ReproductiveFertilizationEvent, Meiosis). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

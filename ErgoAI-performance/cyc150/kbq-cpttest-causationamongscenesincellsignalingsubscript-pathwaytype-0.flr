@@ -1,0 +1,132 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-CausationAmongScenesInCellSignalingSubScript-PathwayType (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlPreds, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyMt, BiochemistryMt)).
+istAsserted(UniversalVocabularyMt, transitiveViaArgInverse('causes-SitTypeSitType', genls, 1)).
+istAsserted(UniversalVocabularyMt, isa(predicateIntersection, PartiallyCommutativePredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(properSubEventTypes, properSubSituationTypes)).
+istAsserted(UniversalVocabularyMt, genlPreds(properSubSituationTypes, properPartTypes)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(firstProperSubEventTypes, properSubEventTypes)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, predicateIntersection(uniqueProperSubEventTypes, uniqueProperSubSituationTypes, properSubEventTypes)).
+istAsserted(UniversalVocabularyMt, genlPreds('coveringOfEventType-Nonoverlapping', coveringOfEventType)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(BaseKB, genls(ChemicalBindingEventTypeWithTypesFn(ExtracellularSignalingChemicalObject, MembraneReceptorMolecule), ReceptorBindingWithLigand)).
+istAsserted(BiochemistryMt, 'coveringOfEventType-Nonoverlapping'('CellSignalingProcess-LocalizedToSingleCell-WithPathway', [ChemicalBindingEventTypeWithTypesFn(ExtracellularSignalingChemicalObject, MembraneReceptorMolecule), 'SignalTransduction-CellularProcess-MultiStageReaction', CellularLevelResponseToSignal])).
+istAsserted(BiologyMt, 'causes-SubSitTypeSubSitType'('CellSignalingProcess-WithPathway-Amplificatory', 'SignalTransduction-CellularProcess-MultiStageReaction', CellularLevelResponseToSignal)).
+istAsserted(BiologyMt, 'causes-SubSitTypeSubSitType'('CellSignalingProcess-WithPathway-Amplificatory', ReceptorBindingWithLigand, 'SignalTransduction-CellularProcess-MultiStageReaction')).
+
+// Implicit Background Rules
+forwardSentence(relationAllExists('causes-SitSit', ?CAUSE, ?EFFECTTYPE)) :- removalSentence('causes-SitTypeSitType'(?CAUSE, ?EFFECTTYPE)).
+forwardSentence(relationAllExists('causes-SitSit', ?COL1, ?COL2)) :- removalSentence(assertedSentence('causes-SitTypeSitType'(?COL1, ?COL2))), removalSentence('causes-SitTypeSitType'(?COL1, ?COL2)).
+forwardSentence('causes-SitTypeSitType'(?X, ?Y)) :- removalSentence(assertedSentence(relationAllExists('causes-SitSit', ?X, ?Y))), removalSentence(relationAllExists('causes-SitSit', ?X, ?Y)).
+forwardSentence(genlPreds(?PRED, ?GENLPRED1)) :- removalSentence(predicateIntersection(?PRED, ?XGENLPRED2, ?GENLPRED1)).
+forwardSentence(genlPreds(?PRED, ?GENLPRED1)) :- removalSentence(predicateIntersection(?PRED, ?GENLPRED1, ?XGENLPRED2)).
+forwardSentence(uniqueProperSubEventTypes(?SUPER_TYPE, ?SUB_TYPE)) :- removalSentence(coveringOfEventType(?SUPER_TYPE, ?LIST)), removalSentence(memberOfList(?SUB_TYPE, ?LIST)).
+forwardSentence('causes-SitTypeSitType'(?CAUSE, ?EFFECT)) :- removalSentence('causes-SubSitTypeSubSitType'(?XSUPER, ?CAUSE, ?EFFECT)).
+
+// Explicit Background Facts
+istAsserted(BiochemistryMt, firstProperSubEventTypes('CellSignalingProcess-LocalizedToSingleCell-WithPathway', ChemicalBindingEventTypeWithTypesFn(ExtracellularSignalingChemicalObject, MembraneReceptorMolecule))).
+
+// Explicit Background Rules
+backwardSentence('causes-SubSitTypeSubSitType'(?SUPER, ?CAUSE, ?EFFECT)) :- mtVisible(BaseKB), naf backchainForbidden('causes-SubSitTypeSubSitType'), properPartTypes(?SUPER, ?CAUSE), properPartTypes(?SUPER, ?EFFECT), 'causes-SitTypeSitType'(?CAUSE, ?EFFECT).
+backwardSentence(not(properPartTypes(?SUPER, ?CAUSE))) :- mtVisible(BaseKB), naf backchainForbidden(properPartTypes), properPartTypes(?SUPER, ?EFFECT), 'causes-SitTypeSitType'(?CAUSE, ?EFFECT), not('causes-SubSitTypeSubSitType'(?SUPER, ?CAUSE, ?EFFECT)).
+backwardSentence(not(properPartTypes(?SUPER, ?EFFECT))) :- mtVisible(BaseKB), naf backchainForbidden(properPartTypes), properPartTypes(?SUPER, ?CAUSE), 'causes-SitTypeSitType'(?CAUSE, ?EFFECT), not('causes-SubSitTypeSubSitType'(?SUPER, ?CAUSE, ?EFFECT)).
+backwardSentence(not('causes-SitTypeSitType'(?CAUSE, ?EFFECT))) :- mtVisible(BaseKB), naf backchainForbidden('causes-SitTypeSitType'), properPartTypes(?SUPER, ?CAUSE), properPartTypes(?SUPER, ?EFFECT), not('causes-SubSitTypeSubSitType'(?SUPER, ?CAUSE, ?EFFECT)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-CausationAmongScenesInCellSignalingSubScript-PathwayType 0').
+%pretest :- 'causes-SubSitTypeSubSitType'('CellSignalingProcess-LocalizedToSingleCell-WithPathway', ChemicalBindingEventTypeWithTypesFn(ExtracellularSignalingChemicalObject, MembraneReceptorMolecule), 'SignalTransduction-CellularProcess-MultiStageReaction'), 'causes-SubSitTypeSubSitType'('CellSignalingProcess-LocalizedToSingleCell-WithPathway', 'SignalTransduction-CellularProcess-MultiStageReaction', CellularLevelResponseToSignal), %write_results('SUCCESS  : $CPTTest-CausationAmongScenesInCellSignalingSubScript-PathwayType 0').
+
+// Debugging
+proof(8542, 0) :- 'causes-SitTypeSitType'('SignalTransduction-CellularProcess-MultiStageReaction', CellularLevelResponseToSignal).
+proof(8542, 1) :- properPartTypes('CellSignalingProcess-LocalizedToSingleCell-WithPathway', CellularLevelResponseToSignal).
+proof(8542, 2) :- properPartTypes('CellSignalingProcess-LocalizedToSingleCell-WithPathway', 'SignalTransduction-CellularProcess-MultiStageReaction').
+proof(8542, 3) :- 'causes-SitTypeSitType'('SignalTransduction-CellularProcess-MultiStageReaction', CellularLevelResponseToSignal), properPartTypes('CellSignalingProcess-LocalizedToSingleCell-WithPathway', CellularLevelResponseToSignal), properPartTypes('CellSignalingProcess-LocalizedToSingleCell-WithPathway', 'SignalTransduction-CellularProcess-MultiStageReaction').
+proof(8542, 4) :- 'causes-SubSitTypeSubSitType'('CellSignalingProcess-LocalizedToSingleCell-WithPathway', 'SignalTransduction-CellularProcess-MultiStageReaction', CellularLevelResponseToSignal).
+proof(8542, 5) :- 'causes-SitTypeSitType'(ChemicalBindingEventTypeWithTypesFn(ExtracellularSignalingChemicalObject, MembraneReceptorMolecule), 'SignalTransduction-CellularProcess-MultiStageReaction').
+proof(8542, 6) :- properPartTypes('CellSignalingProcess-LocalizedToSingleCell-WithPathway', ChemicalBindingEventTypeWithTypesFn(ExtracellularSignalingChemicalObject, MembraneReceptorMolecule)).
+proof(8542, 7) :- 'causes-SitTypeSitType'(ChemicalBindingEventTypeWithTypesFn(ExtracellularSignalingChemicalObject, MembraneReceptorMolecule), 'SignalTransduction-CellularProcess-MultiStageReaction'), properPartTypes('CellSignalingProcess-LocalizedToSingleCell-WithPathway', ChemicalBindingEventTypeWithTypesFn(ExtracellularSignalingChemicalObject, MembraneReceptorMolecule)), properPartTypes('CellSignalingProcess-LocalizedToSingleCell-WithPathway', 'SignalTransduction-CellularProcess-MultiStageReaction').
+proof(8542, 8) :- 'causes-SubSitTypeSubSitType'('CellSignalingProcess-LocalizedToSingleCell-WithPathway', ChemicalBindingEventTypeWithTypesFn(ExtracellularSignalingChemicalObject, MembraneReceptorMolecule), 'SignalTransduction-CellularProcess-MultiStageReaction').
+proof(8542, 9) :- 'causes-SubSitTypeSubSitType'('CellSignalingProcess-LocalizedToSingleCell-WithPathway', 'SignalTransduction-CellularProcess-MultiStageReaction', CellularLevelResponseToSignal), 'causes-SubSitTypeSubSitType'('CellSignalingProcess-LocalizedToSingleCell-WithPathway', ChemicalBindingEventTypeWithTypesFn(ExtracellularSignalingChemicalObject, MembraneReceptorMolecule), 'SignalTransduction-CellularProcess-MultiStageReaction').
+
+proof(8542, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(8542, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(8542, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(8542, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(8542, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(8542, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(8542, 1006) :- genlPreds(uniqueProperSubEventTypes, properSubEventTypes).
+proof(8542, 1007) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(8542, 1008) :- 'causes-SitTypeSitType'(ReceptorBindingWithLigand, 'SignalTransduction-CellularProcess-MultiStageReaction').
+proof(8542, 1009) :- relationAllExists('causes-SitSit', 'SignalTransduction-CellularProcess-MultiStageReaction', CellularLevelResponseToSignal).
+proof(8542, 1010) :- relationAllExists('causes-SitSit', ReceptorBindingWithLigand, 'SignalTransduction-CellularProcess-MultiStageReaction').
+proof(8542, 1011) :- uniqueProperSubEventTypes('CellSignalingProcess-LocalizedToSingleCell-WithPathway', 'SignalTransduction-CellularProcess-MultiStageReaction').
+proof(8542, 1012) :- uniqueProperSubEventTypes('CellSignalingProcess-LocalizedToSingleCell-WithPathway', CellularLevelResponseToSignal).
+proof(8542, 1013) :- 'causes-SitTypeSitType'('SignalTransduction-CellularProcess-MultiStageReaction', CellularLevelResponseToSignal).
+
+proof(8542, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(8542, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(8542, 2002) :- admittedArgument(SecondFn(32, MinuteFn(14, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(8542, 2003) :- admittedArgument(SecondFn(32, MinuteFn(14, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(8542, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(8542, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(8542, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiologyMt).
+proof(8542, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiochemistryMt).
+proof(8542, 2008) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), ReasoningToCausesFromObservationsMt).
+proof(8542, 2009) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(8542, 2010) :- genlPreds(firstProperSubEventTypes, properPartTypes).
+proof(8542, 2011) :- genlPreds(uniqueProperSubEventTypes, properPartTypes).
+proof(8542, 2012) :- genlPreds('coveringOfEventType-Nonoverlapping', coveringOfEventType).
+proof(8542, 2013) :- isa(predicateIntersection, PartiallyCommutativePredicate).
+proof(8542, 2014) :- memberOfList(CellularLevelResponseToSignal, [ChemicalBindingEventTypeWithTypesFn(ExtracellularSignalingChemicalObject, MembraneReceptorMolecule), 'SignalTransduction-CellularProcess-MultiStageReaction', CellularLevelResponseToSignal]).
+proof(8542, 2015) :- memberOfList('SignalTransduction-CellularProcess-MultiStageReaction', [ChemicalBindingEventTypeWithTypesFn(ExtracellularSignalingChemicalObject, MembraneReceptorMolecule), 'SignalTransduction-CellularProcess-MultiStageReaction', CellularLevelResponseToSignal]).
+proof(8542, 2016) :- 'causes-SitTypeSitType'(ChemicalBindingEventTypeWithTypesFn(ExtracellularSignalingChemicalObject, MembraneReceptorMolecule), 'SignalTransduction-CellularProcess-MultiStageReaction'). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

@@ -1,0 +1,141 @@
+/* File:      ergo_random.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2016-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+:- compiler_options([optimize,xpp_on]).
+#include "table_status_defs.h"
+
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "builtin.h"
+#include "heap_defs_xsb.h"
+
+
+:- import
+        %% DON'T import gauss/2, exponential/2:
+        %%       we use them as local function symbols!
+        %%gauss/2,
+        %%exponential/2,
+        random/1,
+        random/3
+   from random.
+
+:- import predicate_property/2 from curr_sym.
+:- import
+        cleanup_negation/1,
+        register_negated_call/1
+   from flrnegation.
+
+:- export
+        flora_get_random/1,
+        flora_get_random/2.
+
+
+%% returns real between [0..1)
+flora_get_random(X) :-
+        var(X),
+        !,
+        random(X).
+
+flora_get_random(X) :-
+        flora_table_random(X).
+
+
+%% returns integer in the range of [L..H)
+flora_get_random(X,[L,H]) :-
+        var(X),
+        integer(L),
+        integer(H),
+        !,
+        random(L,H,X).
+
+
+%% gauss with mean Mean, deviation Deviation
+flora_get_random(XX,gauss(Mean,Deviation)) :-
+        var(XX),
+        number(Mean),
+        number(Deviation),
+        Deviation>0,
+        !,
+        random:gauss(X,_),
+        XX is (X*Deviation+Mean).
+
+%% gauss with mean Mean, deviation Deviation
+flora_get_random(X,exponential(Lambda)) :-
+        var(X),
+        number(Lambda),
+        Lambda>0,
+        !,
+        random:exponential(Lambda,X).
+
+%% Modified table_random from lib/aggregs.P
+:- import
+        get_call/3,
+        get_answer_number/2,
+        table_status/5
+   from tables.
+:- import
+        conget/2,
+        conset/2,
+        coninc/1
+   from gensym.
+
+table_random_aux(Call) :- 
+ 	table_status(Call, _PredTypeCode, _CallTypeCode, AnsSetStatusCode,_SF),
+	AnsSetStatusCode = UNDEFINED_ANSWER_SET,
+        Call,
+	fail.
+table_random_aux(Call) :- 
+	get_call(Call,SF,_),
+	get_answer_number(SF,Number),Num1 is Number + 1,
+	random(1, Num1, Rand),
+	conset(table_random_ctr,1),
+	Call,
+        conget(table_random_ctr,Ctr),
+        (Ctr = Rand -> true 
+        ; coninc(table_random_ctr),
+            fail
+        ),
+        !.
+
+:- table table_random_nonincr/1 as variant, opaque.
+table_random_nonincr(Call):- call(Call).
+
+:- table table_random_incr/1 as variant, incremental.
+table_random_incr(Call):- call(Call).
+
+flora_table_random(Call) :-
+        nonvar(Call),
+	(predicate_property(Call,tabled) ->	
+	    (predicate_property(Call,incremental) ->
+                table_random_aux(table_random_incr(Call))
+	     ;
+                cleanup_negation(table_random_nonincr(Call)),
+                register_negated_call(table_random_nonincr(Call)),
+                table_random_aux(table_random_nonincr(Call))
+            )
+        ;
+            cleanup_negation(table_random_nonincr(Call)),
+            register_negated_call(table_random_nonincr(Call)),
+            table_random_aux(table_random_nonincr(Call))
+        ).                      % << could be optimized

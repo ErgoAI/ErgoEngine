@@ -1,0 +1,13 @@
+:- use_argumentation_theory{AT} .
+:- symbol_context{rif#instRule(?,?,?)@?}.
+:- symbol_context{rif#candr(?,?)@?}.
+ @!{\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"} @{normalBehavior}starts(interPhase(?c)) :- isA(?c, cellCycle)@main .
+ @!{anomaly} @{normalBehavior}replicatedDNA(?c) :- starts(interPhase(?c))@main .
+ @!{\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"} @{normalBehavior}growth(?c) :- starts(interPhase(?c))@main .
+ @!{\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"} @{normalBehavior}starts(mitosisPhase(?c)) :- replicatedDNA(?c)@main \and growth(?c)@main .
+ @!{\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"} @{normalBehavior}dividedCell(?c) :- starts(mitosisPhase(?c))@main .
+ @!{\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"} @{chemicalInhibition}\neg replicatedDNA(?c) :- chemicalTreatment(?c)@main .
+\overrides(chemicalInhibition, normalBehavior) .
+isA(ordinaryCC, cellCycle) .
+isA(treatedCC, cellCycle) .
+chemicalTreatment(treatedCC) .

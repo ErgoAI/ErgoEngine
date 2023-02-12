@@ -1,0 +1,45 @@
+/* This demo shows the use of aggregates and assert/retract commands.
+*/
+
+john[salary(1990) -> 20].
+john[salary(1991) -> 40].
+john[salary(1992) -> 60].
+john[salary(1993) -> 70].
+john[salary(1994) -> 70].
+john[salary(1995) -> 80].
+john[salary(1996) -> 70].
+john[salary(1997) -> 50].
+john[salary(1998) -> 80].
+
+mary[salary(1990) -> 40].
+mary[salary(1991) -> 30].
+mary[salary(1992) -> 60].
+mary[salary(1993) -> 70].
+mary[salary(1994) -> 60].
+mary[salary(1995) -> 60].
+mary[salary(1996) -> 70].
+mary[salary(1997) -> 80].
+
+// Queries:
+
+//    max of John's salary
+//      ?Z=max{?_X|john[salary(?_Year)->?_X] }, john.salary(?Y)=?Z.
+
+//    max salary before 1995
+//      ?Z=max{?_X|john[salary(?_Year) ->?_X], ?_Year < 1995}.
+
+
+//   % of years when John's salary was < max(salaries of all preceding years)
+//      ?Z=count{?_Year|john.salary(?_Year) < max{?_S| john[salary(?_Y2)->?_S], ?_Y2<?_Year}}.
+
+
+//   number of years when John earned less than Mary's
+//      ?Z=count{?_Year| john.salary(?_Year) < mary.salary(?_Year)}.
+
+//   List average salaries per person
+//      ?Z=avg{?_X[?_Who]|?_Who[salary(?_Year)->?_X]}.
+
+// Sets of years (represented as lists without duplicates),
+// grouped by person, when the person's salary was < 60
+//      ?Z=setof{?_Year[?_Who]|?_Who[salary(?_Year) -> ?_X], ?_X < 60}.
+

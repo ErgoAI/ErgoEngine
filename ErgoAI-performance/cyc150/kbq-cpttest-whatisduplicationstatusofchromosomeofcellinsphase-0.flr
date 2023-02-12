@@ -1,0 +1,75 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhatIsDuplicationStatusOfChromosomeOfCellInSPhase (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, isa(PartiallyDuplicatedChromosome, ChromosomeTypeByDuplicationLevel)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259674', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259674', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-CellTypeByCellLifeStageFnSPhase-259675', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259674', MtTimeDimFn(Now)), isa('HYP-CellTypeByCellLifeStageFnSPhase-259675', CellTypeByCellLifeStageFn(SPhase))).
+istAsserted(UniversalVocabularyMt, isa('HYP-PartiallyDuplicatedChromosome-259676', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259674', MtTimeDimFn(Now)), isa('HYP-PartiallyDuplicatedChromosome-259676', PartiallyDuplicatedChromosome)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259674', MtTimeDimFn(Now)), isa('HYP-PartiallyDuplicatedChromosome-259676', OrganicMaterial)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259674', MtTimeDimFn(Now)), chromosomes('HYP-CellTypeByCellLifeStageFnSPhase-259675', 'HYP-PartiallyDuplicatedChromosome-259676')).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259674')).
+//REMOVED TITLE('KBQ  : $CPTTest-WhatIsDuplicationStatusOfChromosomeOfCellInSPhase 0').
+%pretest :- isa(?WHAT, ChromosomeTypeByDuplicationLevel), isa('HYP-PartiallyDuplicatedChromosome-259676', ?WHAT), %write_results('SUCCESS  : $CPTTest-WhatIsDuplicationStatusOfChromosomeOfCellInSPhase 0').
+
+// Debugging
+proof(2468, 0) :- isa(PartiallyDuplicatedChromosome, ChromosomeTypeByDuplicationLevel), isa('HYP-PartiallyDuplicatedChromosome-259676', PartiallyDuplicatedChromosome).
+proof(2468, 1) :- isa('HYP-PartiallyDuplicatedChromosome-259676', PartiallyDuplicatedChromosome), isa(PartiallyDuplicatedChromosome, ChromosomeTypeByDuplicationLevel).
+
+proof(2468, 1000) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(2468, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-259674', 1, genlMt).
+proof(2468, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-259674', 2, genlMt).
+proof(2468, 2002) :- admittedArgument(SecondFn(48, MinuteFn(8, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(2468, 2003) :- admittedArgument(SecondFn(48, MinuteFn(8, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(2468, 2004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259674'), UniversalVocabularyMt).
+proof(2468, 2005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259674'), BaseKB).
+proof(2468, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259674'), MtSpace('Hypothesis-HypotheticalContext-259674', MtTimeDimFn(Now))).
+proof(2468, 2007) :- isa('HYP-PartiallyDuplicatedChromosome-259676', PartiallyDuplicatedChromosome).
+proof(2468, 2008) :- isa(PartiallyDuplicatedChromosome, ChromosomeTypeByDuplicationLevel). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

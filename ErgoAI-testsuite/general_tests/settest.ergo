@@ -1,0 +1,102 @@
+
+?- aaa[insert(p(1)), insert(p(2)), insert([q(1),q(2),q(3)])]@\set.
+?- bbb[insert(p(1)), insert([q(1),q(3)])]@\set.
+
+%tst1 :- bbb[subset(aaa)]@\set,
+        writeln(test1=ok)@\plg.
+
+%tst2 :- bbb[insert(q(4))]@\set,
+        \naf bbb[subset(aaa)]@\set,
+        writeln(test2=ok)@\plg.
+
+%tst3 :- aaa[insert(q(4))]@\set,
+        bbb[subset(aaa)]@\set,
+        writeln(test3=ok)@\plg.
+
+%tst4 :- aaa[delete(q(4))]@\set,
+        \naf bbb[subset(aaa)]@\set,
+        writeln(test4=ok)@\plg.
+
+%tst5 :- aaa[minus(bbb)->aaa]@\set,
+        aaa[tolist->?L]@\set,
+        writeln(test5=?L)@\io.
+
+%tst6 :- 
+        ccc[insert(www(222))]@\set,
+        aaa[union(bbb)->ccc]@\set,
+        ccc[type->?T]@\set,
+        ccc[tolist->?L]@\set,
+        writeln(test6=?T+?L)@\io.
+
+%tst7 :- aaa[union(bbb)->bbb]@\set,
+        bbb[tolist->?L]@\set,
+        writeln(test7=?L)@\io.
+
+%tst8 :- bbb[copy->aaa]@\set,
+        bbb[equal(aaa)]@\set,
+        bbb[delete([p(1), q(1)])]@\set,
+        \naf bbb[equal(aaa)]@\set,
+        writeln(test8=ok)@\io.
+
+%tst9 :- \naf ddd[exists]@\set,
+        \naf ddd[exists]@\set,
+        ddd[empty]@\set,
+        writeln(test9=ok)@\io.
+
+%tst10 :- aaa[destroy]@\set,
+        aaa[mapinsert(111=ttt1)]@\set,
+        aaa[mapinsert(222=ttt2)]@\set,
+        \naf aaa[mapinsert(222=ttt22)]@\set,
+        aaa[tolist->?L]@\set,
+        writeln(test10=?L)@\io.
+
+%tst11 :- 
+        aaa[mapdelete(222)]@\set,
+        aaa[mapinsert(222=ttt22)]@\set,
+        aaa[tolist->?L]@\set,
+        writeln(test11=?L)@\io.
+
+%tst12 :- 
+        aaa[mapreplace(111=ttt11)]@\set,
+        aaa[tolist->?L]@\set,
+        writeln(test12=?L)@\io.
+
+%tst13 :- mvmaaa[destroy]@\set,
+        mvmaaa[mvminsert(111=ttt1)]@\set,
+        mvmaaa[mvminsert(222=ttt2)]@\set,
+        mvmaaa[mvminsert(222=ttt22)]@\set,
+        mvmaaa[tolist->?L]@\set,
+        writeln(test13=?L)@\io,
+        mvmaaa[mvmdelete(222=ttt2)]@\set,
+        mvmaaa[tolist->?LL]@\set,
+        writeln(test13=?LL)@\io,
+        mvmaaa[mvmerase(222)]@\set,
+        mvmaaa[tolist->?LLL]@\set,
+        writeln(test13=?LLL)@\io,
+        mvmaaa[type->?T]@\set,
+        writeln(test13=?T)@\io.
+
+%tst14 :- bbb[destroy]@\set,
+        bbb[mapinsert(111=ttt11)]@\set,
+        aaa[minus(bbb)->aaa]@\set,
+        aaa[tolist->?L]@\set,
+        writeln(test14=?L)@\io,
+        aaa[union(bbb)->aaa]@\set,
+        aaa[tolist->?LL]@\set,
+        writeln(test14=?LL)@\io.
+
+%tst15 :- mvmbbb[mvminsert(111=you1)]@\set,
+        mvmbbb[mvminsert(333=you2)]@\set,
+        mvmbbb[mvminsert(333=you22)]@\set,
+        mvmbbb[union(mvmaaa) -> mvmccc]@\set,
+        mvmccc[type->?T]@\set,
+        mvmccc[tolist->?L]@\set,
+        writeln(test15=?T+?L)@\io.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8,
+        %tst9, %tst10, %tst11, %tst12, %tst13, %tst14, %tst15.
+
+%test :- tell(temp)@\plg,
+	%pretest,
+	told@\plg.

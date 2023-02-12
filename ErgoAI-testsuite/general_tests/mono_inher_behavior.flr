@@ -1,0 +1,34 @@
+
+:- setsemantics{inheritance=monotonic}.
+a(r)[|b(y)->c|].
+d(?_x):aa(?_x).
+
+tst1 :- d(?I)[b(?X)->?Y], writeln(test1=?I+?X+?Y)@\plg.
+
+aa(?_x)::a(?_x).
+aa(r)[|b(y)->cc|].
+
+tst2 :- aa(?I)[|b(?X)->?Y|], writeln(test2=?I+?X+?Y)@\plg.
+
+a(u)[|d(1)|].
+aa(u)[|d(2)|].
+
+tst3 :- d(?I)[d(?X)], writeln(test3=?I+?X)@\plg.
+tst4 :- aa(?I)[|d(?X)|], writeln(test4=?I+?X)@\plg.
+
+d(r2)[\neg b(y2) -> c2].
+aa(r3)[|\neg b(y3) -> c3|].
+d(u2)[\neg d(3)].
+aa(u2)[|\neg d(4)|].
+
+tst5 :- \neg a(?X)[|?M->?V|], writeln(test5=?X+?M+?V)@\plg.
+tst6 :- \neg aa(?X)[|?M->?V|], writeln(test6=?X+?M+?V)@\plg.
+tst7 :- \neg a(?X)[|?M|], writeln(test7=?X+?M)@\plg.
+
+%pretest :- tst1, tst2, tst3, tst4, tst5, tst6, tst7.
+
+%test :- tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	told@\plg.

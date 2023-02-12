@@ -1,0 +1,155 @@
+
+?- newmodule{w}.
+:- symbol_context{aaa@?,rr@?}.
+
+%insert_rules1 :- insertrule{((aaa(b) :- \neg bbb,c),
+			     (aaa :- \neg bbb,c),
+			     (\neg aaa :- \neg bbb,c),
+			     (\neg aaa(b) :- \neg bbb,c))@w}.
+
+%insert_rules2 :-
+	insertrule{(\neg c[d] :- h)@w},
+	insertrule{\neg rr[d] :- rr},
+	insertrule{\neg e[f->?X] :- p(?X)},
+	insertrule{((\neg ppp(?X) :- p(?X)),
+	             (\neg qqq(?X) :- rrr(?X)),
+		     (\neg pppp :- rr))@w}.
+
+%delete_rules :-
+	deleterule{((\neg c[d] :- ?_X3),
+		    (\neg pppp :- ?))@w,
+		    (\neg qqq(?) :- ?)@w}.
+
+
+\neg aaa(a) :- \neg bbb,c.
+
+
+%test1 :- %insert_rules1,
+          write('test01: ')@\plg,
+          refresh{aaa(?)},
+          refresh{\neg aaa(?)},
+	  catch{(\neg aaa(a) ; aaa(a)),?,\false},
+	  writeln('undefinedness check failed')@\io.
+%test1 :- writeln('undefined error caught - success')@\io.
+
+%test2 :- write('test02: ')@\plg,
+          refresh{aaa(?)},
+	  insert{\neg bbb,c},
+	  \neg aaa(a),
+	  writeln(success)@\plg.
+
+%test3 :- write('test03: ')@\plg,
+          refresh{aaa@w, aaa(?)@w},
+	  insert{(\neg bbb,c)@w},
+	  \neg aaa@w,
+	  \neg aaa(b)@w,
+	  aaa@w,
+	  aaa(b)@w,
+	  writeln(success)@\plg.
+
+%test4 :- write('test04: ')@\plg,
+	  delete{(\neg bbb@w),c@w},
+	  // these two inserts test table refresh
+	  // when inserting rules with negative heads
+	  insert{(\neg aaa :- \neg bbb,c)@w},
+	  insert{(\neg aaa(b) :- \neg bbb,c)@w},
+	  (\neg aaa@w ; \neg aaa(b)@w),
+	  !,
+	  writeln(failed)@\plg.
+%test4 :- writeln(success)@\plg.
+
+%test5 :- write('test05: ')@\plg,
+          %insert_rules2,
+	  insert{h@w,rr},
+	  refresh{?[?]@w},
+	  refresh{?[?]},
+	  \neg rr[d],
+	  \neg c[d]@w,
+	  writeln(success)@\plg.
+
+%test6 :- write('test06: ')@\plg,
+	  insert{p(b),p(a)@w,rr@w},
+	  \neg e[?->?],
+	  \neg ppp(?)@w,
+	  \neg pppp@w, 
+	  writeln(success)@\plg.
+
+%test7 :- write('test07: ')@\plg,
+           %delete_rules,
+           (\neg c[d]@w ; \neg pppp)@w,
+	   !,
+	   writeln(failed)@\plg.
+%test7 :- writeln(success)@\plg.
+
+%test8 :- write('test08: ')@\plg,
+           \neg qqq(?)@w,
+	   !,
+	   writeln(failed)@\plg.
+%test8 :- writeln(success)@\plg.
+
+%test9 :- write('test09: ')@\plg,
+           insert{b[\neg aaa-> bbb]},
+	   b[\neg aaa-> bbb],
+	   !,
+	   writeln(success)@\plg.
+%test9 :- writeln(failed)@\plg.
+
+%test10 :- write('test10: ')@\plg,
+           insert{b[|\neg aaa => bbb|]},
+	   b[|\neg aaa => bbb|],
+	   !,
+	   writeln(success)@\plg.
+%test10 :- writeln(failed)@\plg.
+
+%test11 :- write('test11: ')@\plg,
+	   ?X=${mka[mk->12]}, insert{\neg \neg ?X},
+	   mka[mk->?],
+	   !,
+	   writeln(success)@\plg,
+	   deleteall{mka[mk->?]}.
+%test11 :- writeln(failed)@\plg.
+
+%test12 :- write('test12: ')@\plg,
+	   ?X=${\neg mkaa[mk->7]}, insert{\neg ?X},
+	   mkaa[mk->?],
+	   !,
+	   writeln(success)@\plg,
+	   deleteall{mkaa[mk->?]}.
+%test12 :- writeln(failed)@\plg.
+
+%test13 :- write('test13: ')@\plg,
+	   ?X=${mkbb[mk->77]}, insert{?X},
+	   \neg \neg ?X,
+	   !,
+	   writeln(success)@\plg,
+	   delete{?X}.
+%test13 :- writeln(failed)@\plg.
+
+%test14 :- write('test14: ')@\plg,
+	   ?X=${b[\neg aaa->bbb]},
+	   \neg \neg ?X,
+	   !,
+	   writeln(success)@\plg.
+%test14 :- writeln(failed)@\plg.
+	   
+%naftest :-
+        ?L = setof{?X|\naf aaa(?X) \or \naf aaa(?X)@w},
+        ?L[show->?Str]@\show,
+	writeln(naftest=?Str)@\plg.
+
+
+%cleanup :- delete{\neg bbb,c, b[\neg aaa-> bbb],  b[|\neg aaa => bbb|]}.
+
+%pretest :- %test1, %test2, %test3,
+	    %naftest,
+	    %test4, %test5, %test6, %test7, %test8,
+	    %test9, %test10, %test11, %test12, %test13, %test14,
+            %cleanup.
+
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\prolog.

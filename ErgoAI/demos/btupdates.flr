@@ -1,0 +1,106 @@
+
+// Demo illustrating backtrackable updates.
+
+?- [module2>>mod2].
+
+a[f->b].
+a[f->c].
+
+// Should have no effect
+?- writeln('Query 1 begins')@\plg.
+?- tinsert{a[f->d]}, tdelete{a[f->b]},
+	delete{mary[salary(1990)->?_]@mod2},
+	tdelete{mary[salary(?_X) -> ?_]@mod2| ?_X=1991;?_X=1992;?_X=1993}, fail.
+// X=b,c, mary's salary for years 1991-1998
+?- writeln('After the no-effect query:')@\plg,
+	a[f->?X].
+?-  mary[salary(?Y)->?V]@mod2.
+
+
+// Because storage is committed at the end of the query,
+// the changes made by these should stick.
+?- writeln('Query 2 begins')@\plg.
+?- tinsert{a[f->d]}, tdelete{a[f->b]},
+	tdelete{mary[salary(?_X)->?_]@mod2| ?_X=1991;?_X=1992;?_X=1993}.
+// X=c,d, one of mary's salary for years 1991,2,3 deleted
+?- writeln('After query2:')@\plg,
+	a[f->?X].
+?- mary[salary(?Y)->?V]@mod2.
+
+
+?- writeln('Query 3 begins')@\plg.
+?- tinsert{a[f->e]}, (tdeleteall{a[f->?_X]}, fail; tdelete{a[f->e]}),
+	tinsert{a[f->f]},
+	tdeleteall{mary[salary(?_XX)->?_]@mod2| ?_XX=1991;?_XX=1992;?_XX=1993},
+	tinsert{mary[salary(1999)->100]@mod2}.
+// X=c,d,f, mary's salary for 1994-9
+?- writeln('After query3:')@\plg,
+	a[f->?X].
+?-  mary[salary(?Y)->?V]@mod2.
+
+%p(1993).
+%p(1994).
+%p(1996).
+%p(1997).
+%p(1998).
+// Supposed to delete for all years in %p/1. (1993 has already been deleted)
+?- writeln('Query 4 begins')@\plg.
+// Note: if we use don't care variables, _Y,_V, below, then the query will
+// be executed only ONCE, so only the salary for one year will be removed!!
+?- %p(?Y), tdelete{mary[salary(?Y)->?V]@mod2}.
+// mary's salary for 1995,1999 only
+?- writeln('After query4:')@\plg,
+	mary[salary(?Y)->?V]@mod2.
+
+
+?- writeln('Query 5 begins')@\plg.
+%q(2001,110).
+%q(2002,111).
+%q(2003,100).
+
+?- \while %q(?Y,?S) \do
+       tinsert{mary[salary(?Y)->?S]@mod2}.
+// Should have salaries for 1995, 1999, 2001-2003
+?- writeln('After query5:')@\plg, mary[salary(?Y)->?V]@mod2.
+
+?- writeln('Query 6 begins')@\plg.
+?- insert{mary[salary(2010)->200]@mod2}.
+
+%rr(2010) :- true.
+%rr(3000) :- true.
+// Here deletion for Y=3000 should fail and so the entire query should fail
+?- \while %rr(?Y) \do
+       tdelete{mary[salary(?Y)->?_]@mod2}.
+// Should have salaries for 1995, 1999, 2001-2003
+?- writeln('After query6:')@\plg, mary[salary(?Y)->?V]@mod2.
+
+
+?- writeln('Query 7 begins')@\plg.
+
+// Should leave only two facts about mary's salary
+// Note: we use don't care variables so that the do-until loop will 
+// execute exactly once.
+// Otherwise, it will execute multiple times (because of the all-answers
+// semantics), and the result would be that all tuples will be deleted.
+// This latter result is shown in Query 8
+?- \do tdelete{mary[salary(?_Y)->?_S]@mod2}
+    	\until (3 > count{?_YY| mary[salary(?_YY)->?_]@mod2}).
+
+// Should have only two facts of the form mary[salary(...)->...]
+?- writeln('After query7:')@\plg, mary[salary(?Y)->?V]@mod2.
+
+
+?- writeln('Query 8 begins')@\plg.
+// Add some more facts
+?- insert{mary[salary(1999)->99]@mod2,mary[salary(1998)->88]@mod2}.
+// This is like Query 7, but we don't use don't care vars
+// and thus execute the loop several times. The result is that all facts 
+// about mary's salary are deleted
+
+?- \do tdelete{mary[salary(?Y)->?S]@mod2}
+    	\until (3 > count{?YY| mary[salary(?YY)->?_]@mod2}).
+
+// Should have no facts of the form mary[salary(...)->...]
+?- writeln('After query8:')@\plg, mary[salary(?Y)->?V]@mod2.
+
+

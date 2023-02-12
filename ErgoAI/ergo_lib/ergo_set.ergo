@@ -1,0 +1,360 @@
+/* File:   ergo_set.ergo - set data structure
+**
+** Author: Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2015-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+
+#include "flora_terms.flh"
+
+#define SET_STORAGE_PREFIX  FLORA_SYMBOL('set_struct^')
+
+:- compiler_options{production=on}.
+:- nontabled_module.
+:- suppress_rule_signatures.
+
+:- symbol_context{
+                   union/0, minus/0, insert/0, delete/0,
+                   mapinsert/0, mapdelete/0, maperase/0,  mapfind/0,
+                   subset/0, equal/0
+                 }.
+
+:- export{
+           ?[insert(?)],
+           ?[delete(?)],
+           ?[member->?],
+           ?[mapinsert(?)],
+           ?[mapreplace(?)],
+           ?[mapdelete(?)],
+           ?[maperase(?)],
+           ?[mapfind(?)->?],
+           ?[mvminsert(?)],
+           ?[mvmdelete(?)],
+           ?[mvmerase(?)],
+           ?[mvmfind(?)->?],
+           ?[exists],
+           ?[empty],
+           ?[type->?],
+           ?[tolist->?],
+           ?[toList->?],
+           ?[copy->?],
+           ?[destroy],
+           ?[union(?)->?],
+           ?[minus(?)->?],
+           ?[intersect(?)->?],
+           ?[equal(?)],
+           ?[subset(?)],
+           //registry_of_sets(?,?,?),    // debugging
+           ensure_loaded
+         }.
+
+:- prolog{
+           struct_printable_type/2,
+           copy_into/3,
+           copy_into_minus/4,
+           copy_into_intersect/4,
+           delete_from/2,
+           insert_facts/2,
+           delete_facts/2,
+           delete_all_pairs/2,
+           check_set_name/2,
+           genericmember/3,
+           genericinsert/3,
+           genericdelete/3,
+           genericsubset/2,
+           genericintersect/3,
+           genericunion/3,
+           genericminus/3,
+           registry_of_sets/3,
+           get_storage_name/4
+         }.
+
+:- ignore_depchk{
+                  ?[destroy]@\@,
+                  get_storage_name(?,?,?,?)@\@
+                }.
+
+
+ensure_loaded :- !.
+
+?Set[exists] :- registry_of_sets(?Set,?,?).
+?Set[type->?T] :- registry_of_sets(?Set,?,?T).
+?Set[empty]  :-
+        check_set_name(?Set,${?Set[empty]}),
+        \+ ?Set[member->?],
+        !.
+
+// ?Fact can be a list
+?Set[insert(?Fact)] :- genericinsert(?Set,set,?Fact).
+
+genericinsert(?Set,?Type,?Fact) :-
+        get_storage_name(?Set,?StorageName,?Type,${?Set[insert(?Fact)]}),
+        !,
+        (islist{?Fact} -->> insert_facts(?Fact,?StorageName)
+        ; incr_storage_insert_fact(?StorageName,?Fact,?)@\prolog(storage)
+        ).
+
+// ?Fact can be a list
+?Set[delete(?Fact)] :- genericdelete(?Set,set,?Fact).
+
+genericdelete(?Set,?Type,?Fact) :-
+        get_storage_name(?Set,?StorageName,?Type, ${?Set[delete(?Fact)]}),
+        !,
+        (islist{?Fact} -->> delete_facts(?Fact,?StorageName)
+        ; incr_storage_delete_fact(?StorageName,?Fact,?)@\prolog(storage)
+        ).
+
+?Set[member -> ?Fact] :- genericmember(?Set,set,?Fact).
+
+// used in Prolog
+genericmember(?Set,?Type,?Fact) :-
+        check_set_name(?Set, ${?Set[member -> ?Fact]}),
+        registry_of_sets(?Set,?StorageName,?Type),
+        incr_storage_find_fact(?StorageName,?Fact)@\prolog(storage).
+
+?Set[destroy] :-
+        check_set_name(?Set, ${?Set[destroy]}),
+        registry_of_sets(?Set,?StorageName,?Type),
+        !,
+        delete{registry_of_sets(?Set,?StorageName,?Type)},
+        incr_storage_delete_all(?StorageName)@\prolog(storage).
+?[destroy] :- \true.
+
+
+// set operations
+// Set3 can be same as Set, Set2
+?Set[union(?Set2) -> ?Set3] :- genericunion(?Set,?Set2,?Set3).
+genericunion(?Set,?Set2,?Set3) :-
+        check_set_name(?Set, ${?Set[union(?Set2) -> ?Set3]}),
+        check_set_name(?Set2, ${?Set[union(?Set2) -> ?Set3]}),
+        check_set_name(?Set3, ${?Set[union(?Set2) -> ?Set3]}),
+        ?Set[type->?Type],
+        (?Set == ?Set3 -->> copy_into(?Set2,?Set3,?Type)
+        ; ?Set2 == ?Set3 -->> copy_into(?Set,?Set3,?Type)
+        ; ?Set[copy->?Set3], copy_into(?Set2,?Set3,?Type)
+        ),
+        !.
+
+?Set[intersect(?Set2) -> ?Set3] :- genericintersect(?Set,?Set2,?Set3).
+genericintersect(?Set,?Set2,?Set3) :-
+        check_set_name(?Set, ${?Set[intersect(?Set2) -> ?Set3]}),
+        check_set_name(?Set2, ${?Set[intersect(?Set2) -> ?Set3]}),
+        check_set_name(?Set3, ${?Set[intersect(?Set2) -> ?Set3]}),
+        ?Set[type->?Type],
+        (?Set == ?Set3 -->> 
+          sysabort(['<',ERGOSET,
+                     '> Set1[intersect(Set2)->Set3]: Set1 must be != Set3'])@\sys
+        ; ?Set2 == ?Set3 -->>
+          sysabort(['<',ERGOSET,
+                     '> Set1[intersect(Set2)->Set3]: Set2 must be != Set3'])@\sys
+        ; ?Set3[destroy], copy_into_intersect(?Set,?Set2,?Set3,?Type)
+        ),
+        !.
+
+// Set3 can be same as Set
+?Set[minus(?Set2) -> ?Set3] :- genericminus(?Set,?Set2,?Set3).
+genericminus(?Set,?Set2,?Set3) :-
+        check_set_name(?Set, ${?Set[minus(?Set2) -> ?Set3]}),
+        check_set_name(?Set2, ${?Set[minus(?Set2) -> ?Set3]}),
+        check_set_name(?Set3, ${?Set[minus(?Set2) -> ?Set3]}),
+        (?Set == ?Set3 -->> delete_from(?Set,?Set2)
+        ; ?Set2 == ?Set3 -->>
+          sysabort(['<',ERGOSET,
+                     '> Set1[minus(Set2)->Set3]: Set2 must be != Set3'])@\sys
+        ; ?Set3[destroy],
+          ?Set[type->?Type],
+          copy_into_minus(?Set,?Set2,?Set3,?Type)
+        ),
+        !.
+
+// Test that subset, equal get updated on insert/delete.
+// Don't use ~~> or \naf here because this is a non-tabled module and
+// tabled_unnumber_call won't be updated properly.
+?Set[subset(?Set2)] :-
+        genericsubset(?Set,?Set2).
+
+// used in Prolog
+genericsubset(?Set,?Set2) :-
+        check_set_name(?Set, ${?Set \subset ?Set2}),
+        check_set_name(?Set2, ${?Set \subset ?Set2}),
+        \+ (?Set[member->?M], \+ ?Set2[member->?M]),
+        !.
+
+?Set[equal(?Set2)] :-
+        check_set_name(?Set, ${?Set[equal(?Set2)]}),
+        check_set_name(?Set2, ${?Set[equal(?Set2)]}),
+        \+ (?Set[member->?M], \+ ?Set2[member->?M]),
+        \+ (?Set2[member->?M], \+ ?Set[member->?M]),
+        !.
+
+// Keypair - java map
+// fail if key already has a different value
+?Set[mapinsert(?Key=?Fact)] :-
+        get_storage_name(?Set,?StorageName, map, ${?Set[mapinsert(?Key=?Fact)]}),
+        !,
+        incr_storage_insert_keypair(?StorageName,?Key,?Fact,?Res)@\prolog(storage),
+        ?Res \== -1.  // different key value exists
+
+?Set[mapreplace(?Key=?Fact)] :-
+        get_storage_name(?Set,?StorageName, map, ${?Set[mapreplace(?Key=?Fact)]}),
+        !,
+        incr_storage_delete_keypair(?StorageName,?Key,?)@\prolog(storage),
+        incr_storage_insert_keypair(?StorageName,?Key,?Fact,?)@\prolog(storage),
+        !.
+
+
+// fail if no such key
+?Set[mapdelete(?Key)] :-
+        get_storage_name(?Set,?StorageName, map, ${?Set[mapdelete(?Key)]}),
+        !,
+        // result==1 means deleted
+        incr_storage_delete_keypair(?StorageName,?Key,1)@\prolog(storage).
+// succeeds even if no such key
+?Set[maperase(?Key)] :-
+        get_storage_name(?Set,?StorageName, map, ${?Set[maperase(?Key)]}),
+        !,
+        incr_storage_delete_keypair(?StorageName,?Key,?)@\prolog(storage).
+
+?Set[mapfind(?Key) -> ?Fact] :-
+        check_set_name(?Set, ${?Set[mapfind(?Key) -> ?Fact]}),
+        registry_of_sets(?Set,?StorageName,map),
+        incr_storage_find_keypair(?StorageName,?Key,?Fact)@\prolog(storage).
+
+// MV-maps, multivalued maps
+?Set[mvminsert(?Key=?Fact)] :-
+        get_storage_name(?Set,?StorageName, mvm, ${?Set[mvminsert(?Key=?Fact)]}),
+        !,
+        incr_storage_insert_fact(?StorageName,pair(?Key,?Fact)@\prolog,?)@\prolog(storage).
+
+// delete one key-pair
+?Set[mvmdelete(?Key=?Value)] :-
+        get_storage_name(?Set,?StorageName, mvm, ${?Set[mvmdelete(?Key=?Value)]}),
+        !,
+        incr_storage_delete_fact(?StorageName,pair(?Key,?Value)@\prolog,?)@\prolog(storage).
+
+// delete all pairs associated with that key
+?Set[mvmerase(?Key)] :-
+        get_storage_name(?Set,?StorageName, mvm, ${?Set[mvmerase(?Key)]}),
+        !,
+        delete_all_pairs(?StorageName,?Key).
+
+?Set[mvmfind(?Key) -> ?Fact] :-
+        check_set_name(?Set, ${?Set[mvmfind(?Key) -> ?Fact]}),
+        registry_of_sets(?Set,?StorageName,mvm),
+        incr_storage_find_keypair(?StorageName,?Key,?Fact)@\prolog(storage).
+
+
+// Other operations
+?Set[toList->?L] :- ?Set[tolist->?L].
+?Set[tolist->?L] :-
+        check_set_name(?Set, ${?Set[tolist->?L]}),
+        (registry_of_sets(?Set,?StorageName,set) -->>
+          ?L = setof{?Elt|?Set[member->?Elt]}
+        ; registry_of_sets(?Set,?StorageName,map) -->>
+          ?L = setof{?Pair|?Set[mapfind(?Key)->?Elt], ?Pair = (?Key=?Elt)}
+        ; registry_of_sets(?Set,?StorageName,mvm) -->>
+          ?L = setof{?Pair|?Set[mvmfind(?Key)->?Elt], ?Pair = (?Key=?Elt)}
+        ),
+        !.
+
+?Set[copy->?Set2] :-
+        check_set_name(?Set, ${?Set[copy->?Set2]}),
+        check_set_name(?Set2, ${?Set[copy->?Set2]}),
+        ?Set2[destroy],
+        ?Set[type->?Type],
+        copy_into(?Set,?Set2,?Type),
+        !.
+
+
+// Auxiliary
+get_storage_name(?Set,?StorageName,?Type,?Op) :-
+        check_set_name(?Set,?Op),
+        registry_of_sets(?Set,?StorageName, ?Type2),
+        (?Type \= ?Type2 -->>
+          struct_printable_type(?Type,?TypeP),
+          struct_printable_type(?Type2,?Type2P),
+          ?Op[show(goal)->?OpString]@\show,
+          sysabort([?OpString, ': structure ', ?Set, ' was created for ',
+                     ?Type2P, 's but used with a ',
+                     ?TypeP, ' operation'])@\sys
+        ; \true
+        ),
+        !.
+get_storage_name(?Set,?StorageName,?Type,?_op) :-
+        ?StorageName \is SET_STORAGE_PREFIX || ?Set,
+        insert{registry_of_sets(?Set,?StorageName,?Type)}.
+
+copy_into(?Set,?Set2,?Type) :-
+        repeat@\prolog,
+        (genericmember(?Set,?,?M),
+          genericinsert(?Set2,?Type,?M),
+          \false
+        ; \true
+        ).
+
+copy_into_minus(?Set,?Set2,?Set3,?Type) :-
+        repeat@\prolog,
+        (genericmember(?Set,?,?M),
+          \+ genericmember(?Set2,?,?M),
+          genericinsert(?Set3,?Type,?M),
+          \false
+        ; \true
+        ).
+
+copy_into_intersect(?Set,?Set2,?Set3,?Type) :-
+        repeat@\prolog,
+        (genericmember(?Set,?,?M),
+          genericmember(?Set2,?,?M),
+          genericinsert(?Set3,?Type,?M),
+          \false
+        ; \true
+        ).
+
+delete_from(?Set,?Set2) :-
+        repeat@\prolog,
+        (genericmember(?Set2,?,?M),
+          genericmember(?Set,?,?M),
+          genericdelete(?Set,?,?M),
+          \false
+        ; \true
+        ).
+
+
+insert_facts([],?_StorageName) :- !.
+insert_facts([?Fact|?Rest],?StorageName) :-
+        incr_storage_insert_fact(?StorageName,?Fact,?)@\prolog(storage),
+        insert_facts(?Rest,?StorageName).
+delete_facts([],?_StorageName) :- !.
+delete_facts([?Fact|?Rest],?StorageName) :-
+        incr_storage_delete_fact(?StorageName,?Fact,?)@\prolog(storage),
+        delete_facts(?Rest,?StorageName).
+
+delete_all_pairs(?StorageName,?Key) :-
+        incr_storage_delete_fact(?StorageName,pair(?Key,?)@\prolog,?)@\prolog(storage),
+        \false.
+delete_all_pairs(?,?) :- \true.
+
+check_set_name(?Set,?) :-
+        isatom{?Set},
+        !.
+check_set_name(?,?Op) :-
+        ?Op[show(goal)->?OpString]@\show,
+        sysabort([?OpString, ': non-symbol set name in a set operation'])@\sys.
+
+struct_printable_type(set,set).
+struct_printable_type(map,'regular map').
+struct_printable_type(mvm, 'MV-map').

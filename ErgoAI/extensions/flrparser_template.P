@@ -1,0 +1,1181 @@
+/* File:   extensions/flrparser_template.P -- code to capture ErgoText templates
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2015-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+#include "flora_extensions.flh"
+#include "flora_porting.flh"
+
+#define ERR_TEMPLATE  'ErgoText templates must have the form\n\t\t   template( Type, \\( ErgoText Template \\), ( Ergo formula ) )'
+#define ERROR_TEMPLATE_VARS_NOT_IN_FORMULA 'not all variables in the ErgoText template are included in its logical definition'
+#define NO_TEMPLATE_FOR_SENT 'no template for this ErgoText phrase'
+#define NO_TEMPLATE_SPECIFIED_FILE 'no ErgoText template is set for the current file.\n\t       Did you forget to load the template file?'
+#define NO_TEMPLATE_SPECIFIED_MODULE 'no ErgoText template is set for the module `'
+#define FORGOT_TO_LOAD_TEMPLATE 'did you forget to load the template file'
+#define ERROR_TEMPLATE_DUE_TO_PRIOR_ERRORS 'cannot compile ErgoText template due to prior errors'
+#define ERROR_VARS_AS_MODULES   'variables as modules are not allowed here'
+#define ERROR_TEMPLATE_DIR_ARGS 'invalid arguments in the :- ergotext{...} directive'
+#define ERRORS_FOUND_WHILE_COMPILING 'errors found while compiling the template file\n'
+
+#define TEMPLATE_ERROR       '_$$template_error'
+#define TEMPLATE_ERROR_EXT   '_$$template_error_ergotxt'
+
+#define HEADTEMPLATE       head
+#define BODYTEMPLATE       body
+#define HEADBODYTEMPLATE   headbody
+#define INSERTTEMPLATE     insert
+#define DELETETEMPLATE     delete
+#define INSDELTEMPLATE     insdel
+#define DYNRULETEMPLATE    dynrule
+#define OTHERTEMPLATE      toplevel
+
+%%#define DEBUG_TEMPLATES
+
+:- import
+	%%is_fltransactionalvariable/3,
+	%%is_flvariable/3,
+	collect_flvars/2,
+	subtract_vars/3,
+	flora_singleton_warnings/2
+   from flrcompiler.
+:- import
+	is_infix/4,
+	is_prefix/3,
+	is_suffix/3
+   from flrcomposer.
+:- import flora_end_file/1 from flrlexer.
+
+:- import
+	template_source_file_name/2,
+	flora_locate_file/3,
+	flora_token_index_to_last_line/2,
+	flora_load_ergotext_template/2,
+	flora_make_ergotext_template/3
+   from flrutils.
+:- import
+        flora_get_template_srcfile/2,
+	flora_set_template/2,
+	flora_get_template_module/2
+   from flrregistry.
+
+:- import set_prefixes_for_compile/1 from flrprefixdef.
+
+:- import
+        flora_file_op/3,
+        flora_rename_vars_meaningfully/4,
+        flora_bind_vars_meaningfully/3,
+        flora_slash/1
+   from flrporting.
+:- import
+        flora_decode_goal_as_mainless_atom_substitute_vars/2,
+        flora_decode_goal_list_as_mainless_atom_list_substitute_vars/2,
+	flora_decode_oid_as_atom_substitute_vars/2,
+        flora_decode_oid_as_atom/2
+   from flrdecode.
+
+:- import
+        %% DO NOT IMPORT ergo_textit_show/4, ergotext_textgen_show/3 - some
+        %% kind of XSB breakage causes ergo_textit:ergo_textit_show and
+        %% ergo_textit:ergotext_textgen_show to NOT WORK!!!
+        %% They are essential below!!!
+        %%ergo_textit_show/4,
+        %%ergotext_textgen_show/3,
+        ergo_textit_result/5
+   from ergo_textit.
+
+:- export
+	flora_write_template_phrase_human_readable/1.
+
+%% Template Debugging API
+:- export
+	ergo_show_active_templates/0,
+	ergo_show_templates/1,
+	ergo_show_matching_templates/2,
+	ergo_show_active_matching_templates/2,
+	ergo_show_matching_template/4,
+	ergo_show_active_matching_template/4,
+	show_ergotext_phrase_as_term/1.
+
+
+is_ergotext_template(CANOBACKPAREN(L,_,_)) :- is_list(L).
+
+%% Similar to verbatim, but verbatim is used to copy atoms over to .pl but
+%% FLLITERATIM is used internally (no directive) to display ErgoText phrases.
+%% Used internally.
+flliteratim_struct(C,FLLITERATIM(C)).
+
+%% Note: no compiler directives are allowed in ErgoText template files.
+%% Because of that, the templates are assumed to be in the expert=on/omni=on
+%% modes implicitly (ie, no expert/omni restrictions apply in .ergotxt files).
+flora_parse(ComposerTerm,Code,Status) :-
+	has_context(CONTEXT_PARSER_NL_TEMPLATES),
+	!,
+	prepare_for_parsing_rule,
+	canonical_form(ComposerTerm,CanoniTerm),
+	parse_template(CanoniTerm,Code,Status).
+
+parse_template(NULL,[NULL],NO_ERRORS) :- !.
+parse_template(CANOTERM(Funct,3,FL_PARENTHESIS,[Type,Tmpl,Formula],If,_Ip),Code,Status) :-
+	get_atom(Funct,template),
+	is_ergotext_template(Tmpl),
+	get_atom(Type,TypeAtm),
+	!,
+	set_context(CONTEXT_PARSER_NL_TEMPLATE_SENTENCE_PART),
+	parse_head_literal(Tmpl,NULL,TmplCode,TmplStat),
+	clear_context(CONTEXT_PARSER_NL_TEMPLATE_SENTENCE_PART),
+	(TmplStat == NO_ERRORS ->
+	    (TypeAtm == BODYTEMPLATE ->
+		parse_rule_body(Formula,FormulaCode,Status_pre),
+		Code = template(BODYTEMPLATE,TmplCode,FormulaCode,ProtectedVars,If)
+	    ; TypeAtm == HEADTEMPLATE ->
+		parse_head(Formula,HeadCode_pre,StatusHd),
+		%% FormulaCode is like the result of parse_head_literal
+		%% so convert to conjunction
+		parse_list2flconjunct(HeadCode_pre,HeadCode),
+		(StatusHd == NO_ERRORS ->
+		    parse_canonical(Formula,CodeCanon,Status_pre),
+		    CodeH = template(HEADTEMPLATE,TmplCode,HeadCode,ProtectedVars,If),
+		    CodeC = template(OTHERTEMPLATE,TmplCode,CodeCanon,ProtectedVars,If),
+		    FormulaCode = HeadCode,
+		    Code = [CodeH,CodeC]
+		; Status_pre = StatusHd
+		)
+	    ; TypeAtm == HEADBODYTEMPLATE ->
+		parse_rule_body(Formula,BdyCode,StatBdy),
+		(StatBdy == NO_ERRORS ->
+		    parse_head(Formula,HeadCode_pre,StatusHd),
+		    parse_list2flconjunct(HeadCode_pre,HeadCode),
+		    (StatusHd == NO_ERRORS ->
+			parse_canonical(Formula,CodeCanon,Status_pre),
+			CodeB = template(BODYTEMPLATE,TmplCode,BdyCode,ProtectedVars,If),
+			CodeH = template(HEADTEMPLATE,TmplCode,HeadCode,ProtectedVars,If),
+			CodeC = template(OTHERTEMPLATE,TmplCode,CodeCanon,ProtectedVars,If),
+			FormulaCode = BdyCode,
+			Code = [CodeB,CodeH,CodeC]
+		    ; Status_pre = StatusHd
+		    )
+		; Status_pre = StatBdy
+		)
+	    ; memberchk(TypeAtm,[INSERTTEMPLATE,DELETETEMPLATE]) ->
+		(TypeAtm == INSERTTEMPLATE -> OpType = FLINS
+		; OpType = FLDEL
+		),
+		comma_separated_canoterm_to_list(Formula,FormulaLst),
+		parse_dbliteral_list(OpType,FormulaLst,NULL,FormulaCode,_Flags,Status),
+		Code = template(TypeAtm,TmplCode,FormulaCode,ProtectedVars,If)
+	    ; TypeAtm == INSDELTEMPLATE ->
+		comma_separated_canoterm_to_list(Formula,FormulaLst),
+		parse_dbliteral_list(FLINS,FormulaLst,NULL,InsCode,_Flags,StatIns),
+		(StatIns == NO_ERRORS ->
+		    parse_dbliteral_list(FLDEL,FormulaLst,NULL,DelCode,_Flags,StatDel),
+		    (StatDel == NO_ERRORS ->
+			parse_rule_body(Formula,BdyCode,StatBdy),
+			(StatBdy == NO_ERRORS ->
+			    parse_head(Formula,HeadCode_pre,StatusHd),
+			    parse_list2flconjunct(HeadCode_pre,HeadCode),
+			    (StatusHd == NO_ERRORS ->
+				parse_canonical(Formula,CodeCanon,Status_pre),
+				CodeI = template(INSERTTEMPLATE,TmplCode,InsCode,ProtectedVars,If),
+				CodeD = template(DELETETEMPLATE,TmplCode,DelCode,ProtectedVars,If),
+				CodeB = template(BODYTEMPLATE,TmplCode,BdyCode,ProtectedVars,If),
+				CodeH = template(HEADTEMPLATE,TmplCode,HeadCode,ProtectedVars,If),
+				CodeC = template(OTHERTEMPLATE,TmplCode,CodeCanon,ProtectedVars,If),
+				FormulaCode = InsCode,
+				Code = [CodeI,CodeD,CodeB,CodeH,CodeC]
+			    ; Status_pre = StatusHd
+			    )
+			; Status_pre = StatBdy
+			)
+		    ; Status_pre = StatDel
+		    )
+		; Status_pre = StatIns
+		)
+	    ; TypeAtm == DYNRULETEMPLATE ->
+		comma_separated_canoterm_to_list(Formula,FormulaLst),
+		parse_dynrule_list(FormulaLst,NULL,FormulaCode,Status_pre),
+		Code = template(DYNRULETEMPLATE,TmplCode,FormulaCode,ProtectedVars,If)
+	    ; %% rule, query, latent query
+		parse_canonical(Formula,FormulaCode,Status_pre),
+		Code = template(OTHERTEMPLATE,TmplCode,FormulaCode,ProtectedVars,If)
+	    ),
+	    collect_flvars(FormulaCode,FormulaVars),
+	    collect_flvars(TmplCode,TemplVars),
+	    %% protected vars are the ones that will be written as flvar(N,I)
+	    %% rather than as Prolog vars.
+	    subtract_vars(FormulaVars,TemplVars,ProtectedVars),
+	    %%subtract_vars(FormulaVars,TemplVars,ProtectedVars1),
+	    %% do copy_term before ground_flvar_index
+	    %%copy_term(ProtectedVars1,ProtectedVars),
+	    %%ground_flvar_index(FormulaVars),
+	    %%remove_FLTOKENIDX_attr(ProtectedVars),
+	    (Status_pre == NO_ERRORS ->
+		subtract_vars(TemplVars,FormulaVars,VarDiff),
+		(VarDiff = [SpuriuosVar|_] ->
+		    is_flvar_struct(SpuriuosVar,_,Idx),
+		    parsing_error(Idx,ERROR_TEMPLATE_VARS_NOT_IN_FORMULA,Status)
+		; flora_singleton_warnings((TmplCode,FormulaCode),Warns),
+		    Status = Warns
+		)
+	    ; Status = Status_pre
+	    )
+	;
+	    Status = TmplStat
+	).
+%% take care of the iriprefix directives
+parse_template(CanoniTerm,[],Status) :-
+	is_directive(CanoniTerm,Directive),
+	prefixdef_directive(Directive,PrefixList,Status),
+	!,
+	(Status==NO_ERRORS -> set_prefixes_for_compile(PrefixList)
+	; true
+	).
+
+/*
+// NOT NECESSARY! UDFs work in templates already
+parse_template(CanoniTerm,[],Status) :-
+	is_directive(CanoniTerm,Directive),
+	usefunction_directive(Directive,[Code],Status),
+	!,
+	(Status==NO_ERRORS ->
+            flusefunctiondirect_struct(PairList,Idx,Code),
+            flrcompiler:compile_usefunction_directive(PairList,Idx,Status)
+	; true
+	).
+*/
+
+%% need to figure out where to take indices from in order to give useful errors
+%% maybe make the composer construct attributed variables
+parse_template(CanoniTerm,_CodeList,Status) :-
+	parsing_error(CanoniTerm,ERR_TEMPLATE,Status).
+
+%% process the :- ergotext{templName}. directive
+ergotext_template_directive(CANOTERM(Func,N,FL_BRACE,[Templ|ModList],_If,Ip),Code,Status) :-
+	get_atom(Func,ERGOTEXT_TEMPLATE_DIRECTIVE),
+	get_atom(Templ,TemplName),
+	(flora_current_compile_filename(CurrFile,full) ; true),
+	(flora_locate_file(TemplName,ERGO_NLTEMPLATE_EXT,FullTemplName) -> true
+	; true
+	),
+	(nonvar(FullTemplName), nonvar(CurrFile) ->
+	    assert(FLORA_TEMPLATE_DEPENDENCY(CurrFile,FullTemplName))
+	; true
+	),
+        (N == 1 -> Module = ERGOTEXT_PARSETIME_DUMMY_MODULE
+        ; N == 2, ModList = [ModCode],
+            get_atom(ModCode,Module)
+        -> true
+        ;
+            parsing_error(Ip,ERROR_TEMPLATE_DIR_ARGS,Status)
+        ),
+        !,
+        (nonvar(Status) -> true
+        ;
+            (flora_make_ergotext_template(TemplName,CompiledTempl,Status_pre) ->
+                %% if template was compiled in the middle of some source file
+                %% compilation, the file stack and the line number have shifted
+                %% and need to be restored
+                (Status_pre = [] -> true %% didn't compile the template
+                ; flora_token_index_to_last_line(Ip,Line),
+                    Line1 is Line+1,
+                    flora_end_file(Line1)
+                ),
+                (memberchk(error(EN),Status_pre), EN > 0 ->
+                    memberchk(parser(Status1),Status_pre),
+                    memberchk(composer(StatusComp),Status_pre),
+                    memberchk(lexer(StatusLex),Status_pre),
+                    TemplError = ERRORS_FOUND_WHILE_COMPILING,
+                    append(Status1,[error(NO_INDEX,TemplError)],StatusParse),
+                    Status = [lexer(StatusLex),composer(StatusComp)|StatusParse],
+                    %% TEMPLATE_ERROR is a special template name indicating that
+                    %% no more errors to report because too many already found
+                    flora_set_template(Module,TEMPLATE_ERROR)
+                ;
+                    (memberchk(parser(Status),Status_pre) -> true
+                    ; Status = NO_ERRORS
+                    ),
+                    flora_set_template(Module,TemplName),
+                    %%consult(CompiledTempl)  %% don't use consult
+                    consult_without_import(CompiledTempl)
+                ),
+                %% add code to load text generation part of the ergotext machinery
+                %% also add code for loading the template
+                (N == 1 -> flthismodule_struct(TemplateModule)
+                ; get_flname_struct(ModCode,TemplateModule)
+                ),
+                Code1 = FL_LOADTEMPLATE(TemplName,TemplateModule,Ip),
+                Code2 = FL_LOADTEXTGEN(TemplName,TemplateModule,Ip),
+                Code = [Code1,Code2]
+            ; parsing_error(Ip,[ERROR_NL_TEMPLATE_NOT_FOUND,': ',TemplName],Status)
+            )
+        ).
+
+%% parse_body_literal for templated phrase in rule HEAD
+parse_head_literal(CANOBACKPAREN(Sentence,_N,_I),DWS,Code,Status) :-
+	has_context(CONTEXT_PARSER_NL_TEMPLATES),
+	!,
+	parse_head_pathexplist(Sentence,DWS,ANY_PATHEXP,Code,Status).
+parse_head_literal(CANOBACKPAREN(Sentence,_N,I),DWS,Code,Status) :-
+	parse_ergotext_phrase_via_template(HEADTEMPLATE,Sentence,I,DWS,Code,Status).
+
+%% parse_body_literal for templated phrase in rule BODY
+/*
+%% Note: this case is unnecessary: if a CANOBACKPAREN phrase occurs in
+%% the body in a template then parse_template will catch it and issue an error.
+parse_body_literal(CANOBACKPAREN(_Sentence,_N,I),_DWS,_Code,Status) :-
+	has_context(CONTEXT_PARSER_NL_TEMPLATES),
+	!,
+	parsing_error(I,'.......',Status).
+*/
+parse_body_literal(CANOBACKPAREN(Sentence,_N,I),DWS,Code,Status) :-
+	\+has_context(CONTEXT_PARSER_NL_TEMPLATES),
+	parse_ergotext_phrase_via_template(BODYTEMPLATE,Sentence,I,DWS,Code_pre,Status),
+	push_workspace_inwards(Code_pre,DWS,Code).
+
+%% parse_body_literal for templated phrase that represents
+%% a query, rule, or a fact (for facts, head-templates won't(!) work because
+%% here we call parse_ergotext_phrase_via_template/6 with Location=OTHERTEMPLATE)
+parse_canonical(CANOBACKPAREN(Sentence,_N,I),Code,Status) :-
+	\+has_context(CONTEXT_PARSER_NL_TEMPLATES),
+	parse_ergotext_phrase_via_template(OTHERTEMPLATE,Sentence,I,NULL,Code,Status).
+
+parse_dbliteral(OpType,CANOBACKPAREN(Sentence,_N,I),DWS,Code,Status) :-
+	\+has_context(CONTEXT_PARSER_NL_TEMPLATES),
+	(OpType == FLINS -> TemplType = INSERTTEMPLATE
+	; TemplType = DELETETEMPLATE
+	),
+	parse_ergotext_phrase_via_template(TemplType,Sentence,I,DWS,Code,Status).
+
+parse_dynrule(CANOBACKPAREN(Sentence,_N,I),DWS,Code,Status) :-
+	\+has_context(CONTEXT_PARSER_NL_TEMPLATES),
+	parse_ergotext_phrase_via_template(DYNRULETEMPLATE,Sentence,I,DWS,Code,Status).
+
+%% used only for displaying ErgoText phrases, as in
+%% show_ergotext_phrase_as_term/1, does not copy input to the .pl file
+parse_body_pathexp(CANOBACKPAREN(Sentence,_N,_I),_TransFlag,_DWS,_TermArgMode,Code,Status) :-
+	set_context(CONTEXT_PARSER_USING_NL_TEMPLATE),
+	parse_head_pathexplist(Sentence,NULL,ANY_PATHEXP,Code1,Status),
+	clear_context(CONTEXT_PARSER_USING_NL_TEMPLATE),
+	flliteratim_struct(Code1,Code).
+
+
+%% parses an NL phrase then applies a template to it
+%% Location is HEADTEMPLATE, BODYTEMPLATE, OTHERTEMPLATE
+parse_ergotext_phrase_via_template(Location,Sentence,I,DWS,Code,Status) :-
+	set_context(CONTEXT_PARSER_USING_NL_TEMPLATE),
+	%% Note: template NL phrases are compiled as heads, so here
+	%% we do the same so this will match what's in the templates
+	parse_head_pathexplist(Sentence,DWS,ANY_PATHEXP,SentCode,Stat1),
+        flora_get_module_from_spec(DWS,_,ModulePre1),
+        %% get module atom for determining template by module
+        ( flora_get_flatom_name(ModulePre1,ModulePre) -> true
+        ; ModulePre = ModulePre1
+        ),
+        (ModulePre == FL_THISMODULE, flora_current_compile_filename(_,short) ->
+            %% compiling file, @\@ or no module
+            Module = ERGOTEXT_PARSETIME_DUMMY_MODULE
+        %% shell, @\@ or no module 
+        ; ModulePre == FL_THISMODULE -> Module = FLORA_DEFAULT_WORKSPACE
+        %% shellfile, explicit module
+        ; is_flvar_struct(ModulePre,_,Idx) ->
+            parsing_error(Idx,ERROR_VARS_AS_MODULES,Status)
+        ; Module = ModulePre
+        ),
+        (nonvar(Status) -> true
+        ;
+            ( Stat1 == NO_ERRORS ->
+                ( flora_get_template_module(Module, TemplateMod)
+                ->
+                    parse_phrase_flcode_via_template(Module,TemplateMod,Location,SentCode,I,Code,Status)
+                ; flora_current_compile_filename(_,short),
+                    Module == ERGOTEXT_PARSETIME_DUMMY_MODULE
+                ->
+                    %% compiling file, no templates found
+                    parsing_error(I,NO_TEMPLATE_SPECIFIED_FILE,Status)
+                ; %% querying in the shell, or querying some other module
+                    flora_concat_atoms([NO_TEMPLATE_SPECIFIED_MODULE,Module,'''.', '\n\t       Did you forget to load the template file?'],Msg),
+                parsing_error(I,Msg,Status)
+                )
+            ; Status = Stat1
+            )
+        ),
+	clear_context(CONTEXT_PARSER_USING_NL_TEMPLATE).
+
+parse_phrase_flcode_via_template(Module,TemplateMod,Location,SentCode,I,Code,Status) :-
+        (TemplateMod == TEMPLATE_ERROR_EXT ->
+            parsing_error(I,ERROR_TEMPLATE_DUE_TO_PRIOR_ERRORS,Status)
+        ;
+            %% The following indirection is used instead of
+            %% TemplateMod:template(Location,SentCode,Code,IdxVar).
+            %% Otherwise XSB complains about template/3 being undefined.
+            TemplatePred = template(Location,SentCode,Code,I),
+#ifdef DEBUG_TEMPLATES
+            flwriteline_stderr(SentCode),
+#endif
+            (TemplateMod:TemplatePred -> Status = NO_ERRORS
+#ifdef DEBUG_TEMPLATES
+                ,flwriteline_stderr(Code)
+#endif
+            ;
+                template_source_file_name(Module,TemplateFN),
+                parse_filename(TemplateFN,_Dir,Base,Ext),
+                (Ext == ERGO_NLTEMPLATE_EXT -> Extension = ''
+#mode save
+#mode nostring "\!#'"
+                ;  Extension = '.ERGO_NLTEMPLATE_EXT'
+#mode restore
+                ),
+                flora_concat_atoms([TemplateFN,Extension],TemplateFN_full),
+                (\+flora_get_template_srcfile(_,Base) ->
+                    flora_concat_atoms([FORGOT_TO_LOAD_TEMPLATE,' ',TemplateFN_full,'?'], ErrMsg)
+                ; Module == ERGOTEXT_PARSETIME_DUMMY_MODULE ->
+                    %% don't mention the ERGOTEXT_PARSETIME_DUMMY_MODULE module
+                    flora_concat_atoms([NO_TEMPLATE_FOR_SENT,
+                                        ' in template file\n\t        ',
+                                        TemplateFN_full],
+                                       ErrMsg)
+                ; flora_concat_atoms([NO_TEMPLATE_FOR_SENT,
+                                      ' in template file\n\t        ',
+                                      TemplateFN_full,
+                                      ' in module `', Module, ''''],
+                                    ErrMsg)
+                ),
+                parsing_error(I,ErrMsg,Status)
+            )
+        ).
+
+
+show_ergotext_phrase_as_term(Sentence) :-
+	flwriteline('\nErgoText phrase parsed form:'),
+	write('   '),
+	flwriteline(Sentence),
+	nl.
+
+%% this is used to check parsing with respect to a specific known template
+ergo_show_matching_templates(Sentence,Template) :-
+	flora_load_ergotext_template(Template,ERGOTEXT_PARSETIME_DUMMY_MODULE),
+	ergo_show_active_matching_templates(Sentence,ERGOTEXT_PARSETIME_DUMMY_MODULE),
+	flora_set_template(ERGOTEXT_PARSETIME_DUMMY_MODULE, off).
+
+%% this is used to check parsing with respect to a specific module
+ergo_show_active_matching_templates(Sentence,Module) :-
+	set_context(CONTEXT_PARSER_NL_TEMPLATES),
+	( flora_get_template_module(Module,TemplateMod) ->
+	    TemplatePred = template(Location,Sentence,Definition,_IdxVar),
+	    Call = TemplateMod:TemplatePred,
+	    list_matching_templates_internal(Call,Location,Definition)
+	; true
+	),
+	clear_context(CONTEXT_PARSER_NL_TEMPLATES).
+
+list_matching_templates_internal(Call,Location,Definition) :-
+	Call,
+	write('\nContext:    '), flwriteline(Location),
+	write('Definition: '),
+	(is_list(Definition) ->
+	    flwritelist(Definition), nl
+	;
+	    flwriteline(Definition)
+	),
+	fail.
+list_matching_templates_internal(_,_,_).
+
+ergo_show_active_templates :-
+	flwriteline('\nActive ErgoText templates:\n'),
+	ergo_show_templates_internal.
+
+ergo_show_templates(Template) :-
+	flora_load_ergotext_template(Template,ERGOTEXT_PARSETIME_DUMMY_MODULE),
+	flwrite('\nErgoText templates in '),
+	flwrite(Template), flwriteline(':\n'),
+	ergo_show_templates_internal,
+	flora_set_template(ERGOTEXT_PARSETIME_DUMMY_MODULE, off).
+
+ergo_show_templates_internal :-
+	set_context(CONTEXT_PARSER_NL_TEMPLATES),
+	(flora_get_template_module(Module,TemplateMod) ->
+	    TemplatePred = template(Location,SentCode,Code,_IdxVar),
+	    Call = TemplateMod:TemplatePred,
+	    list_templates_internal(Call,Location,SentCode,Code,Module)
+	; flwriteline('+++ None found\n')
+	),
+	clear_context(CONTEXT_PARSER_NL_TEMPLATES).
+
+list_templates_internal(Call,Location,SentCode,Def,Module) :-
+	Call,
+	flora_rename_vars_meaningfully((SentCode,Def),0'?,alpha,(SentCode1,Def1)),
+	write('   Template context:    '), flwriteline(Location),
+	write('   Template phrase:     '),
+	write_template_phrase_human_readable(SentCode1), flwrite('\n'),
+	write('   Template definition: '), flwriteline(Def1),
+	write('   Template module:     '), flwriteline(Module),
+	nl,
+	fail.
+list_templates_internal(_,_,_,_,_).
+
+flora_write_template_phrase_human_readable(Sent) :-
+	flora_bind_vars_meaningfully(Sent,0'?,alpha),
+	write_template_phrase_human_readable(Sent).
+write_template_phrase_human_readable(Sent) :-
+	set_context(CONTEXT_HUMAN_READABLE),
+	write_template_phrase_human_readable1(Sent),
+	clear_context(CONTEXT_HUMAN_READABLE).
+write_template_phrase_human_readable1([]) :- !.
+write_template_phrase_human_readable1([H|T]) :-
+	write_template_phrase_human_readable_aux(H),
+        /*
+        %% postponed attempt to mark spaces in templates.
+        %% See extensions/flrcomposertext.P for detailed comment
+        (is_flatom_struct(H,ERGOTEXT_WORD_CONNECTOR_FILLER) -> true
+        ; (T = [H2|_], \+is_ergotext_word_connector(H2) -> write(',')
+          ; true
+          ),
+          write(' ')
+        ),
+        */
+        flwrite(' '),
+	write_template_phrase_human_readable1(T).
+write_template_phrase_human_readable_aux(';'(Left,Right)) :-
+	!,
+	write_template_phrase_human_readable_aux(Left),
+	flwrite('; '),
+	write_template_phrase_human_readable_aux(Right).
+write_template_phrase_human_readable_aux(','(Left,Right)) :-
+	!,
+	write_template_phrase_human_readable_aux(Left),
+        %% postponed attempt to mark spaces in templates.
+        %% See extensions/flrcomposertext.P for detailed comment
+	%%flwrite(', '),
+	flwrite(' '),
+	write_template_phrase_human_readable_aux(Right).
+write_template_phrase_human_readable_aux(Sent) :-
+	(is_list(Sent) ->
+	    write_template_phrase_human_readable(Sent)
+	; Sent =.. [Fun,Left,Right], is_infix(Fun,_,_,_) ->
+	    write_template_phrase_human_readable_aux(Left),
+	    flwrite(' '),
+	    flwrite(Fun),
+	    flwrite(' '),
+	    write_template_phrase_human_readable_aux(Right)
+	; Sent =.. [Fun,Arg],
+	    (is_prefix(Fun,_,_) ->
+		flwrite(Fun),
+		write_template_phrase_human_readable_aux(Arg)
+	    ; is_suffix(Fun,_,_) ->
+		write_template_phrase_human_readable_aux(Arg),
+		flwrite(Fun)
+	    )
+	; flwrite(Sent)
+	).
+
+
+%% ergo_show_matching_template/4, ergo_show_active_matching_template/4
+%% can be useful for the studio
+ergo_show_matching_template(Sentence,Template,Location,Definition) :-
+	flora_load_ergotext_template(Template,ERGOTEXT_PARSETIME_DUMMY_MODULE),
+	ergo_show_active_matching_template(Sentence,Location,Definition,ERGOTEXT_PARSETIME_DUMMY_MODULE),
+	flora_set_template(ERGOTEXT_PARSETIME_DUMMY_MODULE, off).
+
+ergo_show_active_matching_template(Sentence,Location,Definition,Module) :-
+        nonvar(Module),
+	set_context(CONTEXT_PARSER_NL_TEMPLATES),
+	( flora_get_template_module(Module,TemplateMod) ->
+	    TemplateMod:template(Location,Sentence,Definition,_IdxVar)
+	; true
+	),
+	clear_context(CONTEXT_PARSER_NL_TEMPLATES).
+
+
+/*
+ground_flvar_index([]) :- !.
+ground_flvar_index([H|T]) :-
+	(is_flvariable(H,Name,Index);is_fltransactionalvariable(H,Name,Index)),
+	del_attr(Index,FLTOKENIDX),
+	Index = NO_INDEX,
+	ground_flvar_index(T).
+
+remove_FLTOKENIDX_attr([]) :- !.
+remove_FLTOKENIDX_attr([H|T]) :-
+	%% flvar and fltransactionalvar have 2nd argument as token number
+	arg(2,H,Index),
+	var(Index),
+	!,
+	del_attr(Index,FLTOKENIDX),
+	remove_FLTOKENIDX_attr(T).
+remove_FLTOKENIDX_attr([_|T]) :-
+	remove_FLTOKENIDX_attr(T).
+*/
+
+%% alternatively: instead of adding FL_THISMODULE to every literal that has
+%% no explicit module, we could use an attributed variable with an
+%% attribute = FL_THISMODULE. Then we could extract all the attributed
+%% vars with this attribute and bind them to WS. This would be, perhaps,
+%% more general and more maintainable.
+push_workspace_inwards(Code,FL_THISMODULE,Code) :- !.
+push_workspace_inwards(Code,WS,WSCode) :-
+	(is_flworkspace(Code,BareCode,CodeWS) ->
+	    (CodeWS \== FL_THISMODULE -> WSCode = Code
+	    ; flora_get_module_from_spec(WS,ModuleType,Module),
+		flmodule_struct(ModuleType,BareCode,Module,WSCode)
+	    )
+	; is_flruleworkspace(Code,BareCode,CodeWS) ->
+	    (CodeWS \== FL_THISMODULE -> WSCode = Code
+	    ; flora_get_module_from_spec(WS,_ModuleType,Module),
+		flmodule_struct(FLORARULEWORKSPACE,BareCode,Module,WSCode)
+	    )
+	; is_flneg(Code,NCode,Idx) ->
+	    push_workspace_inwards(NCode,WS,WSNCode),
+	    flneg_struct(WSNCode,Idx,WSCode)
+	; is_flrulelognaf(Code,NCode) ->
+	    push_workspace_inwards(NCode,WS,WSNCode),
+	    flrulelognaf_struct(WSNCode,WSCode)
+	; flprlgnaf_struct(NCode,Code) ->
+	    push_workspace_inwards(NCode,WS,WSNCode),
+	    flprlgnaf_struct(WSNCode,WSCode)
+	; is_flconjunct(Code,Code1,Code2) ->
+	    push_workspace_inwards(Code1,WS,WSCode1),
+	    push_workspace_inwards(Code2,WS,WSCode2),
+	    flconjunct_struct(WSCode1,WSCode2,WSCode)
+	; is_fldisjunct(Code,Code1,Code2) ->
+	    push_workspace_inwards(Code1,WS,WSCode1),
+	    push_workspace_inwards(Code2,WS,WSCode2),
+	    fldisjunct_struct(WSCode1,WSCode2,WSCode)
+	; is_flquery(Code,Body) ->
+	    push_workspace_inwards(Body,WS,WSBody),
+	    flquery_struct(WSBody,WSCode)
+	; is_fllatent_query(Code,Body) ->
+	    push_workspace_inwards(Body,WS,WSBody),
+	    fllatent_query_struct(WSBody,WSCode)
+	; is_flinsert(Code,Op,List) ->
+	    push_workspace_inwards(List,WS,WSList),
+	    flinsert_struct(Op,WSList,WSCode)
+	; is_flinsert(Code,Op,List,Cond) ->
+	    push_workspace_inwards(List,WS,WSList),
+	    push_workspace_inwards(Cond,WS,WSCond),
+	    flinsert_struct(Op,WSList,WSCond,WSCode)
+	; is_fldelete(Code,Op,List) ->
+	    push_workspace_inwards(List,WS,WSList),
+	    fldelete_struct(Op,WSList,WSCode)
+	; is_fldelete(Code,Op,List,Cond) ->
+	    push_workspace_inwards(List,WS,WSList),
+	    push_workspace_inwards(Cond,WS,WSCond),
+	    fldelete_struct(Op,WSList,WSCond,WSCode)
+	; is_fllogicquantifier(Code,Quant,Vars,VarsCode,Formula,Idx) ->
+	    push_workspace_inwards(Formula,WS,WSFormula),
+	    flquantifier_struct(Quant,Vars,VarsCode,WSFormula,Idx,WSCode)
+	; is_fldelayquant(Code,Quant,Cond,Formula,Idx) ->
+	    push_workspace_inwards(Formula,WS,WSFormula),
+	    fldelayquant_struct(Quant,Cond,WSFormula,Idx,WSCode)
+	; Code = [H|Tail] ->
+	    WSCode = [WSCodeH|WSCodeTail],
+	    push_workspace_inwards(H,WS,WSCodeH),
+	    push_workspace_inwards(Tail,WS,WSCodeTail)
+	; WSCode = Code
+	).
+
+
+/*********************** flora_decode_via_textgen *****************************/
+
+:- export
+        flora_decode_via_textgen/3.
+
+%% flora_decode_via_textgen(+Goal,+Textgen,-Decoded)
+%% used for decoding justifications
+flora_decode_via_textgen(Goal,Textgen,Decoded) :-
+        dive_into_compiled_code(Goal,Textgen,GoalOut),
+        (is_list(GoalOut) ->
+            flora_decode_goal_list_as_mainless_atom_list_substitute_vars(GoalOut,Decoded)
+        ;
+            flora_decode_goal_as_mainless_atom_substitute_vars(GoalOut,Decoded)
+        ).
+
+dive_into_compiled_code(Call, _Textgen, Call) :-
+        var(Call),
+        !.
+dive_into_compiled_code([], _Textgen, []) :- !.
+dive_into_compiled_code([L|Rest], Textgen, [DecodedL|DecodedRest]) :-
+        !,
+        dive_into_compiled_code(L,Textgen,DecodedL),
+        dive_into_compiled_code(Rest,Textgen,DecodedRest).
+
+dive_into_compiled_code(Call, Textgen, FLORA_SYMBOL('splice')(CallOut)) :-
+        %% has template
+        apply_textgen(Call,Textgen,ParsedCall),
+        !,
+        (atom(ParsedCall) -> CallOut = [ParsedCall]
+        ; fldecode_justification(ParsedCall,CallOut)
+        ).
+
+%% dive into NAF
+dive_into_compiled_code(FLLIBNAFDELAY(C), Textgen, FLORA_SYMBOL('naf')(DecodedC)) :-
+        !,
+        flrcanon:is_naf_literal(FLLIBNAFDELAY(C), PositivePart),
+        dive_into_compiled_code(PositivePart,Textgen,DecodedC).
+
+dive_into_compiled_code(Call, Textgen, CallOut) :-
+        nonvar(Call),
+        dive_into_aggregate(Call,Textgen,CallOut),
+        !.
+dive_into_compiled_code((Call,Result), Textgen, (CallOut,Result)) :-
+        nonvar(Call),
+        dive_into_aggregate(Call,Textgen,CallOut),
+        !.
+
+dive_into_compiled_code((L,R), Textgen, Decoded) :-
+        (ignored_literal(L) -> dive_into_compiled_code(R,Textgen,Decoded)
+        ; ignored_literal(R) -> dive_into_compiled_code(L,Textgen,Decoded)
+        ),
+        !.
+dive_into_compiled_code((L;R), Textgen, Decoded) :-
+        (ignored_literal(L) -> dive_into_compiled_code(R,Textgen,Decoded)
+        ; ignored_literal(R) -> dive_into_compiled_code(L,Textgen,Decoded)
+        ),
+        !.
+dive_into_compiled_code((L,R), Textgen, FLORA_SYMBOL('and')(DecodedL,DecodedR)) :-
+        !,
+        dive_into_compiled_code(L,Textgen,DecodedL),
+        dive_into_compiled_code(R,Textgen,DecodedR).
+dive_into_compiled_code((L;R), Textgen, FLORA_SYMBOL('or')(DecodedL,DecodedR)) :-
+        !,
+        dive_into_compiled_code(L,Textgen,DecodedL),
+        dive_into_compiled_code(R,Textgen,DecodedR).
+dive_into_compiled_code(FLLIBIFTHEN(_,L,R,_,_), Textgen, FLORA_SYMBOL('ifthen')(DecodedL,DecodedR)) :-
+        !,
+        dive_into_compiled_code(L,Textgen,DecodedL),
+        dive_into_compiled_code(R,Textgen,DecodedR).
+dive_into_compiled_code(FLLIBIFTHENELSE(_,If,Then,Else,_,_), Textgen, FLORA_SYMBOL('ifthenelse')(DecodedIf,DecodedThen,DecodedElse)) :-
+        !,
+        dive_into_compiled_code(If,Textgen,DecodedIf),
+        dive_into_compiled_code(Then,Textgen,DecodedThen),
+        dive_into_compiled_code(Else,Textgen,DecodedElse).
+
+%% catch all - no template and at the bottom of the parse tree
+dive_into_compiled_code(Call, _Textgen, Call).
+
+dive_into_aggregate(Call,Textgen,CallOut) :-
+        Call =.. [AggLib,AggVar,GrpVarList,UniqOrSort,Query,AggResultVar],
+        flrcompiler:flora_aggregate_lib(AggLib),
+        !,
+        dive_into_compiled_code(Query,Textgen,DecodedQuery),
+        CallOut =.. [AggLib,AggVar,GrpVarList,UniqOrSort,DecodedQuery,AggResultVar].
+        
+%% apply_textgen(+InGoal,+Textgen,-OutFlTerm)
+%% In: executable Ergo subgoal
+%% Out: list of parser flterms that give the text corresponding to InGoal
+apply_textgen(InGoal,[Textgen|RestTextgen],OutFlTerm) :-
+        (apply_one_textgen(InGoal,Textgen,OutFlTerm) -> true
+        ; apply_textgen(InGoal,RestTextgen,OutFlTerm)
+        ).
+
+apply_one_textgen(InGoal,Textgen,OutFlTerm) :-
+        nonvar(Textgen),
+        copy_term(Textgen,TextgenCopy),
+        %% MUST keep ergo_textit: here!!! This is the form that TextgenCopy has
+        (TextgenCopy = ergo_textit:ergo_textit_show(InGoal,Format,Vars,Mod) ->
+            Args = [InGoal,Format,Vars,Mod],
+            PrimitiveName = FL_TEXTIT_PRIMITIVE
+        %% MUST keep ergo_textit: here!!! This is the form that TextgenCopy has
+        ; TextgenCopy = ergo_textit:ergotext_textgen_show(InGoal,ErgotxtPhrase,Mod) ->
+            Args = [InGoal,ErgotxtPhrase,Mod],
+            PrimitiveName = FL_ERGOTEXT_TEXTGEN
+        %% should really issue an error if mismatch
+        ),
+        apply_one_textgen_aux(PrimitiveName,TextgenCopy,Args,Mod,OutFlTerm),
+        !.
+
+apply_one_textgen_aux(FL_ERGOTEXT_TEXTGEN,Textgen,Args,Mod,OutFlTerm) :-
+        !,
+        call(Textgen),
+        Args = [_,OutFlTerm,Mod].
+apply_one_textgen_aux(FL_TEXTIT_PRIMITIVE,Textgen,Args,Mod,OutFlTerm) :-
+        !,
+        call(Textgen),
+        Args = [InGoal,OutTermFormat,Vars,Mod],
+        %% result of applying textit
+        ergo_textit_result(InGoal,OutTermFormat,Vars,Mod,OutFlTerm).
+
+
+
+%% add more as we discover literals to be ignored in conjunctions & disjunctions
+ignored_literal(FLORA_DELAY_CHECKER(_,_)).
+
+
+/***************** fldecode_parsed_list, fldecode_justification **************/
+%% Like flwrite, but does decoding as list. The diff with flrdecode is
+%% that here we are decoding parsed code, not compiled code
+fldecode_justification(ParserTerm,TermOut) :-
+	(is_list(ParserTerm) -> fldecode_parsed_list(ParserTerm,Decoded)
+	; fldecode_parsed_aux(ParserTerm,Decoded)
+	),
+	(is_list(Decoded) -> flatten(Decoded,TermOut)
+	; TermOut = [Decoded]
+	).
+
+fldecode_parsed_aux(ParserTerm,[ParserTerm]) :-
+	var(ParserTerm),
+	!.
+fldecode_parsed_aux(ParserTerm, ['(',LL,',',RR,')']) :-
+	is_flconjunct(ParserTerm,L,R),
+	!,
+	fldecode_parsed_aux(L,LL),
+	fldecode_parsed_aux(R,RR).
+fldecode_parsed_aux(ParserTerm, ['(',LL,';',RR,')']) :-
+	is_fldisjunct(ParserTerm,L,R),
+	!,
+	fldecode_parsed_aux(L,LL),
+	fldecode_parsed_aux(R,RR).
+fldecode_parsed_aux(ParserTerm,[Quant,'(',VarsDecoded,')^(',FormDecoded,')']) :-
+	is_fllogicquantifier(ParserTerm,Quant,Vars,_VarsCode,Formula,_Idx),
+	!,
+	fldecode_varnames(Vars,VarsDecoded),
+	fldecode_parsed_aux(Formula,FormDecoded).
+fldecode_parsed_aux(ParserTerm,[Quant,'(',CondDecoded,')^(',FormDecoded,')']) :-
+	is_fldelayquant(ParserTerm,Quant,Condition,Formula,_Idx),
+	!,
+	fldecode_parsed_aux(Condition,CondDecoded),
+	fldecode_parsed_aux(Formula,FormDecoded).
+fldecode_parsed_aux(ParserTerm,['\\naf ',PosDecoded]) :-
+	is_flrulelognaf(ParserTerm,Pos),
+	!,
+	fldecode_parsed_aux(Pos,PosDecoded).
+fldecode_parsed_aux(ParserTerm,['\\neg ',PosDecoded]) :-
+	is_flneg(ParserTerm,Pos,_Idx),
+	!,
+	fldecode_parsed_aux(Pos,PosDecoded).
+fldecode_parsed_aux(ParserTerm,['If (',CondDecoded,') Then (',ThenDecoded,') Else (',ElseDecoded,')']) :-
+	is_flifthenelse(ParserTerm,Cond,Then,Else),
+	!,
+	fldecode_parsed_aux(Cond,CondDecoded),
+	fldecode_parsed_aux(Then,ThenDecoded),
+	fldecode_parsed_aux(Else,ElseDecoded).
+fldecode_parsed_aux(ParserTerm,['If (',CondDecoded,') Then (',ThenDecoded,')']) :-
+	is_flifthen(ParserTerm,Cond,Then),
+	!,
+	fldecode_parsed_aux(Cond,CondDecoded),
+	write(') Then ('),
+	fldecode_parsed_aux(Then,ThenDecoded).
+fldecode_parsed_aux(ParserTerm,Out) :-
+	is_flworkspace(ParserTerm,Formula,WS),
+	!,
+	fldecode_parsed_aux(Formula,FormDecoded),
+	(WS==FL_THISMODULE -> Out = [FormDecoded]
+	; fldecode_parsed_aux(WS,WSDecoded), Out = [FormDecoded,'@',WSDecoded]
+	).
+fldecode_parsed_aux(ParserTerm,Out) :-
+	is_flruleworkspace(ParserTerm,Formula,WS),
+	!,
+	fldecode_parsed_aux(Formula,FormDecoded),
+	(WS==FL_THISMODULE -> Out = [FormDecoded]
+	; fldecode_parsed_aux(WS,WSDecoded), Out = [FormDecoded,'@',WSDecoded]
+	).
+/*
+fldecode_parsed_aux(ParserTerm,['{',ListDecoded,'}']) :-
+        %% setarg is now done via SETARGATTRIBUTE - unifirmly in head and body
+	is_flsetarg(ParserTerm,List,_),
+	!,
+	fldecode_parsed_list(List,ListDecoded).
+*/
+fldecode_parsed_aux(ParserTerm,TermDecoded) :-
+	is_flarith(ParserTerm,Term),
+	!,
+	fldecode_parsed_aux(Term,TermDecoded).
+fldecode_parsed_aux(ParserTerm,[DescrDecoded,' ',RuleDecoded]) :-
+	is_flannotated_construct(ParserTerm,DescriptorList,Rule),
+	!,
+	flatten(DescriptorList,Descriptor),
+	fldecode_parsed_list_noseparator(Descriptor,DescrDecoded),
+	fldecode_parsed_aux(Rule,RuleDecoded).
+fldecode_parsed_aux(ParserTerm,DescrDecoded) :-
+	is_fldescriptor(ParserTerm,Descr,Type,_),
+	!,
+	fldecode_parsed_descriptor(Type,Descr,DescrDecoded).
+fldecode_parsed_aux(ParserTerm,TermDecoded) :-
+	(is_fldelayedliteral(ParserTerm,Op,Args)
+	; is_fldelayedliteral(ParserTerm,Op,Args,_)
+	),
+	!,
+	is_fllist_struct(Args,ArgList,_Tail,_Idx),
+	length(ArgList,N),
+	flterm_struct(Op,N,ArgList,Term),
+	fldecode_parsed_aux(Term,TermDecoded).
+fldecode_parsed_aux(ParserTerm,[ObjDecoded,OpenBrack,SpecDecoded,CloseBrack]) :-
+	is_flobjspec(ParserTerm,Obj,Spec,Type),
+	!,
+	fldecode_parsed_aux(Obj,ObjDecoded),
+	(Type == NONINHERITABLE -> OpenBrack = '[', CloseBrack = ']'
+	; OpenBrack = '[|', CloseBrack = '|]'
+	),
+	fldecode_parsed_aux(Spec,SpecDecoded).
+fldecode_parsed_aux(ParserTerm,MethDecoded) :-
+	is_flmethspec(ParserTerm,Meth,_),
+	!,
+	fldecode_parsed_aux(Meth,MethDecoded).
+fldecode_parsed_aux(ParserTerm,['%',MethDecoded]) :-
+	is_fltranspec(ParserTerm,Meth,_),
+	!,
+	fldecode_parsed_aux(Meth,MethDecoded).
+fldecode_parsed_aux(ParserTerm,[AttDecoded,Arrow,'{',ValDecoded,'}']) :-
+	is_flmvdattspec(ParserTerm,Att,Arrow,Val,_),
+	!,
+	fldecode_parsed_aux(Att,AttDecoded),
+	fldecode_parsed_list(Val,ValDecoded).
+fldecode_parsed_aux(ParserTerm,[AttDecoded,Arrow,'(',ValDecoded,')']) :-
+	is_flsigattspec(ParserTerm,Att,Arrow,Val,_),
+	!,
+	fldecode_parsed_aux(Att,AttDecoded),
+	fldecode_parsed_aux(Val,ValDecoded).
+fldecode_parsed_aux(ParserTerm,[AttDecoded,'{',ConstrDecoded,'}',Arrow,ValDecoded]) :-
+	is_flsigattconspec(ParserTerm,Att,Constr,Arrow,Val,_),
+	fldecode_parsed_aux(Att,AttDecoded),
+	fldecode_parsed_aux(Constr,ConstrDecoded),
+	fldecode_parsed_aux(Val,ValDecoded).
+fldecode_parsed_aux(ParserTerm,[LowerDecoded,FL_RANGE,UpperDecoded]) :-
+	is_flsigconstr(ParserTerm,Lower,Upper),
+	fldecode_parsed_aux(Lower,LowerDecoded),
+	fldecode_parsed_aux(Upper,UpperDecoded).
+fldecode_parsed_aux(ParserTerm,[Arrow,MethDecoded]) :-
+	(is_flboolsig(ParserTerm,Meth,Arrow,_) ;
+	    is_fltransig(ParserTerm,Meth,Arrow,_)
+	),
+	!,
+	fldecode_parsed_aux(Meth,MethDecoded).
+fldecode_parsed_aux(ParserTerm,[LeftDecoded,FuncStr,RightDecoded]) :-
+	is_flterm(ParserTerm,Funct,2,[Left,Right]),
+	is_flatom_struct(Funct,FuncAtm),
+	memberchk(FuncAtm,[FL_UNIVEQ,FL_EQ,FL_UNIVEQFORM,FL_OBJEQL,FL_MATHEQ,
+			   FL_LT,FL_EQLT,FL_GT,FL_EQGT,FL_UDFEQ,FL_RANGE,
+			   FL_SLASH, FL_PLUS, FL_MINUS,
+			   FL_PROLOG_MODULE_TIE]),
+	!,
+	fmt_write_string(FuncStr,' %s ',arg(FuncAtm)),
+	fldecode_parsed_aux(Left,LeftDecoded),
+	fldecode_parsed_aux(Right,RightDecoded).
+fldecode_parsed_aux(ParserTerm,[LeftDecoded,RightDecoded]) :-
+	is_flterm(ParserTerm,Funct,2,[Left,Right]),
+	is_flatom_struct(Funct,FL_DESCRIPTORFUNC),
+	!,
+	fldecode_parsed_aux(Left,LeftDecoded),
+	fldecode_parsed_aux(Right,RightDecoded).
+fldecode_parsed_aux(ParserTerm,[LeftDecoded,Separator,RightDecoded]) :-
+	is_flterm(ParserTerm,Funct,2,[Left,Right]),
+	is_flatom_struct(Funct,FunctAtm),
+	memberchk(FunctAtm,[FL_COMMA,FL_SEMICOLON]),
+	!,
+	fldecode_parsed_aux(Left,LeftDecoded),
+	(FunctAtm == FL_COMMA -> Separator = ' '
+	; Separator = '; '
+	),
+	fldecode_parsed_aux(Right,RightDecoded).
+fldecode_parsed_aux(ParserTerm,Out) :-
+	is_flterm(ParserTerm,Funct,_Arity,Args),
+	!,
+	(is_flatom_struct(Funct,FL_COMMA) -> Out = [' (',ArgsDecoded,')']
+	; fldecode_parsed_aux(Funct,FunctDecoded),
+	    Out = [FunctDecoded,' (',ArgsDecoded,')']
+	),
+	fldecode_parsed_list(Args,ArgsDecoded).
+fldecode_parsed_aux(ParserTerm,[Name]) :-
+	(is_flatom_struct(ParserTerm,Name) ;
+	    is_flnumber_struct(ParserTerm,Name) ;
+	    is_flstring_struct(ParserTerm,Name,_) ;
+	    is_flbuiltin_identifier_struct(ParserTerm,Name)
+	),
+	!.
+fldecode_parsed_aux(ParserTerm,['%',Name]) :-
+	(is_fltransactionalatom(ParserTerm,Name) ;
+	    is_fltransactionalnumber(ParserTerm,Name) ;
+	    is_fltransactionalstring(ParserTerm,Name)
+	),
+	!.
+fldecode_parsed_aux(ParserTerm,[Str]) :-
+	is_flstring_struct(ParserTerm,Str,_),
+	!.
+fldecode_parsed_aux(ParserTerm,[Name]) :-
+	is_flvar_struct(ParserTerm,Name,_),
+	!.
+fldecode_parsed_aux(ParserTerm,Out) :-
+	(is_fltoken(ParserTerm,FL_NEWOID,Suffix,_)
+        %% Like FL_NEWOID, but is a Skolem both in the body and in the head
+        %% Generated by skolemization during the omni transform
+	; is_fltoken(ParserTerm,FLSPECIALSKOLEM,Suffix,_)
+	),
+	!,
+	(number(Suffix) -> Out = [FL_NEWOID,Suffix]
+	; Out = [FL_NEWOID]
+	).
+fldecode_parsed_aux(ParserTerm,PtermDecoded) :-
+	is_flplib(ParserTerm,Pterm),
+	!,
+	fldecode_parsed_aux(Pterm,PtermDecoded).
+fldecode_parsed_aux(ParserTerm,['[',FrontDecoded,']']) :-
+	is_fllist_struct(ParserTerm,Front,Tail,_),
+	Tail == [],
+	!,
+	fldecode_parsed_list(Front,FrontDecoded).
+fldecode_parsed_aux(ParserTerm,['[',FrontDecoded,'|',TailDecoded,']']) :-
+	is_fllist_struct(ParserTerm,Front,Tail,_),
+	!,
+	fldecode_parsed_list(Front,FrontDecoded),
+	fldecode_parsed_aux(Tail,TailDecoded).
+fldecode_parsed_aux(ParserTerm,['[',ListDecoded,']']) :-
+	is_list(ParserTerm),
+	!,
+	fldecode_parsed_list(ParserTerm,ListDecoded).
+fldecode_parsed_aux(ParserTerm,[Op,'{',ListDecoded,'|',CondDecoded,'}']) :-
+	(is_flinsert(ParserTerm,Op,List,Cond)
+	; is_fldelete(ParserTerm,Op,List,Cond)
+	),
+	!,
+	fldecode_parsed_list(List,ListDecoded),
+	fldecode_parsed_aux(Cond,CondDecoded).
+fldecode_parsed_aux(ParserTerm,[Op,'{',ListDecoded,'}']) :-
+	(is_flinsert(ParserTerm,Op,List)
+	; is_fldelete(ParserTerm,Op,List)
+	),
+	!,
+	fldecode_parsed_list(List,ListDecoded).
+fldecode_parsed_aux(ParserTerm,[Op,'{',RulesDecoded,'}']) :-
+	is_flupdaterule(ParserTerm,Op,Rules),
+	!,
+	fldecode_parsed_aux(Rules,RulesDecoded).
+fldecode_parsed_aux(ParserTerm,[Obj1Decoded,RelStr,Obj2Decoded]) :-
+	is_flbirelate(ParserTerm,Obj1,Rel,Obj2),
+	!,
+	fmt_write_string(RelStr,' %s ',arg(Rel)),
+	fldecode_parsed_aux(Obj1,Obj1Decoded),
+	fldecode_parsed_aux(Obj2,Obj2Decoded).
+fldecode_parsed_aux(ParserTerm,[Op,'{',VarDecoded,'[',GVarDecoded,'](',SortDecoded,') |',GoalDecoded,'}']) :-
+	is_flaggregate(ParserTerm,Op,V,GV,Sort,Goal),
+	!,
+	fldecode_parsed_aux(V,VarDecoded),
+	fldecode_parsed_list(GV,GVarDecoded),
+	(Sort == NULL -> SortDecoded = ' '
+	; fldecode_parsed_aux(Sort,SortDecoded)
+	),
+	!,
+	fldecode_parsed_aux(Goal,GoalDecoded).
+fldecode_parsed_aux(ParserTerm,[ObjDecoded,Connector,AttrDecoded]) :-
+	is_flobjref(ParserTerm,Object,Attribute,Type),
+	!,
+	(Type == NONINHERITABLE -> Connector = '.'
+	; Connector = '!'
+	),
+	fldecode_parsed_aux(Object,ObjDecoded),
+	fldecode_parsed_aux(Attribute,AttrDecoded).
+fldecode_parsed_aux(ParserTerm,FactListDecoded) :-
+	is_flfact(ParserTerm,FactList),
+	!,
+	fldecode_parsed_list(FactList,FactListDecoded).
+fldecode_parsed_aux(ParserTerm,['?- ',BodyDecoded]) :-
+	is_flquery(ParserTerm,Body),
+	!,
+	fldecode_parsed_aux(Body,BodyDecoded).
+fldecode_parsed_aux(ParserTerm,['!- ',BodyDecoded]) :-
+	is_fllatent_query(ParserTerm,Body),
+	!,
+	fldecode_parsed_aux(Body,BodyDecoded).
+fldecode_parsed_aux(ParserTerm,[HeadDecoded,' :- ',BodyDecoded]) :-
+	is_flrule(ParserTerm,Head,Body),
+	!,
+	fldecode_parsed_list(Head,HeadDecoded),
+	fldecode_parsed_aux(Body,BodyDecoded).
+fldecode_parsed_aux(ParserTerm,['(',HeadDecoded,' :- ',BodyDecoded,')']) :-
+	is_fldynrule(ParserTerm,Head,Body,_Descriptors),
+	!,
+	fldecode_parsed_list(Head,HeadDecoded),
+	fldecode_parsed_aux(Body,BodyDecoded).
+fldecode_parsed_aux(ParserTerm,['${',TermDecoded,'}']) :-
+	is_flreify_struct(ParserTerm,Term),
+	!,
+	fldecode_parsed_aux(Term,TermDecoded).
+fldecode_parsed_aux((ParserTerm1,ParserTerm2),['(',Term1Decoded,', ',Term2Decoded,')']) :-
+	!,
+	fldecode_parsed_aux(ParserTerm1,Term1Decoded),
+	fldecode_parsed_aux(ParserTerm2,Term2Decoded).
+fldecode_parsed_aux((ParserTerm1;ParserTerm2),['(',Term1Decoded,'; ',Term2Decoded,')']) :-
+	!,
+	fldecode_parsed_aux(ParserTerm1,Term1Decoded),
+	fldecode_parsed_aux(ParserTerm2,Term2Decoded).
+fldecode_parsed_aux(ParserTerm,VarName) :-
+	nonvar(ParserTerm),
+	ParserTerm = '_$VAR'(VarName),
+	!.
+fldecode_parsed_aux(ParserTerm,Decoded) :-
+	atom(ParserTerm),
+	!,
+        %% this is to ensure data types are displayed right
+        flora_decode_oid_as_atom(ParserTerm,Decoded).
+fldecode_parsed_aux(ParserTerm,Decoded) :-
+	compound(ParserTerm),
+	!,
+	flora_decode_oid_as_atom_substitute_vars(ParserTerm,Decoded).
+%% catch-all case
+fldecode_parsed_aux(ParserTerm,ParserTerm).
+
+fldecode_parsed_list([],[]) :- !.
+fldecode_parsed_list([H],[HH]) :-
+	fldecode_parsed_aux(H,HH),
+	!.
+fldecode_parsed_list([H|T],[HH,' '|TT]) :-
+	fldecode_parsed_aux(H,HH),
+	fldecode_parsed_list(T,TT).
+
+fldecode_parsed_list_noseparator([],[]) :- !.
+fldecode_parsed_list_noseparator([H],[HH]) :-
+	fldecode_parsed_aux(H,HH),
+	!.
+fldecode_parsed_list_noseparator([H|T],[HH,' '|TT]) :-
+	fldecode_parsed_aux(H,HH),
+	fldecode_parsed_list_noseparator(T,TT).
+
+fldecode_parsed_descriptor(FLRULEID,Descr,['@!{',DD,'}']) :-
+	!,
+	(Descr = [D|_] -> true
+	; D = Descr
+	),
+	fldecode_parsed_aux(D,DD).
+fldecode_parsed_descriptor(FLTAG,Descr,['@{',DD,'}']) :-
+	fldecode_parsed_aux(Descr,DD),
+	!.
+fldecode_parsed_descriptor(FLBOOLDESCRIPTOR,Descr,['@@{',DD,'}']) :-
+	fldecode_parsed_aux(Descr,DD),
+	!.
+
+fldecode_varnames([],[]) :- !.
+fldecode_varnames([V],[FL_VARSYM,V]) :- !.
+fldecode_varnames([V|Rest],[FL_VARSYM,V,','|RestVars]) :-
+	fldecode_varnames(Rest,RestVars).
+
+%% Given a file, returns an XWAM file in the same directory
+get_XWAM_file(PFile,XWAMfile) :-
+        parse_filename(PFile,Dir,Base,_Ext),
+	flora_slash(S),
+        flora_concat_atoms([Dir,S,Base,'.',PROLOG_OBJFILE_EXT],XWAMfile).
+
+/*
+    We need to consult without importing into usermod. Otherwise, consulting
+    different templates will import the various template/4's into usermod and
+    will cause a clash. The result will be an obscure warning.
+*/
+consult_without_import(PFile) :-
+        get_XWAM_file(PFile,XWAMfile),
+        (flora_file_op(newerthan,XWAMfile,PFile) -> true
+        ; compile(PFile)
+        ),
+        loader:load_object_file(XWAMfile,dummypars,0).

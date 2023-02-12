@@ -1,0 +1,86 @@
+/************************************************************************
+  file: includes/flrheader.flh
+
+  Author(s): Guizhen Yang
+	     Michael Kifer
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2013.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+
+  This file is automatically included by the FLORA-2 compiler.
+************************************************************************/
+
+
+/************************************************************************
+  Note: This file should contain Macros only!
+
+  If FLORA_DUMP is defined: preprocessing for user-friendly output.
+
+  If any of these macros are changed, the corresponding wrappers in
+  flrwrapper.P must also be changed
+************************************************************************/
+
+
+#mode standard Prolog
+
+#include "flora_prefix.flh"
+
+#ifndef FLORA_DUMP
+
+#mode save
+#mode nostring "\!#'"
+
+#deffast FLORA_WORKSPACE(X,Y)   	FLORA_MODULE_PREFIX'#1''#2'
+
+#deffast FLORA_FDB_STORAGE(X)   	FLORA_FDB_TRIE_PREFIX'#1'
+
+%% support for undefinedness checks
+#deffast FLORA_FLD_STORAGE(X)	        FLORA_FLD_TRIE_PREFIX'#1'
+
+%% used for generating new oids statically
+%% We had previously #1'FLORA_COMPILATION_ID', but this caused gpp error in
+%% \dump(file). Apparently a gpp bug. So changed to X'FLORA_COMPILATION_ID'
+#define FLORA_THIS_COMPILATION(X)       X'FLORA_COMPILATION_ID'
+
+#define FLORA_THIS_WORKSPACE(X)         FLORA_WORKSPACE(FLORA_VAR_WORKSPACE,#1)
+#define FLORA_THIS_FDB_STORAGE          FLORA_FDB_STORAGE(FLORA_VAR_WORKSPACE)
+#define FLORA_THIS_FLD_STORAGE          FLORA_FLD_STORAGE(FLORA_VAR_WORKSPACE)
+#define FLORA_THIS_MODULE_NAME          'FLORA_VAR_WORKSPACE'
+
+#mode restore
+
+#else
+
+%% dumping
+
+#define FLORA_SYMBOL(X)	       	        #1
+#define FLORA_WORKSPACE(X,Y)    	ws_#1#2
+
+#define FLORA_FDB_STORAGE(X)    	fdbtrie_#1
+
+#define FLORA_FLD_STORAGE(X)    	fldtrie_#1
+
+#deffast FLORA_THIS_WORKSPACE(X)        FLORA_WORKSPACE(FLORA_VAR_WORKSPACE,#1)
+#deffast FLORA_THIS_FDB_STORAGE		FLORA_FDB_STORAGE(FLORA_VAR_WORKSPACE)
+#deffast FLORA_THIS_FLD_STORAGE		FLORA_FLD_STORAGE(FLORA_VAR_WORKSPACE)
+#define FLORA_THIS_MODULE_NAME		ws
+
+%% used for generating new oids statically
+#define FLORA_THIS_COMPILATION(X)       #1FLORA_COMPILATION_ID
+
+#endif
+
+#include "ergo_structdb.flh"

@@ -1,0 +1,45 @@
+\udf foo(?x):=?y \if fooDef(?x,?y).
+fooDef(1,2).
+fooDef(a,b).
+fooDef(obj,obj1).
+q(a).
+
+obj1[a->foo(1)].
+obj1[a->b(c)].
+obj1[p->foo(?x)]:-q(?x).
+w(?x):-obj1[p->foo(?x)].
+wt(?x):-fooDef(?x,?y),obj1[p->?y].
+t(?x):-obj1[a->foo(?x)(c)].
+tt(?x):-foo(?x)[a->2].
+
+obj1[a1=>foo(1)].
+obj1[a1=>b(c)].
+obj1[p1=>foo(?x)]:-q(?x).
+w1(?x):-obj1[p1=>foo(?x)].
+t1(?x):-obj1[a1=>foo(?x)(c)].
+tt1(?x):-foo(?x)[a1=>2].
+
+
+%test1:-obj1[a->?x], writeln(?x)@\io, \false.
+%test1 :- \true.
+%test2:-obj1[p->?x], writeln(?x)@\io, \false.
+%test2 :- \true.
+%test3:-w(?x), writeln(?x)@\io, \false.
+%test3 :- \true.
+%test4:-t(?x), writeln(?x)@\io, \false.
+%test4 :- \true.
+%test5:-tt(?x), writeln(?x)@\io, \false.
+%test5 :- \true.
+%test6:-w1(?x), writeln(?x)@\io, \false.
+%test6 :- \true.
+%test7:-t1(?x), writeln(?x)@\io, \false.
+%test7 :- \true.
+%test8:-tt1(?x),writeln(?x)@\io, \false.
+%test8 :- \true.
+
+%pretest :- %test1, %test2, %test3, %test4, %test5, %test6, %test7.
+
+%test:-
+	tell(temp)@\plg,
+	%pretest,
+	told@\plg.

@@ -1,0 +1,95 @@
+/* File:   extensions/flrparser_headquanthook.P  -- the Ergo head parser hook for quantifiers
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2013-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+
+
+parse_head_literal(CANOTERM(Funct,2,FL_PARENTHESIS,[CANOTERM(Quant,_N,FL_PARENTHESIS,Vars,_,_),Formula],_If,_Ip),_DWS,Code,Status) :-
+	get_atom(Funct,FL_QUANTVARCONNECTOR),
+	get_atom(Quant,QuantAtom,QuantIdx),
+	is_logicalquantifier(QuantAtom,QuantAtomCanon),
+	!,
+	set_context(CONTEXT_PARSER_RULEHEAD),
+	parse_varlist(Vars,VarsCodeList,VarNames,S1),
+	parse_head(Formula,FormCode1,S2),
+	clear_context(CONTEXT_PARSER_RULEHEAD),
+	parse_list2flconjunct(FormCode1,FormCode),
+	%% Using parse_head_literal does not grok <==,==> inside quantifiers
+	%% so we use parse_head/3 above instead
+	%%parse_head_literal(Formula,DWS,FormCode,S2),  -- NO
+	merge_status([S1,S2],Status),
+	( Status == NO_ERRORS ->
+            get_typed_var_code_from_list(VarsCodeList,VarsCode),
+	    flquantifier_struct(QuantAtomCanon,VarNames,VarsCode,FormCode,QuantIdx,Code)
+	;
+	    true
+	).
+
+parse_dbliteral(_Mode,CANOTERM(Funct,2,FL_PARENTHESIS,[CANOTERM(Quant,_N,FL_PARENTHESIS,Vars,_,_),Formula],_If,_Ip),_DWS,[Code],Status) :-
+	get_atom(Funct,FL_QUANTVARCONNECTOR),
+	get_atom(Quant,QuantAtom,QuantIdx),
+	is_logicalquantifier(QuantAtom,QuantAtomCanon),
+	!,
+	set_context(CONTEXT_PARSER_RULEHEAD),
+	parse_varlist(Vars,VarsCodeList,VarNames,S1),
+	%% parse_head_literal/4 is no good here because we need to propagate
+	%% quantifiers, negation, etc., like exists(?X)^(a4(?X) <== b4(?X)).
+	%% So, we use parse_head/3 instead. But we need to guard against
+	%% situations like ?X=${(a;b)}, insert{?X:-...}, as it is too difficult
+	%% to implement the omni transform in syslib/flrdynrule.P at run time.
+	%% This IS checked in flrdynrule.P when it asserts rules at run time.
+	%%parse_head_literal(Formula,DWS,FormCode,S2), -- NO
+	parse_head(Formula,FormCode,S2),
+	clear_context(CONTEXT_PARSER_RULEHEAD),
+	merge_status([S1,S2],Status),
+	parse_list2flconjunct(FormCode,FormConj),
+	( Status == NO_ERRORS ->
+            get_typed_var_code_from_list(VarsCodeList,VarsCode),
+	    flquantifier_struct(QuantAtomCanon,VarNames,VarsCode,FormConj,QuantIdx,Code)
+	; true
+	).
+
+parse_dynhead(CANOTERM(Funct,2,FL_PARENTHESIS,[CANOTERM(Quant,_N,FL_PARENTHESIS,Vars,_,_),Formula],_If,_Ip),_DWS,[Code],Status) :-
+	get_atom(Funct,FL_QUANTVARCONNECTOR),
+	get_atom(Quant,QuantAtom,QuantIdx),
+	is_logicalquantifier(QuantAtom,QuantAtomCanon),
+	!,
+	set_context(CONTEXT_PARSER_RULEHEAD),
+	parse_varlist(Vars,VarsCodeList,VarNames,S1),
+	%% parse_head_literal/4 is no good here because we need to propagate
+	%% quantifiers, negation, etc., like exists(?X)^(a4(?X) <== b4(?X)).
+	%% So, we use parse_head/3 instead. But we need to guard against
+	%% situations like ?X=${(a;b)}, insert{?X:-...}, as it is too difficult
+	%% to implement the omni transform in syslib/flrdynrule.P at run time.
+	%% This IS checked in flrdynrule.P when it asserts rules at run time.
+	%%parse_head_literal(Formula,DWS,FormCode,S2),  -- NO
+	parse_head(Formula,FormCode,S2),
+	clear_context(CONTEXT_PARSER_RULEHEAD),
+	merge_status([S1,S2],Status),
+	parse_list2flconjunct(FormCode,FormConj),
+	( Status == NO_ERRORS ->
+            get_typed_var_code_from_list(VarsCodeList,VarsCode),
+	    flquantifier_struct(QuantAtomCanon,VarNames,VarsCode,FormConj,QuantIdx,Code)
+	;
+	    true
+	).
+
+

@@ -1,0 +1,110 @@
+/* File:      flrmodular.P  -- Definitions for \callable, \modular
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2017-2018,
+**      Coherent Knowledge Systems, 2017-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_datatype_symbols.flh"
+
+:- import is_flora_callable_literal/1 from flrwrapper.
+:- import is_naf_literal/2 from flrcanon.
+:- import flora_delayed_literal_wrapper/4 from flrdelaysupport.
+:- import
+        flora_builtin_class/1,
+        flora_datatype_name/2
+   from flrdatatype.
+:- import flora_get_DT_var_datatype/2 from usermod(flrunify_handlers).
+
+:- export
+        flora_iscallable_any_type/1,
+        flora_ismodular/1.
+
+flora_ismodular(X) :-
+        var(X),
+        !,
+        flora_delayed_literal_wrapper(FL_DELAYQUANT,NULL,NULL,
+                                      [FL_WISH, nonvar(X),
+                                       (var(X), flora_get_DT_var_datatype(X,FL_MODULAR_FORM) -> true
+                                       ; var(X) -> undefined
+                                       ; flora_ismodular(X)
+                                       )
+                                      ]
+                                     ).
+flora_ismodular(X) :-
+        is_flora_callable_literal(X),
+        !.
+flora_ismodular(X) :-
+        is_naf_literal(X,Y),
+        !,
+        flora_ismodular(Y).
+
+flora_ismodular(Z) :-
+        distributive(Z,X,Y),
+        !,
+        flora_ismodular(X),
+        flora_ismodular(Y).
+
+
+%% literals that are callable in the Flora-2 semantics
+flora_iscallable_any_type(X) :-
+        var(X),
+        !,
+        flora_delayed_literal_wrapper(FL_DELAYQUANT,NULL,NULL,
+                                      [FL_WISH, nonvar(X),
+                                       (var(X), flora_get_DT_var_datatype(X,FL_CALLABLE_FORM) -> true
+                                       ; var(X) -> undefined
+                                       ; flora_iscallable_any_type(X)
+                                       )
+                                      ]
+                                     ).
+flora_iscallable_any_type(X) :-
+        (is_list(X)
+        ; number(X)
+        ; X =.. [WRAP_HILOG|_]
+        ; flora_datatype_name(X,Name), Name \== FL_SYMBOL
+        ),
+        !,
+        fail.
+%% these are the remaining Prolog things, which are callable
+flora_iscallable_any_type(X) :-
+        (callable(X)
+        ; atom(X)
+        ),
+        \+ distributive(X,_,_),
+        \+ flora_builtin_class(X),
+        !.
+
+flora_iscallable_any_type(Z) :-
+        distributive(Z,X,Y),
+        !,
+        flora_iscallable_any_type(X),
+        flora_iscallable_any_type(Y).
+
+%% connectives through which distribution of callable and modular is allowed
+distributive((X,Y),X,Y).
+distributive((X;Y),X,Y).
+distributive((X->Y),X,Y).

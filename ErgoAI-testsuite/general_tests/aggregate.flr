@@ -1,0 +1,107 @@
+/* This demo shows the use of aggregates and insert/delete commands.
+*/
+
+
+john[salary(1990) -> 20].
+john[salary(1991) -> 40].
+john[salary(1992) -> 60].
+john[salary(1993) -> 70].
+john[salary(1994) -> 70].
+john[salary(1995) -> 80].
+john[salary(1996) -> 70].
+john[salary(1997) -> 50].
+john[salary(1998) -> 80].
+
+mary[salary(1990) -> 40].
+mary[salary(1991) -> 30].
+mary[salary(1992) -> 60].
+mary[salary(1993) -> 70].
+mary[salary(1994) -> 60].
+mary[salary(1995) -> 60].
+mary[salary(1996) -> 70].
+mary[salary(1997) -> 80].
+mary[salary(1998) -> unknown].
+
+%tst1 :- ?Z = max {?X| john[salary(?_Year)->?X] },
+	(write('tst1: '), writeln(?Z))@\plg().
+
+%tst2 :- ?Z = max{?X|john[salary(?Year) ->?X], ?Year < 1996},
+	(write('tst2: '), writeln(?Z))@\plg().
+
+%tst3 :- ?Z=count{?Year|john.salary(?Year) <
+    	    	    	max{?X|john[salary(?Y2)->?X],?Y2<?Year}},
+	(write('tst3: '), writeln(?Z))@\plg().
+
+%tst4 :- ?Z=count{?Year| ?X=john.salary(?Year),?Y=mary.salary(?Year),
+	              (number(?X), number(?Y))@\plg(), ?X < ?Y},
+	(write('tst4: '), writeln(?Z))@\plg().
+
+%tst5 :- ?Z= avg{?X[?Who]| ?Who[salary(?_Year)->?X]},
+	(write('tst5: '), writeln(?Z))@\plg(), \false.
+%tst5 :- \true.
+
+%tst6 :- ?Z= collectset{?Year[?Who]| ?Who[salary(?Year) -> ?X],
+	                          \isnumber(?X), ?X < 60},
+	(write('tst6: ')@\plg, writeln(?Z))@\io, \false.
+%tst6 :- \true.
+
+%tst7 :- delete{mary[salary(?Y)->unknown]},
+	(write('tst7: '), writeln(?Y))@\plg().
+%tst7 :- \true.
+
+/* %tst8, %tst9 now work, after clause delay has been implemented  */
+%tst8 :- <>tdelete{john[salary(?Y)->?S1], mary[salary(?Y)->?S2]| ?S1<?S2},
+	(write('tst8: '), writeln(?Y))@\plg().
+
+%tst9 :- <>tdelete{john[salary(?Y)->?S1] | mary[salary(?Y)->?S2], ?S1<?S2},
+	(write('tst9: '), writeln(?Y))@\plg().
+
+// min/max for types
+pppp(1,a).
+pppp(2,a).
+pppp(2,b).
+pppp(3,c).
+
+dddd(\d"2019-8-20").
+dddd(\d"2020-4-7").
+dddd(\d"2020-5-1").
+tttt(\t"12:6:55.2").
+tttt(\t"12:6:55").
+tttt(\t"12:6:56.1").
+tttt(\t"8:33:55.888").
+dtdt(\dt"2020-7-21T23:59:59.777").
+dtdt(\dt"2020-7-22").
+dtdt(\dt"2020-7-22T1:0:0").
+mixed(\dt"2020-7-22T1:0:0").
+mixed(\d"2020-7-22").
+mixed(\d"2020-7-23").
+
+%tst10 :- ?min = min{?x| pppp(?x,?)}, ?max = max{?x| pppp(?x,?)},
+        writeln(test10 = ?min+?max)@\io.
+%tst11 :- ?min = min{?x| pppp(?,?x)}, ?max = max{?x| pppp(?,?x)},
+        writeln(test11 = ?min+?max)@\io.
+
+%tst12 :- ?min = min{?x| dddd(?x)}, ?max = max{?x| dddd(?x)},
+        writeln(test12 = ?min+?max)@\io.
+%tst13 :- ?min = min{?x| tttt(?x)}, ?max = max{?x| tttt(?x)},
+        writeln(test13 = ?min+?max)@\io.
+%tst14 :- ?min = min{?x| dtdt(?x)}, ?max = max{?x| dtdt(?x)},
+        writeln(test14 = ?min+?max)@\io.
+%tst15 :- ?min = min{?x| mixed(?x)}, ?max = max{?x| mixed(?x)},
+        writeln(test15 = ?min+?max)@\io.
+
+%pretest :-
+	%tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7,
+	%tst8, %tst9,
+        %tst10, %tst11, %tst12, %tst13, %tst14,%tst15.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+
+
+
+

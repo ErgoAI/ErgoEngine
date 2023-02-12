@@ -1,0 +1,1172 @@
+/* File:      flrcanon.P
+**
+** Author(s): Michael Kifer
+**            Chang Zhao
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2021;
+**      Vulcan, Inc., 2008-2013;
+**      Coherent Knowledge Systems, LLC, 2014 - 2021.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "flora_exceptions.flh"
+#include "flora_tabling_methods.flh"
+
+%% In assert this means: use better register allocation. Assert last.
+#define CONSERVE_REGISTERS  3
+%% Tell assert on which argument to index. This argument is actually ignored.
+#define INDEXED_ARG                 1
+
+:- dynamic 
+        flora_rule_signature(_,_,_,_,_,_,_,_,_,_,_,_,_),
+	flora_query_signature(_,_,_,_,_,_)
+   as FLORA_DYNAMICS_TYPE.
+
+%% Indexing is arranged so that first indexing is done on rule id,
+%% then rule head. Indexing on module does not seem to help much.
+%% Indexing on Head (arg 5) helps ~20%, but star-indexing on Head
+%% slows things down.
+:- index(flora_rule_signature/13,[1,2,5,7]).
+:- index(flora_query_signature/6,[1,2,3]).
+
+:- dynamic
+	flora_body_to_head_conversion_cache(_,_),
+	flora_head_to_body_conversion_cache(_,_),
+	%% Used both for converting to signatures and back to value molecules
+	flora_to_signature_conversion_cache(_,_,_).
+   %%as FLORA_DYNAMICS_TYPE.
+:- index(flora_to_signature_conversion_cache/3,[1]).
+
+:- import
+	flora_is_transactional_wrapper/1,
+	flora_is_neg_wrapper/1,
+	is_flora_callable_literal/1,
+	flora_decode_module_name/2,
+        flora_module_predicate/4,
+        flora_decode_predicate/7
+   from flrwrapper.
+
+:- import
+	flora_canonic_wrapper_symbol/2,
+	negate_wrapper/2
+   from flrwrapper.
+
+:- import flora_warning_line/2 from flrprint.
+
+:- import get_tag_descriptor_info_with_rulehead/6 from flrdescriptor_support.
+
+:- import
+	memberchk/2,
+	append/3,
+	length/2,
+	copy_term/2
+   from basics.
+
+:- import
+        %%flora_bind_last/2,
+        flora_trim_last/2,
+	flora_generalize_last/3,
+	flora_generalize_last/2
+   from flrtrim.
+
+:- import
+	flora_abort/2,
+        flora_concat_atoms/2
+   from flrporting.
+
+:- import
+	flora_unwrap_negation/2
+   from flrnegation.
+:- import strip_delay_checker/2 from flrdelaysupport.
+
+:- import
+	FLSYSRULEUPDATE/12,
+	FLLIBMODOBJ/6,
+	FLLIBMODLIT/4,
+	FLLIBUNIVEQFORM/2
+   from usermod.
+
+:- import conjunct_code/2 from flrauxil.
+
+:- import flora_decode_goal_as_atom/2 from flrdecode.
+
+:- import assert/3 from assert.
+
+:- ensure_loaded(flrmetaops).
+
+:- export
+        conjunct_to_list/2,
+        flora_bind_libmodobj/2,
+        matching_rule_signature/7,
+	show_rule_by_id/5,  % fast version of clause{...}
+	show_rule_by_tag/4, % same, but by tag
+        show_rule_signature/13,
+	matching_query_signature/4,
+	rule_signature_member/3,
+	query_signature_member/3,
+	get_canonical_form/2,
+	convert_to_body_literal/2,
+	convert_to_head_literal/2,
+	convert_to_signature/3,
+	convert_to_value_atom/3,
+        flora_record_rule_signature/13,
+	flora_record_query_signature/6,
+	flora_delete_query_signature/4,
+        flora_retract_signatures/8,
+        flora_build_pred_signature/2,
+        flora_preprocess_headlist/2,
+        flora_reset_rule_signature/1,
+        flora_reset_query_signature/1,
+        flora_check_dynmod_type_consistency/1,
+        is_ws_distributive/3,
+        is_nonvar_call/1,
+	bind_head_in_defeat_condition/2,
+	negate_predicate_type/2,
+	nafgate_wrapper/2,
+	is_naf_literal/1,
+	is_naf_literal/2,
+        is_caller_distributive/3,
+        is_caller_distributive/4.
+
+
+%% This operation is quite frequent, so tabling this might save time
+:- table flora_check_dynmod_type_consistency/1 as AUXILIARY_TABLING_TYPE.
+
+/*
+%% Tabling these does not seem to help
+:- table get_canonical_form/2 as AUXILIARY_TABLING_TYPE.
+:- table
+	flora_is_nontabled_predicate/1,
+	flora_is_tabled_predicate/1,
+	flora_build_pred_signature/2
+   as AUXILIARY_TABLING_TYPE.
+*/
+
+/******************************************************************************
+  get_canonical_form(+Term,-Canon)
+  get the canonical form Canon of the given Term. Canon is in the form
+  of FLCANON(Wrap,Args,Module,Callable,TablingStatus)
+******************************************************************************/
+%% Case of Var
+get_canonical_form(Term,FLCANON(_,_,_,Term,_)) :-
+       var(Term),
+       !.
+
+get_canonical_form(FLLIBMODLIT(Wrap,Term,Mod,_FWContext),Canon) :-
+	var(Term),
+	!,
+	%% Case of Var@...
+	(Wrap == FL_LIBMOD ->
+	    %% this is not entirely true, since Term can later be bound to
+	    %% transactional or modular prolog.
+	    %% we should monitor this one
+	    %% We might have to split the cases where we know that
+	    %% an FLLIBMODLIT is tabled and when we do not.
+	    %% Right now FL_LIBMOD denotes both, but this is not entirely true.
+	    Canon = FLCANON(_,_,Mod,Term,FL_TABLED)
+	%% Case of neg Var@...
+	; Wrap == FL_NEGLIBMOD ->
+	    Canon = FLCANON(_,_,Mod,Callable,FL_TABLED_NEG),
+	    Term = FLLIBMODLIT(FL_NEGLIBMOD,Callable,Mod,_FWContext)
+	%% Case of %?Var@... 
+	; Wrap == FL_TRANSLIBMOD ->
+	    Canon = FLCANON(_,_,Mod,Term,FL_NOTTABLED)
+	).
+
+
+%% Case of ?Var@... where ?Var is bound
+%% Case of neg ?Var@... where ?Var is bound
+%% Case of %?Var@... where ?Var is bound
+get_canonical_form(FLLIBMODLIT(Wrap,Term,Mod,_FWContext),Canon) :-
+	%% If Mod is a var, bind it to the module specified in Term
+	(var(Mod), Term = FLLIBMODLIT(_,_,Mod,_) -> true
+	; var(Mod), flora_decode_module_name(Term,Mod) -> true
+	; true
+	),
+	(Wrap == FL_LIBMOD
+	-> PredType = FL_TABLED,
+	    GenericWrap = WRAP_TABLED_HILOG,
+	    BodyWrap = FLBodyPREFIX(WRAP_TABLED_HILOG),
+	    Message = 'non-'
+	; Wrap == FL_NEGLIBMOD
+	-> PredType = FL_TABLED_NEG,
+	    negate_wrapper(WRAP_TABLED_HILOG,GenericWrap),
+	    BodyWrap = FLNEGBodyPREFIX(WRAP_TABLED_HILOG),
+	    Message = 'non-'
+	; Wrap == FL_TRANSLIBMOD
+	-> PredType = FL_NOTTABLED,
+	    GenericWrap = WRAP_NONTABLED_HILOG,
+	    BodyWrap = FLBodyPREFIX(WRAP_NONTABLED_HILOG),
+	    Message = ''
+	),
+	!,
+        ( atom(Term) ->
+            ArgsOut=[Term,_],
+	    (var(Mod) -> 
+	        Canon = FLCANON(GenericWrap,ArgsOut,Mod,_,PredType)
+	    ; Mod=FL_INVALIDMODULE->
+	        Canon = FLCANON(GenericWrap,ArgsOut,Mod,_,FL_TERM)
+            ;
+	        flora_module_predicate(BodyWrap,ArgsOut,Mod,Callable),
+	        Canon = FLCANON(GenericWrap,ArgsOut,Mod,Callable,PredType)
+            )
+        ; is_flora_callable_literal(Term) ->
+	    %% Callable predicates can have a different type than
+	    %% PredType, which is determined merely by Wrap
+            ( get_canonical_form(Term,FLCANON(NW,NA,NM,NC,PredType1)) ->
+		(PredType == FL_TABLED_NEG
+		-> negate_wrapper(NW,RealNW),
+		    negate_predicate_type(PredType1,RealPredType),
+		    flrwrapper:negate_predicate(NC,RealNC)
+		; RealNW = NW, RealPredType = PredType1, RealNC = NC
+		),
+                Canon = FLCANON(RealNW,NA,NM,RealNC,RealPredType)
+            ;
+                flora_abort([Message,'transactional predicate expected'],
+			    FLORA_ABORT_NOTRACE)
+            )
+
+        ; Term = FLLIBMODLIT(_W,_A,_M,_C) ->
+            get_canonical_form(Term,Canon1),
+            Canon1 = FLCANON(NW,NA,NM,NC,PredType1),
+	    (PredType == FL_TABLED_NEG
+	    -> negate_wrapper(NW,RealNW),
+		negate_predicate_type(PredType1,RealPredType),
+		flrwrapper:negate_predicate(NC,RealNC)
+	    ; RealNW = NW, RealPredType = PredType1, RealNC = NC
+	    ),
+	    Canon = FLCANON(RealNW,NA,NM,RealNC,RealPredType),
+            ((PredType == PredType1 ; negate_predicate_type(PredType,PredType1))
+	    ->
+		( (Mod==FL_INVALIDMODULE ; nonvar(NM)) -> true
+		;
+		    NM=Mod
+		)
+            ;
+                flora_abort([Message,'transactional predicate expected'],
+			    FLORA_ABORT_NOTRACE)
+            )
+
+	; is_naf_literal(Term,PosTerm) ->
+	    get_canonical_form(PosTerm,FLCANON(PosWrap,Args,Mod,Callable,Type)),
+	    nafgate_wrapper(PosWrap,NafWrap),
+	    Canon = FLCANON(NafWrap,Args,Mod,Callable,Type)
+
+	; (Term = FL_NEG_Atm(TermArg) ; Term = WRAP_HILOG(FL_NEG_Atm,TermArg)), TermArg =.. [WRAP_HILOG|_] ->
+	    negate_libmod_wrapper(Wrap,NWrap),
+	    get_canonical_form(FLLIBMODLIT(NWrap,TermArg,Mod,_FWContext), Canon)
+
+        ; Term =.. [WRAP_HILOG|As] ->
+            append(As,[_],ArgsOut),
+	    ( var(Mod) -> 
+	        Canon = FLCANON(GenericWrap,ArgsOut,Mod,_,PredType)
+	    ; Mod=FL_INVALIDMODULE->
+	        Canon = FLCANON(GenericWrap,ArgsOut,Mod,_,FL_TERM)
+	    ;
+	        flora_module_predicate(BodyWrap,ArgsOut,Mod,Callable),
+	        Canon = FLCANON(GenericWrap,ArgsOut,Mod,Callable,PredType)
+            )
+        ).
+
+
+%% Case of nonvar@?Var
+get_canonical_form(FLLIBMODLIT(Wrap,Args,Mod,_FWContext), Canon) :-
+	!,
+        ( flora_is_transactional_wrapper(Wrap) ->  TableFlag = FL_NOTTABLED
+	; flora_is_neg_wrapper(Wrap) ->  TableFlag = FL_TABLED_NEG
+        ;
+            TableFlag = FL_TABLED
+        ),
+	flora_generalize_last(Args,ArgsOut),
+	flora_canonic_wrapper_symbol(Wrap,CanonWrap),
+	(var(Mod) -> 
+	    Canon = FLCANON(CanonWrap,ArgsOut,Mod,_,TableFlag)
+	;
+	    flora_module_predicate(Wrap,ArgsOut,Mod,Callable),
+	    Canon = FLCANON(CanonWrap,ArgsOut,Mod,Callable,TableFlag)
+	).
+
+get_canonical_form(Term, Canon) :-
+	is_naf_literal(Term,PosTerm),
+	!,
+	get_canonical_form(PosTerm,FLCANON(PosWrap,Args,Mod,Callable,Type)),
+	nafgate_wrapper(PosWrap,NafWrap),
+	Canon = FLCANON(NafWrap,Args,Mod,Callable,Type).
+
+get_canonical_form(Term, Canon) :-
+        is_nonvar_call(Term),
+	flora_decode_predicate(Term,Type,ModName,FullWrap,_WPref,PureWrap,ArgL),
+        ( (Type == (hilog) ; Type == flogic
+	  ; Type == neg_flogic ; Type == neg_hilog)
+	->
+	    flora_generalize_last(ArgL,ArgLout),
+	    flora_generalize_last(Term,CallableOut)
+        ;
+            ArgLout=ArgL,
+            CallableOut=Term
+        ),
+	flora_canonic_wrapper_symbol(FullWrap,CanonWrap),
+	( Type == (prolog) ->
+	    Canon = FLCANON(CanonWrap,ArgLout,ModName,CallableOut,FL_TERM)
+	; Type == (flora) ->
+	    Canon = FLCANON(CanonWrap,ArgLout,ModName,CallableOut,FL_MODULAR)
+	; ( (flora_is_transactional_wrapper(PureWrap) ; flora_is_transactional_wrapper(FullWrap))
+	  -> TableFlag = FL_NOTTABLED
+	  
+	  ; (Type == neg_hilog ; Type == neg_flogic)
+	  -> TableFlag=FL_TABLED_NEG
+	  
+	  ; TableFlag=FL_TABLED
+	  ),
+	  Canon = FLCANON(CanonWrap,ArgLout,ModName,CallableOut,TableFlag)
+	).
+
+
+
+/****************************************************************************
+**       convert_to_head_literal(+Body,-Head)
+** Converts body form of Flora predicates to their head form;
+** if already head then leaves intact.
+** Caches its result for faster processing
+****************************************************************************/
+convert_to_head_literal(Body,Head) :-
+	(var(Body) -> Head = Body
+	; flora_body_to_head_conversion_cache(Body,Head)
+	),
+	!.
+convert_to_head_literal(Body,Head) :-
+	flora_decode_predicate(Body,Type,ModuleName,_Wrap,_Prefix,WrapOrPred,ArgL),
+	( memberchk(Type, [flogic,(hilog),(flora)]) ->
+	    flora_module_predicate(WrapOrPred,ArgL,ModuleName,Head)
+	; memberchk(Type,[neg_flogic,neg_hilog,neg_flora]) ->
+	    flora_concat_atoms([FL_NEGPREFIX,WrapOrPred],NegMainWrapper),
+	    flora_module_predicate(NegMainWrapper,ArgL,ModuleName,Head)
+	;
+	    Head = Body
+	),
+	functor(Body,BodyF,Arity),
+	functor(Head,HeadF,_),
+	length(NewArgs,Arity),
+	HeadTempl =.. [HeadF|NewArgs],
+	BodyTempl =.. [BodyF|NewArgs],
+	asserta(flora_body_to_head_conversion_cache(BodyTempl,HeadTempl)).
+
+
+/****************************************************************************
+**       convert_to_body_literal(+Head,-Body)
+** Converts head form of Flora predicates to their body form;
+** if already head then leaves intact.
+** Caches its result for faster processing
+****************************************************************************/
+convert_to_body_literal(Head,Body) :-
+	var(Head),
+	!,
+	Body = Head.
+convert_to_body_literal(FLLIBMODLIT(Wrap,Args,Mod,_FWContext),FLLIBMODLIT(Wrap,Args,Mod,_NewFWContext)) :-
+	!.
+
+convert_to_body_literal(Head,Body) :-
+	flora_head_to_body_conversion_cache(Head,Body),
+	!.
+convert_to_body_literal(Head,Body) :-
+	flora_decode_predicate(Head,Type,ModuleName,_Wrap,_WPrefix,WrapOrPred,ArgL),
+	( (Type == flogic ; Type == (hilog)) ->
+	    flora_concat_atoms([FL_BodyPREFIX,WrapOrPred],BodyWrapper),
+	    flora_module_predicate(BodyWrapper,ArgL,ModuleName,Body)
+	; (Type == neg_flogic ; Type == neg_hilog) ->
+	    flora_concat_atoms([FL_NEGPREFIX,FL_BodyPREFIX,WrapOrPred],BodyWrapper),
+	    flora_module_predicate(BodyWrapper,ArgL,ModuleName,Body)
+	; Type == flora, atom(ModuleName) ->
+            adjust_for_modular_prolog(WrapOrPred,ArgL,ModuleName,RealArgL),
+	    flora_module_predicate(WrapOrPred,RealArgL,ModuleName,Body)
+	; Type == neg_flora, atom(ModuleName) ->
+	    flora_concat_atoms([FL_NEGPREFIX,WrapOrPred],BodyWrapper),
+	    flora_module_predicate(BodyWrapper,ArgL,ModuleName,Body)
+	;
+	    Body = Head
+	),
+	functor(Head,HeadF,Arity),
+	functor(Body,BodyF,_),
+	length(NewArgs,Arity),
+	HeadTempl =.. [HeadF|NewArgs],
+	BodyTempl =.. [BodyF|NewArgs],
+	asserta(flora_head_to_body_conversion_cache(HeadTempl,BodyTempl)).
+
+adjust_for_modular_prolog(WrapOrPred,InArg,Module,OutArg) :-
+        (length(InArg,Arity), Arity1 is Arity-1,
+            flrregistry:flora_modular_prolog_registry(WrapOrPred,Arity1,Module)
+        -> flora_trim_last(InArg,OutArg)
+        /*
+        ; flora_bind_last(InArg,Last), nonvar(Last), Last = FL_CONTEXT(_,_,_) ->
+            flora_trim_last(InArg,OutArg)
+        */
+        ; OutArg = InArg
+        ).
+
+
+/****************************************************************************
+**       convert_to_signature(+Molecule,+InheritanceMode,-Signature)
+** Converts Flora literals to signature molecules
+** if already a signature then leaves intact.
+** Caches its result for faster processing
+** If a literal doesn't have a signature then simply fails
+** InheritanceMode: if inheritable, then converts to inheritable signature;
+**                  noninheritable, to noninheritable signature
+****************************************************************************/
+convert_to_signature(Molecule,_InheritanceMode,Signature) :-
+	var(Molecule),
+	!,
+	Signature = Molecule.
+convert_to_signature(FLLIBMODLIT(Wrap,Args,Mod,_FWContext),InheritanceMode,FLLIBMODLIT(NewWrap,Args,Mod,_NewFWContext)) :-
+	to_signature_atom(Wrap,InheritanceMode,NewWrap),
+	!.
+
+convert_to_signature(Molecule,InheritanceMode,Signature) :-
+	flora_to_signature_conversion_cache(Molecule,InheritanceMode,Signature),
+	!.
+convert_to_signature(Molecule,InheritanceMode,Signature) :-
+	flora_decode_predicate(Molecule,_Type,ModuleName,_Wrap,WPrefix,WrapOrPred,ArgL),
+	to_signature_atom(WrapOrPred,InheritanceMode,SignatureWrapper),
+	flora_concat_atoms([WPrefix,SignatureWrapper],FullSignatureWrapper),
+	flora_module_predicate(FullSignatureWrapper,ArgL,ModuleName,Signature),
+	functor(Molecule,MoleculeF,Arity),
+	functor(Signature,SignatureF,_),
+	length(NewArgs,Arity),
+	MoleculeTempl =.. [MoleculeF|NewArgs],
+	SignatureTempl =.. [SignatureF|NewArgs],
+	asserta(flora_to_signature_conversion_cache(MoleculeTempl,InheritanceMode,SignatureTempl)).
+
+
+/****************************************************************************
+**       convert_to_value_atom(+Molecule,+InheritanceMode,-Signature)
+** Converts Flora literals to value atomic molecules
+** if already a value atom then leaves intact.
+** Caches its result for faster processing
+** If a literal doesn't have a corresponding value atom then simply fails
+** InheritanceMode: inheritable - convert to inheritable atom
+                    noninheritable - convert to noninheritable atom
+****************************************************************************/
+convert_to_value_atom(Signature,_InheritanceMode,Molecule) :-
+	var(Signature),
+	!,
+	Molecule = Signature.
+convert_to_value_atom(FLLIBMODLIT(Wrap,Args,Mod,_FWContext),InheritanceMode,FLLIBMODLIT(NewWrap,Args,Mod,_NewFWContext)) :-
+	to_value_atom(Wrap,InheritanceMode,NewWrap),
+	!.
+
+convert_to_value_atom(Signature,InheritanceMode,Molecule) :-
+	flora_to_signature_conversion_cache(Molecule,InheritanceMode,Signature),
+	!.
+convert_to_value_atom(Signature,InheritanceMode,Molecule) :-
+	flora_decode_predicate(Signature,_Type,ModuleName,_Wrap,WPrefix,WrapOrPred,ArgL),
+	to_value_atom(WrapOrPred,InheritanceMode,ValueWrapper),
+	flora_concat_atoms([WPrefix,ValueWrapper],FullValueWrapper),
+	flora_module_predicate(FullValueWrapper,ArgL,ModuleName,Molecule),
+	functor(Signature,SignatureF,Arity),
+	functor(Molecule,MoleculeF,_),
+	length(NewArgs,Arity),
+	SignatureTempl =.. [SignatureF|NewArgs],
+	MoleculeTempl =.. [MoleculeF|NewArgs],
+	asserta(flora_to_signature_conversion_cache(MoleculeTempl,InheritanceMode,SignatureTempl)).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+/***********************************************************************
+ flora_build_pred_signature(+Body,-BodySig)
+ translate into fllibmodlit canonical form
+************************************************************************/ 
+flora_build_pred_signature(B,B) :-
+        (atomic(B) ; var(B)),
+        !.
+
+flora_build_pred_signature((B1,B2),(NB1,NB2)) :-
+	!,
+	flora_build_pred_signature(B1,NB1),
+	flora_build_pred_signature(B2,NB2).
+
+flora_build_pred_signature((B1;B2),(NB1;NB2)) :-
+	!,
+	flora_build_pred_signature(B1,NB1),
+	flora_build_pred_signature(B2,NB2).
+
+flora_build_pred_signature(not(B),not(NB)) :-
+	!,
+	flora_build_pred_signature(B,NB).
+
+flora_build_pred_signature(tnot(B),tnot(NB)) :-
+	!,
+	flora_build_pred_signature(B,NB).
+
+flora_build_pred_signature(Body,NB) :-
+        is_list(Body),
+        !,
+        build_list(Body,NB).
+
+flora_build_pred_signature(FLSYSDBUPDATE(P,_Storage,_Module),PSig) :-
+        !,
+        flora_build_pred_signature(P,PSig).
+
+flora_build_pred_signature(Body,BodySig) :-
+        is_flora_callable_literal(Body),
+        !,
+        get_canonical_form(Body,BodySig).
+
+flora_build_pred_signature(FLLIBMODLIT(Wrap,Args,Mod,FWContext),BodySig) :-
+        !,
+        get_canonical_form(FLLIBMODLIT(Wrap,Args,Mod,FWContext),BodySig).
+
+flora_build_pred_signature(Body,NB) :-
+        Body =.. [Op|Args],
+        !,
+        build_list(Args,NArgs),
+        NB =.. [Op|NArgs].
+
+	
+build_list([],[]) :- !.
+build_list([H|L],[NH|NL]) :-
+	flora_build_pred_signature(H,NH),
+	build_list(L,NL).
+
+/***********************************************************************
+ flora_preprocess_headlist(+HeadList,-NewHeadList)
+ One element in the HeadList may actually correspond to a list of atoms,
+ for example, X ~ ${a[b->V1,c->V2]}, insertrule_a{X :- something}.
+ We have similar situation for deleterule and clause.
+ flora_preprocess_headlist expands such rule head to the corresponding list
+************************************************************************/ 
+flora_preprocess_headlist([],[]) :- !.
+
+flora_preprocess_headlist([H|L],[H|LList]) :-
+        var(H),
+        !,
+        flora_preprocess_headlist(L,LList).
+        
+flora_preprocess_headlist([FLLIBMODLIT(FL_LIBMOD,A1,MName,FWContext)|L],NewHeadList) :-
+        !,
+        (var(A1) ->
+            HList = [FLLIBMODLIT(FL_LIBMOD,A1,MName,FWContext)]
+        ; A1 = (First,Rest) ->
+            (First = FLLIBMODOBJ(_Ctxt,_FF,_FA,_FM,_FC,_FO) ->
+                First,
+                flora_preprocess_headlist([FLLIBMODLIT(FL_LIBMOD,Rest,MName,FWContext)],HList)
+            ;
+                flora_preprocess_headlist([FLLIBMODLIT(FL_LIBMOD,First,MName,FWContext)],HFList),
+                flora_preprocess_headlist([FLLIBMODLIT(FL_LIBMOD,Rest,MName,FWContext)],HRList),
+                append(HFList,HRList,HList)
+            )
+        ; HList = [FLLIBMODLIT(FL_LIBMOD,A1,MName,FWContext)]
+        ),
+        flora_preprocess_headlist(L,LList),
+        append(HList,LList,NewHeadList).
+
+flora_preprocess_headlist([H|L],[H|LList]) :-
+        flora_preprocess_headlist(L,LList).
+        
+
+/***********************************************************************
+ flora_record_rule_signature(+RuleId,+FileName,+DescriptorVarsTerm,
+                             +HeadPredPrefix,+Module,+RuleNum,+Head,+Body,
+			     +H2BSig,
+			     +PreBody,+PostBody,
+                             ?DefeatCond,+Rule)
+ Assert a rule signature.
+ The head is converted to the body format and stored.
+ This is so that after we retrieve a head using clause{...} we could
+ query it immediately and without conversion.
+ Downside: if we want to create a different rule with this head,
+ we would need to convert the head into the FLORA-2 head format.
+***********************************************************************/
+%% prolog rules' signatures are not recorded
+flora_record_rule_signature(_,_,_,_,_,_,Head,_,_,_,_,_,_) :-
+	flora_decode_predicate(Head,Type,_,_,_,_,_),
+	Type == (prolog),
+	!.
+flora_record_rule_signature(RuleId,FileName,DescriptorVarsTerm,HPrefix,Module,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond,Rule) :-
+	%% Head is stored in the body form so that it could be queried
+	%% via reification
+	convert_to_body_literal(Head,BHead),
+	bind_head_in_defeat_condition_with_copy(BHead,DefeatCond),
+        flora_generalize_last(BHead,GenBHead,LastArg),
+	%% make sure rule id of the rule is showing in the head in signature
+	LastArg = FL_CONTEXT(_,RuleId,_),
+        %%extract_vars_from_defeat_condition(DefeatCond,DescriptorVarsTerm),
+	catch(flora_assert(flora_rule_signature(RuleId,FileName,
+						DescriptorVarsTerm,
+						HPrefix,Module,RuleNum,
+						GenBHead,Body,
+						H2BSig,
+						PreBody,PostBody,
+						DefeatCond,Rule),
+			   CONSERVE_REGISTERS,
+			   INDEXED_ARG),
+	      _,
+	      (flora_decode_goal_as_atom(Head,HeadAtm),flora_warning_line('~nThe body of the rule with the head ~w is too large. This rule will be neither accessible with clause{...} nor used for defeasible reasoning. Try to split this rule into smaller pieces.~n',[HeadAtm]))
+	     ).
+
+
+/*******************************************************************************
+    flora_record_query_signature(+RuleId,+FileName,+Module,+RuleNum,+PreLatentQuery,+LatentQuery)
+    flora_delete_query_signature(?RuleId,?FileName,?Module,?LatentQuery)
+    matching_query_signature(+RuleId,+FileName,+Module,+Signature)
+    Record/show/delete signature for a latent query
+*******************************************************************************/
+flora_record_query_signature(RuleId,FileName,Module,RuleNum,PreLatentQuery,LatentQuery) :-
+	catch(flora_assert(flora_query_signature(RuleId,FileName,
+						 Module,RuleNum,
+						 PreLatentQuery,LatentQuery),
+			   CONSERVE_REGISTERS,
+			   INDEXED_ARG),
+	      _,
+	      flora_warning_line('~nThe latent query ~w is too large. You will not be able to invoke it. Try to split the query into smaller pieces.~n',[RuleId])
+	     ).
+
+flora_delete_query_signature(RuleId,FileName,Module,LatentQuery) :-
+	flora_query_signature(RuleId,FileName,Module,_,_,Body),
+	FLLIBUNIVEQFORM(LatentQuery,Body),
+	retract(flora_query_signature(RuleId,FileName,Module,_,_,Body)),
+	!.
+
+matching_query_signature(RuleId,FileName,Module,FLQUERYSIG(RuleId,FileName,Module,RuleNum,PreLatentQuery,LatentQuery)) :-
+	flora_query_signature(RuleId,FileName,Module,RuleNum,PreLatentQuery,LatentQuery).
+
+query_signature_member(id,Sig,Val) :- Sig = FLQUERYSIG(Val,_,_,_,_,_).
+query_signature_member(file,Sig,Val) :- Sig = FLQUERYSIG(_,Val,_,_,_,_).
+query_signature_member(module,Sig,Val) :- Sig = FLQUERYSIG(_,_,Val,_,_,_).
+query_signature_member(rulenumber,Sig,Val) :- Sig = FLQUERYSIG(_,_,_,Val,_,_).
+query_signature_member(h2bsig,_Sig,true).
+query_signature_member(prequery,Sig,Val) :- Sig = FLQUERYSIG(_,_,_,_,Val,_).
+query_signature_member(query,Sig,Val) :- Sig = FLQUERYSIG(_,_,_,_,_,Val).
+	
+
+/***********************************************************************
+ flora_retract_signatures(+RuleId,+FileName,+DescriptorVarsTerm,
+                          +HeadPredPrefix,+Module,+Head,+Body,
+                          +Rule)
+ retract matching signatures
+***********************************************************************/
+flora_retract_signatures(Id,FileName,DescriptorVarsTerm,HPrefix,Mod,[H|HL],Body,(RL1,RL2)) :-
+	!,
+        flora_retract_signatures(Id,FileName,DescriptorVarsTerm,HPrefix,Mod,H,Body,RL1),
+        flora_retract_signatures(Id,FileName,DescriptorVarsTerm,HPrefix,Mod,HL,Body,RL2).
+
+flora_retract_signatures(Id,FileName,DescriptorVarsTerm,HPrefix,Mod,Hd,Body,Rule) :-
+	convert_to_body_literal(Hd,BHd),
+        retract(flora_rule_signature(Id,FileName,DescriptorVarsTerm,HPrefix,Mod,_RN,BHd,Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,Rule)).
+
+/*******************************************************************************
+ flora_reset_rule_signature(+Module)
+ flora_reset_query_signature(+Module)
+ retract all rule signatures for the Module
+*******************************************************************************/
+flora_reset_rule_signature(Module) :-
+        retractall(flora_rule_signature(_RId,_FN,_VarsTerm,_WPrefix,Module,_RN,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rule)).
+
+flora_reset_query_signature(Module) :-
+        retractall(flora_query_signature(_RId,_FN,Module,_,_,_Query)).
+
+
+/*******************************************************************************
+ flora_bind_libmodobj(+RuleHeadList,-NewRuleHeadList)
+ If any of the heads in RuleHeadList are not in a predicate form yet (i.e., 
+ are FLLIBMODOBJ's) then call those FLLIBMODOBJ to get the callable predicates.
+ The heads that are already in callable form are not changed.
+
+ This predicate is used in flrdynrule.P when the rule being inserted was created
+ at run time.
+*******************************************************************************/
+flora_bind_libmodobj([],[]) :- !.
+flora_bind_libmodobj([H|_Tail],_NewList) :-
+        var(H),
+        !,
+        flora_abort('uninstantiated element in the rule list of insertrule{...}',
+		    FLORA_ABORT_NOTRACE).
+flora_bind_libmodobj([FLSYSRULEUPDATE(Id,FileN,DescrVarTerm,StmtNum,DescrMetaFacts,HeadList,Body,HVars,BVars,PreBody,PostBody,DefeatCond)|L],[FLSYSRULEUPDATE(Id,FileN,DescrVarTerm,StmtNum,DescrMetaFacts,NewHeadList,Body,HVars,BVars,PreBody,PostBody,DefeatCond)|NL]) :-
+        !,
+        flora_bind_libmodobj(HeadList,NewHeadList),
+        flora_bind_libmodobj(L,NL).
+                                                                                
+flora_bind_libmodobj([(R,L)|Rules],NewList) :-
+        !,
+        conjunct_to_list((R,L),RuleList),
+        flora_bind_libmodobj(RuleList,NRL),
+        flora_bind_libmodobj(Rules,NewRules),
+        append(NRL,NewRules,NewList).
+flora_bind_libmodobj([FLLIBMODOBJ(Ctxt,W,A,M,C,P)|L], [P|NL]) :-
+        !,
+        FLLIBMODOBJ(Ctxt,W,A,M,C,P),
+        ( P=FLLIBMODLIT(_,_,_,_) ->
+            flora_abort('uninstantiated predicate in an argument position in the rule head of insertrule{...}',
+			FLORA_ABORT_NOTRACE)
+        ;
+            flora_bind_libmodobj(L,NL)
+        ).
+                                                                                
+flora_bind_libmodobj([H|L], [H|NL]) :- flora_bind_libmodobj(L,NL).
+
+
+/***********************************************************************
+    bind_head_in_defeat_condition(+Head,?DefeatCond)
+    bind_head_in_defeat_condition_with_copy(+Head,?DefeatCond)
+
+    Bind the head-part in DefeatCond (which is a variable) to Head
+    and create a real defeasibility condition.
+
+    The _with_copy form first creates a copy of Head.
+
+    Note that DefeatCond has the form:
+    FL_UNDEFEATED(IdCode,VarsCode,HeadCode,ThisModule,FWContext)
+***********************************************************************/
+bind_head_in_defeat_condition(Head,DefeatCond) :-
+	(DefeatCond == true, !
+	;
+	    convert_to_body_literal(Head,BHead),
+	    extract_head_from_defeat_condition(DefeatCond,BHead)
+	).
+
+bind_head_in_defeat_condition_with_copy(Head,DefeatCond) :-
+	(DefeatCond == true, !
+	;
+	    %% We use copy-term so that the variables in Head and DefeatCond
+	    %% would be different. Otherwise, constant unifications with
+	    %% the rule signature have to take these vars into account,
+	    %% which slows things down by 25-30(!) percent.
+	    copy_term(Head,HeadCopy),
+	    extract_head_from_defeat_condition(DefeatCond,HeadCopy)
+	).
+
+
+%% This case is used if we wrap DefeatCond in the delay wrapper
+extract_head_from_defeat_condition(DelayLiteral,Head) :-
+	!,
+	arg(3,DelayLiteral,DefeatCondSansDelay),
+	%% If FL_UNDEFEATED(Id,FileName,VarsCode,Head,Module,FWContext) changes,
+	%% change the argument number below
+	arg(4,DefeatCondSansDelay,Head).
+
+/*
+extract_vars_from_defeat_condition(DelayLiteral,Vars) :-
+	!,
+	arg(3,DelayLiteral,DefeatCondSansDelay),
+	%% If FL_UNDEFEATED(Id,FileName,VarsCode,Head,Module,FWContext) changes,
+	%% change the argument number below
+	arg(3,DefeatCondSansDelay,Vars).
+*/
+
+
+/***********************************************************************
+  conjunct_to_list(+Conjunct, -List)
+************************************************************************/
+conjunct_to_list((A,B), [A|BL]) :-
+        !,
+        conjunct_to_list(B,BL).
+conjunct_to_list(A, [A]).
+
+
+/******************************************************************************
+  show_rule_signature(?Id,?FileN,?VarsTerm,?Prefix,?Module,-RuleNum,-Head,-Body,-H2BSig,-PreBody,-PostBody,-DefeatCond,-Rule)
+
+  show_rule_signature does not do head/body conversion,
+  so Head/Body can really be only output vars
+******************************************************************************/
+show_rule_signature(Id,FileName,VarsTerm,Prefix,Module,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond,Rule) :-
+	flora_generalize_last(Head,GHead),
+	flora_rule_signature(Id,FileName,VarsTerm,Prefix,Module,RuleNum,GHead,Body,H2BSig,PreBody,PostBody,DefeatCond,Rule).
+
+
+/* Some operations on Rule signatures */
+rule_signature_member(id,Sig,Id) :-
+	Sig = FLRULESIG(Id,_,_,_,_Module,_,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+rule_signature_member(file,Sig,FileName) :-
+	Sig = FLRULESIG(_Id,FileName,_,_,_Module,_,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+rule_signature_member(module,Sig,Module) :-
+	Sig = FLRULESIG(_Id,_,_,_,Module,_,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+rule_signature_member(rulenumber,Sig,RuleNum) :-
+	Sig = FLRULESIG(_Id,_,_,_,_Module,RuleNum,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+rule_signature_member(head,Sig,Head) :-
+	Sig = FLRULESIG(_Id,_,_,_,_Module,_,Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+rule_signature_member(body,Sig,Body) :-
+	Sig = FLRULESIG(_Id,_,_,_,_Module,_,_Head,Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+rule_signature_member(h2bsig,Sig,H2BSig) :-
+	Sig = FLRULESIG(_Id,_,_,_,_Module,_,_Head,_Body,H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+rule_signature_member(prebody,Sig,PreBody) :-
+	Sig = FLRULESIG(_Id,_,_,_,_Module,_,_Head,_Body,_H2BSig,PreBody,_PostBody,_DefeatCond,_Rules).
+rule_signature_member(postbody,Sig,PostBody) :-
+	Sig = FLRULESIG(_Id,_,_,_,_Module,_,_Head,_Body,_H2BSig,_PreBody,PostBody,_DefeatCond,_Rules).
+rule_signature_member(defeatcondition,Sig,DefeatCond) :-
+	Sig = FLRULESIG(_Id,_,_,_,_Module,_,_Head,_Body,_H2BSig,_PreBody,_PostBody,DefeatCond,_Rules).
+
+
+/***********************************************************************
+  show_rule_by_id(+Id,+FileName,+Mod,?Head,?Body)
+  show_rule_by_tag(+Tag,+Mod,?Head,?Body)
+  matching_rule_signature(?Id,?FileName,?DescrVarsTerm,?Prefix,?Head,?Body,-RuleSignature)
+
+  RuleSignature:
+     FLRULESIG(Id,FileName,VarsTerm,Prefix,Module,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCondition,Rule)
+
+  Rule:
+      This contains the 1-headed part of the split multiheaded rule.
+  NOTE: The Body returned is combined with H2BSig - as in clause{...}
+************************************************************************/
+show_rule_by_id(Id,FileName,Mod,Head,FullBody) :-
+        flora_generalize_last(Head,GHead),
+	matching_rule_signature(Id,FileName,_,_,GHead,Body,Signature),
+	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
+	-> RealMod = HeadMod
+	;
+	    RealMod = Mod
+	),
+	rule_signature_member(h2bsig,Signature,H2B),
+	rule_signature_member(module,Signature,RealMod),
+	conjunct_code([Body,H2B],FullBody).
+show_rule_by_tag(Tag,_Mod,Head,true) :-
+        %% for facts, just return true
+        var(Tag),
+        flrstorageutils:FL_ISBASEFACT(Head),
+        !.
+show_rule_by_tag(Tag,Mod,Head,Body) :-
+	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
+	-> RealMod = HeadMod
+	;
+	    RealMod = Mod
+	),
+	get_tag_descriptor_info_with_rulehead(Id,FileName,RealMod,Tag,Head,_),
+	show_rule_by_id(Id,FileName,RealMod,Head,Body).
+
+%% tabling this does not help much: < 10%
+%%:- table matching_rule_signature/7 as AUXILIARY_TABLING_TYPE.
+matching_rule_signature(Id,FileName,VarsTerm,Prefix,Head,Body,FLRULESIG(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,Head,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule)) :-
+        var(Head),
+        !,
+        flora_rule_signature(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,Head,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule),
+	FLLIBUNIVEQFORM(NewBody,Body).
+
+matching_rule_signature(Id,FileName,VarsTerm,Prefix,FLLIBMODLIT(A1,A2,A3,A4),Body,FLRULESIG(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,NewHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule)) :-
+        !,
+        flora_rule_signature(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,NewHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule),
+        FLLIBUNIVEQFORM(NewHead,FLLIBMODLIT(A1,A2,A3,A4)),
+	FLLIBUNIVEQFORM(NewBody,Body).
+
+matching_rule_signature(Id,FileName,VarsTerm,Prefix,[H|HL],Body,FLRULESIG(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,NewHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule)) :-
+	%% these two are here instead of in the rule head because FLRULESIG/13
+	%% is a gpp macro, and gpp seems to not understand [...] and (...) as
+	%% macro arguments
+	NewHead = [NewH,NewHL],
+	Rule = (RL1,RL2),
+        !,
+        matching_rule_signature(Id,FileName,VarsTerm,Prefix,H,Body,FLRULESIG(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,NewH,NewBody,H2BSig,PreBody,PostBody,DefeatCond,RL1)),
+        matching_rule_signature(Id,FileName,VarsTerm,Prefix,HL,Body,FLRULESIG(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,NewHL,NewBody,H2BSig,PreBody,PostBody,DefeatCond,RL2)).
+
+matching_rule_signature(Id,FileName,VarsTerm,Prefix,Head,Body,FLRULESIG(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,GHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule)) :-
+        convert_to_body_literal(Head,BHead),
+        flora_rule_signature(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,BHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule),
+        flora_generalize_last(BHead,GHead),
+	FLLIBUNIVEQFORM(NewBody,Body).
+
+/***********************************************************************
+  flora_is_nontabled_predicate(+Predicate)
+************************************************************************/
+flora_is_nontabled_predicate((First,Rest)) :-
+        !,
+        all_fllibmodobj(First),
+        get_canonical_form(Rest,FLCANON(_,_,_,_,FL_NOTTABLED)).
+flora_is_nontabled_predicate(Pred) :-
+        get_canonical_form(Pred,FLCANON(_,_,_,_,FL_NOTTABLED)).
+
+/***********************************************************************
+  flora_is_modular_prolog_predicate(+Predicate)
+************************************************************************/
+flora_is_modular_prolog_predicate((First,Rest)) :-
+        !,
+        all_fllibmodobj(First),
+        get_canonical_form(Rest,FLCANON(_,_,_,_,FL_MODULAR)).
+flora_is_modular_prolog_predicate(Pred) :-
+        get_canonical_form(Pred,FLCANON(_,_,_,_,FL_MODULAR)).
+
+/***********************************************************************
+  flora_is_tabled_predicate(+Predicate)
+  flora_is_tabled_neg_predicate(+Predicate)
+************************************************************************/
+flora_is_tabled_predicate((First,Rest)) :-
+        !,
+        all_fllibmodobj(First),
+        get_canonical_form(Rest,FLCANON(_,_,_,_,FL_TABLED)).
+flora_is_tabled_predicate(Pred) :-
+        get_canonical_form(Pred,FLCANON(_,_,_,_,FL_TABLED)).
+
+flora_is_tabled_neg_predicate((First,Rest)) :-
+        !,
+        all_fllibmodobj(First),
+        get_canonical_form(Rest,FLCANON(_,_,_,_,FL_TABLED_NEG)).
+flora_is_tabled_neg_predicate(Pred) :-
+        get_canonical_form(Pred,FLCANON(_,_,_,_,FL_TABLED_NEG)).
+
+/***********************************************************************
+  all_fllibmodobj(+Conjunct)
+  Conjunct is the conjunction of one or more FLLIBMODOBJ/6
+************************************************************************/
+all_fllibmodobj(FLLIBMODOBJ(_,_,_,_,_,_)) :- !.
+all_fllibmodobj((FLLIBMODOBJ(_,_,_,_,_,_),Rest)) :- 
+        all_fllibmodobj(Rest).
+        
+/***********************************************************************
+  flora_check_dynmod_type_consistency(+Predicate)
+  check whether ?X@M is bound to non-transactional predicate
+  and %?X@M to transactional predicate
+************************************************************************/
+%% Wrap is FL_LIBMOD, FL_NEGLIBMOD, FL_TRANSLIBMOD
+flora_check_dynmod_type_consistency(FLLIBMODLIT(_Wrap,Term,_Mod,_FWContext)) :-
+        var(Term),
+        !.
+
+flora_check_dynmod_type_consistency(FLLIBMODLIT(_Wrap,_Term,Mod,_FWContext)) :-
+        Mod==FL_INVALIDMODULE,
+        !.
+
+flora_check_dynmod_type_consistency(FLLIBMODLIT(_Wrap,[],_Mod,_FWContext)) :-
+        !.
+
+flora_check_dynmod_type_consistency(FLLIBMODLIT(_Wrap,FLLIBMODOBJ(_,_,_,_,_,_),_Mod,_FWContext)) :-
+        !.
+
+flora_check_dynmod_type_consistency(FLLIBMODLIT(Wrap,[H|L],Mod,FWContext)) :-
+	!,
+	flora_check_dynmod_type_consistency(FLLIBMODLIT(Wrap,H,Mod,FWContext)),
+	flora_check_dynmod_type_consistency(FLLIBMODLIT(Wrap,L,Mod,FWContext)).
+
+flora_check_dynmod_type_consistency(FLLIBMODLIT(Wrap,Term,Mod,FWContext)) :-
+        is_ws_distributive(Term,_Funct,Goals),
+        !,
+	flora_check_dynmod_type_consistency(FLLIBMODLIT(Wrap,Goals,Mod,FWContext)).
+
+flora_check_dynmod_type_consistency(FLLIBMODLIT(Wrap,Term,Mod,FWContext)) :-
+        is_caller_distributive(Term,_Funct,Goals),
+        !,
+	flora_check_dynmod_type_consistency(FLLIBMODLIT(Wrap,Goals,Mod,FWContext)).
+
+flora_check_dynmod_type_consistency(FLLIBMODLIT(Wrap,Term,Mod,FWContext)) :-
+        is_caller_distributive(Term,_Funct,Goals,_Args),
+        !,
+	flora_check_dynmod_type_consistency(FLLIBMODLIT(Wrap,Goals,Mod,FWContext)).
+
+flora_check_dynmod_type_consistency(FLLIBMODLIT(FL_LIBMOD,Term,_M,_C)) :-
+        (atomic(Term)
+	; Term =.. [WRAP_HILOG|_]
+	; Term =.. [FL_NEG,HTerm], (atom(HTerm) ; HTerm =.. [WRAP_HILOG|_])
+	; flora_is_tabled_predicate(Term)
+	; flora_is_tabled_neg_predicate(Term)
+	%% FL_LIBMOD corresponds to ?X, which can be bound both
+	%% to tabled and transactional preds
+	; flora_is_nontabled_predicate(Term)
+	%% and to modular prolog
+	; flora_is_modular_prolog_predicate(Term)
+	),
+        !.
+flora_check_dynmod_type_consistency(FLLIBMODLIT(FL_NEGLIBMOD,Term,_M,_C)) :-
+        (atom(Term)
+	; Term =.. [WRAP_HILOG|_]
+	; Term =.. [FL_NEG,HTerm], (atom(HTerm) ; HTerm =.. [WRAP_HILOG|_])
+	; flora_is_tabled_predicate(Term)
+	; flora_is_tabled_neg_predicate(Term)
+	),
+        !.
+flora_check_dynmod_type_consistency(FLLIBMODLIT(FL_TRANSLIBMOD,Term,_M,_C)) :-
+        (atom(Term)
+	; Term =.. [WRAP_HILOG|_]
+	; flora_is_nontabled_predicate(Term)
+	),
+        !.
+
+flora_check_dynmod_type_consistency(FLLIBMODLIT(_,Term,_M,_C)) :-
+	is_naf_literal(Term,_),
+	!.
+
+flora_check_dynmod_type_consistency(FLLIBMODLIT(_,Term,_M,_C)) :-
+	Term = FLLIBDELAYEDLITERAL(_,_,_,_),
+	!.
+
+/*
+%% maybe we don't need to check dynmod consistency at all???
+flora_check_dynmod_type_consistency(FLLIBMODLIT(FL_LIBMOD,Term,M,_C)) :-
+        !,
+	%% No good reason to issue errors, so we'll just fail here
+	fail,
+	flora_decode_goal_as_atom(Term,Printable),
+        flora_abort([Printable,'@',M, ': the idiom ?Variable@module requires that the variable is bound to a HiLog term or a non-transactional formula'],
+		    FLORA_ABORT_NOTRACE).
+flora_check_dynmod_type_consistency(FLLIBMODLIT(FL_NEGLIBMOD,Term,M,_C)) :-
+        !,
+	%% No good reason to issue errors, so we'll just fail here
+	fail,
+	flora_decode_goal_as_atom(Term,Printable),
+        flora_abort([Printable,'@',M, ': the idiom neg ?Variable@module requires that the variable is bound to a HiLog term or a non-transactional formula'],
+		    FLORA_ABORT_NOTRACE).
+*/
+flora_check_dynmod_type_consistency(FLLIBMODLIT(FL_TRANSLIBMOD,Term,M,_C)) :-
+        !,
+	%% No good reason to issue errors, so we'll just fail here
+	fail,
+	flora_decode_goal_as_atom(Term,Printable),
+        flora_abort([Printable,'@',M, ': the idiom %?Variable@module requires that the variable is bound to a HiLog term or a transactional formula'],
+		    FLORA_ABORT_NOTRACE).
+
+%% catchall case
+flora_check_dynmod_type_consistency(_Arg).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+is_ws_distributive((B1,B2),FL_AND_CONNECTIVE,[B1,B2]) :- !.
+is_ws_distributive((B1;B2),FL_OR_CONNECTIVE,[B1,B2]) :- !.
+
+%% is_caller_distributive/3
+%% do not distribute caller to the Line and File arguments of control constructs
+is_caller_distributive(FLLIBIFTHENELSE(Cond,Then,Else,_Line,_File), FLLIBIFTHENELSE, [Cond,Then,Else]) :- !.
+is_caller_distributive(FLLIBIFTHEN(Cond,Then,_Line,_File), FLLIBIFTHEN, [Cond,Then]) :- !.
+is_caller_distributive(FLLIBUNLESSDO(Cond,Action,_Line,_File), FLLIBUNLESSDO, [Cond,Action]) :- !.
+is_caller_distributive(FLLIBWHILEDO(Cond,Action,_Line,_File), FLLIBWHILEDO, [Cond,Action]) :- !.
+is_caller_distributive(FLLIBDOUNTIL(Cond,Action,_Line,_File), FLLIBDOUNTIL, [Cond,Action]) :- !.
+is_caller_distributive(FLLIBWHILELOOP(Cond,Action,_Line,_File), FLLIBWHILELOOP, [Cond,Action]) :- !.
+is_caller_distributive(FLLIBLOOPUNTIL(Cond,Action,_Line,_File), FLLIBLOOPUNTIL, [Cond,Action]) :- !.
+
+is_caller_distributive(call(Cond), call, [Cond]) :- !.
+%% do not distribute caller to the Line and File arguments of negation
+is_caller_distributive(FLORA_NAF_PREDICATE(Cond,_FreeVars,_Line,_File), FLORA_NAF_PREDICATE, [Cond]) :- !.
+is_caller_distributive(FLORA_NAF_PREDICATE(Cond), FLORA_NAF_PREDICATE, [Cond]) :- !.
+is_caller_distributive(not(Cond), not, [Cond]) :- !.
+is_caller_distributive('\+'(Cond), '\+', [Cond]) :- !.
+
+%% is_caller_distributive/4
+%% distr control where not every argument is a goal - primarily aggregates
+%% Here caller info is distributed only into the goal
+is_caller_distributive(FLLIBCOLLECTSET(Var,VarList,Goal,Set),
+                       FLLIBCOLLECTSET, [Goal], [Var,VarList, Set]) :- !.
+is_caller_distributive(FLLIBCOLLECTBAG(Var,VarList,Goal,Set),
+                       FLLIBCOLLECTBAG, [Goal], [Var,VarList, Set]) :- !.
+is_caller_distributive(FLLIBAVG(Var,VarList,Goal,Set),
+                       FLLIBAVG, [Goal], [Var,VarList, Set]) :- !.
+is_caller_distributive(FLLIBCOUNT(Var,VarList,Goal,Set),
+                       FLLIBCOUNT, [Goal], [Var,VarList, Set]) :- !.
+is_caller_distributive(FLLIBMAX(Var,VarList,Goal,Set),
+                       FLLIBMAX, [Goal], [Var,VarList, Set]) :- !.
+is_caller_distributive(FLLIBMIN(Var,VarList,Goal,Set),
+                       FLLIBMIN, [Goal], [Var,VarList, Set]) :- !.
+is_caller_distributive(FLLIBSUM(Var,VarList,Goal,Set),
+                       FLLIBSUM, [Goal], [Var,VarList, Set]) :- !.
+is_caller_distributive(findall(Var,Goal,Set), findall, [Goal], [Var,Set]) :- !.
+is_caller_distributive(get_residual(Goal,Set), get_residual, [Goal], [Set]) :- !.
+
+is_caller_distributive(FLLIBTRUTHVALUE(TruthValType,Goal),
+                       FLLIBTRUTHVALUE, [Goal], [TruthValType]) :- !.
+
+
+%% Wrapper conversion rules for body wrappers
+
+to_signature_atom(WRAP_MVDSIG,noninheritable,WRAP_MVDSIG) :- !.
+to_signature_atom(WRAP_IMVDSIG,noninheritable,WRAP_MVDSIG) :- !.
+to_signature_atom(WRAP_MVD,noninheritable,WRAP_MVDSIG) :- !.
+to_signature_atom(WRAP_IMVD,noninheritable,WRAP_MVDSIG) :- !.
+to_signature_atom(WRAP_MVDSIG,inheritable,WRAP_IMVDSIG) :- !.
+to_signature_atom(WRAP_IMVDSIG,inheritable,WRAP_IMVDSIG) :- !.
+to_signature_atom(WRAP_MVD,inheritable,WRAP_IMVDSIG) :- !.
+to_signature_atom(WRAP_IMVD,inheritable,WRAP_IMVDSIG) :- !.
+
+to_signature_atom(WRAP_BOOLSIG,noninheritable,WRAP_BOOLSIG) :- !.
+to_signature_atom(WRAP_IBOOLSIG,noninheritable,WRAP_BOOLSIG) :- !.
+to_signature_atom(WRAP_METH,noninheritable,WRAP_BOOLSIG) :- !.
+to_signature_atom(WRAP_IMETH,noninheritable,WRAP_BOOLSIG) :- !.
+to_signature_atom(WRAP_BOOLSIG,inheritable,WRAP_IBOOLSIG) :- !.
+to_signature_atom(WRAP_IBOOLSIG,inheritable,WRAP_IBOOLSIG) :- !.
+to_signature_atom(WRAP_METH,inheritable,WRAP_IBOOLSIG) :- !.
+to_signature_atom(WRAP_IMETH,inheritable,WRAP_IBOOLSIG) :- !.
+
+to_signature_atom(WRAP_TRANSIG,noninheritable,WRAP_TRANSIG) :- !.
+to_signature_atom(WRAP_ITRANSIG,noninheritable,WRAP_TRANSIG) :- !.
+to_signature_atom(WRAP_TRAN,noninheritable,WRAP_TRANSIG) :- !.
+to_signature_atom(WRAP_TRANSIG,inheritable,WRAP_ITRANSIG) :- !.
+to_signature_atom(WRAP_ITRANSIG,inheritable,WRAP_ITRANSIG) :- !.
+to_signature_atom(WRAP_TRAN,inheritable,WRAP_ITRANSIG) :- !.
+
+to_value_atom(WRAP_IMVD,noninheritable,WRAP_MVD) :- !.
+to_value_atom(WRAP_MVD,noninheritable,WRAP_MVD) :- !.
+to_value_atom(WRAP_IMVDSIG,noninheritable,WRAP_MVD) :- !.
+to_value_atom(WRAP_MVDSIG,noninheritable,WRAP_MVD) :- !.
+to_value_atom(WRAP_IMVD,inheritable,WRAP_IMVD) :- !.
+to_value_atom(WRAP_MVD,inheritable,WRAP_IMVD) :- !.
+to_value_atom(WRAP_IMVDSIG,inheritable,WRAP_IMVD) :- !.
+to_value_atom(WRAP_MVDSIG,inheritable,WRAP_IMVD) :- !.
+
+to_value_atom(WRAP_IMETH,noninheritable,WRAP_METH) :- !.
+to_value_atom(WRAP_METH,noninheritable,WRAP_METH) :- !.
+to_value_atom(WRAP_IBOOLSIG,noninheritable,WRAP_METH) :- !.
+to_value_atom(WRAP_BOOLSIG,noninheritable,WRAP_METH) :- !.
+to_value_atom(WRAP_IMETH,inheritable,WRAP_IMETH) :- !.
+to_value_atom(WRAP_METH,inheritable,WRAP_IMETH) :- !.
+to_value_atom(WRAP_IBOOLSIG,inheritable,WRAP_IMETH) :- !.
+to_value_atom(WRAP_BOOLSIG,inheritable,WRAP_IMETH) :- !.
+
+to_value_atom(WRAP_TRAN,noninheritable,WRAP_TRAN) :- !.
+to_value_atom(WRAP_ITRANSIG,noninheritable,WRAP_TRAN) :- !.
+to_value_atom(WRAP_TRANSIG,noninheritable,WRAP_TRAN) :- !.
+
+
+negate_predicate_type(FL_TABLED,FL_TABLED_NEG).
+negate_predicate_type(FL_TABLED_NEG,FL_TABLED).
+negate_predicate_type(FL_NOTTABLED,FL_NOTTABLED).
+
+nafgate_wrapper(X,naf(X)) :- var(X), !.
+nafgate_wrapper(naf(X),X) :- !.
+nafgate_wrapper(X,naf(X)) :- !.
+	
+negate_libmod_wrapper(FL_LIBMOD,FL_NEGLIBMOD).
+negate_libmod_wrapper(FL_NEGLIBMOD,FL_LIBMOD).
+
+flora_assert(X,Y,Z) :- assert(X,Y,Z).
+
+is_naf_literal(FLLIBNAFDELAY(Lit),PosLit) :-
+	nonvar(Lit),
+	!,
+	is_naf_literal(Lit,PosLit).
+is_naf_literal(FLLIBMODLIT(Wrap,NegLit,Mod,FWContext),
+	       FLLIBMODLIT(Wrap,PosLit,Mod,FWContext)) :-
+	nonvar(NegLit),
+	NegLit = WRAP_HILOG(FL_RULELOGNAF,PosLit),
+	!.
+is_naf_literal(FLLIBMODLIT(_Wrap,NegLit,_Mod,_FWContext), PosLit) :-
+	nonvar(NegLit),
+	is_naf_literal(NegLit,PosLit),
+	!.
+is_naf_literal(NegLit,PosLit) :-
+	nonvar(NegLit),
+	functor(NegLit,FLORA_NAF_PREDICATE,FLORA_NAF_PRED_ARITY), %% arity=4
+	arg(1,NegLit,PrePosLit),
+	flora_unwrap_negation(PrePosLit,PosLit_pre),
+	strip_delay_checker(PosLit_pre,PosLit).
+
+is_naf_literal(Lit) :- is_naf_literal(Lit,_).
+
+is_nonvar_call(Mod:_Call) :- var(Mod), !, fail.
+is_nonvar_call(_Call).

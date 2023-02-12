@@ -1,0 +1,127 @@
+
+// Facts
+test(Fact1), \neg \neg \neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; forall(?X)^pppppp(?X)).
+test(Fact2), \neg \neg \neg (aaaaa,obj[ppp,?X,?Y] ; pppppp).
+test(Fact3), \neg \neg \neg (aaaaa;obj[ppp;?X;?Y] ; pppppp).
+test(Fact4), \neg \neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; forall(?X)^pppppp(?X)).
+test(Fact5), \neg \neg (exist(?X,?Y)^(\neg (aaaaa;obj[ppp,?X,?Y])) ; forall(?X)^pppppp(?X)).
+test(Fact6), \neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; forall(?X)^pppppp(?X)).
+test(Fact7), \neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; \neg forall(?X)^pppppp(?X)).
+test(Fact8), \neg (exist(?X,?Y)^(aaaaa,\neg obj[ppp,?X,?Y]) ; \neg forall(?X)^pppppp(?X)).
+test(Fact9), \neg exist(?X,?Y)^obj(ppp,?X,?Y).
+test(Fact10), \neg forall(?X,?Y)^obj[p].
+test(Fact12), \neg forall(?X,?Y)^obj[p,q->kkk;r].
+test(Fact13), \neg forall(?X,?Y)^obj[p,\neg q->kkk;r].
+test(Fact14), \neg obj[p->kkk,q;r].
+test(Fact15), \neg ((pp,p);(qq,q), \neg (r;rr)).
+test(Fact16), \neg ((pp;p);(qq;q); \neg (r,rr)).
+test(Fact17), \neg \neg ((pp,p);(qq,q), \neg (r;rr)).
+
+// L-T out of the above facts
+?- test(LT1), \neg \neg \neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; forall(?X)^pppppp(?X)).
+?- test(LT2), \neg \neg \neg (aaaaa,obj[ppp,?X,?Y] ; pppppp). // check compiler propagation
+?- test(LT3), \neg \neg \neg (aaaaa;obj[ppp;?X;?Y] ; pppppp). // check compiler propagation
+?- test(LT4), \neg \neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; forall(?X)^pppppp(?X)).
+?- test(LT5), \neg \neg (exist(?X,?Y)^(\neg (aaaaa;obj[ppp,?X,?Y])) ; forall(?X)^pppppp(?X)). // check compiler propagation
+?- test(LT6), \neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; forall(?X)^pppppp(?X)).
+?- test(LT7), \neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; \neg forall(?X)^pppppp(?X)). // check compiler propagation
+?- test(LT8), \neg (exist(?X,?Y)^(aaaaa,\neg obj[ppp,?X,?Y]) ; \neg forall(?X)^pppppp(?X)).
+?- test(LT9), \neg exist(?X,?Y)^obj(ppp,?X,?Y).
+?- test(LT10), \neg forall(?X,?Y)^obj[p].
+?- test(LT12), \neg forall(?X,?Y)^obj[p,q->kkk;r]. // check compiler propagation
+?- test(LT13), \neg forall(?X,?Y)^obj[p,\neg q->kkk;r]. // check compiler propagation
+?- test(LT14), \neg obj[p->kkk,q;r]. // check compiler propagation
+?- test(LT15), \neg ((pp,p);(qq,q), \neg (r;rr)).
+?- test(LT16), \neg ((pp;p);(qq;q); \neg (r,rr)).
+?- test(LT17), \neg \neg ((pp,p);(qq,q), \neg (r;rr)).
+
+
+
+//============================= dynamic
+?- test(insert1), insert{obj(p);obj(r)}.
+?- test(insert2), insertrule{obj(p);obj(r) :- \true}.
+?- test(insert3), insert{ \neg (obj(p);obj(r)) :- \true}.
+?- test(insert4), insertrule{ \neg (obj(p);obj(r)) :- \true}.
+?- test(insert5), insertrule{ \neg (obj(p),obj(r)) :- \true}.
+?- test(insert6), insert{a[\neg (p,q)]}.
+?- test(insert7), insert{a[\neg (p;q)]}.
+?- test(insert8), insert{a[\neg \neg (p,q)]}.
+?- test(insert9), insert{\neg obj[p->kkk,q;r]}.
+?- test(insert10), insertrule{\neg obj[p->kkk,q;r] :- \true}.
+?- test(insert11), insertrule{\neg obj[p->kkk,q,r] :- \true}.
+?- test(insert12), insertrule{\neg obj[p->kkk;q;r] :- \true}.
+?- test(insert13), insert{\neg obj[p->kkk;q;r] :- \true}.
+?- test(insert14), insertrule{obj[p->kkk,q;r] :- \true}.
+?- test(insert15), insert{\neg forall(?X,?Y)^obj[p,q->kkk;r]}.
+?- test(insert16), insertrule{\neg forall(?X,?Y)^obj[p,q->kkk;r] :- \true}.
+?- test(insert17), insert{\neg exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; \neg forall(?X)^pppppp}.
+?- test(insert18), insert{\neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; \neg forall(?X)^pppppp)}.
+?- test(insert19), insertrule{\neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; \neg forall(?X)^pppppp) :- \true}.
+?- test(insert20), insert{\neg(a,b)}.
+?- test(insert21), insert{\neg p({ac,bc})}.
+?- test(insert22), insertrule{\neg p234({ac,bc}) :- abc}.
+?- test(insert23), insertrule{p123[{ac,bc}->1] :- abc}.
+?- test(insert24), insert{p234({ac,bc})}.
+?- test(insert25), insertrule{p123[\neg {ac,bc}->1] :- abc}.
+
+// Rules
+test(Rule1).
+\neg \neg \neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; forall(?X)^pppppp) :- \true.
+test(Rule2).
+\neg \neg \neg (aaaaa,obj[ppp,?X,?Y] ; pppppp) :- \true.
+test(Rule3).
+\neg \neg \neg (aaaaa; pppppp) :- \true.
+test(Rule4).
+\neg \neg \neg (obj[ppp;?X;?Y] ; pppppp) :- \true.
+test(Rule5).
+\neg \neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; forall(?X)^pppppp) :- \true.
+test(Rule6).
+\neg \neg (exist(?X,?Y)^(\neg (aaaaa;obj[ppp,?X,?Y])) ; forall(?X)^pppppp) :- \true.
+test(Rule7).
+\neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; forall(?X)^pppppp) :- \true.
+test(Rule8).
+\neg (exist(?X,?Y)^(aaaaa,obj[ppp,?X,?Y]) ; \neg forall(?X)^pppppp) :- \true.
+test(Rule9).
+\neg (exist(?X,?Y)^(aaaaa,\neg obj[ppp,?X,?Y]) ; \neg forall(?X)^pppppp) :- \true.
+test(Rule10).
+\neg exist(?X,?Y)^obj(ppp,?X,?Y) :- \true.
+test(Rule11).
+\neg forall(?X)^obj[p(?X)] :- \true.
+test(Rule12).
+\neg forall(?X,?Y)^obj[p(?X),q->kkk(?Y);r] :- \true.
+test(Rule13).
+\neg obj[p->kkk,q;r] :- \true.
+test(Rule14).
+\neg obj[\neg (p->kkk,q);r] :- \true.
+test(Rule15).
+\neg ((pp,p);(qq,q), \neg (r;rr)) :- \true.
+test(Rule16).
+\neg \neg ((pp,p);(qq,q), \neg (r;rr)) :- \true.
+
+// nested frames
+test(NestedFrame_fact1), \neg a[b;c->u[d->dd;e]].
+test(NestedFrame_fact2), \neg a[b;c->u[|d->dd,e=>ee|]].
+test(NestedFrame_fact3), \neg a[b;c->u[|d;e->ee|]] :- \true.
+test(NestedFrame_fact4), \neg a[b;c->u[|d=>dd,e|]] :- \true.
+test(NestedFrame_fact5), \neg a:bb[ppp->kkkk][u[d->y]->p,mm].
+test(NestedFrame_fact6), \neg a:bb[ppp->kkkk][u[d:dd->y]->p::pp,mm,nnn::nnnn].
+test(NestedFrame_fact7), \neg a[u[f->k][d->y]].
+test(NestedFrame_fact8), \neg a:bb[ppp=>kkkk][u[d:dd=>y]->p::pp,mm,nnn::nnnn].
+test(NestedFrame_fact9), \neg a[u[f=>k][d=>y]].
+test(NestedFrame_fact10), \neg a[c[pp:ppp]->u[|d->y;e=>x|]].
+// NOTE: TNF does not go through set args!
+test(NestedFrame_fact11), a[|b:dd=>{x,y}|].
+test(NestedFrame_fact12), \neg a[|b:dd=>{x,y}|].
+
+test(NestedFrame_fact13), a[%bb:dd[%cc]]. // should be error in ergo also
+test(NestedFrame_fact14), a[%bb[cc]].     // should be error in ergo also
+test(NestedFrame_fact15), \neg a[=>%bb:dd[|=>%cc|]].
+test(NestedFrame_fact16), \neg a[|=>bb:dd[=>cc]|].
+test(NestedFrame_fact17), \neg a[=>bb:dd[|=>cc|]].
+
+?- test(NestedFrame_insert1), insert{\neg a[b;c->u[|d=>dd;e->ee|]]}.
+?- test(NestedFrame_insert2), insert{\neg a[b;c->u[d,e]]}.
+?- test(NestedFrame_insert3), insertrule{\neg a[b;c->u[d;e->tt[ww,bb=>nn]]]:- \true}.
+?- test(NestedFrame_insert4), insertrule{\neg a[b;c->u[d,e]]:- \true}.
+?- test(NestedFrame_LT1), \neg a[b;c->u[d;e]]. // comment
+?- test(NestedFrame_LT2), \neg a[b;c->u[d,e]]. // comment

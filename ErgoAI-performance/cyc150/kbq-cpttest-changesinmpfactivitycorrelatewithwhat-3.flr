@@ -1,0 +1,105 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-ChangesInMPFActivityCorrelateWithWhat (query 3)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28derived_from.29_Biology_Chapter_12
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlPreds, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlPreds('functionCorrespondingPredicate-Canonical', functionCorrespondingPredicate)).
+istAsserted(UniversalVocabularyMt, genlPreds('functionCorrespondingPredicate-Canonical', functionCorrespondsToPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, 'functionCorrespondingPredicate-Canonical'(IncreaseOnSlotFn, increaseEventTypeForSlot, 1)).
+istAsserted(BaseKB, termOfUnit(IncreaseOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt)), IncreaseOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt)))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, 'functionCorrespondingPredicate-Canonical'(ChangeOnSlotFn, quantityChangeTypeForSlot, 1)).
+istAsserted(UniversalVocabularyMt, genlPreds('causes-SubSitTypeSubSitType-Unique', 'causes-SubSitTypeSubSitType')).
+istAsserted(BaseKB, termOfUnit(ChangeOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt)), ChangeOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt)))).
+istAsserted(BaseKB, genls(MPFActivityRisingToG2CheckpointTriggeringLevel, IncreaseOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt)))).
+istAsserted(UniversalVocabularyMt, genlPreds('causes-SubSitTypeSubSitType', correlatedSubSituationTypes)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Implicit Background Rules
+forwardSentence(?PRED(?TOU, ?ARG)) :- naf impPred(?PRED), removalSentence(functionCorrespondingPredicate(?FUNC, ?PRED, 1)), removalSentence(termOfUnit(?TOU, ?FUNC(?ARG))).
+forwardSentence(?PRED(?TOU, ?ARG)) :- naf impPred(?PRED), removalSentence(functionCorrespondsToPredicate(?FUNC, ?PRED, 1)), removalSentence(termOfUnit(?TOU, ?FUNC(?ARG))).
+forwardSentence(genls(?INCREASE, ?CHANGE)) :- removalSentence(quantityChangeTypeForSlot(?CHANGE, ?SLOT)), removalSentence(increaseEventTypeForSlot(?INCREASE, ?SLOT)).
+
+// Explicit Background Facts
+istAsserted(MolecularBiologyMt, 'causes-SubSitTypeSubSitType-Unique'(EukaryoticCellCycle, MPFActivityRisingToG2CheckpointTriggeringLevel, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, PhosphorylatingAChemicalObjectOfTypeFn(SubcollectionOfWithRelationFromTypeFn(ProteinMolecule, properPhysicalParts, NuclearLamina))))).
+istAsserted(MolecularBiologyMt, 'causes-SubSitTypeSubSitType-Unique'(EukaryoticCellCycle, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, PhosphorylatingAChemicalObjectOfTypeFn(SubcollectionOfWithRelationFromTypeFn(ProteinMolecule, properPhysicalParts, NuclearLamina))), DissolutionOfNuclearEnvelope)).
+
+// Explicit Background Rules
+backwardSentence('causes-SubSitTypeSubSitType-Unique'(?SIT, ?X, ?Z)) :- mtVisible(BaseKB), naf backchainForbidden('causes-SubSitTypeSubSitType-Unique'), 'causes-SubSitTypeSubSitType-Unique'(?SIT, ?X, ?Y), 'causes-SubSitTypeSubSitType-Unique'(?SIT, ?Y, ?Z).
+backwardSentence(not('causes-SubSitTypeSubSitType-Unique'(?SIT, ?X, ?Y))) :- mtVisible(BaseKB), naf backchainForbidden('causes-SubSitTypeSubSitType-Unique'), 'causes-SubSitTypeSubSitType-Unique'(?SIT, ?Y, ?Z), not('causes-SubSitTypeSubSitType-Unique'(?SIT, ?X, ?Z)).
+backwardSentence(not('causes-SubSitTypeSubSitType-Unique'(?SIT, ?Y, ?Z))) :- mtVisible(BaseKB), naf backchainForbidden('causes-SubSitTypeSubSitType-Unique'), 'causes-SubSitTypeSubSitType-Unique'(?SIT, ?X, ?Y), not('causes-SubSitTypeSubSitType-Unique'(?SIT, ?X, ?Z)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-ChangesInMPFActivityCorrelateWithWhat 3').
+%pretest :- correlatedSubSituationTypes(EukaryoticCellCycle, ?X, DissolutionOfNuclearEnvelope), genls(?X, ChangeOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt))), %write_results('SUCCESS  : $CPTTest-ChangesInMPFActivityCorrelateWithWhat 3').
+
+// Debugging
+proof(2529, 0) :- 'causes-SubSitTypeSubSitType-Unique'(EukaryoticCellCycle, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, PhosphorylatingAChemicalObjectOfTypeFn(SubcollectionOfWithRelationFromTypeFn(ProteinMolecule, properPhysicalParts, NuclearLamina))), DissolutionOfNuclearEnvelope).
+proof(2529, 1) :- 'causes-SubSitTypeSubSitType-Unique'(EukaryoticCellCycle, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, PhosphorylatingAChemicalObjectOfTypeFn(SubcollectionOfWithRelationFromTypeFn(ProteinMolecule, properPhysicalParts, NuclearLamina))), DissolutionOfNuclearEnvelope).
+proof(2529, 2) :- 'causes-SubSitTypeSubSitType-Unique'(EukaryoticCellCycle, MPFActivityRisingToG2CheckpointTriggeringLevel, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, PhosphorylatingAChemicalObjectOfTypeFn(SubcollectionOfWithRelationFromTypeFn(ProteinMolecule, properPhysicalParts, NuclearLamina)))).
+proof(2529, 3) :- 'causes-SubSitTypeSubSitType-Unique'(EukaryoticCellCycle, MPFActivityRisingToG2CheckpointTriggeringLevel, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, PhosphorylatingAChemicalObjectOfTypeFn(SubcollectionOfWithRelationFromTypeFn(ProteinMolecule, properPhysicalParts, NuclearLamina)))).
+proof(2529, 4) :- 'causes-SubSitTypeSubSitType-Unique'(EukaryoticCellCycle, MPFActivityRisingToG2CheckpointTriggeringLevel, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, PhosphorylatingAChemicalObjectOfTypeFn(SubcollectionOfWithRelationFromTypeFn(ProteinMolecule, properPhysicalParts, NuclearLamina)))).
+proof(2529, 5) :- 'causes-SubSitTypeSubSitType-Unique'(EukaryoticCellCycle, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, PhosphorylatingAChemicalObjectOfTypeFn(SubcollectionOfWithRelationFromTypeFn(ProteinMolecule, properPhysicalParts, NuclearLamina))), DissolutionOfNuclearEnvelope), 'causes-SubSitTypeSubSitType-Unique'(EukaryoticCellCycle, MPFActivityRisingToG2CheckpointTriggeringLevel, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, PhosphorylatingAChemicalObjectOfTypeFn(SubcollectionOfWithRelationFromTypeFn(ProteinMolecule, properPhysicalParts, NuclearLamina)))).
+proof(2529, 6) :- correlatedSubSituationTypes(EukaryoticCellCycle, MPFActivityRisingToG2CheckpointTriggeringLevel, DissolutionOfNuclearEnvelope).
+proof(2529, 7) :- genls(MPFActivityRisingToG2CheckpointTriggeringLevel, ChangeOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt))).
+proof(2529, 8) :- genls(MPFActivityRisingToG2CheckpointTriggeringLevel, ChangeOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt))).
+proof(2529, 9) :- genls(MPFActivityRisingToG2CheckpointTriggeringLevel, ChangeOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt))), correlatedSubSituationTypes(EukaryoticCellCycle, MPFActivityRisingToG2CheckpointTriggeringLevel, DissolutionOfNuclearEnvelope).
+
+proof(2529, 1000) :- increaseEventTypeForSlot(IncreaseOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt)), QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt)).
+proof(2529, 1001) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(2529, 1002) :- quantityChangeTypeForSlot(ChangeOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt)), QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt)).
+proof(2529, 1003) :- genls(IncreaseOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt)), ChangeOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt))).
+
+proof(2529, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(2529, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(2529, 2002) :- admittedArgument(SecondFn(52, MinuteFn(9, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(2529, 2003) :- admittedArgument(SecondFn(52, MinuteFn(9, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(2529, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(2529, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(2529, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MolecularBiologyMt).
+proof(2529, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(2529, 2008) :- genlPreds('functionCorrespondingPredicate-Canonical', functionCorrespondsToPredicate).
+proof(2529, 2009) :- genlPreds('functionCorrespondingPredicate-Canonical', functionCorrespondingPredicate).
+proof(2529, 2010) :- genlPreds('causes-SubSitTypeSubSitType-Unique', correlatedSubSituationTypes).
+proof(2529, 2011) :- genls(MPFActivityRisingToG2CheckpointTriggeringLevel, ChangeOnSlotFn(QuantitySlotForArg2Fn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF)), amountPresentAt))). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

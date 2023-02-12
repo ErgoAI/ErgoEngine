@@ -1,0 +1,72 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-SteroidHormonesCanEnterACellBySimpleDiffusionSoWhatFollows (query 1)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_Biology_Chapter_11_Online_Quiz.2C_Question_7
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(BaseKB, genls(LipidSolubleSignalingMolecule, ExtracellularSignalingChemicalObject)).
+istAsserted(UniversalVocabularyMt, genls(SteroidMolecule, LipidSolubleSignalingMolecule)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260193', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260193', CytologicalProcessesQueryMt)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260193', MtTimeDimFn(Now)), TypeCapableFn(behaviorCapable)(SteroidMolecule, ChemicalObjectOfTypePenetratesMembraneOfTypeFn(ChemicalObject, LipidBilayer), doneBy)).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260193')).
+//REMOVED TITLE('KBQ  : $CPTTest-SteroidHormonesCanEnterACellBySimpleDiffusionSoWhatFollows 1').
+%pretest :- genls(SteroidMolecule, ExtracellularSignalingChemicalObject), %write_results('SUCCESS  : $CPTTest-SteroidHormonesCanEnterACellBySimpleDiffusionSoWhatFollows 1').
+
+// Debugging
+proof(4586, 0) :- genls(SteroidMolecule, ExtracellularSignalingChemicalObject).
+
+proof(4586, 1000) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(4586, 1001) :- genls(LipidSolubleSignalingMolecule, ExtracellularSignalingChemicalObject).
+
+proof(4586, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-260193', 1, genlMt).
+proof(4586, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-260193', 2, genlMt).
+proof(4586, 2002) :- admittedArgument(SecondFn(18, MinuteFn(36, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(4586, 2003) :- admittedArgument(SecondFn(18, MinuteFn(36, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(4586, 2004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260193'), UniversalVocabularyMt).
+proof(4586, 2005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260193'), BaseKB).
+proof(4586, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-260193'), MtSpace('Hypothesis-HypotheticalContext-260193', MtTimeDimFn(Now))).
+proof(4586, 2007) :- genls(SteroidMolecule, ExtracellularSignalingChemicalObject). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

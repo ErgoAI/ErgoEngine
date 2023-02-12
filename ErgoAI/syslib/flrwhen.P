@@ -1,0 +1,253 @@
+/* File:      flrwhen.P
+** Contact:   flora-users@lists.sourceforge.net
+** 
+** Copyright (C) The Research Foundation of SUNY, 2013 - 2018
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+/*
+This is an adaptation of XSB's constraintLib.P
+*/
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "builtin.h"
+#include "flora_var_attributes.flh"
+#include "flora_terms.flh"
+
+:- export
+	flora_disable_attributed_variables/0,
+	flora_enable_attributed_variables/0,
+	flora_attributed_vars_disabled/0,
+	flora_put_attr/3,
+	flora_when/2.
+:- export get_trigger_goal/2.
+:- export unifiable/3.
+
+:- import
+	get_attr/3,
+	put_attr/3,
+	del_attr/2,
+	install_attribute_portray_hook/3,
+	install_verify_attribute_handler/4
+        from machine.
+:- import sort/2 from setof.
+
+:- import check_var/3 from error_handler.
+
+:- import structure/1 from standard.
+
+:- import memberchk/2 from basics.
+
+:- import flrterm_vars/3 from flora_ground.
+
+:- dynamic disable_attributed_vars/1.
+
+
+trigger(nonvar(X),Goal) :-	trigger_nonvar(X,Goal).
+
+trigger(ground(X),Goal) :-	trigger_ground(X,Goal).
+
+trigger(?=(X,Y),Goal) :-	trigger_determined(X,Y,Goal).
+
+trigger((G1,G2),Goal) :- 	trigger_conj(G1,G2,Goal).
+
+trigger((G1;G2),Goal) :-	trigger_disj(G1,G2,Goal).
+
+trigger_nonvar(X,Goal) :-
+	( nonvar(X) ->
+            call(Goal)
+	;
+            suspend(X,trigger_nonvar(X,Goal))
+	).
+
+trigger_ground(X,Goal) :-
+	flterm_variables(X,Vs),
+	( Vs = [H|_] -> suspend(H,trigger_ground(Vs,Goal))
+	;
+	    call(Goal)
+	).
+
+trigger_conj(G1,G2,Goal) :-
+	trigger(G1,trigger(G2,Goal)).
+
+trigger_disj(G1,G2,Goal) :-
+	trigger(G1,check_disj(Disj,Goal)),
+	trigger(G2,check_disj(Disj,Goal)).
+
+                                % bug, see below
+check_disj(Disj,Goal) :-
+	( var(Disj) ->
+            Disj = (-),
+            call(Goal)
+	;
+            true
+	).
+
+trigger_determined(X,Y,Goal) :-
+	unifiable(X,Y,Unifier),
+	!,
+	( Unifier == [] ->
+            call(Goal)
+	;
+            put_attr(Det,FLWHENATTRIBUTE,det(trigger_determined(X,Y,Goal))),
+            suspend_list(Unifier,wake_det(Det))
+	).
+trigger_determined(_,_,Goal) :- call(Goal).
+
+wake_det(Det) :-
+	( var(Det) ->
+            get_attr(Det,FLWHENATTRIBUTE,Attr),
+            del_attr(Det,FLWHENATTRIBUTE),
+            Det = (-),
+            Attr = det(Goal),
+            call(Goal)
+	;
+            true
+	).
+
+suspend_list([],_Goal).
+suspend_list([V=W|Unifier],Goal) :-
+	suspend(V,Goal),
+	( var(W) -> suspend(W,Goal) ; true),
+	suspend_list(Unifier,Goal).
+
+suspend(V,Goal) :-
+	( get_attr(V,FLWHENATTRIBUTE,List) ->
+	    %% MK: this memberchk prevents buildup of attributes
+	    (memberchk(Goal,List) -> true
+	    ; put_attr(V,FLWHENATTRIBUTE,[Goal|List])
+	    )
+	;
+	    put_attr(V,FLWHENATTRIBUTE,[Goal])
+	).
+
+:- install_verify_attribute_handler(FLWHENATTRIBUTE,Attr,Other,attr_unify_hook(Attr,Other)).
+
+attr_unify_hook(List,Other) :-
+        %%	PRINTLN('in attr_unify_hook'(List,Other)),
+	is_list(List),
+	!,
+	attr_unify_hook1(Other,List2),
+	call_list(List),
+	call_list(List2).
+attr_unify_hook(_Attr,_Other).
+
+attr_unify_hook1(Other,List) :-
+	var(Other),
+	get_attr(Other,FLWHENATTRIBUTE,List),
+	del_attr(Other,FLWHENATTRIBUTE),
+	!.	
+attr_unify_hook1(_Other,[]).
+
+:- install_attribute_portray_hook(FLWHENATTRIBUTE,Attr,portray_flrwhen(Attr)).
+
+portray_flrwhen(Attr):- 
+	portray_flrwhenlist(Attr).
+
+portray_flrwhenlist([]).
+portray_flrwhenlist([H]):- !,
+        portray_trigger(H).
+portray_flrwhenlist([H|T]):- 
+        portray_trigger(H),nl,
+	portray_flrwhenlist(T).
+
+portray_trigger(trigger_nonvar(V,Constraint)):- !,
+        write('trigger '),write(Constraint),write(' flrwhen nonvar'(V)).
+portray_trigger(trigger_ground(V,Constraint)):- !,
+        write('trigger '),write(Constraint),write(' flrwhen ground'(V)).
+
+call_list([]) :- !.
+call_list([G|Gs]) :-
+	call(G),
+                                %	!,
+	call_list(Gs).
+
+                                %
+                                %	Can't let a previous failed goal prevent the execution of a later one
+                                %	The goals on the list can be completely independent.
+                                %
+                                %call_list([_G|Gs]) :-
+                                %	call_list(Gs).
+
+get_trigger_goal(trigger_nonvar(_,Trigger),Goal) :-
+        !,
+        get_trigger_goal(Trigger,Goal).
+get_trigger_goal(trigger_ground(_,Trigger),Goal) :-
+        !,
+        get_trigger_goal(Trigger,Goal).
+get_trigger_goal(trigger(_,Trigger),Goal) :-
+        !,
+        get_trigger_goal(Trigger,Goal).
+get_trigger_goal(check_disj(Det,Trigger),Goal) :-
+        !,
+        %% note: if Det is nonvar, the trigger's goal has already been used
+        %% so we just fail
+        var(Det),
+        Det = (-),
+        get_trigger_goal(Trigger,Goal).
+get_trigger_goal(Trigger,Trigger).
+
+/*****************************************************/
+
+unifiable(Term1,Term2,List):- 
+	check_var(List,unifiable/3,3),
+	unifiable_1(Term1,Term2,List,[]).
+
+unifiable_1(Term1,Term2,ListIn,ListOut):- 
+	(Term1 == Term2 -> ListIn = ListOut
+        ; (var(Term1) -> ListIn = [Term1 = Term2|ListOut]
+          ; (var(Term2) -> ListIn = [Term2 = Term1|ListOut]
+            ; (structure(Term1),structure(Term2) -> 
+                  Term1 =.. [Funct|Args1],
+                  Term2 =.. [Funct|Args2],
+                  unifiable_list(Args1,Args2,ListIn,ListOut) 
+              ; Term1 = Term2)
+            )
+          )
+        ).
+
+unifiable_list([],[],List,List).
+unifiable_list([Term1|R1],[Term2|R2],ListIn,ListOut):- 
+	unifiable_1(Term1,Term2,ListIn,ListMid),
+	unifiable_list(R1,R2,ListMid,ListOut).
+
+flterm_variables(Term,Vars) :-
+	flrterm_vars(Term,Vars1,0),
+	sort(Vars1,Vars).
+
+flora_disable_attributed_variables :- assert(disable_attributed_vars(true)).
+flora_enable_attributed_variables :-
+	(retract(disable_attributed_vars(true)) -> true
+	; true
+	).
+flora_attributed_vars_disabled :- disable_attributed_vars(true).
+
+%% don't barf if Var is bound
+flora_put_attr(_Var,_Attr,_Val) :-
+	disable_attributed_vars(true),
+	!.
+flora_put_attr(Var,Attr,Val) :-
+        (var(Var) -> put_attr(Var,Attr,Val)
+        ; true 
+        ).
+
+
+flora_when(Cond,Call) :-
+	(disable_attributed_vars(true) -> Call
+	; trigger(Cond, Call)
+	).

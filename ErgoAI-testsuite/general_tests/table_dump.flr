@@ -1,0 +1,39 @@
+
+pp(aaa).
+pp(bbb).
+pp(ccc) :- \naf pp(ccc).
+
+?- insert{r(5),r(7),s(1,2)}.
+?- r(?x), s(?y,?z).
+?- \tabledump('temp2', ?x, summary).
+
+
+p(0,?):- !,
+	\tabledump(temp,?,answers).
+p(3,?A):- p(5,?A).
+p(?N,?A):- ?N1 \is ?N - 1, p(?N1,?A).
+
+
+q(0,?):- !, \dump_incomplete_tables(temp1).
+q(3,?A):- q(5,?A).
+q(?N,?A):- ?N1 \is ?N - 1, q(?N1,?A).
+
+
+%test1 :-  pp(?), p(5,foo(a)).
+%test2:- q(5,foo(a)), \false.
+%test2 :- \true.
+
+
+%pretest :- %test1, %test2.
+
+%test :- 
+	%pretest,
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp)@\plg,append,?Port2)@\plg,
+	open(file(temp2)@\plg,read,?Port3)@\plg,
+	copyIOport(?Port1,?Port2)@\plg(file_io),
+	copyIOport(?Port3,?Port2)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	close(?Port3)@\plg,
+	flora_file_op(unlink,temp1)@\plg(flrporting).

@@ -1,0 +1,430 @@
+/* File:      flrtime_arith.P  -- Utils for date arithmetics
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2021.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_exceptions.flh"
+
+:- import flora_abort/2 from flrporting.
+
+:- export
+	flora_dt_maxDayInMonthFor/3,
+	flora_atom_to_number/2,
+        flora_dt_inverse_duration/2,
+	flora_dt_add_duration_to_duration/3,
+	flora_dt_add_duration_to_datetime/3,
+	flora_dt_add_duration_to_time/3,
+	flora_dt_add_duration_to_date/3.
+
+%% flora_dt_maxDayInMonthFor(+Year,+Month,-Days)
+%% Month can be any number of months
+flora_dt_maxDayInMonthFor(Year,Month,Days) :-
+	M is 1 + ((Month-1) mod 12),
+	Y is Year + floor((Month-1)/12),
+	days_in(M,Y,Days).
+
+days_in(1,_,31).
+days_in(3,_,31).
+days_in(5,_,31).
+days_in(7,_,31).
+days_in(8,_,31).
+days_in(10,_,31).
+days_in(12,_,31).
+days_in(4,_,30).
+days_in(6,_,30).
+days_in(9,_,30).
+days_in(11,_,30).
+days_in(2,Y,29) :-
+	(0 =:= Y mod 400
+	;
+	    (0 =\= Y mod 100) , 0 =:= Y mod 4
+	),
+	!.
+days_in(2,_,28).
+
+
+flora_dt_add_duration_to_datetime(_,_,Result) :-
+	atom(Result),
+	!,
+	flora_abort('Invalid type in the result of an arithmetic operation on dateTime',FLORA_ABORT_NOTRACE).
+flora_dt_add_duration_to_date(_,_,Result) :-
+	atom(Result),
+	!,
+	flora_abort('Invalid type in the result of an arithmetic operation on date',FLORA_ABORT_NOTRACE).
+flora_dt_add_duration_to_time(_,_,Result) :-
+	atom(Result),
+	!,
+	flora_abort('Invalid type in the result of an arithmetic operation on time',FLORA_ABORT_NOTRACE).
+flora_dt_add_duration_to_duration(_,_,Result) :-
+	atom(Result),
+	!,
+	flora_abort('Invalid type in the result of an arithmetic operation on duration',FLORA_ABORT_NOTRACE).
+
+flora_dt_add_duration_to_datetime((Sgn,Yr,Mon,Day,Hr,Min,SecAtm,ZoneS,ZoneH,ZoneM),
+				  (PSgn,PYr,PMon,PDay,PHr,PMin,PSecAtm),
+				  (NewSgn,NewYr,NewMon,NewDay,NewHr,NewMin,NewSecAtm,NewZoneS,NewZoneH,NewZoneM)) :-
+	Yr1 is Sgn*Yr,
+	PYr1 is PSgn*PYr,
+	PMon1 is PSgn*PMon,
+	PDay1 is PSgn*PDay,
+	PHr1 is PSgn*PHr,
+	PMin1 is PSgn*PMin,
+	flora_atom_to_number(PSecAtm,PSec),
+	PSec1 is PSgn*PSec,
+	NewMon1 is 1 + ((Mon+PMon1-1) mod 12),
+	CarryYr is floor((Mon+PMon1-1)/12),
+	NewYr1 is Yr1+PYr1+CarryYr,
+	NewZoneS=ZoneS, NewZoneH = ZoneH, NewZoneM = ZoneM,
+	flora_atom_to_number(SecAtm,Sec),
+	NewSec is (Sec + PSec1) mod 60,
+	number_to_atom(NewSec,NewSecAtm),
+	CarryMin is floor((Sec+PSec1)/60),
+	NewMin is (Min+PMin1+CarryMin) mod 60,
+	CarryHr is floor((Min+PMin1+CarryMin)/60),
+	NewHr is (Hr+PHr1+CarryHr) mod 24,
+	CarryDay is floor((Hr+PHr1+CarryHr)/24),
+	flora_dt_maxDayInMonthFor(NewYr1,NewMon1,MaxDay),
+	TempDay is max(min(Day,MaxDay),1),
+	NewDay1 is TempDay+PDay1+CarryDay,
+	adjust_date(NewYr1,NewMon1,NewDay1,NewYrPre,NewMon,NewDay),
+	(NewYrPre < 0 -> NewSgn = -1, NewYr is -NewYrPre
+	; NewSgn = 1, NewYr = NewYrPre
+	).
+
+adjust_date(NewYr1,NewMon1,NewDay1,NewYr,NewMon,NewDay) :-
+	(NewDay1 < 1 ->
+	    CarryMon = -1,
+	    NewMon2 is 1+((NewMon1+CarryMon-1) mod 12),
+	    NewYr2 is NewYr1 + floor((NewMon1+CarryMon-1)/12),
+	    flora_dt_maxDayInMonthFor(NewYr1,NewMon2,MaxDay),
+	    NewDay2 is NewDay1+MaxDay,
+	    adjust_date(NewYr2,NewMon2,NewDay2,NewYr,NewMon,NewDay)
+	;
+	    flora_dt_maxDayInMonthFor(NewYr1,NewMon1,MaxDay),
+	    NewDay1 > MaxDay
+	->
+	    NewDay2 is NewDay1-MaxDay,
+	    CarryMon = 1,
+	    NewMon2 is 1+((NewMon1+CarryMon-1) mod 12),
+	    NewYr2 is NewYr1+floor((NewMon1+CarryMon-1)/12),
+	    adjust_date(NewYr2,NewMon2,NewDay2,NewYr,NewMon,NewDay)
+	;
+	    NewYr = NewYr1, NewMon = NewMon1, NewDay = NewDay1
+	).
+
+
+%% The date, month, and year parts of the resulting duration cannot be negative
+flora_dt_add_duration_to_duration((Sgn,Yr,Mon,Day,Hr,Min,SecAtm),
+				  (Sgn2,Yr2,Mon2,Day2,Hr2,Min2,Sec2Atm),
+				  (NSgn,NYr,NMon,NDay,NHr,NMin,NSecAtm)) :-
+	flora_atom_to_number(SecAtm,Sec),
+	flora_atom_to_number(Sec2Atm,Sec2),
+	NSec1 is Sgn*Sec+Sgn2*Sec2,
+	NMin1 is Sgn*Min+Sgn2*Min2,
+	NHr1  is Sgn*Hr+Sgn2*Hr2,
+	NDay1 is Sgn*Day+Sgn2*Day2,
+	NMon1 is Sgn*Mon+Sgn2*Mon2,
+	NYr1 is Sgn*Yr+Sgn2*Yr2,
+        flora_normalize_duration((NYr1,NMon1,NDay1,NHr1,NMin1,NSec1),
+                                 (NYr,NMon,NDay,NHr,NMin,NSec),
+                                 NSgn),
+	number_to_atom(NSec,NSecAtm).
+
+flora_dt_add_duration_to_time((Hr,Min,SecAtm,ZoneS,ZoneH,ZoneM),
+			      (Sgn2,Yr2,Mon2,Day2,Hr2,Min2,Sec2Atm),
+			      (NHr,NMin,NSecAtm,ZoneS,ZoneH,ZoneM)) :-
+	((Yr2 =\= 0 ; Mon2 =\= 0 ; Day2 =\= 0)
+	-> flora_abort('When adding duration to time, year-month-day must not be present in the duration literal',FLORA_ABORT_NOTRACE)
+	;
+	    flora_atom_to_number(SecAtm,Sec),
+	    flora_atom_to_number(Sec2Atm,Sec2),
+	    NSecPre is Sec + Sgn2*Sec2,
+	    NSec is NSecPre mod 60,
+	    number_to_atom(NSec,NSecAtm),
+	    SecCarry is floor(NSecPre/60),
+	    NMinPre is Min + Sgn2*Min2 + SecCarry,
+	    NMin is NMinPre mod 60,
+	    MinCarry is floor(NMinPre/60),
+	    NHr is Hr + Sgn2*Hr2 + MinCarry,
+	    ((NHr < 0 ; NHr > 23)
+	    -> flora_abort('Adding duration to time has yielded an out-of-range time literal',FLORA_ABORT_NOTRACE)
+	    ;
+		true
+	    )
+	).
+
+%% This one yields a dateTime because the duration has a non-zero time component
+flora_dt_add_duration_to_date((Sgn,Yr,Mon,Day,ZoneS,ZoneH,ZoneM),
+			      (Sgn2,Yr2,Mon2,Day2,Hr2,Min2,Sec2Atm),
+			      (NSgn,NYr,NMon,NDay,NHr,NMin,NSec,NZoneS,NZoneH,NZoneM)) :-
+	flora_atom_to_number(Sec2Atm,Sec2),
+        (Hr2 =\= 0 ; Min2 =\= 0 ; Sec2 =\= 0),
+        !,
+        flora_dt_add_duration_to_datetime((Sgn,Yr,Mon,Day,0,0,'0',ZoneS,ZoneH,ZoneM),
+                                          (Sgn2,Yr2,Mon2,Day2,Hr2,Min2,Sec2Atm),
+                                          (NSgn,NYr,NMon,NDay,NHr,NMin,NSec,NZoneS,NZoneH,NZoneM)).
+
+flora_dt_add_duration_to_date((Sgn,Yr,Mon,Day,ZoneS,ZoneH,ZoneM),
+			      (Sgn2,Yr2,Mon2,Day2,Hr2,Min2,Sec2Atm),
+			      (NSgn,NYr,NMon,NDay,NZoneS,NZoneH,NZoneM)) :-
+        flora_dt_add_duration_to_datetime((Sgn,Yr,Mon,Day,0,0,'0',ZoneS,ZoneH,ZoneM),
+                                          (Sgn2,Yr2,Mon2,Day2,Hr2,Min2,Sec2Atm),
+                                          (NSgn,NYr,NMon,NDay,_,_,_,NZoneS,NZoneH,NZoneM)).
+
+
+%% assumes that the atom indeed represents a number
+flora_atom_to_number(Atm,Num) :-
+	(Atm == '' -> Num=0
+	; atom_codes(Atm,Codes),
+	    number_codes(Num,Codes)
+	).
+
+number_to_atom(Num,Atm) :-
+	(Num == 0 -> Atm='0'
+	; number_codes(Num,Codes),
+	    atom_codes(Atm,Codes)
+	).
+
+%% The date, month, and year parts of the resulting duration cannot be negative
+flora_dt_inverse_duration((Sgn,Yr,Mon,Day,Hr,Min,SecAtm),
+                          (NSgn,Yr,Mon,Day,Hr,Min,SecAtm)) :-
+        NSgn is -Sgn.
+
+
+%% Note: sign is not input here becauseYr, Mon, Day, Hr, etc.
+%% have already been multiplied by the sign
+flora_normalize_duration((Yr,Mon,Day,Hr,Min,Sec),
+                         (NYr,NMon,NDay,NHr,NMin,NSec),
+                         NSgn) :-
+        TotMonths is Yr*12 + Mon,
+        TotMins is Day*24*60 + Hr*60 + Min,
+        TotSecs = Sec,
+        (SMin is sign(TotMins), SSec is sign(TotSecs), SMin==SSec ->
+            TotMins1 = TotMins, TotSecs1 = TotSecs
+        ; TotSecs == 0 -> TotMins1 = TotMins, TotSecs1 = TotSecs
+        ; TotMins > 0 -> TotMins1 is TotMins-1, TotSecs1 is TotSecs+60
+        ; TotMins < 0 -> TotMins1 is TotMins+1, TotSecs1 is TotSecs-60
+        ; TotMins == 0 -> TotMins1 = 0, TotSecs1 is TotSecs
+        ),
+        (TotMonths >= 0, TotMins1 >= 0, TotSecs1 >= 0 ->
+            NSgn = 1, NYr is TotMonths div 12, NMon is TotMonths mod 12,
+            NDay is TotMins1 div 1440, RestMins is TotMins1 mod 1440,
+            NHr is RestMins div 60, NMin is RestMins mod 60, NSec = TotSecs1
+        ; TotMonths =< 0, TotMins1 =< 0, TotSecs1 =< 0 ->
+            NSgn= -1, NYr is (-TotMonths div 12), NMon is (-TotMonths mod 12),
+            NDay is (-TotMins1 div 1440), RestMins is -TotMins1 mod 1440,
+            NHr is (RestMins div 60), NMin is (RestMins mod 60),
+            NSec is -TotSecs1
+        ; flora_abort('ill-defined duration produced by adding/subtracting of two durations',FLORA_ABORT_NOTRACE)
+        ).
+
+
+%% time_arith_xtras.P - extra algorithms for time arithmetics
+:- export
+        flora_date_week/5,
+        flora_days_between_dates/7,
+        flora_date_subtract/3,
+        flora_time_subtract/3.
+:- import flora_second_repr/2 from flrdatatype_utils.
+:- import flora_make_datatype/3 from flrdatatype_parse.
+
+%% Date1 =< Date2
+%% Time zone is NOT used in calculations, since the times are in UTC.
+%% TZ is needed ONLY to compute the local time out of UTC.
+flora_date_subtract((YrSn1,Yr1,Mo1,Day1,Hr1,Mi1,Sec1atm,_ZS1,_ZH1,_ZM1,NVal1),
+		    (YrSn2,Yr2,Mo2,Day2,Hr2,Mi2,Sec2atm,_ZS2,_ZH2,_ZM2,NVal2),
+		    (1,DYr,DMo,DDay,DHr,DMi,DSecAtm)) :-
+	NVal2 @< NVal1,
+	!,
+	(Day2 > Day1 ->
+	    TempMo is Mo1-1,
+	    flora_dt_maxDayInMonthFor(Yr1,TempMo,IncrementDay)
+	; IncrementDay = 0
+	),
+	(IncrementDay =\= 0 ->
+	    DDayPre is Day1+IncrementDay-Day2,
+	    IncrementMonth = 1
+	; DDayPre is Day1-Day2,
+	    IncrementMonth = IncrementDay
+	),
+	(Mo2+IncrementMonth > Mo1 ->
+	    DMo is Mo1 + 12 - Mo2 - IncrementMonth,
+	    IncrementYear = 1
+	; DMo is Mo1 - Mo2 - IncrementMonth,
+	    IncrementYear = 0
+	),
+	DYr is YrSn1*Yr1 - YrSn2*Yr2 - IncrementYear,
+	%% deal with the time now
+	flora_atom_to_number(Sec1atm,Sec1),
+	flora_atom_to_number(Sec2atm,Sec2),
+        %% IGNORE the TZ - TZ is used only to compute the local time!
+	Secs1 is (Hr1*60+Mi1)*60+Sec1,
+	Secs2 is (Hr2*60+Mi2)*60+Sec2,
+	SecDiff is Secs1-Secs2,
+	(SecDiff<0 ->
+	    DDay is DDayPre-1,
+	    SecDiff1 is 24*3600+SecDiff
+	; DDay=DDayPre,
+	    SecDiff1=SecDiff
+	),
+	DMiTot is floor(SecDiff1/60),
+	DSec is SecDiff mod 60,
+	flora_second_repr(DSec,DSecAtm),
+	DHr is floor(DMiTot/60),
+	DMi is DMiTot mod 60.
+
+
+%% Date1 > Date2
+flora_date_subtract((YrSn1,Yr1,Mo1,Day1,Hr1,Mi1,Sec1atm,ZS1,ZH1,ZM1,NVal1),
+		    (YrSn2,Yr2,Mo2,Day2,Hr2,Mi2,Sec2atm,ZS2,ZH2,ZM2,NVal2),
+		    (DSign,DYr,DMo,DDay,DH,DMi,DSec)) :-
+	flora_date_subtract((YrSn2,Yr2,Mo2,Day2,Hr2,Mi2,Sec2atm,ZS2,ZH2,ZM2,NVal2),
+			    (YrSn1,Yr1,Mo1,Day1,Hr1,Mi1,Sec1atm,ZS1,ZH1,ZM1,NVal1),
+			    (DSign1,DYr,DMo,DDay,DH,DMi,DSec)),
+	DSign is -DSign1.
+
+%% time subtract
+flora_time_subtract((Hr1,Mi1,SecAtm1,_ZS1,_ZH1,_ZM1,NVal1),
+		    (Hr2,Mi2,SecAtm2,_ZS2,_ZH2,_ZM2,NVal2),
+		    (1,DHr,DMi,DSecAtm)) :-
+	(NVal2 @< NVal1 ; NVal1=NVal2),
+	!,
+	flora_atom_to_number(SecAtm1,Sec1),
+	flora_atom_to_number(SecAtm2,Sec2),
+        %% IGNORE the TZ, which is used only to compute the local time
+	Secs1 is (Hr1*60+Mi1)*60+Sec1,
+	Secs2 is (Hr2*60+Mi2)*60+Sec2,
+	SecDiff is Secs1-Secs2,
+	(SecDiff<0 ->
+	    SecDiff1 is 24*3600-SecDiff
+	; SecDiff1=SecDiff
+	),
+	DMiTot is floor(SecDiff1/60),
+	DSec is SecDiff mod 60,
+	flora_second_repr(DSec,DSecAtm),
+	DHr is floor(DMiTot/60),
+	DMi is DMiTot mod 60.
+
+flora_time_subtract((Hr1,Mi1,SecAtm1,ZS1,ZH1,ZM1,NVal1),
+		    (Hr2,Mi2,SecAtm2,ZS2,ZH2,ZM2,NVal2),
+		    (-1,DH,DMi,DSec)) :-
+	flora_time_subtract((Hr2,Mi2,SecAtm2,ZS2,ZH2,ZM2,NVal2),
+			    (Hr1,Mi1,SecAtm1,ZS1,ZH1,ZM1,NVal1),
+			    (_,DH,DMi,DSec)).
+
+%% flora_date_week(+InputDateTime, -DayOfWeek,-WeekNum,-WeekStart,-WeekEnd) :-
+flora_date_week(InputDateTime, DayOfWeek, WeekNum, WeekStart, WeekEnd) :-
+        InputDateTime = (Sign1,Yr1,Mo1,Day1,Hr1,Min1,Sec1,ZSign1,ZH1,ZMin1,_),
+        base_sunday(BaseDate),
+        BaseDate = (_,BaseYr,BaseMo,BaseDay,_,_,_,_,_,_,_),
+        %% unused
+        flora_date_subtract(InputDateTime, BaseDate,
+                            (DSign,_DYr,_DMon,_DDay,DH,DMi,DSec)),
+        (DSign > 0 -> DayAdjust = 0
+        ; DH=0, DMi=0, DSec=0 -> DayAdjust = 0
+        ; DayAdjust = -1
+        ),
+        %% end unused
+        days_before_date(Yr1,Mo1,Day1,DaysBefore1),
+        days_before_date(Yr1,1,1,DaysBeforeStartOfYear), %% start of Yr1
+        %% start of BaseYr
+        days_before_date(BaseYr,BaseMo,BaseDay,BaseDaysBefore),
+        DaysDiff is DaysBefore1-BaseDaysBefore,
+        DaysDiffFromStartOfYear is DaysBefore1-DaysBeforeStartOfYear,
+        DayDiffStartOfYearFromBase is DaysBeforeStartOfYear-BaseDaysBefore,
+        DayOfWeekNum is DaysDiff mod 7, %% day of week numerik; start with 0
+        %% week day
+        weekday(DayOfWeekNum,DayOfWeek),
+        DayOfWeekNumStartOfYear is DayDiffStartOfYearFromBase mod 7,
+        %% week num
+        RemainderOfFirstWeek is 6-DayOfWeekNumStartOfYear,
+        (RemainderOfFirstWeek > DaysDiffFromStartOfYear ->
+            WeekNum = 1
+        ;
+            WeekNum is 1+ceiling((DaysDiffFromStartOfYear-RemainderOfFirstWeek)/7)
+        ),
+        DurationToStartOfWeek = (-1,0,0,DayOfWeekNum,0,0,'0'),
+        DaysToWeekEnd = 7-DayOfWeekNum-1,
+        DurationToEndOfWeek = (1,0,0,DaysToWeekEnd,0,0,'0'),
+        InputDateTimeSansNumeric = (Sign1,Yr1,Mo1,Day1,Hr1,Min1,Sec1,ZSign1,ZH1,ZMin1),
+        flora_dt_add_duration_to_datetime(InputDateTimeSansNumeric,DurationToStartOfWeek,WeekStartPre),
+        flora_dt_add_duration_to_datetime(InputDateTimeSansNumeric,DurationToEndOfWeek,WeekEndPre),
+        flora_make_datatype(FL_DATETIME,WeekStartPre,WeekStart),
+        flora_make_datatype(FL_DATETIME,WeekEndPre,WeekEnd).
+
+        
+base_sunday((1,1899,1,1,0,0,'0',0,0,0,0)). %% must be sunday
+
+leap_years_before_date(Year,Month,N) :-
+        (Month > 2 ->
+            N is floor(Year/4) - floor(Year/100) + floor(Year/400)
+        ;
+            Y1 is Year-1,
+            N is floor(Y1/4) - floor(Y1/100) + floor(Y1/400)
+        ).
+
+days_before_date(Year,Month,Day,N) :-
+        leap_years_before_date(Year,Month,LeapYrs),
+        same_year_days_before(Year,Month,Day,DaysBefore),
+        N is Year*365+DaysBefore+LeapYrs.
+
+flora_days_between_dates(Year,Month,Day,Year2,Month2,Day2,Diff) :-
+        days_before_date(Year,Month,Day,N),
+        days_before_date(Year2,Month2,Day2,N2),
+        Diff is N2-N.
+
+
+same_year_days_before(_Year,1,Day,Day1) :- !, Day1 is Day-1.
+same_year_days_before(Year,Month,Day,NDays) :-
+        Month > 1,
+        M1 is Month-1,
+        monthdays(M1,M1Days),
+        same_year_days_before(Year,M1,0,RestDays),
+        NDays is M1Days+RestDays+Day.
+
+
+weekday(0,'Sunday').
+weekday(1,'Monday').
+weekday(2,'Tuesday').
+weekday(3,'Wednesday').
+weekday(4,'Thursday').
+weekday(5,'Friday').
+weekday(6,'Saturday').
+
+%% Days in a month without considering leap years
+%% Used in same_year_days_before/4 where leap years are counted separately
+%% in days_before_date/4
+monthdays(1,31).
+monthdays(2,28).
+monthdays(3,31).
+monthdays(4,30).
+monthdays(5,31).
+monthdays(6,30).
+monthdays(7,31).
+monthdays(8,31).
+monthdays(9,30).
+monthdays(10,31).
+monthdays(11,30).
+monthdays(12,31).

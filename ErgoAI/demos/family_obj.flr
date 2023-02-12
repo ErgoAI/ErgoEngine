@@ -1,0 +1,103 @@
+/* File:      family_obj.flr
+*/
+
+//  ======================================================================
+//  QUERYING THE PEDIGREE OF ``THE FALLERS'' 
+//  (German TV serial; see: www.swf.de/diefallers/stammbaum/index.html)
+//  
+//  An OBJECT-ORIENTED version of family_rel.flp
+// 
+//  ======================================================================
+
+
+//  ======================================================================
+//  SCHEMA DATA: CLASSES & SIGNATURES
+//  ======================================================================
+
+
+
+male :: person.		// subclass relation
+female :: person.	// subclass relation
+female[type->gender].
+
+person[|mother{1..1}=>person, father{1..1}=>person,	// some 
+	spouse{1..1}=>person, husband{1..1}=>person,	// ... methods
+
+	son=>person, daughter=>person,
+	brother=>person, sister=>person,
+	uncle=>person, aunt=>person,
+	ancestor=>person, parent=>person
+|].
+
+
+//  ======================================================================
+//  INSTANCE DATA  (aka EDB/BASE FACTS)
+//  (partially) define mother, father, spouse, (fe)male info
+//  ======================================================================
+
+wilhelm:male[spouse->rita].
+rita:female.
+franz:male[mother->rita,father->wilhelm].
+heinz:male[mother->rita,father->wilhelm].
+hermann:male[mother->rita,father->wilhelm,spouse->johanna].
+johanna:female.
+monique:female.
+bernhard:male[mother->johanna,father->hermann].
+karl:male[mother->johanna,father->hermann,spouse->christina].
+christina:female.
+kati:female[mother->johanna,father->hermann].
+albert:male[mother->monique,father->bernhard].
+eva:female[mother->kati].
+
+
+//  ======================================================================
+//  RULES (aka IDB/DERIVED RELATIONS)
+//  ======================================================================
+
+?X[spouse->?Y] :- ?Y[spouse->?X].	// spouse is symmetric!
+
+?X[parent->{?Y}] :- ?X[father->?Y].
+?X[parent->{?Y}] :- ?X[mother->?Y].
+
+?X[son->{?Y}]      :- ?Y[parent->{?X}], ?Y:male.
+?X[daughter->{?Y}] :- ?Y[parent->{?X}], ?Y:female.
+
+?X[brother->{?Y}] :- ?X.parent[son->{?Y}], \+ ?X=?Y.
+?X[sister->{?Y}]  :- ?X.parent[daughter->{?Y}], \+ ?X=?Y.
+
+?X[brother_in_law->{?Y}] :- ?X.sister[spouse->?Y].
+?X[brother_in_law->{?Y}] :- ?X.spouse[brother->{?Y}].
+
+?X[sister_in_law->{?Y}] :- ?X.brother[spouse->?Y].
+?X[sister_in_law->{?Y}] :- ?X.spouse[sister->{?Y}].
+
+?X[uncle->{?Y}] :- ?X.parent[brother->{?Y}].
+?X[uncle->{?Y}] :- ?X.parent[brother_in_law->{?Y}].
+?X[aunt->{?Y}]  :- ?X.parent[sister->{?Y}].
+?X[aunt->{?Y}]  :- ?X.parent[sister_in_law->{?Y}].
+
+?X[ancestor->{?Y}] :- ?X[parent->{?Y}].
+?X[ancestor->{?Y}] :- ?X.ancestor[ancestor->{?Y}].
+
+
+?X:illegitimate :- ?X[father->?F, mother->?M], ?M[spouse -> ?S], ?S\=?F.
+
+
+//  ======================================================================
+//  QUERIES
+//  ======================================================================
+
+?- writeln(Q1)@\io, albert:?C.			// which classes...
+?- writeln(Q2)@\io, albert[?M{1..1}=>?],albert[?M->?X].
+?- writeln(Q3)@\io, albert[?M->?X],\naf(albert[?M{1..1}=>?]).
+//?- albert[?M->{?X}].		// ... are known for Albert? 
+
+?- writeln(Q5)@\io, ?_o[?S{1..1}=>?],?_o.?S[].	
+?- writeln(Q6)@\io, ?_o.?M[],\naf(?_o[?M{1..1}=>?]).
+?- writeln(Q7)@\io, ?_:?C[].			// ... and classes
+
+?- writeln(Q8)@\io, albert.parent.uncle[sister_in_law -> {?Y}]. // a path expression
+
+?- writeln(Q9)@\io, ?X[sister_in_law->{?Y}].
+
+

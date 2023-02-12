@@ -1,0 +1,478 @@
+:- use_rule_structure_db.
+
+:- iriprefix{abc="ftp://u@foo.bar.com/bla"}.
+:- iriprefix{abc1='http://vv@bar.foo.com/aaa'}.
+:- iriprefix{abc2=mailto}.
+
+:- symbol_context{%abc1#bar(?)@?, test34/0}.
+
+:- ignore_depchk{write(?)@\plg}.
+
+// these are used to test if typed variables get bound correctly
+ppp(?X^^foo) :- ?Y = ?X^^foo,
+	       (write('compiled varY='),
+	        flora_write_oid(?Y)@\plg(flrdecode),
+		write(' varX='),
+	        flora_write_oid(?X)@\plg(flrdecode))@\plg.
+qqq(?X^^\t) :- ?Y = ?X^^\t, ?Y="23:33:44"^^\t,
+	       write('compiled varX=')@\plg,
+	       flora_write_oid(?X)@\plg(flrdecode).
+qqq2(?Y^^\t) :- ?Y = ?X^^\t, ?X="23:33:44"^^\t,
+	       write('compiled varY=')@\plg,
+	       flora_write_oid(?Y)@\plg(flrdecode).
+
+
+?- insertrule{rrr(?X^^moo) :- ?Y = ?X^^moo,
+	                      (write('inserted varY='),
+			       flora_write_oid(?Y)@\plg(flrdecode),
+			       write(' varX='),
+			       flora_write_oid(?X)@\plg(flrdecode))@\plg}.
+?- insertrule{fff(?X) :- ?Y = ?X^^\dt, ?Y="2002-02-12T23:33:44+02:09"^^\dt,
+	                   write('inserted varX=')@\plg,
+			   flora_write_oid(?X)@\plg(flrdecode)}.
+
+a12345 [ b12345 -> "10.0"^^\symbol ].
+a12345 [ b12345 -> "10.0"^^\string ].
+
+%test0 :-  write('test0: ')@\prolog,
+	"2007-11-22+11:33"^^\d[year->?Y]@\basetype, ?Y:\integer,
+	"2007-11-22-11:33"^^\d[day->?D]@\basetype, ?D:\integer,
+	"2007-11-22+11:33"^^\d[month->?Mon]@\basetype, ?Mon:\integer,
+	"2007-11-22"^^\d[zoneHour->?ZH]@\basetype, ?ZH:\integer,
+	"2007-11-22-12:00"^^\d[zoneSign->?ZS]@\basetype, ?ZH:\integer,
+	"2007-11-22-12:00"^^\d[zoneHour->?ZH2]@\basetype, ?ZH:\integer,
+	"2007-11-22+11:33"^^\d[zoneMinute->?ZM]@\basetype,?ZM:\integer,
+	"2007-11-22"^^\d[zoneMinute->?ZM2]@\basetype,?ZM:\integer,
+	"2007-11-22+11:33"^^\d[toSymbol->?Str]@\basetype,
+	"2007-11-22"^^\d[toSymbol->?Str2]@\basetype,
+	( write(?Y), write('|'), write(?D), write('|'), write(?Mon),
+	  write('|'), write(?ZS), write('|'), write(?ZH), write('|'),
+	  write(?ZH2), write('|'),
+	  write(?ZM), write('|'),write(?ZM2),
+	  write('-->'), write(?Str), write('-->'), write(?Str2), 
+	  nl )@\plg.
+
+%test1 :-  write('test1: ')@\prolog,
+	"2007-11-22T23:33:55+11:33"^^\dt[year->?Y]@\basetype, ?Y:\integer,
+	"2007-11-22T23:33:55+11:33"^^\dt[day->?D]@\basetype, ?D:\integer,
+	"2007-11-22T23:33:55+11:33"^^\dt[month->?Mon]@\basetype, ?Mon:\integer,
+	"2007-11-22T23:33:55+11:33"^^\dt[hour->?Hr]@\basetype, ?Hr:\integer,
+	"2007-11-22T23:33:55+11:33"^^\dt[minute->?Min]@\basetype, ?Min:\integer,
+	"2007-11-22T23:33:55+11:33"^^\dt[second->?Sec]@\basetype, ?Sec:\decimal,
+	"2007-11-22T23:33:55-11:33"^^\dt[zoneSign->?ZS]@\basetype, ?ZS:\integer,
+	"2007-11-22T23:33:55+11:33"^^\dt[zoneHour->?ZH]@\basetype, ?ZH:\integer,
+	"2007-11-22T23:33:55+11:33"^^\dt[zoneMinute->?ZM]@\basetype,?ZM:\integer,
+	"2007-11-22T23:33:55+11:33"^^\dt[toSymbol->?Str]@\basetype,
+	"2007-11-22T23:33:55.2233+11:33"^^\dt[toSymbol->?Str2]@\basetype,
+	"2014-01-01T01:01:01.000"^^\dateTime = "2014-01-01T01:01:01"^^\dateTime,
+	( write(?Y), write('|'), write(?D), write('|'), write(?Mon), write('|'),
+	  write(?Hr), write('|'), write(?Min), write('|'), write(?Sec),
+	  write('|'), write(?ZS), write('|'), write(?ZH), write('|'),write(?ZM),
+	  write('-->'), write(?Str), write('-->'), write(?Str2), 
+	  nl )@\plg.
+
+%test2 :-  write('test2: ')@\prolog,
+	"2007-11-22"^^\dt[year->?Y]@\basetype, ?Y:\integer,
+	"2007-11-22"^^\dt[day->?D]@\basetype, ?D:\integer,
+	"2007-11-22"^^\dt[month->?Mon]@\basetype, ?Mon:\integer,
+	"2007-11-22"^^\dt[hour->?Hr]@\basetype, ?Hr:\integer,
+	"2007-11-22"^^\dt[minute->?Min]@\basetype, ?Min:\integer,
+	"2007-11-22"^^\dt[second->?Sec]@\basetype, ?Sec:\decimal,
+	"2007-11-22"^^\dt[zoneSign->?ZS]@\basetype, ?ZS:\integer,
+	"2007-11-22"^^\dt[zoneHour->?ZH]@\basetype, ?ZH:\integer,
+	"2007-11-22"^^\dt[zoneMinute->?ZM]@\basetype,?ZM:\integer,
+	"2007-11-22"^^\dt[toSymbol->?Str]@\basetype,
+	( write(?Y), write('|'), write(?D), write('|'), write(?Mon), write('|'),
+	  write(?Hr),write('|'),write(?Min),write('|'),write(?Sec),write('|'),
+	  write(?ZS), write('|'), write(?ZH), write('|'), write(?ZM),
+	  write('-->'), write(?Str), nl )@\plg.
+
+%test3 :-  write('test3: ')@\prolog,
+	"2007-11-22T23:33:55"^^\dt[year->?Y]@\basetype, ?Y:\integer,
+	"2007-11-22T23:33:55"^^\dt[day->?D]@\basetype, ?D:\integer,
+	"2007-11-22T23:33:55"^^\dt[month->?Mon]@\basetype, ?Mon:\integer,
+	"2007-11-22T23:33:55.234"^^\dt[hour->?Hr]@\basetype, ?Hr:\integer,
+	"2007-11-22T23:33:55"^^\dt[minute->?Min]@\basetype, ?Min:\integer,
+	"2007-11-22T23:33:55.234"^^\dt[second->?Sec]@\basetype, ?Sec:\decimal,
+	"2007-11-22T23:33:55"^^\dt[zoneSign->?ZS]@\basetype, ?ZS:\integer,
+	"2007-11-22T23:33:55"^^\dt[zoneHour->?ZH]@\basetype, ?ZH:\integer,
+	"2007-11-22T23:33:55"^^\dt[zoneMinute->?ZM]@\basetype,?ZM:\integer,
+	"2007-11-22T23:33:55"^^\dt[toSymbol->?Str]@\basetype,
+	"2007-11-22T23:33:55.2233"^^\dt[toSymbol->?Str2]@\basetype,
+	( write(?Y), write('|'), write(?D), write('|'), write(?Mon), write('|'),
+	  write(?Hr), write('|'), write(?Min), write('|'), write(?Sec),
+	  write('|'), write(?ZS), write('|'), write(?ZH),write('|'),write(?ZM),
+	  write('-->'), write(?Str),
+	  write('-->'), write(?Str2),
+	  nl )@\plg.
+
+%test4 :-  write('test4: ')@\prolog,
+	"23:33:55"^^\t[hour->?Hr]@\basetype, ?Hr:\integer,
+	"23:33:55"^^\t[minute->?Min]@\basetype, ?Min:\integer,
+	"23:33:55"^^\t[second->?Sec]@\basetype, ?Sec:\decimal,
+	"23:33:55-12:30"^^\t[zoneSign->?ZS]@\basetype, ?ZS:\integer,
+	"23:33:55.2233-12:30"^^\t[zoneHour->?ZH]@\basetype, ?ZH:\integer,
+	"23:33:55-12:30"^^\t[zoneMinute->?ZM]@\basetype, ?ZM:\integer,
+	"23:33:55"^^\t[toSymbol->?Str]@\basetype,
+	"23:33:55+11:00"^^\t[toSymbol->?Str2]@\basetype,
+	"23:33:55.2233"^^\t[toSymbol->?Str3]@\basetype,
+	"23:33:55.2233+11:00"^^\t[toSymbol->?Str4]@\basetype,
+	( write(?Hr), write('|'), write(?Min),
+          write('|'), write(?Sec),
+          write('|'), write(?ZS),
+          write('|'), write(?ZH),
+          write('|'), write(?ZM),
+	  write('-->'), write(?Str),
+	  write('-->'), write(?Str2),
+	  write('-->'), write(?Str3),
+	  write('-->'), write(?Str4),
+	  nl )@\plg.
+
+
+%test5 :-  write('test5: ')@\prolog,
+	  \"http://foouser@foo.bar.com:22/path?query#fragment"
+            [ scheme->?P,
+	      user->?U,
+	      host->?H,
+	      port->?Pt,
+	      path->?Ph,
+	      query->?Q,
+	      fragment->?F,
+	      toSymbol -> ?Str
+	    ]@\basetype,
+	 ( write(?P), write('+'), write(?U), write('+'), write(?H), write('+'),
+	   write(?Pt), write('+'), write(?Ph), write('+'), write(?Q),
+	   write('+'), write(?F), write('-->'), write(?Str), nl )@\plg.
+	 
+%test6 :-  write('test6: ')@\prolog,
+	  \"http://foo.bar.com/path?query#fragment"
+            [ scheme->?P,
+	      user->?U,
+	      host->?H,
+	      port->?Pt,
+	      path->?Ph,
+	      query->?Q,
+	      fragment->?F,
+	      toSymbol -> ?Str
+	    ]@\basetype,
+	 ( write(?P), write('+'), write(?U), write('+'), write(?H), write('+'),
+	   write(?Pt), write('+'), write(?Ph), write('+'), write(?Q),
+	   write('+'), write(?F), write('-->'), write(?Str), nl )@\plg.
+
+%test7 :-  write('test7: ')@\prolog,
+	  \"http://foo.bar.com/path#fragment"
+            [ scheme->?P,
+	      user->?U,
+	      host->?H,
+	      port->?Pt,
+	      path->?Ph,
+	      query->?Q,
+	      fragment->?F,
+	      toSymbol -> ?Str
+	    ]@\basetype,
+	 ( write(?P), write('+'), write(?U), write('+'), write(?H), write('+'),
+	   write(?Pt), write('+'), write(?Ph), write('+'), write(?Q),
+	   write('+'), write(?F), write('-->'), write(?Str), nl )@\plg.
+
+%test8 :-  write('test8: ')@\prolog,
+	  \"http://foo.bar.com:22/path?query"
+            [ scheme->?P,
+	      user->?U,
+	      host->?H,
+	      port->?Pt,
+	      path->?Ph,
+	      query->?Q,
+	      fragment->?F,
+	      toSymbol -> ?Str
+	    ]@\basetype,
+	 ( write(?P), write('+'), write(?U), write('+'), write(?H), write('+'),
+	   write(?Pt), write('+'), write(?Ph), write('+'), write(?Q),
+	   write('+'), write(?F), write('-->'), write(?Str), nl )@\plg.
+
+%test9 :-  write('test9: ')@\prolog,
+	  \"http://foo.bar.com:22/path"
+            [ scheme->?P,
+	      user->?U,
+	      host->?H,
+	      port->?Pt,
+	      path->?Ph,
+	      query->?Q,
+	      fragment->?F,
+	      toSymbol -> ?Str
+	    ]@\basetype,
+	 ( write(?P), write('+'), write(?U), write('+'), write(?H), write('+'),
+	   write(?Pt), write('+'), write(?Ph), write('+'), write(?Q),
+	   write('+'), write(?F), write('-->'), write(?Str), nl )@\plg.
+
+%test10 :-  write('test10: ')@\prolog,
+	  \"http://foo.bar.com:22"
+            [ scheme->?P,
+	      user->?U,
+	      host->?H,
+	      port->?Pt,
+	      path->?Ph,
+	      query->?Q,
+	      fragment->?F,
+	      toSymbol -> ?Str
+	    ]@\basetype,
+	 ( write(?P), write('+'), write(?U), write('+'), write(?H), write('+'),
+	   write(?Pt), write('+'), write(?Ph), write('+'), write(?Q),
+	   write('+'), write(?F), write('-->'), write(?Str), nl )@\plg.
+
+%test11 :-  write('test11: ')@\prolog,
+	  \"mailto:user@foo.bar.com"
+            [ scheme->?P,
+	      user->?U,
+	      host->?H,
+	      port->?Pt,
+	      path->?Ph,
+	      query->?Q,
+	      fragment->?F,
+	      toSymbol -> ?Str
+	    ]@\basetype,
+	 ( write(?P), write('+'), write(?U), write('+'), write(?H), write('+'),
+	   write(?Pt), write('+'), write(?Ph), write('+'), write(?Q),
+	   write('+'), write(?F), write('-->'), write(?Str), nl )@\plg.
+
+%test12 :-  write('test12: ')@\prolog,
+	  \"file:///abc/cde/efg"
+            [ scheme->?P,
+	      user->?U,
+	      host->?H,
+	      port->?Pt,
+	      path->?Ph,
+	      query->?Q,
+	      fragment->?F,
+	      toSymbol -> ?Str
+	    ]@\basetype,
+	 ( write(?P), write('+'), write(?U), write('+'), write(?H), write('+'),
+	   write(?Pt), write('+'), write(?Ph), write('+'), write(?Q),
+	   write('+'), write(?F), write('-->'), write(?Str), nl )@\plg.
+
+%test13 :-  write('test13: ')@\prolog,
+	  \"urn:abc123:something:else"
+            [ scheme->?P,
+	      user->?U,
+	      host->?H,
+	      port->?Pt,
+	      path->?Ph,
+	      query->?Q,
+	      fragment->?F,
+	      toSymbol -> ?Str
+	    ]@\basetype,
+	 ( write(?P), write('+'), write(?U), write('+'), write(?H), write('+'),
+	   write(?Pt), write('+'), write(?Ph), write('+'), write(?Q),
+	   write('+'), write(?F), write('-->'), write(?Str), nl )@\plg.
+
+%test14 :-  write('test14: ')@\prolog,
+	abc#"#bar"[path -> ?P, user->?U, toSymbol->?Str]@\basetype,
+	(write(?P), write('+'), write(?U), write('-->'), write(?Str), nl)@\plg.
+
+%test15 :-  write('test15: ')@\prolog,
+	    ?O = abc#"#bar",
+	    ?O1 = abc#bar,
+	    ?O2 = abc#'#bar',
+	    ?OO = abc1#"#bar",
+	    ?OO1 = abc1#bar,
+	    ?OO2 = abc1#'#bar',
+	    ?OOO = abc2#':foo@bar',
+	    ?OOO1 = abc2#":foo@bar",
+	    (write(?O.toSymbol@\basetype), write('+'),
+	     write(?O1.toSymbol@\basetype), write('+'),
+	     write(?O2.toSymbol@\basetype),write('+'),
+	     write(?OO.toSymbol@\basetype), write('+'),
+	     write(?OO1.toSymbol@\basetype),write('+'),
+	     write(?OO2.toSymbol@\basetype), write('+'),
+	     write(?OOO.toSymbol@\basetype), write('+'),
+	     write(?OOO1.toSymbol@\basetype), nl)@\plg.
+
+%test16 :- write('test16: ')@\prolog,
+	   ppp("abc"^^foo),
+	   nl@\plg.
+
+%test17 :- write('test17: ')@\prolog,
+	   qqq(?),
+	   nl@\plg.
+
+%test18 :- write('test18: ')@\prolog,
+	   qqq2(?),
+	   nl@\plg.
+
+%test19 :- write('test19: ')@\prolog,
+	   rrr("cde"^^moo),
+	   nl@\plg.
+
+%test20 :- write('test20: ')@\prolog,
+	   fff(?),
+	   nl@\plg.
+
+%test21 :- write('test21: ')@\prolog,
+	   "P2001Y11M12DT22H11M55.33S"^^\duration[hour->?Hr]@\basetype,
+	   ?Hr:\integer,
+	   "-P2001Y11M12DT22H11M55.33S"^^\duration[minute->?Min]@\basetype,
+	   ?Min:\integer,
+	   "P11M12DT11M55.33S"^^\duration[second->?Sec]@\basetype,?Sec:\decimal,
+	   "-P11M12DT11M55S"^^\duration[year->?Yr1]@\basetype, ?Yr1:\integer,
+	   "-P11M12DT11M55S"^^\duration[month->?Mo]@\basetype, ?Mo:\integer,
+	   "-P2001Y11M12DT22H11M55.33S"^^\duration[day->?D]@\basetype,
+	   ?D:\integer,
+	   "-P2001Y11M12DT22H11M55.33S"^^\duration[year->?Yr2]@\basetype,
+	   "-P2001Y11M12DT22H11M55.33S"^^\duration[toSymbol->?Str]@\basetype,
+	   "-P11M12DT11M55S"^^\duration[toSymbol->?Str2]@\basetype,
+	   "P11M12DT11M55.33S"^^\duration[toSymbol->?Str3]@\basetype,
+	   ( write(?Yr1), write('|'), write(?Yr2), write('|'), write(?Mo), 
+	     write('|'), write(?Hr), write('|'), write(?Min),
+	     write('|'), write(?Sec),
+	     write('|'), write(?D),
+	     write('-->'), write(?Str),
+	     write('-->'), write(?Str2),
+	     write('-->'), write(?Str3),
+	     nl )@\plg.
+
+%test22 :- write('test22: ')@\prolog,
+	   \time[toType(11,22,33.222,1,2,33)->?P]@\basetype,
+	   ?P[minute->?Min]@\basetype,
+	   \duration[toType(-1,0,22,44,2,3,44.999)->?T]@\basetype,
+	   ?T[month->?Mo]@\basetype,
+	   writeln(?Mo+?Min)@\plg.
+
+%test23 :- write('test23: ')@\prolog,
+	   pmoo(?X)@foo,
+	   writeln(?X)@\prolog.
+
+%abc#cde(a,b).
+%abc1#foo(?X,?Y) :- %abc#cde(?Y,?X), insert{%abc1#bar(p)}.
+
+%test24 :- write('test24: ')@\prolog,
+	   ?L = setof{?Z| %?Z(?,?) \or %?Z(?)},
+	   flora_write_oid(?L)@\plg(flrdecode),
+	   nl@\plg.
+
+%test25  :- write('test25: ')@\prolog,
+	(
+	   "http://example.com"^^\iri[toSymbol->?A1],
+	   "aaaa"^^\string[toSymbol->?A2],
+	   "5"^^\long[toSymbol->?A3],
+	   5[toSymbol->?A4],
+	   5.5[toSymbol->?A5],
+	   [5][toSymbol->?A6],
+	   ["5"^^\long, "http://example.com"^^\iri][toSymbol->?A7]
+        )@\basetype,
+	(
+	    write(?A1), write(' '),
+	    write(?A2), write(' '),
+	    write(?A3), write(' '),
+	    write(?A4), write(' '),
+	    write(?A5), write(' '),
+	    write(?A6), write(' '),
+	    write(?A7), write(' '),
+	    nl
+	)@\prolog.
+
+%test26  :- write('test26: ')@\prolog,
+	    \symbol[concat([abc,"abc"^^\charlist,123,"456"^^\long,f(a),[b,v],"2012-11-23"^^\date])->?R]@\basetype,
+	    writeln(?R)@\plg.
+
+%test27  :- write('test27: ')@\prolog, ?L= "true"^^xsd#boolean, ?LL="123"^^xsd#integer, flora_write_oid(?L+?LL)@\plg(flrdecode), nl@\io.
+
+%test28 :- \string[toType("abc"^^\charlist)->"abc"^^\string]@\basetype,
+	   \iri[toType("http://abc.com"^^\charlist)->"http://abc.com"^^\iri]@\basetype,
+	   writeln(test28=ok)@\plg.
+
+%test29 :-
+	flora_running_as(ergo)@\plg(flrporting),
+	!,
+	"11:15:7.6"^^\t[toDateTime("2011-12-22"^^\date)->"2011-12-22T11:15:07.6"^^\dateTime]@\btp,
+	"2011-12-22"^^\date[toDateTime("11:15:7.6"^^\t) -> "2011-12-22T11:15:07.6"^^\dateTime]@\btp,
+	"2011-12-22"^^\date[toDateTime(11,15,7.6) -> "2011-12-22T11:15:7.6"^^\dateTime]@\basetype,
+	"2011-12-22"^^\date[toDateTime(11,15,7.6) -> "2011-12-22T11:15:07.60"^^\dateTime]@\basetype,
+	"11:15:7.6"^^\t[toDateTime(2011,12,22)->"2011-12-22T11:15:07.6"^^\dateTime]@\btp,
+	writeln(test29=ok)@\plg.
+%test29 :- writeln(test29=ok)@\plg.
+
+%test30 :-
+	flora_running_as(ergo)@\plg(flrporting),
+	!,
+	"2011-12-22T12:33:44+4:19"^^\dt[minus("2009-11-29T9:44:55+2:09"^^\dt)->"P0002Y00M23DT02H48M49S"^^\duration]@\btp,
+	"2011-12-22+2:09"^^\d[minus("2009-11-29+2:09"^^\d)->"P0002Y00M23DT00H00M00S"^^\duration]@\btp,
+	"2011-12-22+2:09"^^\d[minus("2019-10-29+2:09"^^\d)->"-P0007Y10M07DT00H00M00S"^^\duration]@\btp,
+	"2011-12-22+2:19"^^\dt[minus("2009-11-29-2:09"^^\dt)->"P0002Y00M23DT00H00M00S"^^\du]@\btp,
+	"2011-12-22+2:19"^^\dt[minus("2019-11-29T2:30:30-2:09"^^\dt)->"-P0007Y11M07DT02H30M30S"^^\duration]@\btp,
+	"11:22:33+2:09"^^\t[minus("9:23:44-3:22"^^\t)->"P0000Y00M00DT01H58M49S"^^\du]@\btp,
+	"11:22:33+2:22"^^\t[minus("12:23:44+2:09"^^\t)->"-P0000Y00M00DT01H01M11S"^^\du]@\btp,
+	writeln(test30=ok)@\plg.
+%test30 :- writeln(test30=ok)@\plg.
+
+%test31 :- "12:44:55"^^\time[add("PT2M3S"^^\duration) -> "12:46:58"^^\time]@\basetype,
+	"2001-11-23T18:33:44-02:30"^^\dateTime[add("-P22Y2M10DT1H2M3S"^^\duration) -> "1979-09-13T17:31:41-02:30"^^\dateTime]@\btp,
+	"2001-11-23-02:30"^^\date[add("-P2Y2M10DT"^^\duration) -> "1999-09-13-02:30"^^\date]@\basetype,
+	"2001-11-23-02:30"^^\date[add("-P2Y13M10DT"^^\duration) -> "1998-10-13-02:30"^^\date]@\basetype,
+	"2001-11-23-02:30"^^\date[add("-P1999Y13M10DT"^^\duration) -> "1-10-13-02:30"^^\date]@\basetype,
+	"2011-12-22"^^\dt[add("-P1Y12M24DT"^^\du)-> "2009-11-28"^^\dateTime]@\btp,
+	"2011-12-22"^^\dt[add("-P0001Y12M24DT00H00M00S"^^\du)->"2009-11-28"^^\dateTime]@\btp,
+	"2011-12-22"^^\d[add("-P1Y12M24DT00H00M00S"^^\du)->"2009-11-28"^^\date]@\btp,
+	"2011-12-22"^^\d[add("-P2009Y11M29DT"^^\du)->"0001-12-24"^^\date]@\btp,
+	"0001-12-24"^^\date[add("P2009Y11M29DT"^^\du)->"2011-12-23"^^\d]@\btp,
+	writeln(test31=ok)@\plg.
+
+%test32 :- a12345 [ b12345 -> ?X], writeln(test32=?X)@\plg, \false.
+%test32 :- \true.
+
+%test33 :-  \d"2020-5-05"[lessEq(\dt"2020-5-5")]@\btp,
+        \dt"2020-5-5"[lessEq(\d"2020-5-05")]@\btp,
+        \dt"2020-5-4T23:59:59.9"[lessEq(\d"2020-5-05")]@\btp,
+        \d"2020-5-05"[lessEq(\dt"2020-5-5T0:0:00.00")]@\btp,
+        \dt"2020-5-5T0:00:00.00"[lessEq(\d"2020-5-05")]@\btp,
+        \dt"2020-5-5T0:00:00.00+5:00"[lessEq(\d"2020-5-05")]@\btp,
+        \dt"2020-5-5T0:00:00.00+5:00"[lessEq(\d"2020-5-05+3:30")]@\btp,
+        \d"2020-5-05"[lessThan(\dt"2020-5-5T0:0:00.10")]@\btp,
+        \d"2020-5-05"[lessThan(\dt"2020-5-05T0:0:00.10")]@\btp,
+        \+ \dt"2020-5-5T0:00:01.00"[lessEq(\d"2020-5-05")]@\btp,
+        \+\dt"2020-5-5T0:00:00.00+5:00"[islocaltime]@\btp,
+        \dt"2020-5-5T0:00:00.00"[islocaltime]@\btp,
+        \d"2020-5-5"[islocaltime]@\btp,
+        \+\d"2020-5-5+6:00"[islocaltime]@\btp,
+        writeln(test33=ok)@\plg,
+        !.
+%test33 :-writeln(test33=fail)@\plg.
+
+%test34 :-  \d"2020-5-05"[toUTC(-5,40) -> ?D1]@\btp,
+        \d"2020-5-05Z"[localtime -> ?D2]@\btp,
+        \d"2020-5-05+6:44"[localtime -> ?D3]@\btp,
+        \d"2020-3-01-6:00"[localtime -> ?D4]@\btp,
+        \dt"2020-5-05T2:30:12"[toUTC(-5,40) -> ?DT1]@\btp,
+        \dt"2020-5-05T2:30:12Z"[localtime -> ?DT2]@\btp,
+        \dt"2020-5-05T2:30:12+6:44"[localtime -> ?DT3]@\btp,
+        \dt"2020-3-01T2:30:12-6:00"[localtime -> ?DT4]@\btp,
+        \t"2:30:12"[toUTC(-5,40) -> ?T1]@\btp,
+        \t"2:30:12Z"[localtime -> ?T2]@\btp,
+        \t"2:30:12+6:44"[localtime -> ?T3]@\btp,
+        \t"2:30:12-6:00"[localtime -> ?T4]@\btp,
+        \d"2020-5-05"[toUTC(0,0) -> ?Z1]@\btp,
+        \dt"2020-5-05T2:30:12"[toUTC(0,0) -> ?Z2]@\btp,
+        \t"2:30:12"[toUTC(0,0) -> ?Z3]@\btp,
+        writeln(test34=?D1+?D2+?D3+?D4)@\io,
+        writeln(test34=?DT1+?DT2+?DT3+?DT4)@\io,
+        writeln(test34=?T1+?T2+?T3+?T4)@\io,
+        writeln(test34=?Z1+?Z2+?Z3)@\io,
+        !.
+%test34 :-writeln(test34=fail)@\plg.
+
+%pretest :- %test0, %test1, %test2 \and %test3 \and %test4,
+	    %test5, %test6, %test7, %test8, %test9,
+	    %test10, %test11, %test12, %test13, %test14, %test15,
+	    %test16, %test17, %test18, %test19, %test20, %test21,
+	    %test22, %test23, %test24, %test25, %test26, %test27,
+	    %test28, %test29, %test30, %test31, %test32, %test33,
+            %test34.
+
+%test :- [basetype_moo>>moo],
+	[basetype_foo>>foo],
+	tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	!,
+	Method[mustDefine(off)]@\sys,
+	Tables[abolish]@\sys,
+	%pretest,
+	told@\plg.

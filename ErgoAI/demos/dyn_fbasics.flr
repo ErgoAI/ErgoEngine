@@ -1,0 +1,72 @@
+/* File:      dyn_fbasics.flr
+** the dynamic version for flogic_basics.flr
+*/
+
+//  ===========================================================================
+//  SOME SIMPLE EXAMPLES SHOWING SEVERAL F-LOGIC FEATURES 
+//  ===========================================================================
+
+?- newmodule{mod1}.
+
+?- insert{%time_flies_like_an_arrow@mod1}.   // a 0-ary PREDICATE (proposition)
+?- insert{fruit_flies_like_an_apple[]@mod1}. // an OBJECT with empty spec []
+
+%e(a,b). %e(b,a). %e(b,c).		     // a binary PREDICATE (graph)
+%e(b,d).
+
+?- insertrule_z{(tc(?X,?Y) :- %e(?X,?Y)@\@)@mod1}.		// a RULE and ...
+?- insertrule_z{(tc(?X,?Y) :- tc(?X,?Z), tc(?Z,?Y))@mod1}.	// ... a (doubly) RECURSIVE RULE
+ 
+?- insert {
+{person,dangerous_hobby} :: object@mod1,
+{john,betty}:employee@mod1,			// INSTANCE : CLASS 
+employee::person@mod1,			// SUBCLASS :: SUPERCLASS
+{bob,tim}:person@mod1
+}.
+
+?- insert{person[age{1..1}=>integer, kids=>person]@mod1}.    // some (optional) SIGNATURE information
+
+?- insert{mary:employee[				// a more complex MOLECULE involving
+	age->29,			// ... a SINGLE-VALUED (svd) method
+	kids -> {tim,leo,betty},	// ... a MULTI-VALUED (mvd) method
+	salary(1998) -> a_lot		// ... a PARAMETERIZED (and svd) method
+]@mod1}.
+
+?- insert{tim[hobbies -> {stamps, snowboard}]@mod1}.	// somebodies hobbies
+?- insert{betty[hobbies->{fishing,diving}]@mod1}.
+
+?- insert{snowboard:dangerous_hobby@mod1}.		// isn't it??
+?- insert{diving:dangerous_hobby@mod1}.
+
+?- insert{?_X[self->?_X]@mod1}.				// define self
+
+
+?- insert{person[|believes_in ->			// INHERITABLE mvd method
+       {something, something_else|}]@mod1}.	
+
+?- insertrule_a{(person[instances -> {?X}] :- ?X:person)@mod1}.  // NON-INHERITABLE mvd method of person
+
+
+// ===========================================================================
+// now ask some QUERIES here (or INTERACTIVELY from the FLORA SHELL)
+// ===========================================================================
+
+?- %time_flies_like_an_arrow@mod1.	// ==> `yes'
+
+?- fruit_flies_like_a_banana[]@mod1.	// ==> `yes'
+
+?- tc(?X,?Y)@mod1.			// computes the transitive closure of e(_,_)
+
+?- ?X:person@mod1.			// What persons are there?
+?- person[instances -> {?X}]@mod1.	// ... same Q, but asked differently (see above)
+
+?- ?X[believes_in -> {?Y}]@mod1.	// Who believes in what?
+
+?- ?X.kids[			// Whose kids
+           self -> ?K,		// ... (and name the kid!)
+	   hobbies ->		// ... has hobbies
+            {?H:dangerous_hobby}	// ... which are dangerous?
+]@mod1. 
+
+?- writeln('Thanks for using FLORA!') @ \plg.
+

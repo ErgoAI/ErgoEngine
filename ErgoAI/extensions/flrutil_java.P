@@ -1,0 +1,157 @@
+/* File:      extensions/flrutil_java.P -- Java initialization for Prolog
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2015-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+
+#define JAVA_INITIALIZED       '_$_$java_monitor_initialized'
+#define JAVA_IS_DISABLED_ATM   '_$_$ergo_java_enabled'
+#define JAVA_IS_DISABLED       JAVA_IS_DISABLED_ATM()
+
+
+:- import
+	flora_install_dir/1,
+	flora_slash/1,
+	flora_concat_atoms/2
+   from flrporting.
+
+:- import
+        initialize/0
+   from ergo_java.
+
+:- import
+        %%ipIsShowing/2,
+        fjStudioIsReady/0,
+        ipListenerWindow/1
+   from usermod.
+
+:- import
+        %%ipInitIsShowing/1,
+        java/2,
+        java/3,
+        ipSocketsAreBusy/0
+   from interprolog.
+
+:- export
+        check_ergo_gui_busy/1,
+        set_ergo_studio_state/1,
+        gui_object_visible/1,
+        open_gui_window/3,
+        ergo_gui_mode/0,
+        set_java_cleanup/1,
+        initialize_java/0.
+
+:- dynamic
+        fjStudioIsReady/0,
+        JAVA_IS_DISABLED_ATM/0,
+        JAVA_INITIALIZED/1.
+
+initialize_java :- 
+        \+JAVA_INITIALIZED(true),
+        \+JAVA_IS_DISABLED,
+	flora_install_dir(ErgoDir),
+	flora_slash(S),
+	flora_concat_atoms([ErgoDir,S,ergo_lib,S,ergo2java], EJdir),
+        (library_directory(EJdir) -> true
+	; add_lib_dir(EJdir)
+        ),
+	initialize,
+        assert(JAVA_INITIALIZED(true)).
+
+ergo_gui_mode :-
+        \+JAVA_IS_DISABLED,
+        (initialize_java ; true),
+        flora_configuration(uimode,Mode),
+        !,
+        (Mode == studio -> true
+        ; nonvar(Mode), Mode = [_,gui]
+        ).
+
+check_ergo_gui_busy(Msg) :-
+        (ipSocketsAreBusy ->
+            flora_abort([Msg,': another command is talking to the GUI; wait...'], FLORA_ABORT_NOTRACE),
+            fail
+        ; true
+        ).
+
+gui_object_visible(W) :-
+	integer(W),
+        %%(flora_configuration(uimode,studio) -> ipIsShowing(W,true)
+	%%; java(W,boolean(1),isVisible)
+        %%).
+	java(W,boolean(1),isVisible).
+
+open_gui_window(Window,Title,Tooltip) :-
+        java('com.coherentknowledge.fidji.CtrlStyledOutputPane',
+             Window,
+	     makeOutputFrame(string(Title),string(Tooltip))).
+        %%(flora_configuration(uimode,studio) ->
+        %%    ipInitIsShowing(Window) %% cache open window
+        %%; true
+        %%).
+
+flora_experimenting_with(no_java) :- assert(JAVA_IS_DISABLED).
+flora_experimenting_with(java)    :- retractall(JAVA_IS_DISABLED).
+
+:- dynamic java_cleanup_command/1.
+java_cleanup_command('true').
+
+set_java_cleanup(Command) :-
+        flora_configuration(uimode,Mode),
+        (Mode == studio -> true
+        ; nonvar(Mode), Mode = [_,gui]
+        ),
+        !,
+        java_cleanup_command(OldCommand),
+        flora_concat_atoms([Command,', ',OldCommand],NewCommand),
+        retract(java_cleanup_command(OldCommand)),
+        assert(java_cleanup_command(NewCommand)),
+        ipListenerWindow(W),
+        java(W,setPrologCleanupCommand(string(NewCommand))).
+set_java_cleanup(_).
+
+ergo_studio_ready(ListenerWindow) :-
+        fjStudioIsReady, %% Studio has started up
+        ipListenerWindow(ListenerWindow).
+
+
+set_ergo_studio_state(_State) :-
+        %% DEBUG: disable set_ergo_studio_state by commenting next line
+        %%flrutils:is_studio_probe_in_progress,
+        !.
+
+set_ergo_studio_state(State) :-
+        nonvar(State),
+        ergo_studio_ready(ListenerWindow),
+        %% if InterProlog is serialising, skip this notification 
+        %% (hoping that whatever's going on is more important
+        %%  and will update studio state):
+        \+ ipSocketsAreBusy, 
+        (State == idle -> JavaMsg = setUItoPausedOrIdle
+        ; State == pause -> JavaMsg = setUItoPausedOrIdle
+        ; State == run -> JavaMsg = setUItoBusy
+        ; State == resume -> JavaMsg = setUItoBusy
+        ; State == wait4input -> JavaMsg = setUItoNeedsMoreInput
+        ),
+        !,
+        java(ListenerWindow,JavaMsg).
+%% ignore, if studio not ready or wrong state
+set_ergo_studio_state(_).
+

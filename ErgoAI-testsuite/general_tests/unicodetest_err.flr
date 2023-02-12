@@ -1,0 +1,34 @@
+#include "standard.h"
+
+?- flora_set_maxwarnings(60)@\plg(flrutils).
+
+%test :-
+	(File[exists(unicodetest_err_old)]@\io -->> File[unlink(unicodetest_err_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(unicodetest_err_old_flora,unicodetest_err_old)]@\io
+	;  File[link(unicodetest_err_old_ergo,unicodetest_err_old)]@\io
+        ),
+	flora_set_maxerrors(60)@\plg(flrutils),
+	flora_set_maxwarnings(60)@\plg(flrutils),
+	file_reopen(temp1,w,STDWARN,?_)@\plg(file_io),
+	file_reopen(temp2,w,STDERR,?_)@\plg(file_io),
+	tell(temp)@\plg,
+	?X = '00\u1594|\x34|Y\u1050|www', writeln(tst1=?X)@\plg,
+	?XX = '00\u1594|x34\Y\u1050|www', writeln(tst2=?XX)@\plg,
+	?XXX = '00\u408252|x34|Y\u1050|', writeln(tst6=?XXX)@\plg,
+	told@\plg,
+	(compile{unicode_err} ; \true),
+	file_close(STDWARN)@\plg(file_io),
+	file_close(STDERR)@\plg(file_io),
+	open(file(temp)@\plg,append,?Port0)@\plg,
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	copyIOport(?Port1,?Port0)@\plg(file_io),
+	close(?Port0)@\plg,
+	close(?Port1)@\plg,
+	open(file(temp)@\plg,append,?Port00)@\plg,
+	open(file(temp2)@\plg,read,?Port2)@\plg,
+	copyIOport(?Port2,?Port00)@\plg(file_io),
+	close(?Port2)@\plg,
+	close(?Port00)@\plg,
+	flora_file_op(unlink,temp1)@\plg(flrporting).
+

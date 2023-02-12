@@ -1,0 +1,67 @@
+/* File:      flrshow.flr
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@one.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2014-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- compiler_options{production=on}.
+
+:- export{?[splice(?) -> ?],
+	  ?[show(?) -> ?],
+	  ?[show -> ?]
+         }.
+
+:- nontabled_module.
+:- suppress_rule_signatures.
+
+:- symbol_context{
+        show/1, show/0
+   }.
+
+:- verbatim{':-(import(from(/(flora_decode_oid_as_list,2),flrdecode))).'}.
+:- prolog{change_module_if_needed/3}.
+
+// printable representation of a list with Separator inserted between
+// each pair of consecutive elements
+?List[splice(?Separator) -> ?Result] :-
+	islist{?List},
+	change_module_if_needed(?List,?ListM,\?C),
+	decode_list_add_separator(?ListM,?SepList,
+	                          flora_decode_oid_as_list(?,?)@\prolog,
+				  ?Separator)@\prolog(flrdecode),
+	flora_concat_items(?SepList,?Result)@\prolog(flrporting).
+
+// ?Result is bound to an atom that represents the printable view of Term
+?Term[show -> ?Result] :- ?Term[show(oid) -> ?Result].
+// Type: oid/goal
+?Term[show(?Type) -> ?Result] :-
+	change_module_if_needed(?Term,?TermM,\?C),
+	!,
+	flora_display_mode(?OldMode)@\prolog(flrdecode),
+	flora_set_display_mode(noescapes)@\prolog(flrdecode),
+        (?Type == oid -->>
+            flora_decode_oid_as_atom_substitute_vars(?TermM,?Result)@\prolog(flrdecode)
+        ;  flora_decode_goal_as_mainless_atom_substitute_vars(?TermM,?Result)@\prolog(flrdecode)
+        ),
+	flora_set_display_mode(?OldMode)@\prolog(flrdecode).
+
+
+#include "include/change_module.flr"

@@ -1,0 +1,75 @@
+:- use_argumentation_theory.
+:- setsemantics{tabling=reactive}.
+
+@{t1(?X)} foo(?X) :- p(?X).
+p(?).
+
+\cancel(t1(aaa)).
+
+@{t2} moo :- \naf q(?_X).
+
+q(a).
+
+@{t3} moo2 :- \naf q(?X), ?X=b.
+
+moo3(?X) :- \naf q(?X).
+moo4 :- moo3(?_X).
+moo5 :- moo3(?X), ?X=c.
+moo6 :- moo3(?X), ?X=a.
+
+%tst1 :- write('test1: ')@\plg,
+	 \if undefined{moo} \then writeln(success)@\plg
+	 \else writeln(failure)@\plg.
+%tst2 :- write('test2: ')@\plg,
+	 \if true{moo2} \then writeln(success)@\plg
+	 \else writeln(failure)@\plg.
+%tst3 :- write('test3: ')@\plg,
+	 \if undefined{moo4} \then writeln(success)@\plg
+	 \else writeln(failure)@\plg.
+%tst4 :- write('test4: ')@\plg,
+	 \if true{moo5} \then writeln(success)@\plg
+	 \else writeln(failure)@\plg.
+
+%tst5 :- write('test5: ')@\plg,
+	 \if false{moo6} \then writeln(success)@\plg
+	 \else writeln(failure)@\plg.
+
+%tst6 :- write('test6: ')@\plg,
+	  \if (foo(?X), \isvar(?X)) \then writeln(success)@\plg
+	 \else writeln(failure)@\plg.
+
+
+%tst7 :- write('test7: ')@\plg,
+	  \if (foo(?X), ?X=bbb) \then writeln(success)@\plg
+	 \else writeln(failure)@\plg.
+
+
+%tst8 :- write('test8: ')@\plg,
+	  \if (foo(?X), ?X=aaa) \then writeln(failure)@\plg
+	 \else writeln(success)@\plg.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8.
+
+#include "standard.h"
+
+%test :-
+        (File[exists(delaytest2_old)]@\io -->> File[unlink(delaytest2_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(delaytest2_flora_old,delaytest2_old)]@\io
+	;  File[link(delaytest2_ergo_old,delaytest2_old)]@\io
+        ),
+        tell(temp)@\plg,
+	file_reopen(temp1,w,STDWARN,?_)@\plg(file_io),
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        %pretest,
+        file_close(STDWARN)@\plg(file_io),
+	told@\plg,
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp)@\plg,append,?Port2)@\plg,
+	copyIOport(?Port1,?Port2)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	flora_file_op(unlink,temp1)@\plg(flrporting).

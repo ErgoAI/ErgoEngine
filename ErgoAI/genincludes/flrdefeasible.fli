@@ -1,0 +1,164 @@
+/*******************************************************************************
+  file: genincludes/flrdefeasible.fli - A template for generating the include
+  				      	file for supporting defeasible
+  					reasoning.
+  					The use of this file permits us to
+  					avoid the use of FLORA-2's
+  					meta-features, which speeds up hard
+  					cases of defeasible reasoning by 2x.
+					Included from ../includes/flrtrailer.flh
+  Author(s): Michael Kifer
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 2008-2018;
+       and Vulcan, Inc., 2008-2023.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+*******************************************************************************/
+
+#include "flora_wspredicates.flh"
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_MODULE_NAME'.
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_WORKSPACE(FL_OPPOSES_UNQUOTED)'.
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_WORKSPACE(FL_OVERRIDES_UNQUOTED)'.
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'.
+
+:- import flora_predicate_is_defined_lowlevel/1 from flrporting.
+
+/*
+  The following rules connect Prolog predicates
+  FL_OPPOSES_AUX/5 and FL_OVERRIDES_AUX/5,
+  which are used by defeasible theories, such as flrgclp.flr,
+  to user-modules HiLog predicates
+  FL_OPPOSES/2, FL_OPPOSES/2 and FL_OPPOSES/4, FL_OPPOSES/4.
+*/
+
+/*
+   MK: For some reason it is faster to use flrtrim:flora_generalize_last/2,
+       when there are many calls to _opposes. Strangely, FLLIBMODOBJ/6 is
+       even faster, but is not always correct (cannot take nontabled HiLog as
+       argument).
+
+       Also, using WRAP_TABLED_HILOG is faster than
+       FLBodyPREFIX(WRAP_TABLED_HILOG).
+       Probably because WRAP_TABLED_HILOG is tabled.
+*/
+
+
+%% Base data: p opposes neg p.
+%% We do a trick with FL_OPPOSES_AUX/6 to avoid tabling FL_OPPOSES_AUX/5.
+?- \+clause(FL_OPPOSES_AUX('FLORA_THIS_MODULE_NAME',_,_,_,_,0),_),
+   assert((FL_OPPOSES_AUX('FLORA_THIS_MODULE_NAME',_,H1,_,H2,0) :-
+	    flrtrim:flora_generalize_last(H1,HH1),
+	    flrtrim:flora_generalize_last(H2,HH2),
+	    (nonvar(H1), flrwrapper:flora_decode_module_name(H1,H1Mod) -> RealMod = H1Mod
+	    ; nonvar(H2), flrwrapper:flora_decode_module_name(H2,H2Mod) -> RealMod = H2Mod
+	    ; RealMod = 'FLORA_THIS_MODULE_NAME'
+	    ),
+    	    FL_OPPOSES_BASE(RealMod,HH1,HH2))).
+
+%% Commutativity of FL_OPPOSES
+?- \+clause(FL_OPPOSES_AUX(Mod,_,_,_,_),_),
+   assert((FL_OPPOSES_AUX(Mod,T2,H2,T1,H1,2) :- FL_OPPOSES_AUX(Mod,T1,H1,T2,H2,0))),
+   assert((FL_OPPOSES_AUX(Mod,T2,H2,T1,H1,2) :- FL_OPPOSES_AUX(Mod,T1,H1,T2,H2,1))),
+   %%  define FL_OPPOSES_AUX/5 based on FL_OPPOSES_AUX/6
+   assert((FL_OPPOSES_AUX(Mod,T1,H1,T2,H2) :- FL_OPPOSES_AUX(Mod,T1,H1,T2,H2,_))).
+
+%% Interaction of defeat with cancellation:
+%% Cancellation rule is disqualified if the rule being canceled has higher
+%% priority than the cancellation rule itself
+FL_OVERRIDEN_CANCELLATION(Tag1,FL_CANCEL(Tag2,_), 'FLORA_THIS_MODULE_NAME') :-
+    	            FL_OVERRIDES_AUX('FLORA_THIS_MODULE_NAME',
+	                             Tag3,_,
+			             Tag1,FL_CANCEL(Tag3,_)),
+		    flrdescriptor_support:synonymous_tag(Tag3,'FLORA_THIS_MODULE_NAME',Tag2).
+FL_OVERRIDEN_CANCELLATION(Tag1,FL_CANCEL(Tag2,H,_), 'FLORA_THIS_MODULE_NAME') :-
+    	            FL_OVERRIDES_AUX('FLORA_THIS_MODULE_NAME',
+	                             Tag3,H,
+			             Tag1,FL_CANCEL(Tag3,H,_)),
+		    flrdescriptor_support:synonymous_tag_with_head(Tag3,'FLORA_THIS_MODULE_NAME',Tag2,H).
+
+
+%% Connect FL_OPPOSES_AUX, FL_OVERRIDES_AUX, and FL_CANCEL_AUX with
+%% user-level %% predicates:
+%% FL_OPPOSES/2+4, FL_OVERRIDES/2+4, FL_CANCEL/1+2
+?- \+clause(FL_OPPOSES_AUX('FLORA_THIS_MODULE_NAME',_,_,_,_,1),_),
+   assert((FL_OPPOSES_AUX('FLORA_THIS_MODULE_NAME',Tag1,H1,Tag2,H2,1) :-
+	    flrtrim:flora_generalize_last(H1,HH1),
+	    flrtrim:flora_generalize_last(H2,HH2),
+            (
+	       flora_predicate_is_defined_lowlevel('FLORA_THIS_WORKSPACE(FL_OPPOSES_UNQUOTED)'(_,_,_)),
+	       'FLORA_THIS_WORKSPACE(FL_OPPOSES_UNQUOTED)'(HH1,HH2,_FWContext)
+	    ;
+	       flora_predicate_is_defined_lowlevel('FLORA_THIS_WORKSPACE(FL_OPPOSES_UNQUOTED)'(_,_,_,_,_)),
+	       'FLORA_THIS_WORKSPACE(FL_OPPOSES_UNQUOTED)'(Tag1,HH1,Tag2,HH2,_FWContext)
+	    ),
+	    flrcanon:show_rule_by_tag(Tag1,'FLORA_THIS_MODULE_NAME',HH1,_),
+	    flrcanon:show_rule_by_tag(Tag2,'FLORA_THIS_MODULE_NAME',HH2,_)
+	  )).
+
+%% These two are trying to make _opposes to have the same stuff as
+%% FL_OPPOSES_AUX. But it does not work.
+%% ****** The second rule, in particular, is problematic:
+%%        Tag1,Tag2 can be variables, and then they might unify with random
+%%        rule tags/heads.
+/*
+WRAP_TABLED_HILOG(FL_OPPOSES,H1,H2,_) :-
+	    flrtrim:flora_generalize_last(H1,HH1),
+	    flrtrim:flora_generalize_last(H2,HH2),
+	    FL_OPPOSES_AUX('FLORA_THIS_MODULE_NAME',Tag1,HH1,Tag2,HH2),
+	    flrcanon:show_rule_by_tag(Tag1,'FLORA_THIS_MODULE_NAME',HH1,_),
+	    flrcanon:show_rule_by_tag(Tag2,'FLORA_THIS_MODULE_NAME',HH2,_).
+WRAP_TABLED_HILOG(FL_OPPOSES,Tag1,H1,Tag2,H2,_) :-
+	    flrtrim:flora_generalize_last(H1,HH1),
+	    flrtrim:flora_generalize_last(H2,HH2),
+	    FL_OPPOSES_AUX('FLORA_THIS_MODULE_NAME',Tag1,HH1,Tag2,HH2),
+	    flrcanon:show_rule_by_tag(Tag1,'FLORA_THIS_MODULE_NAME',HH1,_),
+	    flrcanon:show_rule_by_tag(Tag2,'FLORA_THIS_MODULE_NAME',HH2,_).
+*/
+
+
+?- \+clause(FL_OVERRIDES_AUX('FLORA_THIS_MODULE_NAME',_,_,_,_),_),
+    assert((FL_OVERRIDES_AUX('FLORA_THIS_MODULE_NAME',Tag1,H1,Tag2,H2) :-
+	    flrtrim:flora_generalize_last(H1,HH1),
+	    flrtrim:flora_generalize_last(H2,HH2),
+            (
+	       flora_predicate_is_defined_lowlevel('FLORA_THIS_WORKSPACE(FL_OVERRIDES_UNQUOTED)'(_,_,_)),
+	       'FLORA_THIS_WORKSPACE(FL_OVERRIDES_UNQUOTED)'(Tag1,Tag2,_FWContext)
+	    ;
+	       flora_predicate_is_defined_lowlevel('FLORA_THIS_WORKSPACE(FL_OVERRIDES_UNQUOTED)'(_,_,_,_,_)),
+	       'FLORA_THIS_WORKSPACE(FL_OVERRIDES_UNQUOTED)'(Tag1,HH1,Tag2,HH2,_FWContext)
+	    ),
+	    flrcanon:show_rule_by_tag(Tag1,'FLORA_THIS_MODULE_NAME',HH1,_),
+	    flrcanon:show_rule_by_tag(Tag2,'FLORA_THIS_MODULE_NAME',HH2,_)
+	 )).
+
+
+?- \+clause(FL_CANCEL_AUX('FLORA_THIS_MODULE_NAME',_,_),_),
+    assert((FL_CANCEL_AUX('FLORA_THIS_MODULE_NAME',Tag,H) :-
+	    flrtrim:flora_generalize_last(H,HH),
+            (
+	       flora_predicate_is_defined_lowlevel('FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(_,_)),
+	       'FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(Tag,_FWContext)
+	    ;
+	       flora_predicate_is_defined_lowlevel('FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(_,_,_)),
+	       'FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(Tag,HH,_FWContext)
+	    ),
+	    flrcanon:show_rule_by_tag(Tag,'FLORA_THIS_MODULE_NAME',HH,_)
+	 )).
+
+
+
+%%%Local Variables:
+%%%mode: ergo
+%%%End:

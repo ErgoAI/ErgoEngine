@@ -1,0 +1,53 @@
+/* This demo shows the use of the meta programming (Hilog features). */
+:- compiler_options{expert=on}.
+
+o1[m1(a1) -> r1].
+o1[m2(b1,b2) -> r2].
+o1[m3 -> r3].
+o1[m4(c1,c2,c3) -> r4].
+
+o2[?M->?R] :-
+	o1[?M->?R],
+	?M=?_F(?_A1,?_A2).
+
+
+%init :- writeln('all objects, all method invocations:')@\plg(), ?X[?M -> ?R],
+	fmt_write("%S %S %S\n", args(?X,?M,?R))@\io, \false.
+%init :- \true.
+
+// All these must succeed
+%tst1 :- ?X[a->b]@?_Y ~ k[a->?C]@?_U, 
+	fmt_write('tst1 x=%S c=%S\n', a(?X,?C))@\io.
+%tst2 :- ?Q=mod, ?_X[a->b]@mod ~ ?_Y[?Z->?P]@?Q,
+	fmt_write('tst2 q=%S z=%S p=%S\n', a(?Q,?Z,?P))@\io.
+%tst3 :- ?_Y[?Z->?P]@?Q ~ ?_X[a->b]@mod, 
+	fmt_write('tst3 q=%S z=%S p=%S\n',a(?Q,?Z,?P))@\io.
+%tst4 :- ?X[a->b] ~ ppp[?Y->?Z], 
+	fmt_write('tst4 x=%S y=%S z=%S\n',a(?X,?Y,?Z))@\io.
+%tst5 :- ?_X[a->b]@mod ~ ?_Y[?Z->?P]@mod,
+	fmt_write('tst5 z=%S p=%S\n',a(?Z,?P))@\io.
+%tst6 :- ?_X[a->b]@mod ~ ?_Y[?Z->?P]@?Q,
+	fmt_write('tst6 q=%S z=%S p=%S\n', a(?Q,?Z,?P))@\io.
+%tst7 :- p(?X)@?Y ~ p(ooo)@mod, 
+	fmt_write('tst7 x=%S y=%S\n',a(?X,?Y))@\io.
+%tst8 :- p(?X)@?Y ~ p(ooo)@mod, ?Y=mod,
+	fmt_write('tst8 x=%S y=%S\n', a(?X,?Y))@\io.
+
+%tst9 :- \if catch{(?_X[?_M(?_) -> ?_O],\false),?_,\true}
+         \then writeln('test 9 failed!')@\plg().
+
+a:b.
+%tst10 :- ?Goal =.. [flogic(:,main),a,b], ?Goal, writeln(test10=ok)@\plg.
+
+%pretest :- %tst1,%tst2,%tst3,%tst4,%tst5,%tst6,%tst7,%tst8,%tst9,%tst10.
+
+%test :- tell(temp)@\plg(), 
+	Method[mustDefine(on)]@\sys,
+	%init,
+	Method[mustDefine(off)]@\sys,
+	%init,
+	%pretest,
+	told@\plg().
+
+
+

@@ -1,0 +1,100 @@
+
+:- use_rule_structure_db.
+
+
+aaasss :- !.
+@!{bar4} p1(?X) :- q1(?X), \neg r1(?X), \naf s1(?X), pp4(?).
+@{foo} p2(?X) ; pp2(?X) :- q2(?X), \neg r2(?X), \naf s2(?X).
+@!{bar[abc->cde]} p3(?X) ; pp3(?X) :- q3(?X), \neg r3(?X), \naf s3(?X).
+p5(?X); p2(?) :- \if p1(?X) \then p2[?X=>bar] \else p4(?X), pp2(?).
+p55(?X) :- \unless p1(?X) \do \naf \neg p22[?X=>bar].
+
+p4[?X->foo]<==pp4(?X) :- ?X=avg{?V|p1(?V),p2(?V)},
+                         ?X=avg{?V[?P]|p1(?V),p2(?P)},
+                         ?X=setof{?V[?PP](asc)|p1(?V),\neg p2(?PP)},
+                         ?X=bagof{?V[?PPP](asc)|p11(?V,?PPP),\naf p2(?PPP)}.
+
+%check_duplicate_student_entries :-
+	?Stud1[last->?L, first->?F, email->?Email1]@PPLMODULE,
+	?Stud2[last->?L, first->?F, email->?Email2]@PPLMODULE,
+	?Stud1 \= ?Stud2,
+        !,
+	\+ duplicate_students_stoplist(?Email1),
+	\+ duplicate_students_stoplist(?Email2).
+
+p4[?X->foo] :- pp4(?X).
+
+?(?Y)[isValid] :-
+	\+ (integer(?Y)@\plg ; ?Y < 1980).
+?(?Y)[isValid] :-
+	\+ integer(?Y).
+
+?(?)[isValid] :- <> (ppp(aaa) ; qqq(bbbb)).
+
+p10(?W) :- q10(?W), wish(nonvar(?W))^(q1010(?W),writeln(aaaa)@\plg,qq123).
+p12(?W) :- q12(?W), wish(nonvar(?W))^q1212(?W).
+
+tst1 :- structdb{?[isValid],any,?Id,?M,?F},
+         writeln(test1=?Id+?M+?F)@\io.
+tst2 :- structdb{16,main,?F,?G,?HdBdy,?C},
+         writeln(test2= (=?G||'')+?F+?HdBdy+?C)@\io.
+tst2 :- structdb{12,main,?F,?G,?HdBdy,?C},
+         writeln(test2= (=?G||'')+?F+?HdBdy+?C)@\io.
+tst2_1 :- structdb{22,main,?F,?G,?HdBdy,?C},
+         writeln(test2_1= (=?G||'')+?F+?HdBdy+?C)@\io.
+tst3 :- structdb{(p4[?_X->foo]<==pp4(?_X)),any,?Id,?M,?F},
+         writeln(test3=?Id+?M+?F)@\io.
+tst3_1 :- structdb{(p4[?_X->foo]<==pp4(?_X)),all,?Id,?M,?F},
+         writeln(test3_1=?Id+?M+?F)@\io.
+tst3_2 :- structdb{10,\@,?F,?G,?HdBdy,?C},
+         writeln(test3_2=(=?G||'')+?F+?HdBdy+?C)@\io.
+tst4 :- structdb{(forall(?_X)^p4[?_X->foo]),any,?Id,?M,?F},
+         writeln(test4=?Id+?M+?F)@\io.
+tst5 :- structdb{(\neg pp4(?_X)),any,?Id,?M,?F},
+         writeln(test5=?Id+?M+?F)@\io.
+tst6 :- structdb{(\naf s1(?_X)),any,?Id,?M,?F},
+         writeln(test6=?Id+?M+?F)@\io.
+tst7 :- structdb{wish(nonvar(?_X))^q1212(?_X),any,?Id,?M,?F},
+         writeln(test7=?Id+?M+?F)@\io.
+tst8 :- structdb{\if p1(?_X) \then p2[?_X=>bar] \else p4(?_X),any,?Id,?M,?F},
+         writeln(test8=?Id+?M+?F)@\io.
+tst8_1 :- structdb{\if p1(?_X) \then p2[?_X=>bar] \else p4(?_X),all,?Id,?M,?F},
+         writeln(test8_1=?Id+?M+?F)@\io.
+tst9 :- structdb{\unless p1(?_X) \do \naf \neg p22[?_X=>bar],any,?Id,?M,?F},
+         writeln(test9=?Id+?M+?F)@\io.
+tst9_1 :- structdb{\unless p1(?_X) \do p22[?_X=>bar],any,?Id,?M,?F},
+         writeln(test9_1=?Id+?M+?F)@\io.
+tst10 :- structdb{(p2(?),pp2(?)),all+head,?Id,?M,?F},
+         writeln(test10=?Id+?M+?F)@\io.
+tst10_1 :- structdb{(p2(?),pp2(?)),all,?Id,?M,?F},
+           writeln(test10_1=?Id+?M+?F)@\io.
+tst11 :- structdb{(p4[?_X->foo]<==pp4(?_X)),all+head,?Id,?M,?F},
+         writeln(test11=?Id+?M+?F)@\io.
+
+///// second batch
+
+  @!{r1} p222(?X) :- q222(?X), r222(?X).
+  @!{r2} p222(?X)==>r222(?X) :- q222(?X), ?X=avg{?V|\neg t222(?V)}.
+  @!{r3} \neg q222(?X) :- \neg p222(?X).
+
+  tst12 :- structdb{(p222(?)==>r222(?)),all+head,?Id,?Mod,?File},
+           writeln(test12 = ?Id+?Mod+?File)@\plg.
+  tst13 :- structdb{(p222(?)==>r222(?)),all,?Id,?Mod,?File},
+           writeln(test13 = ?Id+?Mod+?File)@\plg.
+  tst14 :- structdb{(p222(?)==>r222(?)),any,?Id,?Mod,?File},
+           writeln(test14 = ?Id+?Mod+?File)@\plg.
+  tst15 :- structdb{r2,main,?,?P,?H,?C},
+           writeln(test15 = (= ?P||'') +?H+?C)@\plg.
+
+
+
+%pretest :- tst1, tst2, tst2_1, tst3, tst3_1, tst3_2, tst4, tst5, tst6, tst7,
+            tst8, tst8_1, tst9, tst9_1, tst10, tst10_1, tst11,
+            tst12, tst13, tst14, tst15.
+
+%test :- 
+	tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	told@\plg.

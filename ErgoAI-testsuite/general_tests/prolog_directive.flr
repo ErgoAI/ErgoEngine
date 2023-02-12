@@ -1,0 +1,79 @@
+
+:- iriprefix{ex='http://example.com/2008/ex#'}.
+:- iriprefix{bbb = "http://my.fo.bar.com/"}.
+
+// :- table implies :- prolog, so :- prolog foo/2 is unnecessary
+//:- prolog foo/2.
+:- table{foo/2}.
+
+:- prolog{ex#foo/2}.
+:- prolog{bbb#"abc"/2}.
+
+// :- table implies :- prolog, so :- prolog is unnecessary here,
+// but we keep it for testing
+:- prolog{ex#barr/2}.
+:- table{ex#barr/2}.
+
+// if foo/2 weren't tabled, this would be an infinite loop
+foo(?X,?Y) :- abc(?X,?Y).
+foo(?X,?Y) :- foo(?X,?Z), foo(?Z,?Y).
+
+ex#foo(?X,?Y) :- cde(?X,?Y).
+
+abc(11,22).
+abc(22,11).
+cde(aa,bb).
+
+bbb#abc(ww,qq).
+
+%tst1 :- write('test1: ')@\plg,
+	setof{?X|?X(?,?)} = ?L,
+	writeln(?L)@\plg.
+
+%tst2 :- write('test2: ')@\plg,
+	?X = foo(a,b),
+	writeln(?X)@\plg.
+
+%tst3 :- write('test3: ')@\plg,
+	?X = ${ex#foo(a,b)},
+	flora_write_goal_substitute_vars(?X)@\plg(flrdecode),
+	nl@\plg.
+
+
+%tst4 :- write('test4: ')@\plg,
+	?X = bbb#abc(a,b),
+	writeln(?X)@\io.
+
+%tst5 :- write('test5: ')@\plg,
+	// we do not support non-logical features like :- prolog
+	// in readAll
+	string('ex#abc(a,b), ex#barr(c,d).')[readAll(?L)]@\parse,
+	writeln(?L)@\plg.
+
+%tst6 :- write('test6: ')@\plg,
+	?L = setof{?X|foo(?A,?B), ?X=(?A,?B)},
+	writeln(?L)@\plg.
+
+%tst7 :- write('test7: ')@\plg,
+	\if predicate_property(${foo(?,?)},tabled)@\plg(curr_sym)
+	\then writeln('foo/2 is tabled')@\plg
+        \else writeln('problem with foo/2')@\plg.
+
+%tst8 :- write('test8: ')@\plg,
+	\if predicate_property(${ex#barr(?,?)},tabled)@\plg(curr_sym)
+	\then writeln('ex#barr/2 is tabled')@\plg
+        \else writeln('problem with ex#barr/2')@\plg.
+
+%tst9 :- write('test9: ')@\plg,
+	\if predicate_property(${bbb#abc(?,?)},tabled)@\plg(curr_sym)
+        \then writeln('problem with bbb#abc/2')@\plg
+	\else writeln('bbb#abc/2 is not tabled')@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9.
+
+%test :- tell(temp)@\plg(), 
+        Method[mustDefine(on)]@\sys,
+	%pretest,
+        Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.	

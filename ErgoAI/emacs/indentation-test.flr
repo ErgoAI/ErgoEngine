@@ -1,0 +1,355 @@
+/*
+   THIS FILE IS IN THE PUBLIC DOMAIN.
+   
+   IT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+   IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+   OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+   OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+/*
+   Demonstration of Regulation W - small rulebase
+   Proprietary info, confidential to Coherent Knowledge Systems, LLC
+   Authors:  Benjamin Grosof, Isaac Grosof, Janine Bloomfield, Miguel Calejo
+   :         Michael Kifer
+*/
+
+ppppp :-
+        \( pppa
+           p
+        \)
+      \or
+        ppp,
+        iii
+      \and
+      \or
+        iiiiiiiii(o,
+                   p,
+                 ),
+        ppp
+        object-oriented,
+        
+        \( aaaa
+           bbbbb
+        \),
+        
+        iiiii()
+	pppp(
+            )
+        
+        p
+        .
+
+pp(o).
+p :-
+        ooo( ),
+        ppp(ooo,
+             ppp,
+             [ppp,
+               uuu
+             ],
+             pppp.pp
+             ppp,
+             pppp(aaaa,
+                   lll
+                 ).
+
+p(ooo).
+@!{ppp} @{}
+@!{ppp} @{}
+234[f->1,
+     ppp->o,
+     kkk,
+     oo
+   ].
+\(lllll
+   ppppp
+\),
+ppp.
+
+:- setsemantics{equality-basic}.
+
+@!{rule102b[url->regw#"#se12.3.223_12"]} @@{defeasible}
+\(?Affiliate is a RegW affiliate of ?Company\) :-
+        \(?Affiliate is advised by ?Company\)
+      \or 
+        (
+          \(?Affiliate2 is a RegW affiliate of ?Company\),
+          \(?Affiliate is advised by ?Affiliate2\)
+        ).
+
+/* No company is an affiliate of itself. */
+@!{rule102c} @@{strict}
+\neg \(?Affiliate is a RegW affiliate of ?Affiliate\) :- ?Affiliate:company.  
+
+/* ------------------------------------------------------------------------ */
+/* Controls relationship */
+
+\(?Affiliate1 and ?Affiliate2 are controlled by the same company\) :-
+	\(?Affiliate1 is controlled by ?Company\),
+        \(?Affiliate2 is controlled by ?Company\).
+
+
+// defaultOrigin(regw#"").  /* for navigate-to-source */
+/* ------------------------------------------------------------------------ */
+/* Demo Scenario (FICTIONAL!!) */
+/* All monetary amounts are in million dollar units.
+   All shares amounts are in millions.
+*/
+
+\(The previous transaction with id=?Id by ?Bank with ?Affiliate
+   of $?Amount million is a RegW covered transaction\) :-
+	\(?Affiliate is a RegW affiliate of ?Bank\),
+	(
+          \(?Bank made previous loan=?Id to ?Affiliate in the amount=?Amount\)
+        \or
+          (\(There is a previous transaction=purchase in the amount
+              of ?Amount with id=?Id between ?Bank and ?Company
+              involving asset ?Asset\),
+            issued_by(?Asset,?Affiliate))
+        \or
+          \(There is a previous asset. purchase id=?Id of ?Asset common
+             stock by ?Bank from ?Affiliate of ?Amount million\)
+        ).
+
+
+// Limitations on covered transactions
+/*
+   Quantitative Limitations. //
+   A bank may not engage in a new covered transaction with an 
+*/
+      /// here-comment
+
+\(The aggregated total of previous RegW covered transactions
+   by ?Bank with all affiliates is $?Amt million\) :-
+	\(?Bank is a bank\),
+	?Amt = sum{?PrevAmount|
+                    ?BankAffiliate = setof{?Affiliate|
+                                            \(?Affiliate is a RegW affiliate
+                                               of ?Bank\)},
+                    ?Company \in ?BankAffiliate,
+                    \(The total of previous RegW covered transactions
+                       by ?Bank with ?Company is $?PrevAmount million\)
+                  }.
+
+template(headbody,
+          \(Who is a legally formalized organization (?Organization)?\),
+          ?Organization:legally_formalized_organization
+        ).
+
+template(body,
+          \(There is a previous asset purchase id=?Id of ?Company common stock
+             by ?Bank from ?Affiliate of ?Amount million\),
+          asset_purchase(previous)(?Id,by=?Bank,from=?Affiliate,
+                                    asset=common_stock(?Company),amount=?Amount)
+        ).
+
+template(headbody,
+          \(There is a proposed asset purchase of ?Asset common stock by ?Bank from ?Company of $?Amt million\),
+          asset_purchase(proposed)(?_Id,by=?Bank,from=?Company,asset=common_stock(?Asset),amount=?Amt)
+        ).
+
+:- setsemantics{equality-basic}.
+ppp.
+pppp(aaaa, bbbb(ccc \and
+                 ddd(eee,
+                      fff[ppp,
+                           ooo],
+                      \(uuuu(,
+                         iii \),
+                      sss),
+                 aaa),
+      uuu
+      ddd
+      
+      
+      
+      pppp(aaaa(
+                 
+                 ddd,
+                 (ppp -->>
+                   p
+                   
+                 ; qqq,
+                   q
+                   
+                 )).
+
+ppp :-
+        \if foo \then (
+           uuu,
+           iii
+        ) \else foo,
+        \if foo \then (
+           qqq
+           aaa,
+           bbbb
+        ) \else
+           qqqq,
+        www.
+
+ii :-
+        \if kkk \then (
+           ppp
+           \if 111 \then
+              ooo
+           \else (
+              \if (222) \then (
+                 iiii,
+                 ppp(
+                      ooo
+                    )
+              ) \else
+                 ppp
+           )
+        ) \else (
+           ppp
+         ;
+           ooo
+        ).
+
+uuu :-
+        (ppp -->>
+          p,
+          ppp
+        <==>
+        ;
+        \or
+        <==>
+        ; qqq,
+          q
+        ).
+
+
+uuuu :-  
+        \if foo \then
+           yyyy
+        \else
+           \if 777 \then
+              uuu
+           \else  
+              999
+        iii.
+
+uuu :- \while (foo) \do (
+          \while (moo)
+          \do (
+             kkk
+          )
+       ).
+uuu :- \do (
+          aaa
+          \do 
+             uuu
+          \until iii,
+          bbb
+          \do
+             ppp
+          \until iii
+       ) \until (iii).
+
+
+uuu :- \while 111 \do
+          ttt,
+        \do
+          iii
+        \until,
+        ppp
+        \do (
+          \while iii \do
+             uuu,
+        ) \until foo.
+
+
+@!{writeout4} !-
+        (writeln('Write out the contents of p(...) - Method 4')@\io,
+          p(?X),
+          writeln(= 'p(' || ?X || ')')@\io,
+          \false
+        \or
+          \true
+        ).
+
+?- writeln('Write out the contents of p(...) - Method 1')@\io,
+        p(?_X),
+        writeln(= 'p(' || ?_X || ')')@\io.
+
+foobar(?Child,?Parent,?Root) :-
+        // the .. seems to be confusing everything!!
+        ?Parent =.. ppp,
+        // comment
+        ppp.
+
+?- \if (0 \is ?Num mod 2) \then 
+      ?OddStream[writeln(= Record || ?Num || ' = ' || ?X)]@\io
+   \else
+      ?EvenStream[writeln(= Record || ?Num || ' = ' || ?X)]@\io.
+
+foo :-
+        \if (0 \is ?Num mod 2) \then // comment
+           ?OddStream[writeln(= Record || ?Num || ' = ' || ?X)]@\io
+        \else
+           ?EvenStream[writeln(= Record || ?Num || ' = ' || ?X)]@\io.
+
+foo :- \if (0 \is ?Num mod 2) \then // \if \then \if aaa \then
+          ?OddStream[writeln(= Record || ?Num || ' = ' || ?X)]@\io
+       \else
+          ?EvenStream[writeln(= Record || ?Num || ' = ' || ?X)]@\io.
+
+/*
+   ppp :- aaaa,
+   bbb.
+*/
+ppp.
+
+%justificationTreeFunction(?Child,?Parent,?Root) :- 
+	?L=bagof{?CC|
+                  // It appears that CallerId in ?Parent is crucial for
+                  // justificationTreeRelation/3 to return all answers.
+                  // Reified ?Parent won't work because it has variables in
+                  // the hidden CallerId arguments of the context.
+                  justificationTreeRelation(?Node,?Parent,?Root),
+                  %nodeToTypeAtom(?Node,?Type,?Atom),
+                  ?CC = ?Type(?Atom)(?Node).
+
+fjJustificationTree(Root,JustificationType) :-
+        foo(?X),
+        /*
+           if \true, show extended justification. But \true seems buggy.
+           First, it does not seem to do anything in the studio,
+        */
+        ppp.
+
+justificationTreeRelation_(?Child, m(?ParentG,?_OptionalAppearance,?ConsiderSucceeded,?CallerID,?_special_reason,?_path), ?_Context) :-
+        !,
+	(
+        ;
+          (
+            /*
+               pppp
+            **
+            */
+            ?ConsiderSucceeded == \true, 
+            ?ParentG,
+            ?Child = w(?ParentG,null,?ConsiderSucceeded,?CallerID,null,?__path)
+          )
+        ).
+
+?X^^\list[contains(?Y^^\list)] :-
+        isnonvar{?X},
+        isnonvar{?Y},
+        !,
+        subseq(?X,?Y,?)@\prolog(basics).
+
+
+fjw(?G,?_ConsiderSucceeded,j(bg_axiom,?Comment(?B))) :-
+        %mayGetModule(?G,?M), 
+	\bgaxiom(?G,?B,?Comment)@\prolog,
+        /*
+           ooo
+           
+        */
+        

@@ -1,0 +1,197 @@
+/*******************************************************************************
+  file: datatypes/flrdtype_sub.P - subclassing among data types
+  Author(s): Michael Kifer
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 2010-2021.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+*******************************************************************************/
+
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_datatype_symbols.flh"
+#include "flora_terms.flh"
+
+#define ground_and_acyclic(X)  (ground(X),is_acyclic(X))
+
+:- table dtype_sub/2, dtype_isa/2 as opaque.
+:- import flora_when/2 from flrwhen.
+:- import
+      '\\issymbol'/1,
+        flora_builtin_datatype/1,
+        flora_canonical_type_name/2,
+	flora_datatype_name/2
+   from flrdatatype.
+
+:- import
+        FL_SKOLEMQUERY/1
+   from flrnewoid.
+
+:- import flora_delayed_literal_wrapper/4 from flrdelaysupport.
+
+:- import flora_get_DT_var_datatype/2 from usermod(flrunify_handlers).
+:- import flora_runtime_switch_registry/2 from flrregistry.
+:- import
+        flora_iscallable_any_type/1,
+        flora_ismodular/1
+   from flrmodular.
+
+:- export
+	dtype_sub/2,
+        dtype_isa_base/2,
+        dtype_isa/2.
+
+:- export
+	%% used in flrtypes.fli
+	FL_TYPE_GUARD/1,
+	FL_TYPE_GUARD/2,
+	FL_TYPE_ESCAPE/0,
+	FLORA_SYMBOL('isa_long')/1,
+	FLORA_SYMBOL('isa_float')/1,
+	FLORA_SYMBOL('isa_symbol')/1,
+	FLORA_SYMBOL('isa_listtype')/1.
+
+
+%%% dtype_sub/2 - base subclass for builtin types
+dtype_sub(C,FL_TOPTYPE) :- flora_when(nonvar(C),C \= FL_TOPTYPE).
+dtype_sub(X,Y) :- dtype_sub_base(X,Y).
+dtype_sub(X,Y) :- dtype_sub(X,Z), dtype_sub_base(Z,Y). 
+
+dtype_sub_base(FL_LONG,FL_INTEGER) :- !.
+dtype_sub_base(FL_INTEGER,FL_DECIMAL) :- !.
+dtype_sub_base(FL_FLOAT,FL_DOUBLE) :- !.
+dtype_sub_base(FL_CHARLIST,FL_LISTTYPE) :- !.
+
+dtype_sub_base((X,_),X) :-
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,_),
+        flora_builtin_datatype(X).
+dtype_sub_base((_,Y),Y) :-
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,_),
+        flora_builtin_datatype(Y).
+dtype_sub_base(X,(X;_)) :-
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,_),
+        flora_builtin_datatype(X).
+dtype_sub_base(Y,(_;Y)) :-
+	flora_runtime_switch_registry(FL_CLASS_EXPRESSIONS,_),
+        flora_builtin_datatype(Y).
+
+%%% dtype_isa/2 - base isa for builtin types
+/*
+%% This delay is done at the dtype_isa_base/2 level
+dtype_isa(O,Cl) :- 
+        var(O),
+        flora_builtin_datatype(Cl),
+        !,
+        flrwhen:flora_put_attr(O,FL_DT_VAR,(OO,dtype_isa(OO,Cl))).
+*/
+dtype_isa(O,Cl) :- dtype_isa_base(O,Cl).
+dtype_isa(O,Cl) :- dtype_sub(Cl1,Cl), dtype_isa_base(O,Cl1).
+
+%% if Obj is a var, make this attributed var restricted by the type
+dtype_isa_base(O,Cl) :- 
+        var(O),
+        flora_builtin_datatype(Cl),
+        !,
+        %% We now do it with delay quantifiers, not flrwhen.P
+        %%flrwhen:flora_put_attr(O,FL_DT_VAR,(OO,dtype_isa(OO,Cl))).
+        flora_delayed_literal_wrapper(FL_DELAYQUANT,NULL,NULL,
+                                      [FL_WISH,nonvar(O),
+                                       (var(O),flora_get_DT_var_datatype(O,OTyp)
+                                       -> canon_type_name_expr(OTyp,OTypC),
+                                           canon_type_name_expr(Cl,ClC),
+                                           (dtype_sub(OTypC,ClC) -> true
+                                           ; OTypC == ClC
+                                           )
+                                       ; var(O) -> undefined
+                                       ; dtype_isa(O,Cl) -> true
+                                       )
+                                      ]
+                                     ).
+dtype_isa_base(X,Y) :- dtype_has_a(Y,X).
+
+dtype_has_a(FL_TOPTYPE,_).
+dtype_has_a(FL_LONG,X) :- FLORA_SYMBOL('isa_long')(X).
+dtype_has_a(FL_SKOLEM,X) :- FLORA_SYMBOL('is_skolem')(X).
+dtype_has_a(FL_INTEGER,X) :- flora_datatype_name(X,FL_INTEGER).
+dtype_has_a(FL_SHORT,X) :- flora_datatype_name(X,FL_SHORT).
+dtype_has_a(FL_REAL,X) :- flora_datatype_name(X,FL_REAL).
+dtype_has_a(FL_FLOAT,X) :- FLORA_SYMBOL('isa_float')(X).
+dtype_has_a(FL_DOUBLE,X) :- flora_datatype_name(X,FL_DOUBLE).
+dtype_has_a(FL_DECIMAL,X) :- flora_datatype_name(X,FL_DECIMAL), !.
+dtype_has_a(FL_NUMBER,X) :- FLORA_SYMBOL('isa_number')(X), !.
+%% '...' is not a string or an iri, but a symbol
+dtype_has_a(FL_SYMBOL,X) :- FLORA_SYMBOL('isa_symbol')(X), X\==FL_SYMBOL.
+dtype_has_a(FL_STRING,X) :- flora_datatype_name(X,FL_STRING).
+dtype_has_a(FL_BOOL,X) :- flora_datatype_name(X,FL_BOOL).
+dtype_has_a(FL_LISTTYPE,X) :- FLORA_SYMBOL('isa_listtype')(X).
+dtype_has_a(FL_CHARLIST,X) :- is_charlist(X).
+dtype_has_a(FL_DATETIME,X) :- flora_datatype_name(X,FL_DATETIME).
+dtype_has_a(FL_TIME,X) :- flora_datatype_name(X,FL_TIME).
+dtype_has_a(FL_IRI,X) :- flora_datatype_name(X,FL_IRI).
+dtype_has_a(FL_DATE,X) :- flora_datatype_name(X,FL_DATE).
+dtype_has_a(FL_DURATION,X) :- flora_datatype_name(X,FL_DURATION).
+dtype_has_a(FL_CURRENCY,X) :- flora_datatype_name(X,FL_CURRENCY).
+
+dtype_has_a(FL_MODULAR_FORM,X)  :- flora_ismodular(X).
+dtype_has_a(FL_CALLABLE_FORM,X) :- flora_iscallable_any_type(X).
+
+
+FL_TYPE_GUARD(Call) :-
+	    (Call \= (_,_), Call \= (_;_), Call \= (_-_) -> true
+	    ; ground_and_acyclic(Call)
+	    ).
+FL_TYPE_GUARD(Call1,Call2) :-
+	    (Call1 \= (_,_), Call1 \= (_;_), Call1 \= (_-_) -> true
+	    ; ground_and_acyclic(Call2)
+	    ).
+
+FL_TYPE_ESCAPE :- fail.
+
+FLORA_SYMBOL('isa_long')(X) :- flora_datatype_name(X,FL_LONG), !.
+FLORA_SYMBOL('isa_float')(X) :- flora_datatype_name(X,FL_FLOAT), !.
+FLORA_SYMBOL('isa_number')(X) :- flora_datatype_name(X,FL_NUMBER), !.
+FLORA_SYMBOL('isa_symbol')(X) :- flora_datatype_name(X,FL_SYMBOL), !.
+FLORA_SYMBOL('isa_listtype')(X) :- flora_datatype_name(X,FL_LISTTYPE), !.
+
+#ifdef FLORA_SUBSUMPTIVE_TABLING
+FLORA_SYMBOL('isa_long')(X)     :- flora_when(nonvar(X),integer(X)).
+FLORA_SYMBOL('isa_float')(X)    :- flora_when(nonvar(X),float(X)).
+FLORA_SYMBOL('isa_symbol')(X)   :- flora_when(nonvar(X),'\\issymbol'(X)).
+FLORA_SYMBOL('isa_listtype')(X) :- flora_when(nonvar(X),is_list(X)).
+FLORA_SYMBOL('is_skolem')(X)    :- flora_when(nonvar(X),FL_SKOLEMQUERY(X)).
+#else
+FLORA_SYMBOL('isa_long')(X)     :- integer(X).
+FLORA_SYMBOL('isa_float')(X)    :- float(X).
+FLORA_SYMBOL('isa_number')(X)   :- number(X).
+FLORA_SYMBOL('isa_symbol')(X)   :- '\\issymbol'(X).
+FLORA_SYMBOL('isa_listtype')(X) :- is_list(X).
+FLORA_SYMBOL('is_skolem')(X)    :- FL_SKOLEMQUERY(X).
+#endif
+
+canon_type_name_expr((X,Y),(XX,YY)) :-
+        !,
+        canon_type_name_expr(X,XX),
+        canon_type_name_expr(Y,YY).
+canon_type_name_expr((X;Y),(XX;YY)) :-
+        !,
+        canon_type_name_expr(X,XX),
+        canon_type_name_expr(Y,YY).
+canon_type_name_expr(X,XX) :-
+        atom(X),
+        !,
+        flora_canonical_type_name(X,XX).

@@ -1,0 +1,103 @@
+
+@!{aa1[foo->5]} p(?X) :- q(?X).
+q(1), q(2), q(3), q(4).
+
+@!{aa2[foo->5]} s(?X) :- t(?X).
+t(2), t(3), t(4), t(5).
+
+
+@!{qq1(?X)[bar->4]} !- p(?X), s(?X).
+@!{qq2(?X)[bar ->4]} !- p(?X), s(?X), ?X>2.
+
+// [2,3,4]
+%tst1 :- write('test1: ')@\plg,
+	setof{?X|query{qq1(?X),\@F,\@}} = ?L,
+	writeln(?L)@\plg.
+
+// [3,4]
+%tst2 :-  write('test2: ')@\plg,
+	setof{?X|query{qq2(?X)}} = ?L,
+	writeln(?L)@\plg.
+
+// [qq1(?A)+(${p(?A)@main},${s(?A)@main}),
+//         qq2(?F)+(${p(?F)@main},(${s(?F)@main},?F>2))]
+%tst3 :-  write('test3: ')@\plg,
+	 setof{?R|clause{@!{?X[bar->4,type->query]} ?,?B}, ?R=?X+?B} = ?L,
+	 flora_write_goal_substitute_vars(?L)@\plg(flrdecode), nl@\plg.
+
+// [qq1(?A) + 4, qq2(?B) + 4]
+%tst4 :-  write('test4: ')@\plg,
+	 setof{?R| @!{?X[bar->?N,type->query]}, ?R=?X+?N} = ?L,
+	 flora_write_goal_substitute_vars(?L)@\plg(flrdecode), nl@\plg.
+
+// [qq1(?A)+(${p(?A)@main},${s(?A)@main}),
+//       qq2(?F)+(${p(?F)@main},(${s(?F)@main},?F>2)),
+//          rr1(?K)+(${p(?K)@main},?K<3), rr2(?N)+(${q(?N)@main},?N<4)]
+%tst5 :- write('test5: ')@\plg,
+	insert{@!{rr1(?X)[bar->4]} !- p(?X), ?X<3},
+	insertrule{@!{rr2(?X)[bar->4]} !- q(?X), ?X<4},
+	setof{?R|clause{@!{?X[bar->4,type->query]} ?,?B}, ?R=?X+?B} = ?L,
+	flora_write_goal_substitute_vars(?L)@\plg(flrdecode), nl@\plg.
+
+// [1,2,3]
+%tst6 :- write('test6: ')@\plg,
+	setof{?X|query{rr2(?X),dynrule(?),\@}} = ?L,
+	writeln(?L)@\plg.
+
+// [qq1(?A) + 4, qq2(?B) + 4, rr1(?C) + 4, rr2(?D) + 4]
+%tst7 :-  write('test7: ')@\plg,
+	 setof{?R| @!{?X[bar->?N,type->query]}, ?R=?X+?N} = ?L,
+	 flora_write_goal_substitute_vars(?L)@\plg(flrdecode), nl@\plg.
+
+// [qq1(?A) + 4, qq2(?B) + 4]
+// [qq1(?A)+(${p(?A)@main},${s(?A)@main}),
+//      qq2(?F)+(${p(?F)@main},(${s(?F)@main},?F>2))]
+%tst8 :- write('test8: ')@\plg,
+	deleterule{@!{rr1(?)[bar->4]} !- ?},
+	delete{@!{rr2(?)[bar->4]} !- ?},
+	setof{?R| @!{?X[bar->?N,type->query]}, ?R=?X+?N} = ?L1,
+	flora_write_goal_substitute_vars(?L1)@\plg(flrdecode), nl@\plg,
+        write('test8: ')@\plg,
+	setof{?R|clause{@!{?X[bar->4,type->query]} ?,?B}, ?R=?X+?B} = ?L2,
+	flora_write_goal_substitute_vars(?L2)@\plg(flrdecode), nl@\plg.
+
+//  [] - because we disabled qq1(?)
+%tst9 :- write('test9: ')@\plg,
+	disable{qq1(?),\@F,\@},
+	setof{?X| query{qq1(?X),\@F,\@}} = ?L,
+	flora_write_goal_substitute_vars(?L)@\plg(flrdecode), nl@\plg.
+
+// Still [] = because we disabled qq1(?) and tenable{...} has a subsequent fail.
+%tst10 :- write('test10: ')@\plg,
+	(tenable{qq1(?)}, \false ; \true),
+	setof{?X| query{qq1(?X)}} = ?L,
+	flora_write_goal_substitute_vars(?L)@\plg(flrdecode), nl@\plg.
+
+// [2, 3, 4]
+%tst11 :- write('test11: ')@\plg,
+	enable{qq1(?)},
+	setof{?X| query{qq1(?X),\@F,\@}} =?L,
+	flora_write_goal_substitute_vars(?L)@\plg(flrdecode), nl@\plg.
+
+// Still [2, 3, 4] - because tdisable failed
+%tst12 :- write('test12: ')@\plg,
+	(tdisable{qq1(?),\@F,\@}, \false ; \true),
+	setof{?X| query{qq1(?X),\@F,\@}} = ?L,
+	writeln(?L)@\io.
+
+// [aa1+foo+5+rule, aa2+foo+5+rule, qq1(?A)+bar+4+query, qq2(?B)+bar+4+query]
+%tst13 :- write('test13: ')@\plg,
+	setof{?R| @!{?X[?A->?N,type->?T]}, ?A != type, ?R=?X+?A+?N+?T} = ?L,
+	flora_write_goal_substitute_vars(?L)@\plg(flrdecode), nl@\plg.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6,
+	%tst7, %tst8, %tst9, %tst10, %tst11, %tst12, %tst13.
+
+%test :- tell(temp)@\plg(),
+	%pretest,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	told@\plg().
+

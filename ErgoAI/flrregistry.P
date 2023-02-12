@@ -1,0 +1,237 @@
+/* File:      flrregistry.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**      Coherent Knowledge Systems, LLC, 2014-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+#include "flora_extensions.flh"
+#include "flora_exceptions.flh"
+
+
+/* Tells which modules are loaded
+**        flora_module_registry(?Module,?Status,?File)
+**
+** Status: changed/unchanged. Changed means insert[rule]/delete[rule]/add
+** operations have been performed on the rules/facts of the module.
+*/
+%% must NOT be incremental or else stealth updates will be broken
+:- dynamic flora_module_registry/3.
+
+%% flora_imported_module_registry(?Importer,?Imported)
+:- dynamic flora_imported_module_registry/2 as incremental.
+:- table flora_module_import_closure/2 as incremental.
+%% Tells which file is loaded in which module and how
+%% flora_load_registry(File,Module,ShortFN,ModTime,load/add/fastload,HostFile,(LoadTimeSec,LoadTimeNanosec))
+:- dynamic flora_load_registry/7 as incremental.
+:- index(flora_load_registry/7,[1,2,6]).
+:- table flora_load_deps_closure/2 as incremental.
+%% Tells which modules have trailers loaded in them (some may have no trailers)
+:- dynamic flora_trailer_registry/2.
+%% Tells which modules have debug option turned on
+:- dynamic flora_debug_module_registry/1.
+%% Keeps track of the storage trie names
+:- dynamic
+	flora_storage_registry/1,
+	flora_fld_storage_registry/1.
+%% Optimizer options
+:- dynamic flora_runtime_switch_registry/2.
+%% (ExportingModule, ModuleExportedTo, UpdatableTag, Exported_Term)
+:- dynamic flora_export_registry(_,_,_,_).
+:- index(flora_export_registry/4,[4,1]).
+
+:- dynamic flora_in_debug_mode/1.
+:- dynamic flora_configuration/2.
+
+%% Pair of FloraModule,ModuleDescribingDefeasibleTheory
+:- dynamic flora_defeasible_module_registry/2.
+:- index(flora_defeasible_module_registry/2,[1,2]).
+
+:- dynamic flora_disabled_undefinedness_check_registry/3.
+
+:- dynamic flora_coder_prefixdef/2.
+
+:- dynamic flora_shell_prefixdef/3.
+
+:- dynamic flora_used_udf_registry/4.
+:- index(flora_used_udf_registry/4,trie).
+:- dynamic flora_useudf_directive/5.
+:- index(flora_useudf_directive/5,trie).
+:- dynamic flora_defined_udf_registry/6.
+:- index(flora_defined_udf_registry/6,trie).
+
+%% flora_modular_prolog_registry(Pred,Arity,Mod)
+:- dynamic flora_modular_prolog_registry/3.
+:- index(flora_modular_prolog_registry/3,[1+2,3]).
+%% flora_modular_tabled_registry(Pred,Arity,Mod)
+:- dynamic flora_modular_tabled_registry/3.
+:- index(flora_modular_tabled_registry/3,[1+2,3]).
+
+%% This has the form: limittype,breaklevel,options
+%% The action is the exception handler in case an exception is thrown due
+%% to the violation of the limit.
+%% Examples of the limits include:
+%%    timeout, [max(secs,flora_timeout_handler),repeating(secs,handler)]
+%%    goalsize, answersize (int, flora_size_limit_handler)
+%% Handler is a unary predicate. The argument is the goal that caused
+%% the exception
+:- dynamic flora_runtime_limits_registry/3.
+
+%% arg1: global/local
+:- dynamic ergotext_template_file/3.
+:- index(ergotext_template_file/3,[1,2,3]).
+
+:- import flora_system_module/1 from flrlibman.
+:- import flora_get_break_level/1 from flora2.
+
+:- export
+	flora_module_registry/1,
+	flora_module_registry/2,
+	flora_module_registry/3,
+	flora_user_module_registry/1,
+	flora_imported_module_registry/2,
+	flora_module_import_closure/2,
+	flora_load_deps_closure/2,
+	flora_nonuser_module_registry/1,
+	flora_load_registry/7,
+	flora_user_load_registry/3,
+	flora_user_load_registry/4,
+	flora_debug_module_registry/1,
+	flora_in_debug_mode/1,
+	flora_storage_registry/1,
+	flora_fld_storage_registry/1,
+	flora_trailer_registry/2,
+	flora_runtime_switch_registry/2,
+        flora_set_runtime_switch_registry/2,
+        flora_clear_runtime_switch_registry/2,
+        flora_clear_timeout/0,
+        flora_clear_nested_timeouts/0,
+        flora_clear_all_timeouts/0,
+	flora_export_registry/4,
+	flora_disabled_undefinedness_check_registry/3,
+	flora_configuration/2,
+	flora_defeasible_module_registry/2,
+	flora_runtime_limits_registry/3,
+	flora_used_udf_registry/4,
+        flora_useudf_directive/5,
+	flora_defined_udf_registry/6,
+	flora_modular_prolog_registry/3,
+	flora_modular_tabled_registry/3,
+	flora_set_template/2,
+	flora_get_template_module/2,
+	flora_get_template_srcfile/2,
+	flora_coder_prefixdef/2,
+	flora_shell_prefixdef/3,
+        add_to_flora_registry/1.
+
+
+%% Like flora_load_registry/7 but excludes non-user modules
+%% flora_user_load_registry(?FileName,?Module,?ShortFN,?Flag)
+%% Flag = load/add
+flora_user_load_registry(FN,M,Flag) :-
+	flora_user_load_registry(FN,M,_ShortFN,Flag).
+flora_user_load_registry(FN,M,ShortFN,Flag) :-
+	flora_load_registry(FN,M,ShortFN,_,Flag,_,_),
+	\+ flora_defeasible_module_registry(_,M),
+	\+ flora_system_module(M).
+
+flora_module_registry(M) :- flora_module_registry(M,_Status).
+flora_module_registry(M,Status) :- flora_module_registry(M,Status,_).
+
+flora_user_module_registry(M) :-
+	flora_module_registry(M),
+	\+ flora_defeasible_module_registry(_,M),
+	\+ flora_system_module(M).
+
+flora_nonuser_module_registry(M) :- flora_defeasible_module_registry(_,M).
+flora_nonuser_module_registry(M) :- flora_system_module(M).
+
+flora_module_import_closure(Importer,Imported) :-
+	flora_imported_module_registry(Importer,Imported).
+flora_module_import_closure(Importer,Imported) :-
+	flora_imported_module_registry(Importer,Med),
+	flora_module_import_closure(Med,Imported).
+
+flora_load_deps_closure(Loader,Loadee) :-
+	flora_load_registry(Loadee,_Module,_ShortFN,_ModTime,_,Loader,_),
+	Loader \= Loadee.
+flora_load_deps_closure(Loader,Loadee) :-
+	flora_load_registry(Intermed,_Module,_ShortFN,_ModTime,_,Loader,_),
+	flora_load_deps_closure(Intermed,Loadee),
+	Loader \= Loadee.
+
+%% NOTE:
+%%     o Module - the module of the KB file;
+%%       ERGOTEXT_PARSTIME_DUMMY_MODULE - special dummy module that is created
+%%       solely for the purpose of finding the template used at parse time
+%%     o TemplateMod - the module into which the Module's templates are loaded.
+%%       TemplateMod does NOT depend on Module.
+flora_set_template(Module,TemplateSrcFile) :-
+        atom(Module),
+        !,
+	retractall(ergotext_template_file(Module,_,_)),
+	parse_filename(TemplateSrcFile,_,TemplateMod_pre,_),
+	fmt_write_string(TemplateMod,'%s_%s',
+			 args(TemplateMod_pre,ERGO_NLTEMPLATE_EXT)),
+	(TemplateSrcFile == off -> true
+	; assert(ergotext_template_file(Module,TemplateSrcFile,TemplateMod))
+	).
+flora_set_template(Module,TemplateSrcFile) :-
+        flrporting:flora_abort(['flora_set_template(',Module,',',TemplateSrcFile,'): ', 'module must be an atom'], FLORA_ABORT_NOTRACE).
+
+%% returns both the module of the KB and the corresponding module into which
+%% the templates are loaded
+flora_get_template_module(Module,TemplateMod) :-
+	ergotext_template_file(Module,_,TemplateMod),
+	!.
+
+flora_get_template_srcfile(Module,TemplateSrcFile) :-
+	ergotext_template_file(Module,TemplateSrcFile,_),
+	!.
+
+flora_set_runtime_switch_registry(Opt,Module) :-
+        assert(flora_runtime_switch_registry(Opt,Module)).
+flora_clear_runtime_switch_registry(Opt,Module) :-
+        retractall(flora_runtime_switch_registry(Opt,Module)).
+
+flora_clear_timeout :-
+	flora_get_break_level(BL),
+	retractall(flora_runtime_limits_registry(timeout,BL,_)).
+
+flora_clear_nested_timeouts :-
+        flora_runtime_limits_registry(timeout,BL,_),
+        (BL > 0 -> retractall(flora_runtime_limits_registry(timeout,BL,_))
+        ; true
+        ),
+        fail.
+flora_clear_nested_timeouts.
+
+flora_clear_all_timeouts :-
+        retractall(flora_runtime_limits_registry(timeout,_,_)).
+flora_clear_all_timeouts.
+
+add_to_flora_registry(Pred) :-
+        \+ call(Pred),
+        assert(Pred).
+add_to_flora_registry(_).

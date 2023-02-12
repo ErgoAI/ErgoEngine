@@ -1,0 +1,47 @@
+//infinitely many calls
+
+@!{fact1} edge[a->b].
+@!{fact2} edge[b->a].
+@!{rule1} path1[?X->?Y] :- edge[?X->?Y].
+@!{rule2} path2[?X->?Y] :- edge[?X->?Y].
+@!{rule3} path1[?X->?Y] :- path2[?X->f1(?Y)].
+@!{rule4} path2[?X->?Y] :- path1[?X->f2(?Y)].
+
+// generates the logforest trace
+%build_log :-
+        writeln('Building the log...')@\plg,
+	setruntime{goalsize(60,abort)},
+	logforest('terminyzer2_xsblog')@\plg(flrterminyzer),
+	//\logforest('terminyzer2_floralog','terminyzer2_xsblog'),
+	catch{path1[?_X->?_Y],?,\true},
+	//\nologforest,
+	//\halt.
+	setruntime{goalsize(0,abort)},
+        log_all_forest_flush@\plg(tables),
+        writeln('Done building the log...')@\plg.
+
+//?- setruntime{goalsize(60,abstract)}.
+?- %build_log.
+
+// the following is regression test
+%test :-
+        /*
+	(File[exists(terminyzer2_xsblog)]@\io -->> File[unlink(terminyzer2_xsblog)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(terminyzer2_xsblog_flora,terminyzer2_xsblog)]@\io
+	;  File[link(terminyzer2_xsblog_ergo,terminyzer2_xsblog)]@\io
+        ),
+        */
+	tell(temp)@\plg(),
+	terminyzer('terminyzer2_xsblog','terminyzer_summary.flr')@\prolog(flrterminyzer),
+	Method[mustDefine(on)]@\sys,
+	terminyzer('terminyzer2_xsblog','terminyzer_summary.flr')@\prolog(flrterminyzer),
+	Method[mustDefine(off)]@\sys,
+	told@\plg(),
+	open(file(temp)@\plg,append,?Port1)@\plg,
+	open(file('terminyzer_summary.flr')@\plg,read,?Port2)@\plg,
+	copyIOport(?Port2,?Port1)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	flora_file_op(unlink,'terminyzer_summary.flr')@\plg(flrporting),
+	flora_file_op(unlink,'terminyzer2_xsblog')@\plg(flrporting).

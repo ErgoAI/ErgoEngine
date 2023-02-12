@@ -1,0 +1,167 @@
+/* File:      flraggavg.P
+**
+** Author(s): Guizhen Yang 
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2020.
+**      Coherent Knowledge Systems, 2016-2020.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_errors.flh"
+#include "flora_exceptions.flh"
+
+:- import member/2 from basics.
+:- import flora_warning_line/1 from flrprint.
+
+:- import flora_decode_oid_list_as_atom_list_substitute_vars/2 from flrdecode.
+:- import flora_abort/2 from flrporting.
+%%:- import ground_memberchk/1 from flrauxil.
+
+
+
+/*********************************************************************
+  fllibavg(+Var,+GrpByLst,[],+Goal,-Avg)
+*********************************************************************/
+FLLIBAVG(Var,[],[],Goal,Avg) :-
+	!,
+	findall(Var,Goal,Matches),
+	flora_avgaux(Matches,Avg).
+
+/*
+FLLIBAVG(Var,GrpByLst,[],Goal,_Avg) :-
+	ground_memberchk(GrpByLst),
+	!,
+	flora_decode_oid_list_as_atom_list_substitute_vars([Var,GrpByLst,Goal],
+							   [VarA,GrpByLstA,GoalA]),
+	flora_abort(['In ',FL_AVG,'{',VarA,GrpByLstA,'|',GoalA,'}',GROUPING_VAR_GROUND],
+		    FLORA_ABORT_NOTRACE).
+*/
+	
+
+FLLIBAVG(Var,GrpByLst,[],Goal,Avg) :-
+	!,
+	findall(flora_result(Var,GrpByLst),Goal,Matches),
+	findall(Grp,member(flora_result(_,Grp),Matches),GL),
+	sort(GL,Groups),
+	member(GrpByLst,Groups),
+	findall(D,member(flora_result(D,GrpByLst),Matches),DL),
+	flora_avgaux(DL,Avg).
+
+
+/*********************************************************************
+  fllibavgdistinct(+Var,+GrpByLst,[],+Goal,-Avg)
+*********************************************************************/
+FLLIBAVGDISTINCT(Var,[],[],Goal,Avg) :-
+	!,
+	findall(Var,Goal,Matches1),
+	sort(Matches1,Matches),
+	flora_avgaux(Matches,Avg).
+
+/*
+FLLIBAVGDISTINCT(Var,GrpByLst,[],Goal,_Avg) :-
+	ground_memberchk(GrpByLst),
+	!,
+	flora_decode_oid_list_as_atom_list_substitute_vars([Var,GrpByLst,Goal],
+							   [VarA,GrpByLstA,GoalA]),
+	flora_abort(['In ',FL_AVGDISTINCT,'{',VarA,GrpByLstA,'|',GoalA,'}',GROUPING_VAR_GROUND],
+		    FLORA_ABORT_NOTRACE).
+*/
+	
+
+FLLIBAVGDISTINCT(Var,GrpByLst,[],Goal,Avg) :-
+	!,
+	findall(flora_result(Var,GrpByLst),Goal,Matches),
+	findall(Grp,member(flora_result(_,Grp),Matches),GL),
+	sort(GL,Groups),
+	member(GrpByLst,Groups),
+	findall(D,member(flora_result(D,GrpByLst),Matches),DL1),
+	sort(DL1,DL),
+	flora_avgaux(DL,Avg).
+
+
+/*********************************************************************
+  fllibavg(+Var,+GrpByLst,+UniqLst,+Goal,-Avg)
+  Like avg, but in each group eliminate duplicates that have
+  the same values over the vars in UniqLst.
+*********************************************************************/
+FLLIBAVG(Var,[],UniqLst,Goal,Avg) :-
+	!,
+	findall(Var+UniqLst,Goal,Matches),
+        sort(Matches,UniqMatches),
+	flora_avgaux(UniqMatches,Avg).
+
+FLLIBAVG(Var,GrpByLst,UniqLst,Goal,Avg) :-
+	!,
+	findall(flora_result(Var+UniqLst,GrpByLst),Goal,Matches),
+	findall(Grp,member(flora_result(_,Grp),Matches),GL),
+	sort(GL,Groups),
+	member(GrpByLst,Groups),
+	findall(D,member(flora_result(D,GrpByLst),Matches),DL),
+        sort(DL,UniqDL), %% eliminate duplicates having same vals over UniqLst
+	flora_avgaux(UniqDL,Avg).
+
+
+
+
+/********************************************************************
+  flora_avgaux(+List,-Avg).
+  flora_avgaux(+List,-CurrSum,-CurrNum,-Avg,-Warning)
+********************************************************************/
+flora_avgaux(Matches,Avg) :-
+	flora_avgaux(Matches,_,_,Avg,Warning),
+	( var(Warning) -> true
+	;
+	  flora_warning_line("discarding non-numeric values while computing average")
+	).
+
+
+flora_avgaux([],Sum,Num,Avg,_) :-
+	!,
+	(var(Sum) -> fail; Avg is Sum/Num).
+
+flora_avgaux([H|L],Sum,Num,Avg,Warning) :-
+	!,
+	( number(H) ->
+	    ( var(Sum) ->
+		S=H,
+		N=1
+	      ;
+	        S is Sum+H,
+		N is Num+1
+	    ),
+	    flora_avgaux(L,S,N,Avg,Warning)
+        ; H = NumPart + _Uniq, number(NumPart) ->
+            ( var(Sum) ->
+		S=NumPart,
+		N=1
+	      ;
+	        S is Sum+NumPart,
+		N is Num+1
+	    ),
+	    flora_avgaux(L,S,N,Avg,Warning)
+	;
+            Warning=[],
+            flora_avgaux(L,Sum,Num,Avg,_)
+	).

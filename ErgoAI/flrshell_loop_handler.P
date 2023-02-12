@@ -1,0 +1,428 @@
+/* File:      flrshell_loop_handler.P  -- The Flora handler for the command loop
+**
+** Author(s):  Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2021;
+**      Coherent Knowledge Systems, LLC, 2014-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+#include "flora_status_codes.flh"
+
+
+:- import
+        flora_set_break_level/1,
+	flora_get_break_level/1,
+	flora_unprotect_break_level/0
+   from flora2.
+
+:- import
+        flora_match_substring/3,
+        flora_concat_atoms/2,
+        flora_concat_items/2
+   from flrporting.
+
+:- import
+	xsb_error_get_goal/2,
+	xsb_error_get_message/2,
+	xsb_error_get_tag/2,
+	xsb_error_get_backtrace/2,
+	%%default_sys_error_handler/1,
+	print_backtrace/1
+   from error_handler.
+
+:- import
+        flora_stdmsg_nl/0,
+        flora_message_line/1,
+	flora_stderr_nl/0,
+	flora_abort_writeln/1,
+	flora_error_writeln/1
+   from flrprint.
+
+:- import
+	flora_configuration/2
+   from flrregistry.
+
+:- import
+        flora_decode_oid_as_atom/2,
+        flora_decode_goal_as_atom_substitute_vars/2
+   from flrdecode.
+
+:- import
+	flora_undefined_predicate_msg/4
+   from flrundefhook.
+
+
+:- export
+        flora_shell_loop_message/3,
+        flora_shell_loop_handler/1.
+
+:- dynamic backtrace_enabled/0.
+:- export
+        flora_print_backtrace/1,
+        flora_backtrace_enabled/0,
+        flora_backtrace/1,
+        flora_enable_backtrace/0,
+        flora_disable_backtrace/0.
+
+
+flora_shell_loop_handler(Error) :-
+	var(Error),
+	!,
+	flora_stderr_nl,
+	flora_error_writeln('unbound variable thrown as an exception - caught'), 
+	flora_stderr_nl,
+	fail.
+%% If end_of_flora_shell was thrown then true (exit)
+%% Otherwise - fail (continue the loop)
+flora_shell_loop_handler(END_OF_FLORA_SHELL) :-
+	flora_unprotect_break_level,
+	!.
+flora_shell_loop_handler(FLORA_CMD_LINE_ARGUMENT_DONE) :-
+	!,
+	fail.
+flora_shell_loop_handler(FLORA_TOP_LEVEL) :-
+	flora_unprotect_break_level,
+        !,
+	fail.
+
+%% FLORA_ABORT_PARENT: thrown from within a break level to exit to the top level
+%% and abort the suspended query
+flora_shell_loop_handler(FLORA_ABORT_PARENT) :-
+	!,
+	(flora_get_break_level(BL), BL>0 ->
+	    throw(FLORA_ABORT_PARENT)
+	; flora_stderr_nl, fail
+	).
+%% this is thrown by subshell_handler/3 @ flora2 in order to exit
+%% the breakpoint and return to the top level
+flora_shell_loop_handler(FLORA_EXIT_BREAK) :-
+	!,
+	(flora_get_break_level(BL), BL>0 ->
+	    flora_set_break_level(0),
+            flora_stdmsg_nl,
+	    flora_message_line('aborting the paused query & returning to the top level'),
+            flora_stdmsg_nl,
+	    (flora_configuration(uimode,studio) ->
+		interprolog:returned_to_toplevel
+	    ;
+		true
+	    ),
+	    flora_stderr_nl
+	; flora_stderr_nl
+	),
+	fail.
+
+flora_shell_loop_handler(Ball) :-
+        flora_shell_loop_message(Ball,Message,Trace),
+        !,
+        (Message == '' -> true
+        ;
+            flora_stderr_nl,
+            (Message = abort(RealMsg) -> flora_abort_writeln(RealMsg)
+            ; flora_error_writeln(Message)
+            ),
+            flora_stderr_nl,
+            flora_stderr_nl
+        ),
+        (Trace = force(Trace1) -> flora_print_backtrace(Trace1)
+        ; flora_backtrace_enabled -> flora_print_backtrace(Trace)
+        ; true
+        ),
+        fail.
+
+/*
+%% this handles all other throws that are not handled;
+%% superseded by the last statement in flora_shell_loop_message/3 
+flora_shell_loop_handler(Exception) :-
+	error_handler:default_sys_error_handler(Exception),
+	!,
+	fail.
+*/
+
+
+flora_backtrace_enabled :- backtrace_enabled.
+flora_enable_backtrace  :- assert(backtrace_enabled).
+flora_disable_backtrace :-
+        (retract(backtrace_enabled) -> true
+        ; true
+        ).
+flora_backtrace(on)  :- flora_enable_backtrace.
+flora_backtrace(off) :- flora_disable_backtrace.
+
+
+%% flora_shell_loop_message/3
+%% Message: a string or abort(string)
+%%flora_shell_loop_message(Error, _Message, _Trace) :- write_canonical(2,Error), nl(2), fail.
+flora_shell_loop_message(error(existence_error(module,Module),context(_Ctxt,Trace)),
+                         Message,
+                         Trace) :-
+	%% throw/1 now closes open tables, so do NOT do it here
+	%%close_open_tables(cleanup),
+	fmt_write_string(Message,
+                         'attempt to call a Prolog predicate in a nonloaded module `%S''',
+                         arg(Module)).
+
+flora_shell_loop_message(error(existence_error(Type,Module:PredName/Arity),context(_,Trace)),
+                         Message,
+                         Trace) :-
+        (Type == predicate ; Type == procedure),
+        !,
+	%% throw/1 now closes open tables, so do NOT close them here!
+	%%close_open_tables(cleanup),
+	flora_undefined_predicate_msg(PredName,Arity,Module,Message).
+
+flora_shell_loop_message(error(existence_error(package,PkgName),context(_xsbMsg,Trace)),
+                         Message,
+                         Trace) :-
+        fmt_write_string(Message,
+                         'package %s was not configured at ErgoAI installation',
+                         arg(PkgName)).
+
+%% incr tabling error is possible if we are loading during execution of
+%% a paused tabled query. So, if the break level is > 0, we hijack
+%% this error and complain about bad queries
+flora_shell_loop_message(Ball,Message,Trace) :-
+	Ball = error(typed_table_error(incremental_tabling),context(_,Trace)),
+	xsb_error_get_goal(Ball,GoalTerm),
+	flora_decode_goal_as_atom_substitute_vars(GoalTerm,GoalAtm),
+        functor(GoalTerm,GoalFun,_),
+        Clarification = '\n\t\tIf it is intended, use stealth{...} updates (Ergo-only feature)',
+        (flora_match_substring(NEWUDFPREDICATENAME,GoalFun,_) ->
+            fmt_write_string(Message,
+                             'a UDF %S depends on an update. %s',
+                             args(GoalAtm,Clarification))
+        ; fmt_write_string(Message,
+                           'non-transactional rule-head %S depends on an update. %s',
+                           args(GoalAtm,Clarification))
+        ).
+
+flora_shell_loop_message(error(type_error(callable,Goal),Context),
+                         Message,
+                         Trace) :-
+        !,
+        Ball = error(type_error(callable,_),Context),
+        xsb_error_get_backtrace(Ball,Trace),
+	(xsb_error_get_goal(Ball,GoalTerm) -> true
+        ; GoalTerm = Goal
+        ),
+        flora_decode_goal_as_atom_substitute_vars(GoalTerm,GoalAtm),
+	fmt_write_string(Message,
+                         'attempt to call a subgoal (%S) that is not a legal formula',
+                         arg(GoalAtm)).
+
+flora_shell_loop_message(error(type_error(Kind,Culprit),Context),
+                         Message,
+                         Trace) :-
+        !,
+        Ball = error(type_error(Kind,Culprit),Context),
+        xsb_error_get_backtrace(Ball,Trace),
+	(xsb_error_get_goal(Ball,GoalTerm) -> 
+            flora_decode_goal_as_atom_substitute_vars(GoalTerm,GoalAtm)
+        ; GoalAtm = null
+        ),
+	(xsb_error_get_message(Ball,Mess1) ->
+            flrauxil:commalist2list(Mess1,MsgList),
+            flora_concat_items(MsgList,Mess2)
+        ; Mess2 = 'unknown error'
+        ),
+        (Kind = 'variable or number', Culprit='$VAR'(_), str_sub('CLP(R)',Mess2)
+        -> Message = 'a constrained variable found under \\naf, \\if-\\then, or \\unless -- rephrase the query/rule'
+        ; GoalAtm==null -> fmt_write_string(Message, '(expected %S; got %S) %S', arg(Kind,Culprit,Mess2))
+        ; fmt_write_string(Message, '%S: (expected %S; got %S) %S', arg(GoalAtm,Kind,Culprit,Mess2))
+        ).
+
+flora_shell_loop_message(error(domain_error('constraint relation',Goal),Context),
+                         Message,
+                         Trace) :-
+        Ball = error(domain_error(_Kind,_Culprit),Context),
+        xsb_error_get_backtrace(Ball,Trace),
+        flora_decode_goal_as_atom_substitute_vars(Goal,GoalAtm),
+	fmt_write_string(Message,
+                         '{...%S...}: illegal expression in a CLP(R) constraint',
+                         arg(GoalAtm)).
+
+flora_shell_loop_message(error(domain_error('numeric expression',Expr),Context),
+                         Message,
+                         Trace) :-
+        Ball = error(domain_error(_Kind,_Culprit),Context),
+        xsb_error_get_backtrace(Ball,Trace),
+	(xsb_error_get_message(Ball,Mesg) ->
+            flrauxil:commalist2list(Mesg,MsgList),
+            flora_concat_items(MsgList,Mess2)
+        ; Mess2 = 'unknown error'
+        ),
+        str_sub('{}',Mess2),
+        flora_decode_oid_as_atom(Expr,ExprAtm),
+	fmt_write_string(Message,
+                         '{...%S...}: non-numeric expression in a CLP(R) constraint',
+                         arg(ExprAtm)).
+
+flora_shell_loop_message(error(sgml(ErrDescription),context(SGMLMessage)),
+                         Message,
+                         []) :-
+        (ErrDescription = existence_error(DocType,DocAddr) ->
+            fmt_write_string(Message,'XML/RDF/SGML loader, %S %s: %s',
+                             args(DocType,DocAddr,SGMLMessage))
+        ; ErrDescription = miscellaneous(source) ->
+            Message = 'XML/RDF/SGML loader: invalid source document specification'
+        ; fmt_write_string(Message,'XML/RDF/SGML loader, %S: %s',
+                             args(ErrDescription,SGMLMessage))
+        ).
+flora_shell_loop_message(error(sgml(_,_,_,Mesg)),Message,[]) :-
+        fmt_write_string(Message, 'XML/HTML/SGML parsing error: %s', arg(Mesg)).
+
+flora_shell_loop_message(dbdrivers_error(Number,Mesg),Message,[]) :-
+	fmt_write_string(Message,
+                         'database access error(%S): %S', args(Number,Mesg)).
+
+flora_shell_loop_message(xpath_error(_,xpath_context(Mesg)),Message,[]) :-
+        fmt_write_string(Message, 'XPath error: %s', arg(Mesg)).
+
+flora_shell_loop_message(FLORA_ABORT(Trace),abort(Message),Trace) :-
+	!,
+        Message = 'execution aborted'.
+
+%% When user abort - don't print the trace
+flora_shell_loop_message(FLORA_USER_ABORT(Msg,Trace),abort(Message),Trace) :-
+	!,
+	(Msg == '' -> Message = 'execution aborted by the user'
+	;  fmt_write_string(Message,'user abort: %S', arg(Msg))
+	).
+
+%% Not used any more
+%% Silent abort: print nothing
+flora_shell_loop_message(FLORA_SILENT_ABORT(_Msg,_Trace),'',[]).
+
+%% don't print the backtrace
+flora_shell_loop_message(FLORA_ABORT_NOTRACE(Msg,Trace),abort(ErrorMsg),Trace) :-
+	!,
+	(Msg = FLORA_NOT_EXPORTED_EXCEPTION(_,ErrorMsg), !
+	; Msg = FLORA_UNDEFINED_EXCEPTION(_,ErrorMsg), !
+	; Msg = FLORA_DB_EXCEPTION(ErrorMsg), !
+	; Msg = ErrorMsg
+	).
+
+flora_shell_loop_message(FLORA_ABORT(Msg,Trace),abort(ErrorMsg),force(Trace)) :-
+	!,
+	(Msg = FLORA_NOT_EXPORTED_EXCEPTION(_,ErrorMsg), !
+	; Msg = FLORA_UNDEFINED_EXCEPTION(_,ErrorMsg), !
+	; Msg = FLORA_DB_EXCEPTION(ErrorMsg), !
+	; Msg = ErrorMsg
+	).
+
+%% error with goal separated out
+flora_shell_loop_message(Ball,Message,Trace) :-
+	Ball = error(ErrType,Context),
+	nonvar(Context),
+	Context = context(_,Trace),
+	xsb_error_get_goal(Ball,GoalTerm),
+	xsb_error_get_message(Ball,ErrMsg),
+        !,
+        flora_decode_goal_as_atom_substitute_vars(GoalTerm,GoalAtm),
+	fmt_write_string(Message,'%S: %S in goal %S',args(ErrType,ErrMsg,GoalAtm)).
+
+flora_shell_loop_message(error(permission_error(Op,Type,Name),context(_,Trace)),
+                         Message,
+                         Trace) :-
+	fmt_write_string(Message,
+                         'operation <%S> on object <%S> of type <%S> failed: <%S> does not exist or is not accessible', args(Op,Name,Type,Name)).
+
+flora_shell_loop_message(error(misc_error,Context), Message, Trace) :-
+	Ball = error(misc_error,Context),
+        xsb_error_get_backtrace(Ball,Trace),
+	xsb_error_get_message(Ball,Msg),
+        flrauxil:commalist2list(Msg,MsgList),
+        flora_concat_items(MsgList,Message).
+	
+flora_shell_loop_message(error(resource_error(Type),Context), Message, Trace) :-
+	Ball = error(resource_error(Type),Context),
+        xsb_error_get_backtrace(Ball,Trace),
+	xsb_error_get_message(Ball,ErrMsg),
+	(Type == memory ->
+	    current_prolog_flag(max_memory,Mem),
+	    MemGB is Mem/(1024*1024),
+	    fmt_write_string(Message,
+                             'query exceeded the user-set memory limit of %SGB',
+                             arg(MemGB))
+	;
+            %% see if Message may turn out to be a commalist in which case we'll
+            %% need to use flrauxil:commalist2list/2
+	    (ErrMsg = [Message] -> true
+	    ; Message = ErrMsg
+	    )
+	).
+
+flora_shell_loop_message(FLORA_BAD_QUERY_IN_BREAK,abort(Message),[]) :-
+	Message = 'you are trying to query or modify the knowledge base while\n\t   a previous command is paused; only informational queries regarding\n\t   the system runtime state are permitted at this point'.
+
+:- import
+        flora_decode_oid_as_atom_substitute_vars/2
+   from flrdecode.
+
+flora_shell_loop_message(error(domain_error('object term',BadObject),context((_,_,_,termToObjectSpec,_,_),Trace)),
+                         Message,
+                         Trace) :-
+        flora_decode_oid_as_atom_substitute_vars(BadObject,ObjAtm),
+	fmt_write_string(Message,'%S: malformed object spec passed to Java',
+                         arg(ObjAtm)).
+flora_shell_loop_message(error(domain_error('Java message',_BadObject),context((_,_,_,javaMessage,_,_,_),Trace)),
+                         Message,
+                         Trace) :-
+        %% BadObject is too complex, not printing, for now
+	Message = 'malformed object or method argument passed to Java'.
+
+
+%% errorball(Ball) is used to bypass Flora-2's context-friendly error messages
+%% and print the raw XSB errors. For debugging only.
+flora_shell_loop_message(errorball(Ball),abort(Message),force(Trace)) :-
+        xsb_error_get_tag(Ball,Tag),
+        xsb_error_get_message(Ball,Mess1),
+        flora_concat_atoms([Tag,':',Mess1],Message),
+        xsb_error_get_backtrace(Ball,Trace),
+        !.
+
+flora_shell_loop_message(Ball,abort(Message),force(Trace)) :-
+        xsb_error_get_tag(Ball,Tag),
+        xsb_error_get_message(Ball,Mess1),
+        flora_concat_atoms([Tag,':',Mess1],Message),
+        xsb_error_get_backtrace(Ball,Trace),
+        !.
+
+flora_shell_loop_message(Ball,abort(Message),Trace) :-
+        flora_concat_items(['unhandled exception: ',Ball],Message),
+        (xsb_error_get_backtrace(Ball,Trace) -> true
+        ; Trace = []
+        ).
+
+
+
+%% This is a workaround the XSB bug where print_backtrace/1 fails with the
+%% argument []. Expects [[]], but catch/3 sometimes generates Trace=[].
+flora_print_backtrace(Trace) :-
+	( current_prolog_flag(backtrace_on_error,BT), BT == on,
+          print_backtrace(Trace) -> true
+	; true
+	).

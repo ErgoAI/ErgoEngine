@@ -1,0 +1,55 @@
+
+		        Flora-2 Tutorial
+
+			    Homework 1
+
+
+1. Create a fragment of a movie knowledge base with the following
+   parameters:
+
+    person: name, address, date of birth
+    movie:  title, actors (set-valued), director
+    actor:  movies (derived attribute)
+    director: movies (derived attribute)
+    cinema: name, address, showings
+    	    The showings attribute gives the set of movie showings 
+	    at that cinema since the beginning of time. Each showing
+	    gives a movie and the date when it was shown.
+
+   Use different modules for movies, actors, directors, and cinema.  Think
+   how it might be possible for actor and director to inherit from person
+   without duplicating the information about the class person.
+
+2. Populate this knowledge base with actual data (2 directors, 7 actors, 3
+   cinemas, 5 movies, each movie shown at least twice in each cinema).
+
+3. Write the appropriate signatures so that the entire knowledge base would
+   be well-typed. Run the following type-checking queries to verify
+   well-typedness.  Explain in what sense these queries guarantee
+   well-typedness.
+
+   type_error(?O,?M,?V) :-
+	(?O[?M->?V], ?O[?M=>?D])@?_Mod, \naf ?V:?D@?_Mod2
+        or
+	(?O[?M->?V], \naf ?O[?M=>?D])@?_Mod.
+
+    ?- type_error(?O,?M,?V).
+
+4. Write the following queries:
+
+    a. Find director-employee pairs (d,e) such that the employee e
+       had played in a movie directed by the director d.
+       Use path expressions and try to write this query in a shortest
+       possible way.
+
+    b. Find all pairs of actors who are connected directly or indirectly
+       through playing in the same movie.  Two actors are directly
+       connected if they played in the same movie.  Actors a(1) and a(k)
+       are indirectly connected if there is a sequence a(1), a(2), ...,
+       a(k), k>2, such that a(1) and a(2) are directly connected, a(2) and
+       a(3) are directly connected, ..., a(k-1) and a(k) are directly
+       connected.
+
+    c. Find all cinemas (can be several) that have shown the highest number
+       of movies in a single day (even just one such day would qualify a cinema;
+       that day can be different for different cinemas).

@@ -1,0 +1,65 @@
+/* File:      flraggcolbag.P
+**
+** Author(s): Guizhen Yang 
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2020.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_errors.flh"
+#include "flora_exceptions.flh"
+
+:- import member/2 from basics.
+
+:- import flora_decode_oid_list_as_atom_list_substitute_vars/2 from flrdecode.
+:- import flora_abort/2 from flrporting.
+%%:- import ground_memberchk/1 from flrauxil.
+
+
+
+/*********************************************************************
+  fllibcollectbag(+Var,+GrpByLst,[],+Goal,-Bag)
+*********************************************************************/
+FLLIBCOLLECTBAG(Var,[],[],Goal,Bag) :-
+	!,
+	findall(Var,Goal,Bag).
+
+/*
+FLLIBCOLLECTBAG(Var,GrpByLst,[],Goal,_Bag) :-
+	ground_memberchk(GrpByLst),
+	!,
+	flora_decode_oid_list_as_atom_list_substitute_vars([Var,GrpByLst,Goal],
+							   [VarA,GrpByLstA,GoalA]),
+	flora_abort(['In ',FL_BAG,'{',VarA,GrpByLstA,'|',GoalA,'}',GROUPING_VAR_GROUND],
+		    FLORA_ABORT_NOTRACE).
+*/
+
+FLLIBCOLLECTBAG(Var,GrpByLst,[],Goal,Bag) :-
+	!,
+	findall(flora_result(Var,GrpByLst),Goal,Matches),
+	findall(Grp,member(flora_result(_,Grp),Matches),GL),
+	sort(GL,Groups),
+	member(GrpByLst,Groups),
+	findall(D,member(flora_result(D,GrpByLst),Matches),Bag).

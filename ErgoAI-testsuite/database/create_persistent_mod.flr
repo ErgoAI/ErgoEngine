@@ -1,0 +1,35 @@
+
+?- [persistentmodules>>pm].
+?- newmodule{foo}.
+?- set_field_type('TEXT DEFAULT NULL')@pm.
+//?- foo[attachNew('mydb', 'foo', 'xsb', 'xsb')]@pm.
+?- foo[attachNew(postw+postw2, 'xsb2', 'postgres', 'bormotalo')]@pm.
+
+
+?- insert{\#1:bar[of-> ${baz} ]@foo}.
+?- insert{aaaaa[of-> f(${baz}) ]@foo}.
+?- insert{sssss[of-> ${baz} ]@foo}.
+?- insert{\#1:bar[of-> bazbaz ]@foo}.
+?- insert{bbbbb[of-> bazbaz ]@foo}.
+?- insert{\#[of-> bazbaz2(f(123)) ]@foo}.
+?- insert{\#[of-> "2020-4-11"^^\date]@foo}.
+?- insert{(uuu[of-> ?X] :- ?X="2021-4-11"^^\date)@foo}.
+?- insert{(vvv[of-> ?X] :- ?X="2021-9-19"^^\date)@foo}.
+
+// insert latent query
+?- insert{@!{rr1(?X)[bar->4]} !- p(?X), ?X<3},
+	insertrule{@!{rr2(?X)[bar->4]} !- q(?X), ?X<4}.
+
+
+?- insert{ www[of->yyy] :- \true}.
+
+?- insert{ppp:bar, qqq:bar, rrr:bar, mmm:bar}@foo.
+
+?- insert{pppp(aaw,?)@foo}.
+
+//?- ?E:bar[of->?X]@foo.
+?- ?E[of->?X]@foo.
+
+?- pppp(?X,?Y)@foo.
+
+?- insert{qqq(?x)| ?x\in [1,2]}@foo.

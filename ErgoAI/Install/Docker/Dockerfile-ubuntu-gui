@@ -1,0 +1,152 @@
+# File: Dockerfile-ubuntu-gui
+#
+# ErgoAI Docker script for Ubuntu that supports ErgoAI Studio, no tomcat:
+# intended for DESKTOPS
+#
+# Author: Michael Kifer
+# Copyright (C) Coherent Knowledge Systems, LLC, 2015 - 2021
+
+# Build image with
+# sudo docker build --rm --tag coherent:ergoai$ergo_version-ubuntu-gui --file Dockerfile-ubuntu-gui . [--squash]
+#
+# This assumes that ergoAI${ergo_version}_ni.run is in the current directory.
+#
+# Docker cheatsheet:
+#  checking host images:
+#    sudo docker images
+#  remove this image::
+#    sudo docker rmi coherent:ergoai$ergo_version-ubuntu-gui
+#  remove all UNTAGGED images - very useful:
+#    sudo docker images -q --filter "dangling=true" | xargs -r docker rmi -f
+#  inspecting container of an image (using bash):
+#    sudo docker run --entrypoint /bin/bash --interactive --tty coherent:ergoai$ergo_version-ubuntu-gui
+#  run ErgoAI Engine from within an image:
+#    sudo docker run --entrypoint /home/ergouser/Coherent/ErgoAI/ErgoAI/runergo --interactive --tty coherent:ergoai$ergo_version-ubuntu-gui
+#  run Ergo Studio from within an image:
+#    sudo docker run --interactive --tty coherent:ergoai$ergo_version-ubuntu-gui
+#
+# One can also run this as
+#    sudo docker run --interactive --tty --rm coherent:ergoai$ergo_version-ubuntu-gui
+# To retain the container after exit, use this (ie, no --rm):
+#    sudo docker run --interactive --tty coherent:ergoai$ergo_version-ubuntu-gui
+#
+# Saving/loading images:
+#    sudo docker save -o ergoai$ergo_version-ubuntu-gui.tar coherent:ergoai$ergo_version-ubuntu-gui
+#    sudo docker load -i ergoai$ergo_version-ubuntu-gui.tar
+
+# For --squash to work and reduce the file size, create
+#     /etc/docker/daemon.json
+# with this content:
+#     {
+#        "experimental": true
+#     }
+# Then run
+#     sudo service docker restart
+#
+
+
+FROM ubuntu:latest
+MAINTAINER Michael Kifer <michael.kifer@coherentknowledge.com>
+LABEL description="ErgoAI Ubuntu-based image"
+
+ARG ergo_version
+ENV ERGOVERSION=$ergo_version
+# next ENV must be separate ENV from previous or no ERGOVERSION substitution
+ENV ERGOINSTALLER="ergoAI${ERGOVERSION}_ni.run"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# these must be done before $ERGOINSTALLER /home/ergouser/ are used by RUN
+WORKDIR /home/ergouser/
+COPY "$ERGOINSTALLER"  "/home/ergouser/"
+
+RUN apt-get update && \
+                      apt-get install -y apt-utils  &&  \
+                      apt-get install -y unixodbc-dev  &&  \
+                      apt-get install -y libcurl4-openssl-dev  &&  \
+                      apt-get install -y libxml2-dev  &&  \
+                      apt-get install -y libpcre3-dev  &&  \
+                      apt-get install -y libiodbc2  &&  \
+                      apt-get install -y libiodbc2-dev  &&  \
+                      apt-get install -y g++  &&  \
+                      apt-get install -y autoconf  &&  \
+                      apt-get install -y build-essential  &&  \
+                      apt-get install -y libltdl-dev  &&  \
+                      apt-get install -y libtool-bin  &&  \
+                      apt-get install -y xutils-dev  &&  \
+                      apt-get install -y postgresql  &&  \
+                      apt-get install -y postgresql-server-dev-all  &&  \
+                      apt-get install -y odbc-postgresql  &&  \
+# Need to figure out how to install MySQL ODBC connector
+# See https://dev.mysql.com/downloads/connector/odbc/
+#                     apt-get install -y libmyodbc  &&  \
+#                     apt-get install -y mysql-server  &&  \
+                      apt-get install -y mysql-client  &&  \
+                      apt-get install -y rlwrap  &&  \
+    # we should not be able to login with password to this user,
+    # or to root - for security
+    adduser --disabled-login  --home /home/ergouser docker_ergouser && \
+#
+# install java 8
+                      apt-get install -y openjdk-8-jre  &&  \
+# some X11 packages - unclear if needed
+                      apt-get install -y libxext6  && \
+                      apt-get install -y libxtst6  && \
+                      apt-get install -y libxi6  && \
+                      apt-get install -y libxrender1 && \
+# install ErgoAI, use non-interactive install
+                      /home/ergouser/$ERGOINSTALLER  &&  \
+# Remove unused packages to reduce size.
+# Use the folowing to find the largest packages:
+#      dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -n
+#
+                      apt-get purge -y xutils-dev  &&  \
+                      apt-get purge -y autoconf  &&  \
+                      # do not purge perl! or else rlwrap gets uninstalled
+                      apt-get purge -y perl-modules  &&  \
+                      apt-get purge -y manpages-dev  &&  \
+                      apt-get purge -y python3.4-minimal  &&  \
+                      apt-get purge -y isc-dhcp-common  &&  \
+                      apt-get purge -y llvm-10-dev  &&  \
+                      apt-get purge -y apt-utils  &&  \
+# remove install files
+                      apt-get autoremove -y  &&  \
+                      apt-get clean  &&  \
+                      rm -rf /var/lib/apt/lists/* && \
+                      rm -f /home/ergouser/$ERGOINSTALLER  &&  \
+                      chown -R docker_ergouser: /home/ergouser  &&  \
+                      ln --symbolic "/home/ergouser/Coherent/ErgoAI$ERGOVERSION" "/home/ergouser/Coherent/ErgoAI" && \
+# run ErgoAI initially so that precompilation would stay in the image
+                      /home/ergouser/Coherent/ErgoAI$ERGOVERSION/ErgoAI/runergo
+
+
+ENV \
+    JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
+    HOME=/home/ergouser
+# next ENV must be separate ENV from previous or no PATH substitution
+ENV  PATH=$JAVA_HOME/bin:$PATH
+
+
+# To actually run dockerized ErgoAI Studio, do this on Linux terminal:
+#    xhost +
+#    docker run --interactive --tty -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --rm coherent:ergoai$ergo_version-ubuntu-gui
+#
+
+# We had to make /home/ergouser/Coherent/ErgoAI a symlink to
+# /home/ergouser/Coherent/ErgoAI$ERGOVERSION because variable substitution 
+# does not work in the ENTRYPOINT statement, so something like
+# ENTRYPOINT  ["/home/ergouser/Coherent/ErgoAI$ERGOVERSION/......."]
+# will not work.
+
+ENTRYPOINT  ["/home/ergouser/Coherent/ErgoAI/runErgoAI.sh"]
+
+# Setting the default user
+USER docker_ergouser
+
+ENV ERGOVERSION= \
+      ERGOINSTALLER=
+
+
+### Local Variables: 
+### eval: (auto-fill-mode 0)
+### End:

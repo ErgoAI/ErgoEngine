@@ -1,0 +1,466 @@
+/* File:      flrprolog.P -- Flora Prolog definitions
+**
+** Author(s): Guizhen Yang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2021;
+**      and Vulcan, Inc., 2010-2013;
+**      Coherent Knowledge Systems, LLC, 2014-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_contexts.flh"
+
+
+/****************************************************************************
+  Flora built-in operators
+****************************************************************************/
+flora_prlg(FL_IMPLYOP,2)        :- !.
+flora_prlg(FL_IMPLYOP,1)        :- !.
+flora_prlg(FL_QUERYOP,1)        :- !.
+flora_prlg(FL_LATENT_QUERYOP,1) :- !.
+
+flora_prlg(FL_UNIVEQ,2)     :- !.
+flora_prlg(FL_UNIVNOTEQ,2)  :- !.
+flora_prlg(FL_EQ,2)         :- !.
+flora_prlg(FL_NOTEQ,2)      :- !.
+flora_prlg(FL_TRYEQ,2)      :- !.
+flora_prlg(FL_ORDERLT,2)    :- !.
+flora_prlg(FL_ORDEREQLT,2)  :- !.
+flora_prlg(FL_ORDERGT,2)    :- !.
+flora_prlg(FL_ORDEREQGT,2)  :- !.
+
+
+%% The following are handled with delay unless inside {...} (a CLP constraint)
+%% Still define them as prolog so inside {...} they will be treated as Prolog
+flora_prlg(FL_MATHEQ,2)    :- !.
+flora_prlg(FL_MATHNOTEQ,2) :- !.
+flora_prlg(FL_LT,2)   :- !.
+flora_prlg(FL_EQLT,2) :- !.
+flora_prlg(FL_GT,2)   :- !.
+flora_prlg(FL_EQGT,2) :- !.
+
+flora_prlg(FL_RIGHTTO,2) :- !.
+flora_prlg(FL_LEFTTO,2)  :- !.
+
+flora_prlg(FL_COMMA,2)     :- !.
+flora_prlg(FL_SEMICOLON,2) :- !.
+
+flora_prlg(FL_PLGNAF,1)    :- !.
+
+flora_prlg(FL_PLUS,2)  :- !.
+flora_prlg(FL_MINUS,2) :- !.
+
+flora_prlg(FL_STAR,2)   :- !.
+flora_prlg(FL_SLASH,2)  :- !.
+
+flora_prlg(FL_PLUS,1)  :- !.
+flora_prlg(FL_MINUS,1) :- !.
+
+flora_prlg(FL_STRCONCAT,2) :- !.
+flora_prlg(FL_SETUNION,2)  :- !.
+flora_prlg(FL_SETDIFF,2)   :- !.
+flora_prlg(FL_SETINTERSECT,2)   :- !.
+flora_prlg(FL_IN,2,flora_list_member,flrsetops)   :- !.
+flora_prlg(FL_INN,2,flora_list_subset,flrsetops)   :- !.
+flora_prlg(FL_SUBLIST,2,flora_list_sublist,flrsetops)   :- !.
+
+flora_prlg(flora_abort,0) :- !.
+flora_prlg(flora_abort,1) :- !.
+
+flora_prlg(FL_REPEAT,1) :- !.
+
+flora_prlg(FL_RANGE,2)   :- !.
+
+/****************************************************************************
+  XSB predicates that are also useful in FLORA
+****************************************************************************/
+flora_prlg('\\abolishtables',0,flora_abolish_nonincremental_tables_with_skip,flrtables) :- !.
+flora_prlg(FL_FALSECONST,0) :- !.
+flora_prlg(FL_TRUECONST,0)  :- !.
+flora_prlg(FL_UNDEFCONST,0) :- !.
+
+%% These are delayed. Declared in syslib/flrdelaysupport.P
+flora_prlg('\\isiri',2)      :- !.
+flora_prlg('\\isstring',2)   :- !.
+flora_prlg('\\issymbol',2)   :- !.
+flora_prlg('\\isinteger',2)  :- !.
+flora_prlg('\\isfloat',2)    :- !.
+flora_prlg('\\isnumber',2)   :- !.
+flora_prlg('\\isdecimal',2)  :- !.
+flora_prlg('\\islist',2)     :- !.
+flora_prlg('\\isatom',2)     :- !.
+flora_prlg('\\isatomic',2)   :- !.
+flora_prlg('\\iscompound',2) :- !.
+flora_prlg('\\ischarlist',2) :- !.
+flora_prlg('\\isvar',2)      :- !.
+flora_prlg('\\isnonvar',2)   :- !.
+flora_prlg('\\isground',2).
+flora_prlg('\\isnonground',2).
+
+flora_prlg('\\isiri',1,'\\isiri',flrdatatype)       :- !.
+flora_prlg('\\isstring',1,'\\isstring',flrdatatype) :- !.
+flora_prlg('\\issymbol',1,'\\issymbol',flrdatatype) :- !.
+flora_prlg('\\isinteger',1,integer,usermod)      :- !.
+flora_prlg('\\isfloat',1,float,usermod)          :- !.
+flora_prlg('\\isnumber',1,number,usermod)        :- !.
+flora_prlg('\\isdecimal',1,number,usermod)       :- !.
+flora_prlg('\\islist',1,is_list,usermod)         :- !.
+flora_prlg('\\isatom',1,atom,usermod)            :- !.
+flora_prlg('\\isatomic',1,atomic,usermod)        :- !.
+flora_prlg('\\iscompound',1,compound,usermod)    :- !.
+flora_prlg('\\ischarlist',1,is_charlist,usermod) :- !.
+flora_prlg('\\isvar',1,var,usermod)              :- !.
+flora_prlg('\\isnonvar',1,nonvar,usermod)        :- !.
+flora_prlg('\\isground',1,flrground,flora_ground).
+flora_prlg('\\isnonground',1,flrnonground,flora_ground).
+
+
+/****************************************************************************
+  FLORA shell commands and commands used to control FLORA from Prolog
+****************************************************************************/
+flora_prlg('\\help',0)     :- !.
+flora_prlg('\\all',0)      :- !.
+flora_prlg('\\one',0)      :- !.
+flora_prlg('\\end',0)      :- !.
+flora_prlg('\\halt',0)     :- !.
+flora_prlg('\\toplevel',0) :- !.
+flora_prlg('\\resume',0) :- !.
+flora_prlg('\\warnings',1) :- !.
+flora_prlg('\\tabling',0)  :- !.
+%%flora_prlg('\\isloaded',1)  :- !.
+%%flora_prlg(FL_ISSKOLEM,1)   :- !.
+%%flora_prlg(FL_ISBASEFACT,1) :- !.
+
+%%flora_prlg(FL_COMPILE,1)     :- !.
+%%flora_prlg(FL_LOAD,1)        :- !.
+%%flora_prlg(FL_COMPILE_ADD,1) :- !.
+%%flora_prlg(FL_ADD,1)         :- !.
+%%flora_prlg(FL_SAVE,1)        :- !.
+%%flora_prlg(FL_DUMP,1)        :- !.
+flora_prlg('\\trace',0)        :- !.
+flora_prlg('\\trace',1)        :- !.
+flora_prlg('\\trace',2)        :- !.
+flora_prlg('\\notrace',0)      :- !.
+flora_prlg('\\tracelow',0)     :- !.
+flora_prlg('\\tracelow',1)     :- !.
+flora_prlg('\\tracelow',2)     :- !.
+flora_prlg('\\traceverylow',0) :- !.
+flora_prlg('\\traceverylow',1) :- !.
+flora_prlg('\\traceverylow',2) :- !.
+flora_prlg('\\notracelow',0)   :- !.
+flora_prlg('\\logforest',0)    :- !.
+flora_prlg('\\logforest',1)    :- !.
+flora_prlg('\\logforest',2)    :- !.
+flora_prlg('\\logforestlow',0) :- !.
+flora_prlg('\\logforestlow',1) :- !.
+flora_prlg('\\logforestlow',2) :- !.
+flora_prlg('\\nologforest',0)  :- !.
+
+flora_prlg('\\tabledump',2) :- !.
+flora_prlg('\\tabledump',3) :- !.
+flora_prlg('\\tabledump',4) :- !.
+flora_prlg('\\dump_incomplete_tables',1) :- !.
+flora_prlg('\\dump_incomplete_tables',2) :- !.
+flora_prlg('\\dump_incomplete_tables_after_exception',1)  :- !.
+flora_prlg('\\dump_incomplete_tables_after_exception',2)  :- !.
+flora_prlg('\\set_dump_incomplete_tables_on_exception',0) :- !.
+
+flora_prlg('\\cwd',1,cwd,usermod) :- !.
+flora_prlg('\\cwd',0) :- !.
+flora_prlg('\\ls',0,ls,shell) :- !.
+flora_prlg('\\ls',2,list_directory,shell) :- !.
+flora_prlg('\\lsls',0) :- !.
+flora_prlg('\\cd',1) :- !.
+flora_prlg('\\run',1,shell,shell) :- !.
+flora_prlg('\\run',2) :- !.
+
+
+/****************************************************************************
+   After-query hook used to clean up tables in defeasible theories
+****************************************************************************/
+flora_prlg(FL_DEFEASIBLE_CLEANUP,2) :- !.
+
+flora_prlg(FL_UNDEFEATED,4)    :- !. %% both prolog and modular prolog??? WHY??
+flora_prlg(FL_OVERRIDES_AUX,5) :- !.
+flora_prlg(FL_OPPOSES_AUX,5)   :- !.
+flora_prlg(FL_CANCEL_AUX,3)    :- !.
+flora_prlg(FL_OVERRIDEN_CANCELLATION,3) :- !.
+
+
+/* Mathematical functions in is/2 and inequalities */
+flora_prlg(Fun,Arity) :-
+	is_op_builtin(Fun,Arity),
+	flora_compilation_context(CONTEXT_COMPILER_ARITHMETICS), !.
+
+is_op_builtin(FL_MIN,2).
+is_op_builtin(FL_MAX,2).
+is_op_builtin(FL_MIN,1).
+is_op_builtin(FL_MAX,1).
+is_op_builtin(ceiling,1).
+is_op_builtin(rem,2).
+is_op_builtin(div,2).
+is_op_builtin('//',2).   %% Flora %% operator translates as XSB // op
+is_op_builtin(sqrt,1).
+is_op_builtin(truncate,1).
+is_op_builtin(sign,1).
+is_op_builtin(cos,1).
+is_op_builtin(sin,1).
+is_op_builtin(tan,1).
+is_op_builtin(acos,1).
+is_op_builtin(atan,1).
+is_op_builtin(log10,1).
+is_op_builtin(pow,2).
+is_op_builtin(FL_EXP,2).
+is_op_builtin(FL_EXP,1).
+is_op_builtin(FL_LOG,1).
+is_op_builtin(FL_FLOOR,1).
+is_op_builtin(FL_ROUND,1).
+is_op_builtin(FL_ABS,1).
+is_op_builtin(FL_FLOATFUNC,1).
+is_op_builtin(FL_POWER,2).
+is_op_builtin(FL_DBLSTAR,2).
+is_op_builtin(FL_MOD,2).
+is_op_builtin(FL_SUM,1).
+is_op_builtin(FL_AVG,1).
+is_op_builtin(FL_COUNT,1).
+is_op_builtin(last,1).
+is_op_builtin(nth,2).
+is_op_builtin(delete,2).
+is_op_builtin(reverse,1).
+is_op_builtin(length,1).
+is_op_builtin(FL_SYMOR,2).
+is_op_builtin(FL_SYMAND,2).
+%%% The following are actually unconditional operators. They are also defined
+%%% via flora_prlg/2 above: feels as if we'd want these to be operators always.
+%%% Should see if we want that
+is_op_builtin(FL_PLUS,2).
+is_op_builtin(FL_MINUS,2).
+is_op_builtin(FL_STAR,2).
+is_op_builtin(FL_SLASH,2).
+is_op_builtin(FL_PLUS,1).
+is_op_builtin(FL_MINUS,1).
+
+
+flora_prlg('\\inheritance',2).
+
+flora_prlg(FL_DYNRULE_FICTITIOUS_FILENAME,1) :-
+	flora_compilation_context(CONTEXT_COMPILER_SIMPLEPRIMITIVE_WITH_EXTRA_ARGS),
+	!.
+flora_prlg(FL_UDFEQ,2) :-
+	flora_compilation_context(CONTEXT_COMPILER_CLAUSE_PRIMITIVE),
+        !.
+
+
+/****************************************************************************
+    Symbols that have to be treated as FLORA-modularized Prolog predicates
+****************************************************************************/
+
+%% There might be other modular prolog preds in the future
+modular_prlg(FL_UNDEFEATED,4).
+modular_prlg(FL_INHER_REASON_METH,4).
+modular_prlg(FL_INHER_REASON_IMETH,4).
+modular_prlg(FL_INHER_REASON_IMVDDEF,4).
+modular_prlg(FL_INHER_REASON_IMVD,5).
+modular_prlg(FL_INHER_REASON_MVDDEF,4).
+modular_prlg(FL_INHER_REASON_MVD,5).
+
+/*
+%% Signatures are justified using \bgaxioms, not \inheritance
+modular_prlg(FL_INHER_REASON_MVDSIG,5).
+modular_prlg(FL_INHER_REASON_IMVDSIG,5).
+modular_prlg(FL_INHER_REASON_MVDSIGDEF,4).
+modular_prlg(FL_INHER_REASON_IMVDSIGDEF,4).
+modular_prlg(FL_INHER_REASON_BOOLSIG,4).
+modular_prlg(FL_INHER_REASON_IBOOLSIG,4).
+modular_prlg(FL_INHER_REASON_TRANSIG,4).
+modular_prlg(FL_INHER_REASON_ITRANSIG,4).
+*/
+modular_prlg(Atm,Arity) :- negatable_prlg(Atm,Arity,_).
+
+negatable_prlg(FL_OPPOSES,2,FLNEGBUILTIN(FL_OPPOSES_UNQUOTED)) :- !.
+negatable_prlg(FL_OPPOSES,4,FLNEGBUILTIN(FL_OPPOSES_UNQUOTED)) :- !.
+negatable_prlg(FL_OVERRIDES,2,FLNEGBUILTIN(FL_OVERRIDES_UNQUOTED)) :- !.
+negatable_prlg(FL_OVERRIDES,4,FLNEGBUILTIN(FL_OVERRIDES_UNQUOTED)) :- !.
+negatable_prlg(FL_CANCEL,1,FLNEGBUILTIN(FL_CANCEL_UNQUOTED)) :- !.
+negatable_prlg(FL_CANCEL,2,FLNEGBUILTIN(FL_CANCEL_UNQUOTED)) :- !.
+
+
+/****************************************************************************
+  definitions
+****************************************************************************/
+flora_prlgdef(P,A) :-
+	nonvar(P),
+	flora_prlg(P,A),
+	!.
+flora_prlgdef(P,A) :-
+	nonvar(P),
+	flora_dynprlg(P,A),
+	!.
+flora_prlgdef(P,A) :-
+	nonvar(P),
+	flora_permanent_dynprlg(P,A).
+
+flora_prlgdef(P,Mod,A) :- flora_dynprlg(P,Mod,A).
+
+flora_prlgdef_repl(P,A,NP,Mod) :-
+	nonvar(P),
+	flora_prlg(P,A,NP,Mod),
+	!.
+flora_prlgdef_repl(P,A,NP,Mod) :-
+	nonvar(NP),
+	nonvar(Mod),
+	flora_prlg(P,A,NP,Mod),
+	!.
+
+%% flora_modular_prlgdef/2 for FLORA-modularized prolog predicates
+flora_modular_prlgdef(P,A) :-
+	nonvar(P),
+	modular_prlg(P,A),
+	!.
+flora_modular_prlgdef(P,A) :-
+	nonvar(P),
+	\+compiling_flrshell_command,
+	modular_dynprlg(P,A),
+	!.
+/*
+%% This one is wrong. We now compile modularized literals in the shell
+%% in flrcompiler by attaching workspaces to them and converting termlit's
+%% into prologterm's with modularized functors
+flora_modular_prlgdef(P,A) :-
+	nonvar(P),
+	compiling_flrshell_command,
+	flora_modular_prlgdef(P,A,FLORA_DEFAULT_WORKSPACE),
+	!.
+*/
+
+%% flora_modular_prlgdef/3 - only for dynamic definitions
+flora_modular_prlgdef(P,A,Mod) :-
+	nonvar(P),
+	flora_modular_prolog_registry(P,A,Mod),
+	!.
+
+flora_builtin_modular_prlgdefs(P,A) :- modular_prlg(P,A).
+flora_user_modular_prlgdefs(P,A) :- modular_dynprlg(P,A).
+flora_modular_prlgdefs(P,A) :- flora_builtin_modular_prlgdefs(P,A).
+flora_modular_prlgdefs(P,A) :- flora_user_modular_prlgdefs(P,A).
+flora_user_modular_tableddefs(P,A) :- modular_dyntabled(P,A).
+
+%% for negatable and FLORA-modularized prolog predicates
+%% hegatable implies modularized
+flora_negatable_prlgdef(P,A,NegP) :-
+	negatable_prlg(P,A,NegP),
+	!.
+
+
+/****************************************************************************
+  flora_reset_prolog/0
+****************************************************************************/
+flora_reset_prolog :-
+	retractall(flora_dynprlg(_,_,_)),
+	retractall(flora_dynprlg(_,_)).
+
+flora_reset_modular_prolog :-
+	retractall(modular_dynprlg(_,_)),
+	retractall(modular_dyntabled(_,_)).
+
+
+/****************************************************************************
+  flora_define_prolog(+Op,+Arity)
+  flora_define_prolog(+Op,+Arity,+Mod)
+  flora_define_prolog(+List)
+****************************************************************************/
+%% Any arity or any op? Probably should remove this case
+flora_define_prolog(Op,Arity) :-
+	(var(Op); var(Arity)),
+	!,
+	assert(flora_dynprlg(Op,Arity)).
+
+flora_define_prolog(Op,Arity) :-
+	( flora_prlg(Op,Arity) -> true
+	;
+	  assert(flora_dynprlg(Op,Arity))
+	).
+
+%% This is used only dynamically by the compiler
+%% Mod here is a Prolog module of Op/Arity
+flora_define_prolog(Op,Arity,Mod) :-
+	( flora_dynprlg(Op,Arity,Mod) -> true
+	;
+	  assert(flora_dynprlg(Op,Arity,Mod))
+	).
+
+flora_define_prolog([]) :- !.
+flora_define_prolog([(Op,Arity)|Rest]) :-
+	!,
+	flora_define_prolog(Op,Arity),
+	flora_define_prolog(Rest).
+flora_define_prolog([(Op,Arity,Mod)|Rest]) :-
+	!,
+	flora_define_prolog(Op,Arity,Mod),
+	flora_define_prolog(Rest).
+
+%% flora_define_modular_prolog/2
+flora_define_modular_prolog(Op,Arity) :-
+	( modular_prlg(Op,Arity) -> true
+	;
+	  assert(modular_dynprlg(Op,Arity))
+	).
+%% flora_define_modular_tabled/2
+flora_define_modular_tabled(Op,Arity) :-
+        assert(modular_dyntabled(Op,Arity)).
+
+%% flora_define_modular_prolog/3 - only for dynamic definitions
+flora_define_modular_prolog(Op,Arity,Mod) :-
+	( flora_modular_prolog_registry(Op,Arity,Mod) -> true
+	;
+	  assert(flora_modular_prolog_registry(Op,Arity,Mod))
+	).
+%% flora_define_modular_tabled/3 - only for dynamic definitions
+flora_define_modular_tabled(Op,Arity,Mod) :-
+	( flora_modular_tabled_registry(Op,Arity,Mod) -> true
+	;
+	  assert(flora_modular_tabled_registry(Op,Arity,Mod))
+	).
+
+%% defines modular prolog according to list of elements of the form
+%% prolog(P,A) or prolog(P,A,Mod)
+flora_define_modular_prolog([]) :- !.
+flora_define_modular_prolog([prolog(P,A)|Rest]) :-
+	!,
+	flora_define_modular_prolog(P,A),
+	flora_define_modular_prolog(Rest).
+flora_define_modular_prolog([prolog(P,A,Mod)|Rest]) :-
+	!,
+	flora_define_modular_prolog(P,A,Mod),
+	flora_define_modular_prolog(Rest).
+
+%% these definitions are NOT erased by flora_reset_modular_prolog/0
+%% at the start of processing each flora file
+flora_define_permanent_prolog(Op,Arity) :-
+	( flora_prlg(Op,Arity) -> true
+	;
+	  assert(flora_permanent_dynprlg(Op,Arity))
+	).
+

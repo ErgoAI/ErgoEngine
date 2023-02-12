@@ -1,0 +1,101 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-MPFActivityDropOfInMPhaseDoesDropOffInMPhase-01 (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyMt, BiochemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(BiochemistryMt, superEventTypes(MPFActivityDroppingInMPhase, MitoticPhaseOfCellCycle)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Implicit Background Rules
+forwardSentence(relationExistsAll(properSubEvents, ?SUPERTYPE, ?SUBTYPE)) :- removalSentence(superEventTypes(?SUBTYPE, ?SUPERTYPE)).
+
+// Explicit Background Facts
+
+// Explicit Background Rules
+backwardSentence(relationExistsInstance(?PRED, ?COL_1, ?OBJ)) :- mtVisible(BaseKB), naf backchainForbidden(relationExistsInstance), relationExistsAll(?PRED, ?COL_1, ?COL_2), isa(?OBJ, ?COL_2).
+backwardSentence(not(isa(?OBJ, ?COL_2))) :- mtVisible(BaseKB), naf backchainForbidden(isa), relationExistsAll(?PRED, ?COL_1, ?COL_2), not(relationExistsInstance(?PRED, ?COL_1, ?OBJ)).
+backwardSentence(not(relationExistsAll(?PRED, ?COL_1, ?COL_2))) :- mtVisible(BaseKB), naf backchainForbidden(relationExistsAll), isa(?OBJ, ?COL_2), not(relationExistsInstance(?PRED, ?COL_1, ?OBJ)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-261976', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-261976', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-MPFActivityDroppingInMPhase-261977', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261976', MtTimeDimFn(Now)), isa('HYP-MPFActivityDroppingInMPhase-261977', MPFActivityDroppingInMPhase)).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261976')).
+//REMOVED TITLE('KBQ  : $CPTTest-MPFActivityDropOfInMPhaseDoesDropOffInMPhase-01 0').
+%pretest :- relationExistsInstance(properSubEvents, MitoticPhaseOfCellCycle, 'HYP-MPFActivityDroppingInMPhase-261977'), %write_results('SUCCESS  : $CPTTest-MPFActivityDropOfInMPhaseDoesDropOffInMPhase-01 0').
+
+// Debugging
+proof(11634, 0) :- relationExistsAll(properSubEvents, MitoticPhaseOfCellCycle, MPFActivityDroppingInMPhase).
+proof(11634, 1) :- relationExistsAll(properSubEvents, MitoticPhaseOfCellCycle, MPFActivityDroppingInMPhase).
+proof(11634, 2) :- isa('HYP-MPFActivityDroppingInMPhase-261977', MPFActivityDroppingInMPhase).
+proof(11634, 3) :- isa('HYP-MPFActivityDroppingInMPhase-261977', MPFActivityDroppingInMPhase).
+proof(11634, 4) :- isa('HYP-MPFActivityDroppingInMPhase-261977', MPFActivityDroppingInMPhase), relationExistsAll(properSubEvents, MitoticPhaseOfCellCycle, MPFActivityDroppingInMPhase).
+proof(11634, 5) :- relationExistsInstance(properSubEvents, MitoticPhaseOfCellCycle, 'HYP-MPFActivityDroppingInMPhase-261977').
+
+proof(11634, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(11634, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(11634, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(11634, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(11634, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(11634, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(11634, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(11634, 1007) :- relationExistsAll(properSubEvents, MitoticPhaseOfCellCycle, MPFActivityDroppingInMPhase).
+
+proof(11634, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-261976', 1, genlMt).
+proof(11634, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-261976', 2, genlMt).
+proof(11634, 2002) :- admittedArgument(SecondFn(17, MinuteFn(52, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(11634, 2003) :- admittedArgument(SecondFn(17, MinuteFn(52, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(11634, 2004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261976'), UniversalVocabularyMt).
+proof(11634, 2005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261976'), BaseKB).
+proof(11634, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261976'), BiochemistryMt).
+proof(11634, 2007) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261976'), MtSpace('Hypothesis-HypotheticalContext-261976', MtTimeDimFn(Now))).
+proof(11634, 2008) :- isa('HYP-MPFActivityDroppingInMPhase-261977', MPFActivityDroppingInMPhase). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

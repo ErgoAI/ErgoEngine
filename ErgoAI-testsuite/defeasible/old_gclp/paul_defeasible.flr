@@ -1,0 +1,29 @@
+
+:- use_argumentation_theory{ogcl}.
+?- [ogclp>>ogcl].
+
+// Neither p,q,r can be true. If they are,
+// then opposes takes place and they rebut each other.
+@{r1,r1n} p.
+@{r2n,r2} q.
+@{r3} r.
+\opposes(p,q):- r.
+\opposes(p,r):- q.
+\opposes(q,r):- p.
+
+
+// pp, qq are both true, since they do not conflict,
+// and neg pp does not hurt because rr1 overrides rr2.
+@{rr1} pp.
+@{rr2,rr2n} qq.
+@{rr2n,rr2} \neg pp.
+\overrides(rr1,rr2).
+
+
+%pretest :- undefined{p}, undefined{q}, undefined{r}, true{pp}, true{qq},
+	    writeln(done)@\plg.
+
+%test :- tell(temp)@\plg(),
+	%pretest,
+	told@\plg.
+

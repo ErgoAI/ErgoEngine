@@ -1,0 +1,63 @@
+/* File:      flrnowarn.P -- Predicates for which to not issue warnings
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2017-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+:- export flora_ignore_unsafe_vars/1.
+
+:- import
+        flora_get_flatom_name/2
+   from flrparser.
+:- import
+        %%is_flsimpleprimitive/3,
+        detach_flworkspace/3,
+        is_flterm/4
+   from flrcompiler.
+
+#include "flora_terms.flh"
+
+%% Add pairs of pred/arity here
+ignore_unsafe_vars(NULL,-1).
+
+
+flora_ignore_unsafe_vars([]) :- !.
+flora_ignore_unsafe_vars([Term|TermList]) :-
+        flora_ignore_unsafe_vars_one_term(Term),
+        flora_ignore_unsafe_vars(TermList).
+
+flora_ignore_unsafe_vars_one_term(Term) :-
+        detach_flworkspace(Term,Detached,_WS),
+        is_flterm(Detached,FlFunct,N,_Args),
+        flora_get_flatom_name(FlFunct,Name),
+        ignore_unsafe_vars(Name,N).
+/*
+%% This is if we ever allow simple primitives in rule heads.
+%% Seems too much work for too little gain.
+flora_ignore_unsafe_vars_one_term(Term) :-
+        is_flsimpleprimitive(Term,Name,Args),
+        basics:length(Args,N),
+        ignore_unsafe_vars(Name,N).
+*/

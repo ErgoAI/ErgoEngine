@@ -1,0 +1,787 @@
+// OWL in Flora-2 (v0.2)
+//
+// Contributed by Harry Chen <harry.chen@umbc.edu>
+//
+
+// The followings are used by nsexpand.pl to replace shortname URI
+// with fully qualified URI.
+//
+// namespace owl_   http://www.w3.org/2002/07/owl#
+// namespace xsd_   http://www.w3.org/2001/XMLSchema#
+// namespace rdfs_  http://www.w3.org/2000/01/rdf-schema#
+// namespace rdf_   http://www.w3.org/1999/02/22-rdf-syntax-ns#
+// namespace dc_    http://purl.org/dc/elements/1.1/#
+
+/******************** RDF-S Part ****************************************/
+
+// RDF-S in Flora-2 (v0.2)
+//
+// This Flora-2 program provides an inference mechanism to reason over
+// RDF-S data model and ontologies defined in RDF-S. This program is a
+// part of the F-OWL system (a larger program that provides inferences
+// for the OWL language).
+//
+// The inference mechanism in this program is built on the N-Triple
+// representation of RDF statements. N-Triples are mapped into Flora-2
+// as F-logic formulas. Logic inferences are done in the allowable
+// F-logic reasoning in Flora-2/XSB.
+//
+// NOTE: This is the source file for RDF-S inferences. All namespace
+// URI should be declared in their "shortname" (e.g., rdf_, rdfs_). 
+// For more information, see doc/fowl-rdfs-intro.pdf. 
+//
+// Credit: The initial mapping from N-Triple to Flora-2 are adopted
+// from http://www.agfa.com/w3c/euler/rdfs-rules 
+//
+// Author: Harry Chen, Tim Finin
+// $Revision: 1.2 $, $Date: 2009-07-01 18:05:57 $ 
+//
+
+// The followings are used by nsexpand.pl to replace shortname URI
+// with fully qualified URI. 
+//
+// namespace owl_  http://www.w3.org/2002/07/owl#
+// namespace xsd_  http://www.w3.org/2001/XMLSchema#
+// namespace rdfs_ http://www.w3.org/2000/01/rdf-schema#
+// namespace rdf_  http://www.w3.org/1999/02/22-rdf-syntax-ns#
+
+/*******************************************************************
+** RDF-S Data Model Statements: Flora-2 atomic formulas that
+** defines the RDF-S data model.  
+*******************************************************************/
+
+// turning off inheritance seems to improve speed only marginally
+// :- setsemantics{inheritance=none}.
+
+rdf_Property : rdfs_Class.
+rdfs_Datatype : rdfs_Class.
+rdfs_Literal : rdfs_Class.
+rdfs_Resource : rdfs_Class.
+rdfs_Class : rdfs_Class.
+rdf_Statement : rdfs_Class.
+rdfs_Container : rdfs_Class.
+ 
+rdfs_Datatype :: rdfs_Class.
+rdf_Seq :: rdfs_Container.
+rdf_Alt :: rdfs_Container.
+rdf_Bag :: rdfs_Container.
+
+rdfs_ContainerMembershipProperty :: rdf_Property.
+rdf_XMLLiteral : rdfs_Datatype.
+
+rdfs_comment : rdfs_Property.
+rdfs_comment[rdfs_domain->rdfs_Resource].
+rdfs_comment[rdfs_range->rdfs_Literal].
+
+rdf_first : rdf_Property.
+rdf_first[rdfs_domain->rdf_List].
+rdf_first[rdfs_range->rdfs_Resource].
+
+rdfs_label : rdf_Property.
+rdfs_label[rdfs_domain->rdfs_Resource].
+rdfs_label[rdfs_range->rdfs_Literal].
+
+rdf_nil : rdf_List.
+
+rdf_subject : rdf_Property.
+rdf_subject[rdfs_domain->rdf_Statement].
+rdf_subject[rdfs_range->rdfs_Resource].
+
+rdf_object : rdf_Property.
+rdf_object[rdfs_domain->rdf_Statement].
+rdf_object[rdfs_range->rdfs_Resource].
+
+rdf_predicate : rdf_Property.
+rdf_predicate[rdfs_domain->rdf_Statement].
+rdf_predicate[rdfs_range->rdfs_Resource].
+
+rdfs_domain : rdf_Property.
+rdfs_domain[rdfs_domain->rdf_Property].
+rdfs_domain[rdfs_range->rdfs_Class].
+
+rdfs_range : rdf_Property.
+rdfs_range[rdfs_domain->rdf_Property].
+rdfs_range[rdfs_range->rdfs_Class].
+
+rdf_rest : rdf_Property.
+rdf_rest[rdfs_domain->rdf_List].
+rdf_rest[rdfs_range->rdf_List].
+
+rdfs_subClassOf : rdf_Property.
+rdfs_subClassOf[rdfs_domain->rdfs_Class].
+rdfs_subClassOf[rdfs_range->rdfs_Class].
+
+rdfs_subPropertyOf : rdf_Property.
+rdfs_subPropertyOf[rdfs_domain->rdf_Property].
+rdfs_subPropertyOf[rdfs_range->rdf_Property].
+
+rdf_type : rdf_Property.
+rdf_type[rdfs_range->rdfs_Class].
+rdf_type[rdfs_domain->rdfs_Resource].
+
+rdf_value : rdf_Property.
+rdf_value[rdfs_domain->rdfs_Resource].
+rdf_value[rdfs_range->rdfs_Resource].
+
+rdfs_member : rdf_Property.
+rdfs_member[rdfs_domain->rdfs_Resource].
+rdfs_member[rdfs_range->rdfs_Resource].
+
+rdfs_seeAlso : rdf_Property.
+rdfs_seeAlso[rdfs_domain->rdfs_Resource].
+rdfs_seeAlso[rdfs_range->rdfs_Resource].
+
+rdfs_isDefinedBy[rdfs_subPropertyOf->rdfs_seeAlso].
+
+/****************************************************************
+**  RDF-S Data Model Inference Rule: Flora-2 rules that defines
+**  logic inferences that can be made over the RDF-S data model.
+** 
+**  In v0.2, all RDF statements are assumed to be have 
+**  representation rdf(<subject>,<predicate>,<value>) and are 
+**  loaded into the XSB "main" module (not any another module).
+****************************************************************/
+
+// Rule D1
+// Maps all N-triple statements into Flora data atoms
+?S[?P->?O] :- rdf(?S,?P,?O).
+
+// Rule D2
+// Maps all RDF-S "Property" into Flora signature atoms
+?X[?P=>?O] :- ?P[rdfs_domain->?X, rdfs_range->?O],
+	    ?P : rdf_Property, ?X : rdfs_Class, ?O : rdfs_Class.
+
+// Rule D3
+// Infers an instance of a class from Flora data and signature atoms.
+// i.e., X is an instance of C if X is the value of some property P,
+// and P has some defined Flora class schema C.  
+?X : ?C :- ?_[|?Prop -> ?X, ?Prop {1..1}=> ?C|].
+
+// Rule D4
+// Maps all RDF-S "Class" definitions into Flora data atoms.
+?C : rdfs_Class :- ?C[rdf_type->rdfs_Class].
+
+// Rule D5
+// Maps all RDF "Property" definitions into Flora data atoms.
+?X : rdf_Property :- ?X[rdf_type->rdf_Property].
+
+// Rule D6
+// Maps all subclasses relationship into Flora data atoms 
+// NOTE: this rule depends on Rule D3.
+?C1 :: ?C2 :- ?C1 : rdfs_Class, ?C2 : rdfs_Class, ?C1[rdfs_subClassOf->?C2].
+
+// Rule D7
+// Defines all RDF-S "Classes" are subclasses of the RDF-S "Resource".
+// According to the RDF-S spec, Resource is also subclass of itself. 
+// However, because Flora-2 does not allow an object to be defined as
+// a subclass of itself (i.e., C :: C is not allowed), we exclude
+// "Resource" from being a subclass of itself.
+?C :: rdfs_Resource :- ?C : rdfs_Class, ?C \= rdfs_Resource.
+
+// Rule D8
+// Defines everything is an instance of the class "Resource"
+?Subject : rdfs_Resource :- ?Subject[?_Predicate->?_Value].
+?Value : rdfs_Resource :- ?_Subject[?_Predicate->?Value].
+
+// Rule D9
+// Infers all instances of a class from the rdf:type property.
+?X : ?C :- ?X[rdf_type->?C], ?C : rdfs_Class, ?X : rdfs_Resource.
+
+// Rule D10  - Expensive rule2
+// Infers all instances of a class from the rdfs:domain property.
+?X : ?C :- ?X[?P->?_], ?P[rdfs_domain->?C].
+
+// Rule D11 - Expensive rule1
+// Infers all instances of a class from the rdfs:range property.
+?X : ?C :- ?X[?_->?O], ?O[rdfs_range->?C].
+
+// Rule D12 - Built into F-logic
+// Defines inheritence over the property of a class. 
+// If C1 is a subclass of of C2 and C2 has property P with range O,
+// then C1 also has property P with range O.
+?C1[?P=>?O] :- ?C1 :: ?C2,
+	     ?C2[?P=>?O], 
+	     ?C1 : rdfs_Class, ?C2 : rdfs_Class, 
+	     ?P : rdf_Property, ?O : rdfs_Resource.
+
+// Rule D13
+// Defines rdfs:subPropertyOf is a transitive property.
+// (NOT TESTED)
+?P1[rdfs_subPropertyOf->?P2] :- ?P1[rdfs_subPropertyOf->?X], 
+			      ?X[rdfs_subPropertyOf->?P2], ?P1 \= ?P2.
+
+
+// Rule D14
+// Defines the property value of a class is a super-set of its all 
+// sub-property values. (NOT TESTED)
+// S[P1->O] :- P2[rdfs_subPropertyOf->P1], S[|P2->O|].
+
+// Rule D15
+// Defines inheritence over the domain property. A sub-property
+// inherits the domain value of its parent property.
+?P[rdfs_domain->?O] :- ?P[rdfs_subPropertyOf->?SP], ?SP[rdfs_domain->?O].
+
+// Rule D16
+// Defines inheritence over the range property. A sub-property
+// inherits the range value of its parent property.
+?P[rdfs_range->?O] :- ?P[rdfs_subPropertyOf->?SP], ?SP[rdfs_range->?O].
+
+// Rule D17
+// Infers each instance of rdfs:ContainerMembershipProperty is an
+// rdfs:subPropertyOf the rdfs:member property.
+?X[rdfs_subPropertyOf -> rdfs_member] :- ?X:rdfs_ContainerMembershipProperty. 
+
+// Rule D18
+// Infers each instance of rdfs:Datatype is a subclass of the rdfs:Literal.
+?X :: rdfs_Literal :- ?X : rdfs_Datatype.
+
+
+/******************** OWL Part ***********************************************/
+
+'http://www.w3.org/2002/07/owl':owl_Ontology.
+'http://www.w3.org/2002/07/owl'[owl_versionInfo -> 'March 18. 2003, GS'].
+'http://www.w3.org/2002/07/owl'[owl_imports -> 'http://www.w3.org/2000/01/rdf-schema'].
+'http://www.w3.org/2002/07/owl'[dc_title -> 'Classes and properties for the Web Ontology Language OWL'].
+'http://www.w3.org/2002/07/owl'[dc_creator -> 'W3C Web Ontology (WebOnt) Working Group'].
+'http://www.w3.org/2002/07/owl'[dc_subject -> 'OWL; Web Ontology Language; Semantic Web'].
+'http://www.w3.org/2002/07/owl'[dc_publisher -> 'W3C'].
+'http://www.w3.org/2002/07/owl'[dc_date -> '2003-02-10'].
+'http://www.w3.org/2002/07/owl'[dc_format -> 'text/xml'].
+'http://www.w3.org/2002/07/owl'[dc_language -> 'en'].
+'http://www.w3.org/2002/07/owl'[dc_identifier -> 'http://www.w3.org/2002/07/owl'].
+owl_Class:rdfs_Class.
+owl_Class[rdfs_label -> 'Class'].
+owl_Class::rdfs_Class.
+owl_Thing:owl_Class.
+owl_Thing[rdfs_label -> 'Thing'].
+owl_Nothing:owl_Class.
+owl_ARP8:owl_Class.
+owl_ARP8[owl_complementOf -> owl_Nothing].
+owl_ARP7[rdf_first -> owl_ARP8].
+owl_ARP7[rdf_rest -> rdf_nil].
+owl_ARP7:rdf_List.
+owl_ARP5[rdf_first -> owl_Nothing].
+owl_ARP5[rdf_rest -> owl_ARP7].
+owl_ARP5:rdf_List.
+owl_Thing[owl_unionOf -> owl_ARP5].
+owl_Nothing:owl_Class.
+owl_Nothing[rdfs_label -> 'Nothing'].
+owl_Nothing[owl_complementOf -> owl_Thing].
+owl_equivalentClass:rdf_Property.
+owl_equivalentClass[rdfs_label -> 'equivalentClass'].
+owl_equivalentClass[rdfs_subPropertyOf -> rdfs_subClassOf].
+owl_equivalentClass[rdfs_domain -> owl_Class].
+owl_equivalentClass[rdfs_range -> owl_Class].
+owl_disjointWith:rdf_Property.
+owl_disjointWith[rdfs_label -> 'disjointWith'].
+owl_disjointWith[rdfs_domain -> owl_Class].
+owl_disjointWith[rdfs_range -> owl_Class].
+owl_equivalentProperty:rdf_Property.
+owl_equivalentProperty[rdfs_label -> 'equivalentProperty'].
+owl_equivalentProperty[rdfs_subPropertyOf -> rdfs_subPropertyOf].
+owl_sameIndividualAs:rdf_Property.
+owl_sameIndividualAs[rdfs_label -> 'sameIndividualAs'].
+owl_sameIndividualAs[rdfs_domain -> owl_Thing].
+owl_sameIndividualAs[rdfs_range -> owl_Thing].
+owl_sameIndividualAs[rdfs_subPropertyOf -> owl_sameAs].
+owl_sameAs:rdf_Property.
+owl_sameAs[rdfs_label -> 'sameAs'].
+owl_sameAs[rdfs_subPropertyOf -> owl_sameIndividualAs].
+owl_differentFrom:rdf_Property.
+owl_differentFrom[rdfs_label -> 'differentFrom'].
+owl_differentFrom[rdfs_domain -> owl_Thing].
+owl_differentFrom[rdfs_range -> owl_Thing].
+owl_AllDifferent:rdfs_Class.
+owl_AllDifferent[rdfs_label -> 'AllDifferent'].
+owl_distinctMembers:rdf_Property.
+owl_distinctMembers[rdfs_label -> 'distinctMembers'].
+owl_distinctMembers[rdfs_domain -> owl_AllDifferent].
+owl_distinctMembers[rdfs_range -> rdf_List].
+owl_unionOf:rdf_Property.
+owl_unionOf[rdfs_label -> 'unionOf'].
+owl_unionOf[rdfs_domain -> owl_Class].
+owl_unionOf[rdfs_range -> rdf_List].
+owl_intersectionOf:rdf_Property.
+owl_intersectionOf[rdfs_label -> 'intersectionOf'].
+owl_intersectionOf[rdfs_domain -> owl_Class].
+owl_intersectionOf[rdfs_range -> rdf_List].
+owl_complementOf:rdf_Property.
+owl_complementOf[rdfs_label -> 'complementOf'].
+owl_complementOf[rdfs_domain -> owl_Class].
+owl_complementOf[rdfs_range -> owl_Class].
+owl_oneOf:rdf_Property.
+owl_oneOf[rdfs_label -> 'oneOf'].
+owl_oneOf[rdfs_domain -> owl_Class].
+owl_oneOf[rdfs_range -> rdf_List].
+owl_Restriction:rdfs_Class.
+owl_Restriction[rdfs_label -> 'Restriction'].
+owl_Restriction::owl_Class.
+owl_onProperty:rdf_Property.
+owl_onProperty[rdfs_label -> 'onProperty'].
+owl_onProperty[rdfs_domain -> owl_Restriction].
+owl_onProperty[rdfs_range -> rdf_Property].
+owl_allValuesFrom:rdf_Property.
+owl_allValuesFrom[rdfs_label -> 'allValuesFrom'].
+owl_allValuesFrom[rdfs_domain -> owl_Restriction].
+owl_allValuesFrom[rdfs_range -> rdfs_Class].
+
+owl_someValuesFrom:rdf_Property.
+owl_someValuesFrom[rdfs_label -> 'someValuesFrom'].
+owl_someValuesFrom[rdfs_domain -> owl_Restriction].
+owl_someValuesFrom[rdfs_range -> rdfs_Class].
+owl_minCardinality:rdf_Property.
+owl_minCardinality[rdfs_label -> 'minCardinality'].
+owl_minCardinality[rdfs_domain -> owl_Restriction].
+owl_minCardinality[rdfs_range -> xsd_nonNegativeInteger].
+owl_maxCardinality:rdf_Property.
+owl_maxCardinality[rdfs_label -> 'maxCardinality'].
+owl_maxCardinality[rdfs_domain -> owl_Restriction].
+owl_maxCardinality[rdfs_range -> xsd_nonNegativeInteger].
+owl_cardinality:rdf_Property.
+owl_cardinality[rdfs_label -> 'cardinality'].
+owl_cardinality[rdfs_domain -> owl_Restriction].
+owl_cardinality[rdfs_range -> xsd_nonNegativeInteger].
+owl_ObjectProperty:rdfs_Class.
+owl_ObjectProperty[rdfs_label -> 'ObjectProperty'].
+owl_ObjectProperty::rdf_Property.
+owl_DatatypeProperty:rdfs_Class.
+owl_DatatypeProperty[rdfs_label -> 'DatatypeProperty'].
+owl_DatatypeProperty::rdf_Property.
+owl_inverseOf:rdf_Property.
+owl_inverseOf[rdfs_label -> 'inverseOf'].
+owl_inverseOf[rdfs_domain -> owl_ObjectProperty].
+owl_inverseOf[rdfs_range -> owl_ObjectProperty].
+owl_TransitiveProperty:rdfs_Class.
+owl_TransitiveProperty[rdfs_label -> 'TransitiveProperty'].
+owl_TransitiveProperty::owl_ObjectProperty.
+owl_SymmetricProperty:rdfs_Class.
+owl_SymmetricProperty[rdfs_label -> 'SymmetricProperty'].
+owl_SymmetricProperty::owl_ObjectProperty.
+owl_FunctionalProperty:rdfs_Class.
+owl_FunctionalProperty[rdfs_label -> 'FunctionalProperty'].
+owl_FunctionalProperty::rdf_Property.
+owl_InverseFunctionalProperty:rdfs_Class.
+owl_InverseFunctionalProperty[rdfs_label -> 'InverseFunctionalProperty'].
+owl_InverseFunctionalProperty::rdf_Property.
+owl_AnnotationProperty:rdfs_Class.
+owl_AnnotationProperty::rdf_Property.
+rdfs_label:owl_AnnotationProperty.
+rdfs_comment:owl_AnnotationProperty.
+rdfs_seeAlso:owl_AnnotationProperty.
+rdfs_isDefinedBy:owl_AnnotationProperty.
+
+
+/*************************************************************************
+**  OWL-Lite Model Inference Rules
+*************************************************************************/
+
+
+// Rule D1
+// All classes are subclasses of owl:Thing
+// NOTE: owl:Thing is excluded because Flora2 does not allow
+// an object to be defined as an instance and subclass of itself.
+?C :: owl_Thing :- ?C : owl_Class, ?C \= owl_Thing.
+
+// Rule D2
+// Defines an instances of a class using the owl:allValuesFrom property.
+// For a triple S[P->X] and a restriction class R with property P that has
+// owl:allValuesFrom class C, X is a type of C if S is a type of R.
+?X : ?C :- ?R[owl_onProperty->?P], ?R[owl_allValuesFrom->?C], ?S:?R, ?S[?P->?X].
+
+// Rule D3
+// Defines the owl:inverseOf property
+?P[owl_inverseOf->?Q] :- ?Q[owl_inverseOf->?P], ?P \= ?Q.
+?O[?Q->?S] :- ?P[owl_inverseOf->?Q], ?S[?P->?O].
+
+// Rule D4
+// Defines the owl:SymmetricProperty
+?O[?P->?S] :- ?P:owl_SymmetricProperty, ?S[?P->?O], ?S \= ?O.
+
+// Rule D5
+// Defines the owl:TransitiveProperty
+?S[?P->?O] :- ?P:owl_TransitiveProperty, ?S[?P->?X], ?X[?P->?O], ?S \= ?O.
+
+// Rule D6
+// Defines the equivalence of two properties, NOT property equality.
+// This rule defines two properties to have the same values. However,
+// these two properties may have different intensional meaning.
+// NOTE: DISABLED BECAUSE OF AN UNKNOWN BUG IN FLORA2
+//P[owl_equivalentProperty->Q] :- P : rdf_Property, Q : rdf_Property,
+//				 P=Q
+
+// Rule D6a
+// Defines owl:equivalentProperty is transitive and symmetrical.
+?P[owl_equivalentProperty->?Q] :- ?P[owl_equivalentProperty->?R],
+				?R[owl_equivalentProperty->?Q].
+
+?S[?R->?O] :- ?P[owl_equivalentProperty->?R], ?S[?P->?O].
+
+// Rule D7
+// Defines an individual is the same as itself.
+// NOTE: DISABLED BECAUSE OF AN UNKNOWN BUG IN FLORA2
+//X[owl_sameAs->Y] :- X=Y, X : _, Y : ?.
+
+?X[owl_sameAs->?Z] :- ?X[owl_sameAs->?Y], ?Y[owl_sameAs->?Z].
+
+// Rule D8
+// Infers two distinctive individuals are the same individual
+// if they are the objects of the same functional property.
+?X[owl_sameAs->?Y] :- ?P:owl_FunctionalProperty, ?S[?P->?X], ?S[?P->?Y].
+
+// Rule D9
+// Infers two distinctive individuals are the same individual
+// if they are the subjects of the same inverse functional property
+?X[owl_sameAs->?Y] :- ?P:owl_InverseFunctionalProperty, ?X[?P->?O], ?Y[?P->?O].
+
+
+// Rule D10
+// Infers two distinctive individuals are the same individual
+// if they are the objects of some property P which is the property
+// of a restricted class, and this property is restricted to have
+// max cardinality of 1.
+?X[owl_sameAs->?Y] :- ?R[owl_onProperty->?P], ?R[owl_maxCardinality->'1'],
+ 		    ?S:?R, ?S[?P->?X], ?S[?P->?Y].
+
+// RD10a
+// Defines the property values of two distinctive individuals are the
+// same if they are defined be to the same thing using owl:sameAs
+?Z[?P->?Y] :- ?X[owl_sameAs->?Z], ?X[?P->?Y], ?P \= owl_sameAs.
+
+// Rule D13
+?P:owl_InverseFunctionalProperty :- ?P[owl_inverseOf->?Q],
+				   ?Q : owl_FunctionalProperty.
+
+// Rule D14
+?P:owl_FunctionalProperty :- ?P[owl_inverseOf->?Q],
+			    ?Q : owl_InverseFunctionalProperty.
+
+// Rule D15
+// Defines a property to have cardinality M if the property has both
+// maxCardinality and  minCardinality M.
+?R[owl_cardinality->?M] :- ?R[owl_onProperty->?_], ?R[owl_minCardinality->?M],
+			 ?R[owl_maxCardinality->?M].
+
+// Rule D16
+// Defines a property to have maxCardinality M if the property has
+// cardinality M.
+?R[owl_minCardinality->?M] :- ?R[owl_onProperty->?_], ?R[owl_cardinality->?M].
+
+// Rule D17
+// Defines a property to have minCardinality M if the property has
+// cardinality M.
+?R[owl_maxCardinality->?M] :- ?R[owl_onProperty->?_], ?R[owl_cardinality->?M].
+
+// Rule D18
+// Infers two individual are different if each of them belongs to two
+// disjoint classes
+?X[fowl_differentFrom->?Y] :- ?X : ?A, ?Y : ?B, ?X \= ?Y,
+			    ?A[owl_disjointWith->?B].
+
+// Rule D19
+// Infers two distinctive items X and Y are different from each other
+// if they are items on a list L which is the object of an
+// owl:distinctMembers property.
+?X[owl_differentFrom->?Y] :- ?X[fowl_differentFrom->?Y].
+
+?X[fowl_differentFrom->?Y] :- ?Y[fowl_differentFrom->?X], ?X \= ?Y.
+
+?X[fowl_differentFrom->?Y] :- ?L[rdf_first->?X], ?L[rdf_rest->?M],
+ 			    ?M[fowl_item->?Y], ?_[owl_distinctMembers->?L].
+
+
+// Rule D20
+// Defines any class is equivalent to itself.
+// NOTE: DISABLED BECAUSE OF AN UNKNOWN BUG IN FLORA2
+//X[owl_equivalentClass->Y] :- X : owl_Class, Y : owl_Class, X = Y.
+
+// Rule D21
+// Defines owl:equivalentClass property is transitive & symmetrical.
+?X[owl_equivalentClass->?Z] :- ?X[owl_equivalentClass->?Y],
+		             ?Y[owl_equivalentClass->?Z].
+
+// Rule D22
+// Infers all instance of a class are also instances of another class that
+// this class equivalent to.
+?X : ?C2 :- ?C1[owl_equivalentClass->?C2], ?X : ?C1.
+
+
+// Rule 20
+// Infers two unamed class defined by property restriction are
+// equivalent if they have the same cardinality restriction on the
+// same property
+//A[owl_equivalentClass->B] :- A[owl_onProperty->P],
+//		             A[owl_cardinality->M],
+//			     B[owl_onProperty->P],
+//			     B[owl_cardinality->M].
+
+// Rule 21
+// Infers two classes are equivalent if they are the complement of
+// the same class.
+// NOTE: DISABLED BECAUSE IT HAS NOT BEEN TESTED
+//A[owl_equivalentClass->B] :- A[owl_complementOf->C],
+//			     B[owl_complementOf->C].
+
+// Rule 22
+// Infers class A & B are equivalent if class B is the intersection
+// of a list which only has one item A.
+// NOTE: DISABLED BECAUSE IT HAS NOT BEEN TESTED
+//A[owl_equivalentClass->B] :- B[owl_intersectionOf->L],
+//			     L[rdf_first->A], L[rdf_rest->rdf_nil].
+
+
+/*************************************************************************
+**  Rules for supporting reasoning over a Collection of resources
+*************************************************************************/
+
+// Rule L1
+// Defines a resource X is an item in a list S if X is
+// the first item on the list S.
+?S[fowl_item->?X] :- ?S[rdf_first->?X], ?S : rdf_List.
+
+// Rule L2
+// Define a resource X is an item in a list S if X is the first item
+// on some list B which is a part of list S (defined by rdf:rest).
+?S[fowl_item->?X] :- ?S[rdf_rest->?B], ?B[fowl_item->?X], ?S : rdf_List.
+
+// Rule L3
+// Defines rdf:nil is not an item in any list.
+rdf_nil[fowl_item->?_] :- false.
+
+// Rule L4
+// Defines an rdf:List X includes another rdf:List S if
+//    1) there are item A and B
+//    2) A is the first item in S and B is the head of the rest of S
+//    3) A is an item in X
+//    4) B is included in X.
+?X[fowl_includes->?S] :-
+	?S[rdf_first->?A], ?S : rdf_List,
+	?X[fowl_item->?A], ?X : rdf_List,
+	?X\=?S,
+	?S[rdf_rest->?B], ?X[fowl_includes->?B].
+
+// Rule L5
+// Define any rdf:List always includes rdf:nil
+?X[fowl_includes->rdf_nil] :- ?X : rdf_List, ?X \= rdf_nil.
+
+// Rule L6
+//X[fowl_oneItemIn->S] :- X[rdf_first->A], S[fowl_item->A],
+//			X[rdf_rest->B], B[fowl_zeroItemsIn->S].
+
+// Rule L6
+//X[fowl_oneItemIn->S] :- X[rdf_first->A], \naf(S[fowl_item->A]),
+//			X[rdf_rest->B], B[fowl_oneItemIn->S].
+
+// Rule L7
+//rdf_nil[fowl_zeroItemsIn->?] :- true.
+
+// Rule L8
+//X[fowl_zeroItemsIn->S] :- X[rdf_first->A], \naf(S[fowl_item->A]),
+//		          X[rdf_rest->B], B[fowl_zeroItemsIn->S].
+
+/*************************************************************************
+**  Rules for checking knowledge that is inconsistent with
+**  the OWL ontology model (only OWL-Lite is supported)
+*************************************************************************/
+
+inconsistent[resource=>string, errmsg=>string].
+cardinalityInconsistent:inconsistent.
+beyondOWLLite:inconsistent.
+
+// Rule IC1
+// The cardinality of a restriction class is exactly 1 for its
+// owl:onProperty property.
+cardinalityInconsistent[resource->?C, errmsg->'for a restriction class, the cardinality of its owl:onProperty must be 1'] :-
+	?C[owl_onProperty->?P1], ?C[owl_onProperty->?P2], ?P1 \= ?P2.
+
+// Rule IC2 (not tested)
+beyondOWLLite[resource->?C, errmsg->' for a restriction class which has a owl:allValuesFrom property, the object must be a named class'] :-
+	?C : owl_Restriction, ?C[owl_allValuesFrom->?P], ?P : owl_Restriction.
+
+
+
+
+/************************* Animal Info *************************************
+// Generated by ./nsreduce.pl 
+// namespace http://users.ebiquity.org/~hchen4/ont/animals#      animals_
+// namespace http://www.w3.org/1999/02/22-rdf-syntax-ns#         rdf_
+// namespace http://www.w3.org/2000/01/rdf-schema#               rdfs_
+// namespace http://www.w3.org/2002/07/owl#                      owl_
+// namespace http://www.w3.org/2001/10/XMLSchema#                xsd_
+****************************************************************************/
+
+
+rdf(uri('http://users.ebiquity.org/~hchen4/ont/animals'),rdf_type,owl_Ontology ).
+rdf(uri('http://users.ebiquity.org/~hchen4/ont/animals'),owl_versionInfo,'$Revision: 1.2 $' ).
+rdf(animals_Animal,rdf_type,owl_Class ).
+rdf(animals_Animal,rdfs_label,'Animal' ).
+rdf(animals_Male,rdf_type,owl_Class ).
+rdf(animals_Male,rdfs_subClassOf,animals_Animal ).
+rdf(animals_Female,rdf_type,owl_Class ).
+rdf(animals_Female,rdfs_subClassOf,animals_Animal ).
+rdf(animals_Man,rdf_type,owl_Class ).
+rdf(animals_Man,rdfs_subClassOf,animals_Person ).
+rdf(animals_Man,rdfs_subClassOf,animals_Male ).
+rdf(animals_HumanBeing,rdf_type,owl_Class ).
+rdf(animals_HumanBeing,owl_equivalentClass,animals_Person ).
+rdf(animals_Woman,rdf_type,owl_Class ).
+rdf(animals_Woman,rdfs_subClassOf,animals_Person ).
+rdf(animals_Woman,rdfs_subClassOf,animals_Female ).
+
+rdf(animals_hasAncestor,rdf_type,owl_ObjectProperty ).
+rdf(animals_hasAncestor,rdfs_domain,animals_Animal ).
+rdf(animals_hasAncestor,rdfs_range,animals_Animal ).
+rdf(animals_hasAncestor,rdf_type,owl_TransitiveProperty ).
+
+
+rdf(animals_hasParent,rdf_type,owl_ObjectProperty ).
+rdf(animals_hasParent,rdfs_subPropertyOf,animals_hasAncestor ).
+
+rdf(animals_hasFather,rdf_type,owl_ObjectProperty ).
+rdf(animals_hasFather,rdfs_subPropertyOf,animals_hasParent ).
+rdf(animals_hasFather,rdf_type,owl_FunctionalProperty ).
+rdf(animals_hasFather,rdfs_range,animals_Male ).
+
+rdf(animals_hasMother,rdf_type,owl_ObjectProperty ).
+rdf(animals_hasMother,rdf_type,owl_FunctionalProperty ).
+rdf(animals_hasMother,rdfs_subPropertyOf,animals_hasParent ).
+rdf(animals_hasMother,rdfs_range,animals_Female ).
+
+rdf(animals_biologicalMotherOf, rdf_type, owl_ObjectProperty).
+rdf(animals_biologicalMotherOf, rdf_type, owl_InverseFunctionalProperty).
+rdf(animals_biologicalMotherOf, rdfs_domain, animals_Woman).
+rdf(animals_biologicalMotherOf, rdfs_range, animals_Person).
+
+rdf(animals_hasFemaleParent,rdf_type,owl_ObjectProperty ).
+rdf(animals_hasFemaleParent,owl_equivalentProperty,animals_hasMother ).
+
+rdf(animals_hasMaleParent,rdf_type,owl_ObjectProperty ).
+rdf(animals_hasMaleParent,owl_equivalentProperty,animals_hasFather ).
+
+rdf(animals_hasDad,rdf_type,owl_ObjectProperty ).
+rdf(animals_hasDad,owl_equivalentProperty,animals_hasMaleParent).
+
+rdf(animals_hasFriend,rdf_type,owl_ObjectProperty ).
+rdf(animals_hasFriend,rdf_type,owl_SymmetricProperty ).
+rdf(animals_hasFriend,rdfs_domain,animals_Person).
+rdf(animals_hasFriend,rdfs_range,animals_Person).
+
+rdf(animals_shoesize,rdf_type,owl_DatatypeProperty ).
+rdf(animals_shoesize,rdf_type,owl_FunctionalProperty ).
+rdf(animals_shoesize,rdfs_range,xsd_decimal ).
+rdf(animals_age,rdf_type,owl_DatatypeProperty ).
+rdf(animals_age,rdf_type,owl_FunctionalProperty ).
+rdf(animals_age,rdfs_range,xsd_nonNegativeInteger ).
+rdf(animals_shirtsize,rdf_type,owl_DatatypeProperty ).
+rdf(animals_shirtsize,rdf_type,owl_FunctionalProperty ).
+rdf(animals_shirtsize,rdfs_range,xsd_decimal ).
+
+rdf(animals_Person,rdf_type,owl_Class ).
+rdf(animals_Person,rdfs_subClassOf,animals_Animal ).
+rdf(animals_jARP35,rdf_type,owl_Restriction ).
+rdf(animals_jARP35,owl_onProperty,animals_hasParent ).
+rdf(animals_jARP35,owl_allValuesFrom,animals_Person ).
+rdf(animals_Person,rdfs_subClassOf,animals_jARP35 ).
+
+rdf(animals_jARP38,rdf_type,owl_Restriction ).
+rdf(animals_jARP38,owl_onProperty,animals_hasFather ).
+rdf(animals_jARP38,owl_cardinality,'1' ).
+
+rdf(animals_Person,rdfs_subClassOf,animals_jARP38 ).
+rdf(animals_jARP40,rdf_type,owl_Restriction ).
+rdf(animals_jARP40,owl_onProperty,animals_shoesize ).
+rdf(animals_jARP40,owl_minCardinality,'1' ).
+rdf(animals_Person,rdfs_subClassOf,animals_jARP40 ).
+rdf(animals_jARP42,rdf_type,owl_Restriction ).
+rdf(animals_jARP42,owl_onProperty,animals_hasSpouse ).
+rdf(animals_jARP42,owl_allValuesFrom,animals_Person ).
+rdf(animals_jARP42,owl_maxCardinality,'1' ).
+rdf(animals_Person,rdfs_subClassOf,animals_jARP42 ).
+
+rdf(animals_TwoLeggedThing, rdf_type, owl_Class).
+rdf(animals_TwoLeggedPerson, rdf_type, owl_Class).
+rdf(animals_jARP34687, rdf_first, animals_TwoLeggedThing).
+rdf(animals_jARP34687, rdf_rest, rdf_nil).
+rdf(animals_jARP34687, rdf_type, rdf_List).
+rdf(animals_jARP34685, rdf_first, animals_Person).
+rdf(animals_jARP34685, rdf_rest, animals_jARP34687).
+rdf(animals_jARP34685, rdf_type, rdf_List).
+rdf(animals_TwoLeggedPerson, owl_intersectionOf, animals_jARP34685).
+rdf(animals_Harry, rdf_type, animals_TwoLeggedPerson).
+
+rdf(animals_hasSpouse, rdf_type, owl_ObjectProperty).
+rdf(animals_hasSpouse, rdfs_domain, animals_Person).
+rdf(animals_hasSpouse, rdfs_range, animals_Person).
+rdf(animals_hasSpouse, rdf_type, owl_FunctionalProperty).
+
+rdf(animals_spouseOf, rdf_type, owl_ObjectProperty).
+rdf(animals_spouseOf, owl_inverseOf, animals_hasSpouse).
+
+rdf(animals_hasChild,rdf_type,owl_ObjectProperty ).
+rdf(animals_hasChild,owl_inverseOf,animals_hasParent ).
+
+rdf(animals_hasKid, rdf_type, owl_ObjectProperty).
+rdf(animals_hasKid, rdfs_subPropertyOf, animals_hasChild).
+rdf(animals_hasChild, rdfs_subPropertyOf, animals_hasKid).
+
+rdf(animals_hasMom,rdf_type,owl_ObjectProperty ).
+rdf(animals_hasMom,owl_equivalentProperty,animals_hasMother ).
+
+rdf(animals_John,rdf_type,animals_Person ).
+rdf(animals_John,animals_shoesize,'14' ).
+rdf(animals_John,animals_age,'37' ).
+rdf(animals_John,animals_shirtsize,'12' ).
+
+rdf(animals_Mark,rdf_type,animals_Person).
+rdf(animals_Mark,animals_shoesize,'8' ).
+rdf(animals_Mark,animals_age,'18' ).
+rdf(animals_Mark,animals_shirtsize,'9' ).
+rdf(animals_Mark,animals_hasFather,animals_John ).
+
+rdf(animals_JohnSmith, rdf_type, animals_Animal).
+rdf(animals_Mark,animals_hasFather,animals_JohnSmith).
+
+rdf(animals_David,rdf_type,animals_Person).
+rdf(animals_David,animals_hasChild,animals_John ).
+
+rdf(animals_Alice,rdf_type,animals_Person).
+rdf(animals_Alice,animals_hasFriend,animals_John ).
+
+rdf(animals_Jack,rdf_type,animals_Person).
+rdf(animals_Jack,animals_hasFriend,animals_Alice ).
+
+rdf(animals_Cool_David,owl_sameAs,animals_David).
+rdf(animals_Tall_David,owl_sameAs,animals_Cool_David).
+
+rdf(animals_Eve, rdf_type, animals_Person).
+rdf(animals_Eve, animals_biologicalMotherOf, animals_John).
+rdf(animals_Eve, animals_hasSpouse, animals_David).
+rdf(animals_Eve, animals_hasSpouse, animals_TheBeLovedHusbandOfEve).
+
+rdf(animals_TheBeLovedHusbandOfEve, rdf_type, animals_Person).
+
+rdf(animals_MotherOfJohn, rdf_type, animals_Person).
+rdf(animals_MotherOfJohn, animals_biologicalMotherOf, animals_John).
+
+rdf(animals_jARP46379, rdf_first, animals_John).
+rdf(animals_jARP46379, rdf_rest, rdf_nil).
+rdf(animals_jARP46379, rdf_type, rdf_List).
+rdf(animals_jARP46377, rdf_first, animals_Jack).
+rdf(animals_jARP46377, rdf_rest, animals_jARP46379).
+rdf(animals_jARP46377, rdf_type, rdf_List).
+rdf(animals_jARP46375, rdf_first, animals_Alice).
+rdf(animals_jARP46375, rdf_rest, animals_jARP46377).
+rdf(animals_jARP46375, rdf_type, rdf_List). 
+rdf(animals_jARP46373, rdf_first, animals_David).
+rdf(animals_jARP46373, rdf_rest, animals_jARP46375) .
+rdf(animals_jARP46373, rdf_type, rdf_List).
+rdf(animals_jARP46372, owl_distinctMembers, animals_jARP46373) .
+rdf(animals_jARP46372, rdf_type, owl_AllDifferent).
+
+
+/************************** Query *******************************************/
+
+?- (nl, writeln('*** The ?X:owl_Class query runs for 3-4 minutes'))@\plg, ?X : owl_Class.
+
+?- (nl, writeln('*** ?X[owl_equivalentProperty->?Y] also runs for a long time, if run first'))@\plg,
+   ?X[owl_equivalentProperty->?Y].
+

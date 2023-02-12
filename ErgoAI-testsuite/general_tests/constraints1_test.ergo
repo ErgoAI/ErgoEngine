@@ -1,0 +1,16 @@
+#include "standard.h"
+
+%pretest :- 
+        [constraints1 >> foo].
+
+%test :- 
+	tell(temp)@\plg,
+	file_reopen(temp1,w,STDWARN,?)@\plg(file_io),
+	%pretest,
+	file_flush(STDWARN,?)@\plg(file_io),
+	told@\plg,
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp)@\plg,append,?Port2)@\plg,
+	copyIOport(?Port1,?Port2)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg.

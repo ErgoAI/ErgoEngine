@@ -1,0 +1,92 @@
+/* File:      flrtruthvalue.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "flora_exceptions.flh"
+
+#include "flora_tabling_methods.flh"
+
+#define DELAY_REG 2
+
+:- import
+        truth_value/2,
+	variant_get_residual/2
+   from tables.
+:- import
+        flora_apply_negation_wrapper/3,
+        FLORA_NAF_PREDICATE/1
+   from flrnegation.
+:- import convert_to_head_literal/2 from flrcanon.
+:- import flora_match_substring/3 from flrporting.
+:- import flora_generalize_callable_context/2 from flrtrim.
+
+
+FLLIBTRUTHVALUE(FL_FALSE_PRIMITIVE,Mod,Goal) :-
+        flora_generalize_callable_context(Goal,GoalGen),
+        Goal1 = (GoalGen,FLORA_DELAY_CHECKER([GoalGen],[])),
+	(call(Goal1), fail
+	;
+            flora_apply_negation_wrapper(Goal1,Mod,Wrapped),
+            truth_value(FLORA_NAF_PREDICATE(Wrapped),true)
+	).
+	%%FLORA_DELAY_CHECKER([Goal],[]).
+
+FLLIBTRUTHVALUE(FL_TRUE_PRIMITIVE,_Mod,Goal) :-
+        !,
+        flora_generalize_callable_context(Goal,GoalGen),
+        Goal1 = (GoalGen,FLORA_DELAY_CHECKER([GoalGen],[])),
+	(call(Goal1), fail
+	;
+            truth_value(Goal1,true)
+	).
+        %%FLORA_DELAY_CHECKER([Goal],[]).
+
+FLLIBTRUTHVALUE(FL_UNDEFINED_PRIMITIVE,_Mod,Goal) :-
+        !,
+        flora_generalize_callable_context(Goal,GoalGen),
+        Goal1 = (GoalGen,FLORA_DELAY_CHECKER([GoalGen],[])),
+	(call(Goal1), fail
+	;
+            truth_value(Goal1,undefined),
+            \+ (flora_ground:flrground(Goal1), truth_value(Goal1,true))
+	).
+        %%FLORA_DELAY_CHECKER([Goal],[]).
+
+
+%% UNUSED
+%% tests if the query success means true or undefined
+FL_TRUTHVALUE_TEST_PRED(FL_TRUECONST) :-
+	    machine:xwam_state(DELAY_REG,X),
+	    X == 0.
+FL_TRUTHVALUE_TEST_PRED(FL_UNDEFCONST) :-
+	    machine:xwam_state(DELAY_REG,X),
+	    X > 0.
+
+#include "extensions/flrwhy.P"

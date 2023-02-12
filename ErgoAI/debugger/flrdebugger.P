@@ -1,0 +1,773 @@
+/* File:        flrdebugger.P  -- Flora debugger
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "standard.h"
+#include "flag_defs_xsb.h"
+
+#include "flrheader.flh"
+#include "flora_exceptions.flh"
+#include "flora_terms.flh"
+
+:- import
+	debug_display_call_hook/1,
+	debug_tracelog_predicate/1
+   from usermod.
+:- import flora_configuration/2 from flrregistry.
+:- import process_control/2 from shell.
+:- import xpp_process_file/3 from parse.
+:- import
+        path_sysop/2,
+        file_flush/2
+   from file_io.
+
+:- import flora_decode_predicate/6,
+	flora_is_system_module_name/1,
+	flora_module_predicate_symbol/3
+    from flrwrapper.
+:- import flora_set_xpp_options_for_read/1,
+	flora_set_xpp_options_for_read/0,
+	flora_clear_xpp_options/0 from flrutils.
+:- import
+	flora_loader_message/1,
+	flora_loader_message/2
+   from flrprint.
+:- import '\\isloaded'/1 from flora2.
+
+:- import
+	flora_abort/2,
+	flora_match_substring/3,
+	flora_concat_atoms/2,
+	flora_slash/1,
+	flora_set_counter/2,
+	flora_file_op/2
+   from flrporting.
+
+:- import
+        check_terminyzer_not_active/1
+   from flrterminyzer.
+:- import
+	flora_write_goal/2,
+	flora_decode_oid_as_atom/2
+   from flrdecode.
+
+%% This is a trick: the debugger wants the hook to be in usermod, 
+%% but we want to work in a module
+:- import flora_write_debugger_hook/1 from usermod.
+
+:- dynamic debug_display_call_hook/1.
+:- dynamic flora_answer_switch/1.
+:- dynamic flora_write_debugger_hook/1.
+
+:- dynamic
+	hide_this_hide/2,
+	show_this_hide/2,
+	hide_this_show/2,
+	trace_this_noprint/2,
+	trace_this_print/2,
+	flora_always_hide_this_hide/1,
+	flora_always_hide_this_show/1,
+	flora_hide_this_hide/1,
+	flora_hide_this_show/1,
+	flora_show_this_hide/1,
+	flora_trace_this_noprint/1,
+	flora_trace_this_print/1.
+:- import 
+	%%FLLIBCLAUSE/5,
+	hide_this_hide/2,
+	show_this_hide/2,
+	hide_this_show/2,
+	trace_this_noprint/2,
+	trace_this_print/2,
+	flora_hide_this_hide/1,
+	flora_hide_this_show/1,
+	flora_always_hide_this_hide/1,
+	flora_always_hide_this_show/1,
+	flora_show_this_hide/1,
+	flora_trace_this_noprint/1,
+	flora_trace_this_print/1
+    from usermod.
+
+:- ensure_loaded('flrclause.P').
+
+
+:- import
+	%%debug_ctl/2,
+	make_trace_interactive/0,
+	dump_trace_to_file/1,
+	nodebug/0,
+	set_debug_logging_queriable_trace/1,
+	debug_logging_queriable_trace/1
+   from debugger.
+
+:- import
+	stat_set_flag/2,
+	stat_flag/2
+   from machine.
+
+:- export
+	flora_answer_switch/1,
+	flora_read_debugger_data/2,
+	flora_load_dyndata_for_user_modules/1,
+	FLORA_SYMBOL('debugger_loaded'),
+        flora_cleanup_logforest/0,
+	flora_set_switch/1,
+	flora_clear_switch/1,
+	flora_handle_trace/0,
+	flora_handle_notrace/0,
+        flora_is_in_trace/0,
+	flora_trace/0,
+	flora_trace/1,
+	flora_trace/2,
+	flora_tracelow/0,
+	flora_tracelow/1,
+	flora_tracelow/2,
+	flora_traceverylow/0,
+	flora_traceverylow/1,
+	flora_traceverylow/2,
+	flora_notrace/0.
+
+:- import 
+	log_all_forest_start/0, 
+	log_all_forest_end/0, 
+	log_all_forest_start/1
+   from tables. 
+
+:- dynamic
+	logforest_tmp_file/1,
+	logforest_xsb_file/1,
+	logforest_final_file/1,
+	hide_this_ctrace_pred/1.
+
+:- export
+	flora_manual_converter/3,
+	flora_logforestlow_start/0,
+	flora_logforest_start/0,
+	flora_logforestlow_start/1,
+	flora_logforestlow_start/2,
+	flora_logforest_start/1,
+	flora_logforest_start/2,
+	flora_logforest_start/3,
+	flora_logforest_end/0.
+
+
+hide_this_ctrace_pred(flora_storage_module,2).
+hide_this_ctrace_pred(flora_is_fdb_storage,1).
+hide_this_ctrace_pred(flora_fdb_storage_name,2).
+hide_this_ctrace_pred(flora_fld_storage_name,2).
+hide_this_ctrace_pred(op_synonym,2).
+hide_this_ctrace_pred(flora_check_dynmod_type_consistency,1).
+hide_this_ctrace_pred(flora_canonic_wrapper_symbol,2).
+hide_this_ctrace_pred(flora_canonical_type_name,2).
+hide_this_ctrace_pred(is_defeasible_rule,3).
+hide_this_ctrace_pred(is_strict_rule,3).
+hide_this_ctrace_pred(flora_toLower,2).
+hide_this_ctrace_pred(get_tag_descriptor_info_with_rulehead,6).
+
+assert_hide_preds([]).
+assert_hide_preds([H|T]) :-
+	(H == call -> assert(hide_this_ctrace_pred(tc,4))
+	; H == negative_call -> assert(hide_this_ctrace_pred(nc,4))
+	; H == delayed_call -> assert(hide_this_ctrace_pred(dly,3))
+	; H == answer -> assert(hide_this_ctrace_pred(na,3))
+	; H == conditional_answer -> assert(hide_this_ctrace_pred(nda,4))
+	; H == answer_to_consumer -> assert(hide_this_ctrace_pred(ar,4))
+	; H == delayed_answer_to_consumer -> assert(hide_this_ctrace_pred(dar,4))
+	; H == completed -> assert(hide_this_ctrace_pred(cmp,3))
+	; H == table_abolished -> assert(hide_this_ctrace_pred(ta,2))
+	; H == error -> assert(hide_this_ctrace_pred(err,2))
+	;
+	    flora_abort(['<Debugger> invalid hide option: ', H], FLORA_ABORT_NOTRACE)
+	),
+	assert_hide_preds(T).
+
+flora_logforestlow_start :-
+        check_terminyzer_not_active(logforest),
+	flora_set_switch(logforest_low,fail),
+	log_all_forest_start.
+
+flora_logforestlow_start(List) :-
+	is_list(List),
+        check_terminyzer_not_active(logforest),
+	!,
+	assert_hide_preds(List),
+	flora_logforestlow_start. 
+
+flora_logforestlow_start(File) :-
+        check_terminyzer_not_active(logforest),
+	flora_set_switch(logforest_low,fail),
+ 	log_all_forest_start([file(File)]). 
+
+flora_logforestlow_start(File,List) :-
+        check_terminyzer_not_active(logforest),
+	assert_hide_preds(List),
+	flora_logforestlow_start(File).
+
+%% print ctrace logforest in Flora queriable format to
+%% current output stream
+flora_logforest_start :-
+        check_terminyzer_not_active(logforest),
+	flora_set_switch(logforest,fail),
+	%% put ctrace from xsb into TmpFile
+	%% when logforest stops, print TmpFile in 
+	%% flora queriable format to current output stream
+	flora_file_op(tmpfilename,TmpFile),
+	assert(logforest_tmp_file(TmpFile)),
+ 	log_all_forest_start([file(TmpFile)]).
+
+flora_logforest_start(List) :-
+	is_list(List),
+        check_terminyzer_not_active(logforest),
+	!,
+	assert_hide_preds(List),
+	flora_logforest_start. 
+
+%% dump ctrace logforest to File in Flora queriable format
+flora_logforest_start(File) :-
+        check_terminyzer_not_active(logforest),
+	flora_set_switch(logforest,fail),
+	%% put ctrace from xsb into TmpFile
+	%% when logforest stops, convert TmpFile to File
+	%% File is in flora queriable format
+	flora_file_op(tmpfilename,TmpFile),
+	assert(logforest_tmp_file(TmpFile)),
+	assert(logforest_final_file(File)),
+ 	log_all_forest_start([file(TmpFile)]).
+	
+flora_logforest_start(File,List) :-
+	is_list(List),
+        check_terminyzer_not_active(logforest),
+	!,
+	assert_hide_preds(List),
+	flora_logforest_start(File).
+
+%% dump ctrace logforest to File in Flora queriable format
+%% dump ctrace logforest to XSBFile in XSB format
+flora_logforest_start(File,XSBFile) :-
+        check_terminyzer_not_active(logforest),
+	flora_set_switch(logforest,fail),
+	assert(logforest_xsb_file(XSBFile)),
+	assert(logforest_final_file(File)),
+ 	log_all_forest_start([file(XSBFile)]).
+
+flora_logforest_start(File,XSBFile,List) :-
+        check_terminyzer_not_active(logforest),
+	assert_hide_preds(List),
+	flora_logforest_start(File,XSBFile).
+
+flora_logforest_end :-
+	%% flush_output,
+	(flora_answer_switch(logforest_low) ->
+		log_all_forest_end,
+		flora_clear_switch(logforest_low)
+	; flora_answer_switch(logforest) ->
+		log_all_forest_end,
+		flora_clear_switch(logforest),
+		(logforest_tmp_file(XSBFile) ; logforest_xsb_file(XSBFile)), 
+		see(XSBFile),
+		(logforest_final_file(File) 
+		->
+		    catch(tell(File),Ball,(seen,throw(Ball)))
+		;
+		    true
+		),
+		convert_to_flora,
+		seen,
+		(logforest_final_file(_) -> told; true),
+		%% copy xsb ctrace to current location and 
+		(logforest_tmp_file(TmpFile) ->
+			retractall(logforest_tmp_file(TmpFile)),
+			flora_file_op(rm,TmpFile)
+		;
+			retractall(logforest_xsb_file(_))
+		),
+		(retractall(logforest_final_file(_)) ; true)
+	;
+		fail
+	).
+
+
+flora_cleanup_logforest :-
+        log_all_forest_end,
+        %% note: path_sysop(rm,_) may fail
+        (logforest_tmp_file(LogFile), path_sysop(rm,LogFile) -> true
+        ; true
+        ),
+        (logforest_xsb_file(LogFile2), path_sysop(rm,LogFile2) -> true
+        ; true
+        ),
+        (logforest_xsb_file(LogFile3), path_sysop(rm,LogFile3) -> true
+        ; true
+        ).
+        
+
+%% defined to manually convert the ctrace to flora format
+%% in case of failure or error
+flora_manual_converter(PlgTrace,FlrTrace,Hides) :-
+	assert_hide_preds(Hides),
+	see(PlgTrace),
+	tell(FlrTrace),
+	convert_to_flora,
+	seen,
+	told.
+
+convert_to_flora :-
+	repeat,
+	catch(read_canonical(Term),Ball,read_error_handler(Ball)),
+	%% write(userout,'Term: '), writeln(userout,Term),
+	(Term == end_of_file -> true
+	;
+	    functor(Term,CTracePred,Arity),
+	    (hide_this_ctrace_pred(CTracePred,Arity) -> fail ; true),
+	    (Term = tc(S1,S2,Stage,Counter) ->
+		hide_this_ctrace([S1,S2]),
+		flora_decode_oid_as_atom(S1,S1Flora),
+		flora_decode_oid_as_atom(S2,S2Flora),
+		write_list(['call(',Counter,')[goal->',S1Flora, ', stage->',Stage, ', parent->',S2Flora,'].'])
+	    ; Term = nc(S1,S2,Stage,Counter) ->
+		hide_this_ctrace([S1,S2]),
+		flora_decode_oid_as_atom(S1,S1Flora),
+		flora_decode_oid_as_atom(S2,S2Flora),
+		write_list(['negative_call(',Counter,')[goal->',S1Flora, ', stage->',Stage, ', parent->',S2Flora,'].'])
+	    ; Term = na(A,S,Counter) ->
+		hide_this_ctrace([A,S]),
+		flora_decode_oid_as_atom(A,AFlora),
+		flora_decode_oid_as_atom(S,SFlora),
+		write_list(['answer(',Counter,')[goal->',SFlora, ', answer_list->',AFlora,'].'])
+	    ; Term = nda(A,S,D,Counter) ->
+		hide_this_ctrace([A,S,D]),
+		flora_decode_oid_as_atom(A,AFlora),
+		flora_decode_oid_as_atom(S,SFlora),
+		flora_decode_oid_as_atom(D,DFlora),
+		write_list(['conditional_answer(',Counter,')[goal->',SFlora, ', answer_list->',AFlora,', delayed_literal->',DFlora,'].'])
+	    ; Term = ar(A,S,ST,Counter) ->
+		hide_this_ctrace([A,S,ST]),
+		flora_decode_oid_as_atom(A,AFlora),
+		flora_decode_oid_as_atom(S,SFlora),
+		flora_decode_oid_as_atom(ST,STFlora),
+		write_list(['answer_to_consumer(',Counter,')[goal->',SFlora, ', answer_list->',AFlora, ', consumer->',STFlora,'].'])
+	    ; Term = dar(A,S,ST,Counter) ->
+		hide_this_ctrace([A,S,ST]),
+		flora_decode_oid_as_atom(A,AFlora),
+		flora_decode_oid_as_atom(S,SFlora),
+		flora_decode_oid_as_atom(ST,STFlora),
+		write_list(['delayed_answer_to_consumer(',Counter,')[goal->',SFlora, ', answer_list->',AFlora, ', consumer->',STFlora,'].'])
+	    ; Term = dly(L,ST,Counter) ->
+		hide_this_ctrace([L,ST]),
+		flora_decode_oid_as_atom(L,LFlora),
+		flora_decode_oid_as_atom(ST,STFlora),
+		write_list(['delay(',Counter,')[delayed_literal->',LFlora,', parent->',STFlora,'].'])
+	    ; Term = cmp(S,SCCNum,Counter) ->
+		hide_this_ctrace([S]),
+		flora_decode_oid_as_atom(S,SFlora),
+		write_list(['completed(',Counter,')[goal->',SFlora, ', sccnum->',SCCNum,'].'])
+	    ; Term = ta(Goal,Counter) ->
+		hide_this_ctrace([Goal]),
+		functor(Goal,GPred,_),
+		write_list(['table_abolished(',Counter,')[type->',GPred]),
+		(Goal = all -> write('].')
+		; Goal = pred(Pred/Arity) -> write_list([', predicate->',Pred/Arity,'].'])
+		; Goal = subg(GoalToAbolish) 
+		-> 
+		    flora_decode_oid_as_atom(GoalToAbolish,GoalToAbolishFlora),
+		    write_list([', goal->',GoalToAbolishFlora,'].'])
+		;
+		    flora_abort(['<Debugger> Invalid answer type in the log-forest trace ', Goal], FLORA_ABORT_NOTRACE)
+		)
+	    ; Term = err(S,Counter) ->
+		hide_this_ctrace([S]),
+		flora_decode_oid_as_atom(S,SFlora),
+		write_list(['error(',Counter,')[goal->',SFlora,'].'])
+	    ; Term = abort(S,Counter) ->
+		hide_this_ctrace([S]),
+		flora_decode_oid_as_atom(S,SFlora),
+		write_list(['abort(',Counter,')[goal->',SFlora,'].'])
+	    ;
+		flora_decode_oid_as_atom(Term,AtmTerm),
+		write_list(['warning[term->',AtmTerm,', message->''invalid log entry''].'])
+	    ),
+	    nl,
+	    fail
+	),
+	!.
+
+read_error_handler(Ball) :-
+	seen,
+	told,
+	arg(2,Ball,Message),
+	flora_abort(['<Debugger> Syntax error in XSB''s log-forest trace:\n\t\t', Message],FLORA_ABORT_NOTRACE).
+
+%% write a list of Prolog terms
+write_list([]).
+write_list([H|T]) :- write(H), write_list(T).
+
+%% check whether log-forest trace should be hidden
+hide_this_ctrace([]).
+hide_this_ctrace([H|T]) :-
+	functor(H,Pred,Arity),
+	(hide_this_ctrace_pred(Pred,Arity) -> fail
+	;
+	    hide_this_ctrace(T)
+	).
+
+%% Assert the debugger hook
+?- assert(debug_display_call_hook(flora_write_debugger_hook)),
+   assert(debug_tracelog_predicate(flora_tracelog)).
+?- assert((
+           flora_write_debugger_hook(X) :-
+	     (\+flora_answer_switch(low_level_trace)
+	     ->
+		 %%flora_write_debug_call_prolog(X),  %% for debugging
+		 flora_write_debug_call(X)
+	     ; flora_write_debug_call_prolog(X)
+	     )
+	  )).
+
+
+%% Get the debugging output stream
+:- dynamic flora_dbg_stream/1.
+?- (flora_dbg_stream(Stream) -> close(Stream), retractall(flora_dbg_stream(_))
+   ; assert(flora_dbg_stream(STDDBG))
+   ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%% flora_write_debug_call %%%%%%%%%%%%%%%%%%%%%%%%%
+%% write Call in Flora form + matching rules
+flora_write_debug_call(Call) :-
+	(debug_logging_queriable_trace(on) ->
+	    flora_write_dbg_item('${'),
+	    flora_write_debug_call_unreified(Call),
+	    flora_write_dbg_item('}')
+	/*
+	   %% this writes the list of matching rules,
+	   %% but it has too many variables and does not load
+	    ,flora_write_dbg_item(', ['),
+	    findall(':-'(Call,Body),
+		    FLLIBCLAUSE(null,null,null,[Call],Body),
+		    Rules),
+	    write_matching_rules(Rules,flora)
+	*/
+	; flora_write_debug_call_unreified(Call)
+	).
+
+
+flora_write_debug_call_unreified(Call) :-
+	flora_dbg_stream(Stream),
+	flora_write_goal(Stream,Call).
+
+%% write Call in prolog form + matching rules
+flora_write_debug_call_prolog(Call) :-
+	(debug_logging_queriable_trace(on)
+	->
+	    flora_writeq_dbg_item(Call)
+	/*
+	   %% this writes the list of matching rules,
+	   %% but it has too many variables and does not load
+	    ,flora_write_dbg_item(', ['),
+	    findall(':-'(Call,Body),
+		    FLLIBCLAUSE(null,null,null,[Call],Body),
+		    Rules),
+	    write_matching_rules(Rules,prolog)
+	*/
+	; flora_write_dbg_item(Call)
+	).
+
+flora_write_dbg_item(Item) :-
+	flora_dbg_stream(Stream),
+	write(Stream,Item).
+
+flora_writeq_dbg_item(Item) :-
+	flora_dbg_stream(Stream),
+	writeq(Stream,Item).
+
+flora_flush_dbg_stream :-
+	flora_dbg_stream(Stream),
+	file_flush(Stream, _).
+
+/*
+%% write_matching_rules(+RuleList,+ReifyFlag)
+%% ReifyFlag=flora/prolog
+write_matching_rules([],_) :-
+	!,
+	flora_write_dbg_item(']').
+write_matching_rules([Rule|Rest],flora) :-
+	flora_write_dbg_item('${'),
+	write_rule(Rule,flora),
+	flora_write_dbg_item('}'),
+	(Rest==[], ! ; flora_write_dbg_item(', ')),
+	write_matching_rules(Rest,flora).
+write_matching_rules([Rule|Rest],prolog) :-
+	flora_write_dbg_item('('),
+	write_rule(Rule,prolog),
+	flora_write_dbg_item(')'),
+	(Rest==[], ! ; flora_write_dbg_item(', ')),
+	write_matching_rules(Rest,prolog).
+
+%% write_rule(Rule,Flag)
+%% Flag: flora/prolog
+write_rule((Head:-Body),flora) :-
+        flora_write_debug_call_unreified(Head),
+	flora_write_dbg_item(' :- '),
+        flora_write_debug_call_unreified(Body).
+write_rule((Head:-Body),prolog) :-
+        flora_writeq_dbg_item(Head),
+	flora_write_dbg_item(' :- '),
+        flora_writeq_dbg_item(Body).
+*/
+
+/*********************************************************************/
+
+flora_trace :-
+	flora_set_switch(trace,fail),
+	%% this is needed to sidestep an XSB bug whereby 
+	%% flrdebugger:flora_notrace is not executed right under the trace.
+	%% Bug seems to manifest itself only under _trace, not _tracelow.
+	(import flora_notrace/0 from flrdebugger),
+	flora_handle_trace.
+flora_trace(File) :-
+	dump_trace_to_file(File),
+	flora_trace.
+flora_trace(File,log) :-
+	set_debug_logging_queriable_trace(on),
+	flora_trace(File).
+
+%% Enables low-level Prolog debugging
+flora_tracelow :-
+	flora_trace,
+	flora_set_switch(low_level_trace,fail).
+flora_tracelow(File) :-
+	flora_trace(File),
+	flora_set_switch(low_level_trace,fail).
+flora_tracelow(File,log) :-
+	flora_trace(File,log),
+	flora_set_switch(low_level_trace,fail).
+flora_traceverylow :-
+	flora_trace,
+	flora_set_switch(low_level_trace,fail),
+	flora_set_switch(verylow_level_trace,fail).
+flora_traceverylow(File) :-
+	flora_trace(File),
+	flora_set_switch(low_level_trace,fail),
+	flora_set_switch(verylow_level_trace,fail).
+flora_traceverylow(File,log) :-
+	flora_trace(File,log),
+	flora_set_switch(low_level_trace,fail),
+	flora_set_switch(verylow_level_trace,fail).
+
+flora_notrace :-
+	flora_handle_notrace,
+	set_debug_logging_queriable_trace(off),
+	flora_flush_dbg_stream,
+	make_trace_interactive,
+	flora_clear_switch(trace),
+	flora_clear_switch(verylow_level_trace),
+	flora_clear_switch(low_level_trace).
+
+/*
+%% these are now in XSB
+dump_trace_to_file(File) :-
+	debug_ctl(prompt,off),
+	debug_ctl(profile,on),
+	debug_ctl(redirect,File).
+make_trace_interactive :-
+	debug_ctl(prompt,on),
+	debug_ctl(profile,off),
+	debug_ctl(redirect,tty).
+*/
+
+flora_handle_trace :-
+	( flora_answer_switch(trace)
+	->  (stat_flag(TRACE,Trace), Trace == 0 -> trace
+	    ; true
+	    )
+	; true
+	).
+flora_handle_notrace :-
+	( stat_flag(TRACE,Trace), Trace > 0
+	-> %% like debugger:notrace, but does not make tracing interactive
+	    stat_set_flag(TRACE,0), % trace = 0
+	    flora_flush_dbg_stream,
+	    nodebug	
+	; true
+	).
+
+flora_is_in_trace :-
+        flora_answer_switch(S),
+        basics:memberchk(S,[trace,low_level_trace,verylow_level_trace]).
+	
+
+/*********************************************************************/
+%% This is needed so we could designate this predicate as unprintable 
+%% by the debugger and avoid tracing inside 
+%% assert(flora_answer_switch(low_level_trace))
+flora_set_switch(Switch) :- flora_set_switch(Switch,true).
+flora_set_switch(Switch,Action) :-
+	(flora_answer_switch(Switch) -> call(Action)
+	; assert(flora_answer_switch(Switch))
+	).
+flora_clear_switch(Switch) :-
+	retractall(flora_answer_switch(Switch)).
+
+
+
+/*********************************************************************/
+
+flora_debug_dyndata_file(Filename) :-
+	flora_configuration(installdir,FlrSysLib),
+	flora_slash(S),
+	flora_concat_atoms([FlrSysLib,S,debugger,S,'dynamic_data.dat'],Filename).
+flora_debug_statdata_file(Filename) :-
+	flora_configuration(installdir,FlrSysLib),
+	flora_slash(S),
+	flora_concat_atoms([FlrSysLib,S,debugger,S,'static_data.dat'],Filename).
+
+%% If WS is a var -- loading static data
+%% Otherwise, loading dynamic data for the specified module
+flora_read_debugger_data(WS,_Datafile) :-
+	%% Check if already loaded
+	(var(WS) 
+	-> current_predicate(FLORA_SYMBOL('debugger_static_data_loaded')/0)
+	; flora_module_predicate_symbol(debugger_data_loaded, WS, WSSym),
+	    current_predicate(WSSym/0)
+	),
+	!.
+flora_read_debugger_data(WS,Datafile) :- 
+	(var(WS)
+	-> flora_set_xpp_options_for_read
+	; flora_set_xpp_options_for_read(WS)
+	),
+	xpp_process_file(Datafile, CPP_process, IOportFromCPP),
+	repeat,
+	    read(IOportFromCPP,T),
+	    (T = end_of_file -> true
+	    ;  assert(T), fail
+	    ),
+	process_control(CPP_process, wait(ExitStatus)),
+	(ExitStatus==0, !
+	; flora_abort(['<Debugger> Error while preprocessing ',Datafile],FLORA_ABORT_NOTRACE)
+	),
+	flora_clear_xpp_options,
+	close(IOportFromCPP),
+	flora_set_counter(xpp_on,0),
+	(var(WS)
+	->  flora_loader_message('Static debugger data loaded')
+	;   flora_loader_message('Dynamic debugger data loaded for module ~w', [WS])
+	),
+	!.
+
+
+%% Read dynamic data for preloaded user modules
+flora_load_dyndata_for_user_modules([]).
+flora_load_dyndata_for_user_modules([M|List]) :-
+	flora_debug_dyndata_file(DataFile),
+	flora_read_debugger_data(M,DataFile),
+	flora_load_dyndata_for_user_modules(List).
+
+flora_load_statdata :-
+	flora_debug_statdata_file(DataFile),
+	flora_read_debugger_data(_M,DataFile).
+
+%% The bridge is disabled during low level tracing
+flora_build_bridge_to_xsb_debugger :-
+	assert((hide_this_hide(X,Y) :-
+	       \+flora_answer_switch(low_level_trace),flora_hide_this_hide(X/Y))),
+	assert((hide_this_show(X,Y) :-
+	       \+flora_answer_switch(low_level_trace),flora_hide_this_show(X/Y))),
+	assert((show_this_hide(X,Y) :-
+	       \+flora_answer_switch(low_level_trace),flora_show_this_hide(X/Y))),
+	assert((trace_this_noprint(X,Y) :-
+	       \+flora_answer_switch(low_level_trace),flora_trace_this_noprint(X/Y))),
+	assert((trace_this_print(X,Y) :-
+	       \+flora_answer_switch(low_level_trace),flora_trace_this_print(X/Y))),
+	%% Rule for handling system modules.
+	%% This prevents tracing inside flora system modules.
+	%% We might add a switch that would enable this optionally.
+	%% Not clear if this is useful.
+	assert((show_this_hide(X,Y) :-
+	       \+flora_answer_switch(low_level_trace),
+		functor(PX,X,Y),
+		flora_decode_predicate(PX,_,WS,_,_,_),
+		flora_is_system_module_name(WS)
+	       )),
+	%% Rules for prefixes of predicates that need 
+	%% to be handled by the debugger
+	assert((hide_this_hide(X,Y) :-
+	       \+flora_answer_switch(low_level_trace),
+		(flora_hide_this_hide(pref(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,0), !
+		 ; flora_hide_this_hide(match(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,_), !
+		)
+	       )),
+	assert((hide_this_show(X,Y) :-
+	       \+flora_answer_switch(low_level_trace),
+		( flora_hide_this_show(pref(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,0), !
+		 ; flora_hide_this_show(match(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,_), !
+		 ; flora_hide_this_show(propermatch(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,_), X1 \= X, !
+		)
+	       )),
+	assert((show_this_hide(X,Y) :-
+	       \+flora_answer_switch(low_level_trace),
+		( flora_show_this_hide(pref(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,0), !
+		 ; flora_show_this_hide(match(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,_), !
+                )
+	       )),
+	assert((trace_this_noprint(X,Y) :-
+	       \+flora_answer_switch(low_level_trace),
+		( flora_trace_this_noprint(pref(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,0), !
+		 ; flora_trace_this_noprint(match(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,_), !
+		)
+	       )),
+	assert((trace_this_print(X,Y) :-
+	       \+flora_answer_switch(low_level_trace),
+		( flora_trace_this_print(pref(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,0), !
+		 ; flora_trace_this_print(match(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,_), !
+		)
+	       )),
+	%% Stuff to always hide
+	assert((hide_this_hide(X,Y) :-
+	        \+flora_answer_switch(verylow_level_trace),
+	        flora_always_hide_this_hide(X/Y))),
+	assert((hide_this_hide(X,Y) :-
+	        \+flora_answer_switch(verylow_level_trace),
+		(flora_always_hide_this_hide(pref(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,0), !
+		 ; flora_always_hide_this_hide(match(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,_), !
+		)
+	       )),
+	assert((hide_this_show(X,Y) :-
+	        \+flora_answer_switch(verylow_level_trace),
+		(flora_always_hide_this_show(pref(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,0), !
+		 ; flora_always_hide_this_show(match(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,_), !
+		)
+	       )).
+
+?- findall(X,'\\isloaded'(X),L),
+   flora_load_statdata,
+   flora_load_dyndata_for_user_modules(L).
+
+?- flora_build_bridge_to_xsb_debugger.
+
+FLORA_SYMBOL('debugger_loaded').
+

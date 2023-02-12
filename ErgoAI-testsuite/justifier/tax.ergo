@@ -1,0 +1,38 @@
+:- use_argumentation_theory.
+:- compiler_options{expert=on}.
+
+@{DefaultDeductionLabel}
+?X:Deduction :- 
+	?X:Expenditure.
+
+@{InvalidDeductionLabel}
+?X:InvalidDeduction[
+	because -> '162_year'
+]:-
+	taxYear(?Year),
+	?X:Expenditure[
+		liability -> ?_L[incurranceDateTime -> ?ExpenditureDate^^\dateTime]
+	],
+	?ExpenditureDate[year -> ?ExpenditureYear]@\basetype,
+	?Year =\= ?ExpenditureYear.
+
+
+\opposes(?_X:Deduction, ?_X:InvalidDeduction).
+\overrides(InvalidDeductionLabel, DefaultDeductionLabel).
+
+taxYear(2017).
+
+e4:Expenditure[
+	liability -> l:Liability[incurranceDateTime -> "2015-08-15T15:33:44"^^\dateTime]
+].
+
+
+%tst1 :- ${e4:InvalidDeduction}[why(full)->?F]@\why,
+        writeln(test1=?F)@\io.
+
+
+%pretest :- %tst1.
+
+%test :- tell(temp)@\plg,
+	%pretest,
+	told@\plg.

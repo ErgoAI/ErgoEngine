@@ -1,0 +1,37 @@
+#include "standard.h"
+
+:- symbol_context{
+                    object2json/1,
+                    object2json/3
+                 }.
+
+// all recursive exports
+?- set_option(recursive_export=true)@\json.
+?- setdisplaymode{visiblechars}. // make \n, \f, \a, etc. visible, ie, \\n, \\a
+
+%tst1 :- insert{{a,b}:{c,d}, {c,d}::{e,f}, {e,f}::{h,k}, h[|www->1|],k[|ppp->kk:d[prop1->abc,prop2->3], ppp->jj, eee(123)->kkk|]},
+        string(a.object2json)[parse->pretty(?Res)]@\json,
+        writeln(test1=?Res)@\io.
+%tst2 :- set_option(duplicate_keys=true)@\json,
+        string(a.object2json)[parse->pretty(?Res)]@\json,
+        writeln(test2=?Res)@\io.
+
+%tst3 :- demo{family_obj>>foo},
+        set_option(duplicate_keys=false)@\json,
+        kati[object2json(foo) -> ?Json]@\json,
+        string(?Json)[parse->pretty(?Res)]@\json,
+        writeln(test3=?Res)@\io.
+
+%tst4 :- set_option(duplicate_keys=true)@\json,
+        string(kati.object2json(foo))[parse->pretty(?Res)]@\json,
+        writeln(test4=?Res)@\io.
+
+
+%pretest :-
+        %tst1, %tst2, %tst3, %tst4.
+
+%test :-
+        tell(temp)@\plg,
+        %pretest,
+        told@\plg.
+

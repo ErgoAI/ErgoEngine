@@ -1,0 +1,72 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhichLigandTypeHasAReceptorInTheCytoplasm (query 1)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28derived_from.29_Biology_Chapter_1_Concept_Check_11.2
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, disjointWith(HydrophilicChemicalObject, HydrophobicChemicalObject)).
+istAsserted(UniversalVocabularyMt, genls(EpinephrineMolecule, HydrophilicChemicalObject)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Explicit Background Rules
+backwardSentence(genls(?MOL, HydrophobicChemicalObject)) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(genls), ligandForReceptorType(?MOL, CytoplasmicReceptorMolecule).
+backwardSentence(not(ligandForReceptorType(?MOL, CytoplasmicReceptorMolecule))) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(ligandForReceptorType), not(genls(?MOL, HydrophobicChemicalObject)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-WhichLigandTypeHasAReceptorInTheCytoplasm 1').
+%pretest :- neg ligandForReceptorType(EpinephrineMolecule, CytoplasmicReceptorMolecule), %write_results('SUCCESS  : $CPTTest-WhichLigandTypeHasAReceptorInTheCytoplasm 1').
+
+// Debugging
+proof(8208, 0) :- not(genls(EpinephrineMolecule, HydrophobicChemicalObject)).
+proof(8208, 1) :- not(ligandForReceptorType(EpinephrineMolecule, CytoplasmicReceptorMolecule)).
+
+proof(8208, 1000) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(8208, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(8208, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(8208, 2002) :- admittedArgument(SecondFn(49, MinuteFn(11, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(8208, 2003) :- admittedArgument(SecondFn(49, MinuteFn(11, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(8208, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(8208, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(8208, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MolecularBiologyMt).
+proof(8208, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

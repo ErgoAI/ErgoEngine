@@ -1,0 +1,312 @@
+/* File:      ergo_syslib/ergo_fastloader-trie.P -- fast loading canonical terms in trie
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2016-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+%% XSB include
+#include "trie_defs.h"
+
+#include "flora_terms.flh"
+#include "flora_datatype_symbols.flh"
+#include "flora_exceptions.flh"
+#include "flora_extensions.flh"
+#include "flora_porting.flh"
+#include "flora_errors.flh"
+#include "flora_contexts.flh"
+
+#define IS_TIME_DT(X)         flora_match_substring(FL_TIME_TYPE_PREFIX,X,0)
+#define IS_DATE_DT(X)         flora_match_substring(FL_DATE_TYPE_PREFIX,X,0)
+#define IS_DATETIME_DT(X)     flora_match_substring(FL_DATETIME_TYPE_PREFIX,X,0)
+#define IS_DURATION_DT(X)     flora_match_substring(FL_DURATION_TYPE_PREFIX,X,0)
+#define IS_CURRENCY_DT(X)     flora_match_substring(FL_CURRENCY_TYPE_PREFIX,X,0)
+#define IS_BOOL_DT(X)         flora_match_substring(FL_BOOL_TYPE_PREFIX,X,0)
+#define IS_IRI_DT(X)          flora_match_substring(FL_IRI_TYPE_PREFIX,X,0)
+#define IS_UNKNOWN_DT(X)      flora_match_substring(FL_UNKNOWN_TYPE_PREFIX,X,0)
+
+#define STORAGE_PREFIX     '_$_$ergo_fastload^'
+
+
+:- import trie_intern_deterministic/4 from intern.
+:- import
+        incr_storage_insert_fact/3,
+        incr_storage_delete_fact/3,
+        incr_storage_delete_all/1,
+	storage_delete_all/1,
+	storage_handle/4
+   from storage.
+:- import
+        file_time_ns/3,
+	path_sysop/2,
+	path_sysop/3
+   from file_io.
+
+:- import
+	incr_retractall/1
+   from increval.
+:- import xpp_process_file/3 from parse.
+
+:- import
+	flora_loader_message/2,
+	flora_loader_done_message/2,
+        flora_warning_line/2
+   from flrprint.
+
+:- import P2H_PREDICATE/4 from prolog2hilog.
+
+:- import
+        flora_abort/2,
+        flora_concat_atoms/2,
+        flora_get_substring/4,
+	flora_increment_counter/4,
+	flora_set_counter/2,
+	flora_slash/1,
+	%%flora_file_op/3,
+        flora_match_substring/4,
+        flora_match_substring/3
+   from flrporting.
+
+:- import
+        flora_make_datatype/3
+   from flrdatatype_parse.
+
+:- import
+        flora_decode_oid_as_atom/2
+   from flrdecode.
+
+:- import
+	flora_storage_find_fact/2
+   from flrstoragebase.
+
+:- import
+        check_xpp_process_status/3,
+	flora_clear_xpp_options/0,
+	flora_set_xpp_options_for_read/0,
+        flrfilename_error/3,
+	flora_locate_file/3,
+	flora_check_filename/2,
+        update_load_registry/5
+   from flrutils.
+:- import
+	flora_load_registry/7,
+	flora_configuration/2
+   from flrregistry.
+
+:- export
+	ergo_fast_trie_loader/3,
+	ergo_fast_query/2,
+	ergo_fast_erase/1.
+:- export
+        fastload_insert/3,
+        fastload_delete/3,
+        fastload_deleteall/1,
+        fastload_create_storage/1.
+
+ergo_fast_trie_loader(InputFileSpec,StorageName,HostFile) :-
+	atom(StorageName),
+	atom(HostFile),
+	!,
+	flora_check_filename(InputFileSpec,InputFile),
+	( flora_locate_file(InputFile,PROLOG_PFILE_EXT,ActualFile)
+	; flrfilename_error('file',InputFile,[PROLOG_PFILE_EXT]), fail
+	),
+	!,
+	(flora_load_registry(ActualFile,StorageName,_,_,fastload,_,(LoadTimeSecs,LoadTimeNanosecs)),
+	    file_time_ns(ActualFile,FileModTimeSecs,FileModTimeNanosecs),
+	    (FileModTimeSecs < LoadTimeSecs
+            ; FileModTimeSecs==LoadTimeSecs, FileModTimeNanosecs<LoadTimeNanosecs
+            )
+	%% If ActualFile is fastloaded & not modified since -- skip loading
+	-> true
+	;
+	    flora_loader_message('Loading ~w into storage ~w', [ActualFile,StorageName]),
+	    catch(abolish_all_tables, _Exception, flora_warning_line(WARN_TABLED_FLLOAD,['fastload{...}'])),
+	    flora_configuration(installdir,FloraDir),
+	    flora_slash(Slash),
+	    flora_concat_atoms([FloraDir,Slash,ergo_syslib,Slash,include,Slash,'ergo_fastload.flh'],
+			       MacroFile),
+	    flora_set_counter(CONTEXT_FAST_LOADER_FACT,0),
+            internal_storage_name(StorageName,InternalStorageName),
+	    %%storage_handle(InternalStorageName,NON_INCREMENTAL_TRIE,Handle,_),
+            %% we need to do this incrementally because other preds depend
+            %% on this trie
+	    storage_handle(InternalStorageName,INCREMENTAL_TRIE,Handle,_),
+	    flora_set_xpp_options_for_read,
+	    %% we push the macro file in front of the file to be fastloaded
+	    temp_concat_files(MacroFile,ActualFile,TempFile),
+	    xpp_process_file(TempFile,XPP_process,IOportFromProc),
+	    %% next, start reading from the pipe
+	    seeing(OldF),
+	    see(IOportFromProc),
+	    repeat,
+	    flora_increment_counter(CONTEXT_FAST_LOADER_FACT,1,FactNum,_),
+	    read_canonical(Term),
+	    ( Term == end_of_file -> true
+	    ; Term == read_canonical_error ->
+		seen,
+		see(OldF),
+		check_xpp_process_status(TempFile,XPP_process,close_on_error),
+		flora_abort(['fastload{', InputFile, ',', StorageName,
+			     '}: format error around input fact ', FactNum],
+			    FLORA_ABORT_NOTRACE)
+	    ;
+		P2H_CONVERSION(Term,HlgTerm),
+                %% need to do type conversion here using
+                %% convert_item_if_necessary; figure out an efficient way
+                %% Is trie_intern_deterministic/4 incremental?
+		trie_intern_deterministic(HlgTerm,Handle,_Leaf,_),
+		fail
+	    ),
+	    seen,
+	    flora_clear_xpp_options,
+	    see(OldF),
+	    path_sysop(rm,TempFile),
+	    (check_xpp_process_status(TempFile,XPP_process,close_on_error) ->
+		flora_loader_done_message('Done loading ~w into ~w',
+                                          [ActualFile,StorageName]),
+		%% we don't have the xwam file here, so use modtime of the file
+		%% being fast-loaded
+		%% Instead of module, use StorageName; fastload - for the mode
+		update_load_registry(ActualFile,ActualFile,StorageName,HostFile,fastload)
+	    ; true
+	    )
+	),
+	!.
+ergo_fast_trie_loader(_,StorageName,HostFile) :-
+	(\+ atom(StorageName) ->
+	    container_name_error('fastload{File,ContainerName}',StorageName)
+	;
+	    flora_decode_oid_as_atom(HostFile,PrintableFile),
+	    flora_abort(['fastload{File,ContainerName,HostFile}: ',
+			 'host file name must be an atom, ',
+			 PrintableFile],
+			FLORA_ABORT_NOTRACE
+		       )
+	).
+
+ergo_fast_query(StorageName,Literal) :-
+	atom(StorageName),
+        internal_storage_name(StorageName,InternalStorageName),
+	!,
+	flora_storage_find_fact(InternalStorageName,Literal).
+ergo_fast_query(StorageName,_) :-
+	container_name_error('fastquery{ContainerName,Query}',StorageName).
+
+ergo_fast_erase(StorageName) :-
+	atom(StorageName),
+        internal_storage_name(StorageName,InternalStorageName),
+	!,
+	storage_delete_all(InternalStorageName),
+	incr_retractall(flora_load_registry(_,InternalStorageName,_,_,fastload,_,_)).
+ergo_fast_erase(StorageName) :-
+	container_name_error('fasterase{ContainerName}',StorageName).
+
+:- export temp_concat_files/3.
+%% In1, In2, Out are files. Out is a temp file
+temp_concat_files(In1,In2,Out) :-
+	path_sysop(tmpfilename,Out),
+	path_sysop(copy,In1,Out),
+	path_sysop(append,In2,Out).
+
+container_name_error(Message,Container) :-
+	flora_decode_oid_as_atom(Container,PrintableName),
+	flora_abort([Message,
+		     ': invalid storage container name, ', PrintableName],
+		    FLORA_ABORT_NOTRACE).
+
+convert_time(TimeStr,TimeType) :-
+        flora_get_substring(TimeStr,2,-1,Lit),
+        flora_make_datatype(FL_TIME,Lit,TimeType).
+convert_date(DateStr,DateType) :-
+        flora_get_substring(DateStr,2,-1,Lit),
+        flora_make_datatype(FL_DATE,Lit,DateType).
+convert_datetime(DateTimeStr,DateTimeType) :-
+        flora_get_substring(DateTimeStr,2,-1,Lit),
+        flora_make_datatype(FL_DATETIME,Lit,DateTimeType).
+convert_duration(DurationStr,DurationType) :-
+        flora_get_substring(DurationStr,2,-1,Lit),
+        flora_make_datatype(FL_DURATION,Lit,DurationType).
+convert_duration(CurrencyStr,CurrencyType) :-
+        flora_get_substring(CurrencyStr,2,-1,Lit),
+        flora_make_datatype(FL_CURRENCY,Lit,CurrencyType).
+convert_bool(BoolStr,BoolType) :-
+        flora_get_substring(BoolStr,2,-1,Lit),
+        flora_make_datatype(FL_BOOL,Lit,BoolType).
+convert_iri(IRIStr,IRIType) :-
+        flora_get_substring(IRIStr,2,-1,Lit),
+        flora_concat_atoms([FL_IRI_TYPE_PREFIX,Lit],IRIType).
+convert_unknown(UnknownStr,UnknownType) :-
+        flora_match_substring(FL_UNKNOWN_TYPE_SEPARATOR,UnknownStr,Pos,End),
+        flora_get_substring(UnknownStr,2,Pos,Type),
+        flora_get_substring(UnknownStr,End,-1,Lit),
+        atom_codes(Lit,LitChars),
+        UnknownType = FL_DATATYPE(FL_DATATYPE(Type,LitChars),Type).
+
+%% Itm - what we get from the fastload format
+%% Internal - internal Ergo representation
+%% Not used so far - must be incorporated
+:- export convert_item_if_necessary/2.
+convert_item_if_necessary(Itm,Internal) :-
+        (IS_TIME_DT(Itm) -> convert_time(Itm,Internal)
+        ; IS_DATE_DT(Itm) -> convert_date(Itm,Internal)
+        ; IS_DATETIME_DT(Itm) -> convert_datetime(Itm,Internal)
+        ; IS_DURATION_DT(Itm) -> convert_duration(Itm,Internal)
+        ; IS_BOOL_DT(Itm) -> convert_bool(Itm,Internal)
+        ; IS_IRI_DT(Itm) -> convert_iri(Itm,Internal)
+        ; IS_UNKNOWN_DT(Itm) -> convert_unknown(Itm,Internal)
+        %% \string, atom
+        ; Internal = Itm
+        ).
+
+
+/*
+fastloader_errhandler(Ball) :-
+	PRINTLN(Ball),
+	fail.
+*/
+
+
+internal_storage_name(StorageName,InternalName) :-
+        flora_concat_atoms([STORAGE_PREFIX,StorageName],InternalName).
+
+
+fastload_insert(StorageName,Fact,Inserted) :-
+        internal_storage_name(StorageName,InternalName),
+        !,
+        incr_storage_insert_fact(InternalName,Fact,Inserted).
+
+fastload_delete(StorageName,Fact,Deleted) :-
+        internal_storage_name(StorageName,InternalName),
+        !,
+        incr_storage_delete_fact(InternalName,Fact,Deleted).
+
+fastload_deleteall(StorageName) :-
+        internal_storage_name(StorageName,InternalName),
+        !,
+        incr_storage_delete_all(InternalName).
+
+fastload_create_storage(StorageName) :-
+        internal_storage_name(StorageName,InternalName),
+        !,
+        storage_handle(InternalName,INCREMENTAL_TRIE,_,_).

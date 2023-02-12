@@ -1,0 +1,71 @@
+/* File:      ergo_pkgs/evidential_probability.ergo -- Evidential probability
+**
+** Author(s): Theresa Swift
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2018-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+:- compiler_options{production=on}.
+
+:- suppress_rule_signatures.
+
+#include "./evidential_probability/ergo_ep.flh"
+
+:- export{
+	    ?::?,
+	    ?:?,
+	    \ep(?,?,?,?)
+	 }.
+
+?- ensure_loaded@\sub.
+
+?- flora_install_dir(?_ErgoDir)@\prolog(flrporting),
+	flora_slash(?_S)@\prolog(flrporting),
+	(\@ == ERGOEVIDENTIALPROB -->> \true
+        ; sysabort(['the package evidential_probability.ergo must be loaded into the module ', ERGOEVIDENTIALPROB])@\sys
+	),
+	flora_concat_atoms([?_ErgoDir,?_S,ergo_pkgs,?_S,evidential_probability],
+	                   ?_EPdir)@\prolog(flrporting),
+	Libpath[add(?_EPdir)]@\sys,
+	[ep_prolog].
+
+\ep(?Target,?Obj,?Lower,?Upper):-
+	caller{?Mod},
+	ep_prolog(?Target,?Obj,?Lower,?Upper,?Mod)@\prolog(ep_prolog).
+
+// \pct is specified by the user in Ergo
+pct(?Prop,?Cl,?L,?H,?Mod) :-
+	\pct(?Prop,?Cl,?L,?H)@?Mod.
+
+/*
+  // This is now provided by the \sys system module.
+flora_sub(?A,?B,?Mod):-
+	?A::?B@?Mod,
+	isatomic{?A},
+	isatomic{?B}.
+
+flora_immediate_sub(?A,?B,?Mod):-
+	flora_sub(?A,?B,?Mod),
+	\naf intermediate(?A,?B,?Mod).
+
+intermediate(?A,?B,?Mod):-
+		      flora_sub(?A,?C,?Mod),
+		      flora_sub(?C,?B,?Mod),
+		      ?C \= ?B,?C \= ?A.
+*/
+

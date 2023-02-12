@@ -1,0 +1,91 @@
+
+\subsection{Examining Query Results: The peek\{...\} primitive}
+\label{sec-peek}
+
+\index{peeking into query results}
+%%
+\ERGO also provides a way to browse the results of the previous tabled
+(non-transactional) queries, called \emph{peeking}, and is provided via
+a special primitive 
+%%
+\index{peek\{...\} primitive}
+%% 
+\begin{alltt}
+    peek\{\textnormal{\textit{frame-or-predicate-goal}}\}
+\end{alltt}
+%% 
+The result is that the results of the query are returned without
+re-executing the query.
+
+At first glance, it may seem that this is no different from tabling, which
+also returns the results without re-executing, but there is an important
+and subtle difference: \texttt{peek\{Goal\}} returns the answers to all
+\emph{previously executed} queries that unify with \emph{Goal}. There could
+be several such previous queries or none.   
+If none, then the above primitive returns no answers; if several, the
+primitive returns the answers to all those queries. In contrast, if the
+query were just \texttt{Goal} then, if this exact query was asked before then
+its answers will be returned without re-evaluation. The answers to other
+queries that unify with \texttt{Goal} will \emph{not} be returned. If
+\texttt{Goal} was not asked before then it will be evaluated and the
+results returned.
+
+To illustrate, consider the following simple example:
+%% 
+\begin{verbatim}
+    p(1,a), p(1,b).
+    p(2,c), p(2,d).
+    p(3,e). p(3,f).
+    ?- p(1,?), p(2,?).
+\end{verbatim}
+%% 
+If we now ask the query \texttt{peek\{p(?X,?Y)\}} then we get the following
+four answers:
+%% 
+\begin{verbatim}
+    ?X = 1
+    ?Y = a
+
+    ?X = 1
+    ?Y = b
+
+    ?X = 2
+    ?Y = c
+
+    ?X = 2
+    ?Y = d
+\end{verbatim}
+%% 
+Note that \texttt{?X=3} and \texttt{?Y=e}, \texttt{?Y=f} are not returned
+because the query \texttt{p(3,?Y)} was never asked. In contrast, the query
+\texttt{p(?X,?Y)} will return all six answers (and it will be evaluated,
+as it is not a \texttt{peek}-query)  and after asking
+\texttt{p(?X,?Y)} the subsequent query 
+\texttt{peek\{p(?X,?Y)\}} will also return all six
+answers (because it will pick up the answers produced by
+\texttt{p(?X,?Y)}).
+
+
+Another important use of the \texttt{peek} primitive is that it enables one
+to look into the partially computed query results during pauses in the
+computation. For instance, start \ERGO and run
+\texttt{demo\{owl\_benchmark\}} at the prompt. After a few seconds, type
+\texttt{Ctrl-C} to pause the execution and at the prompt ask the query
+\texttt{?X::?Y}. Since non-transactional queries are currently
+not allowed during these pauses (see Section~\ref{sec-runtime}),
+one would see an error message like this:
+%% 
+\begin{verbatim}
+   ++Abort[Ergo]> you are trying to query or modify the knowledge base while
+	   a previous command is paused; only informational queries regarding
+	   the system runtime state are permitted at this point
+\end{verbatim}
+%% 
+However, \texttt{peek\{?X::?Y\}} \emph{is} allowed, and it will give
+the answers to the query that have been computed so far.
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

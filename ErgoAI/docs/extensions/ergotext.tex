@@ -1,0 +1,684 @@
+
+\section{ErgoText}\label{sec-ergotext}
+
+\emph{ExgoText} is a high-level facility intended to facilitate knowledge
+entry via natural language (NL) style phrases and is primarily targeting 
+engineers who are not highly skilled \FLSYSTEM users.
+However, skilled \FLSYSTEM users may also find ErgoText very convenient in
+many situations.
+
+ErgoText documents typically have two parts: the actual knowledge base that
+contains template NL phrases (with the usual extension
+\texttt{.\flrext}) 
+and another file, with the extension \texttt{.ergotxt},  which 
+contains \emph{template definitions}.
+Template definitions are typically created by a highly skilled \FLSYSTEM
+user; they provide mappings from NL templates to \FLSYSTEM
+statements. The interesting feature of ErgoText is that the NL text from
+the templates
+can be freely mixed with \FLSYSTEM statements in the same document or even
+in the same rule. When an text phrase is found, template
+definitions are automatically looked up. If no matching template exists for the
+phrase in question, a compile-time error is issued. Otherwise, the
+\FLSYSTEM template definition is used instead of the phrase.
+
+\subsection{ErgoText Knowledge Bases}\label{sec-ergotext-kb}
+
+\index{ErgoText}
+%%
+In this section, we assume that we have a file, \texttt{mykb.\flrext},
+which contains \FLSYSTEM statements intermixed with ErgoText phrases.
+Before such phrases can be used, the template definition file (say,
+\texttt{mytemplates.ergotxt})\footnote{
+  It is perfectly fine to use the same base name for the template file,
+  i.e., \texttt{mykb.ergotxt}.
+}
+%% 
+must be loaded either by executing the \emph{runtime}  query
+\index{ergotext\{...\} primitive}
+%% 
+\begin{verbatim}
+   ?- ergotext{mytemplates}.
+\end{verbatim}
+%% 
+\emph{before} compiling \texttt{mykb.\flrext} or it must be declared
+at compile time by including the directive
+%% 
+\begin{verbatim}
+   :- ergotext{mytemplates}.
+\end{verbatim}
+%% 
+(note: \texttt{:-}, \textbf{not} \texttt{?-}) at the top of
+\texttt{mykb.\flrext}.  Note that \texttt{mytemplates.ergotxt} must be
+\emph{locatable,} i.e., \ERGO must be able to find it. If the above
+\texttt{ergotext} query or directive appears inside a file, such as 
+\texttt{mykb.\flrext}, then
+\texttt{mytemplates.ergotxt} must be a path \emph{relative to the folder}
+where \texttt{mykb.\flrext} resides. It can also be an absolute path name,
+but this is \textbf{strongly discouraged} because it will make your knowledge
+base non-portable between machines. 
+Thus, if
+\texttt{mykb.\flrext} and \texttt{mytemplates.ergotxt} are in the same
+directory then simply \texttt{ergotext\{mytemplates\}} will do. If, say, all
+templates are in the \texttt{templates\_dir} subfolder with respect to
+the file \texttt{mykb.\flrext} that contains the directive,
+then \texttt{ergotext\{templates\_dir/mytemplates\}}  would
+work (the forward slash will work both for Unix \emph{and} Windows). 
+
+If, on the other hand,
+\texttt{ergotext\{mytemplates\}} is posed as a query \emph{on command line}
+in the \ERGO shell \emph{then} \texttt{mytemplates.ergotxt} would typically
+be an absolute path name. It can also be a path name relative to the
+\emph{current folder}, but in case of \ERGOAI Studio it is not always obvious
+what the current folder is.
+
+Invoking \texttt{ergotext\{?X\}} as a query with an unbound variable
+argument will bind the argument to the currently active template file or will
+fail if none is active.
+
+\index{active ErgoText template}
+\index{ErgoText template!active}
+Note that \underline{at most one} ErgoText
+  template is \emph{active}  at any given
+moment. The active template is determined
+by either the most recent query of the form \texttt{?-
+  ergotext\{...\}} or (if set within a file) by the nearest previous directive
+\texttt{:- ergotext\{...\}} within the same (or \texttt{\#include'd})  file.
+This implies that a file can have several declared templates, but all the
+statements in-between the consecutive \texttt{:- ergotext} declarations
+will be interpreted by exactly one template. For instance, in
+%% 
+\begin{alltt}
+   :- ergotext\{template1\}.
+   \emph{statement1}  
+   :- ergotext\{template2\}.
+   \emph{statement2}  
+   \emph{statement3}  
+   :- ergotext\{template3\}.
+   \emph{statement4}  
+   \emph{statement5}  
+\end{alltt}
+%% 
+the statements 2 and 3 will be interpreted using \texttt{template2} and
+statements 4 and 5 via \texttt{template3}.
+This also means that all the ErgoText
+phrases that appear in statements 1 to 3 must be defined in
+\texttt{template2.ergotxt}. If one is defined, say, in
+\texttt{template3} or in \texttt{template1} but
+not in \texttt{template2} then an error will be issued.
+It should be said, however, that using more than one template definition file
+per \ERGO module
+is a bad idea. It is a sign of poor design and \textbf{should be avoided}.
+
+\index{ErgoText phrase}
+%%
+An \emph{ErgoText phrase} has the form
+%% 
+\begin{verbatim}
+    \(word1 word2 ... wordN\)
+\end{verbatim}
+%% 
+where each word is either an word, a HiLog term, including
+variables, or even an ISA or frame formula.
+Special symbols like parentheses, commas,
+semicolons, +, -, =, $\mid$, etc., are also allowed in ErgoText
+phrases. They can be standalone symbols or play the role of punctuation.
+Note that NL words are a special case of
+HiLog terms. Note that words do not need to be in English or, for that
+matter, use Latin characters, but in case of non-Latin characters the words
+have to be enclosed in single
+quotes, like any atom that contains non-alphanumeric characters.
+This also applies to text fragments that contain single or double quotes.
+For instance,
+%% 
+\begin{verbatim}
+   \(My parent's house\)
+   \(My parent\'s house\)
+\end{verbatim}
+%% 
+will be rejected by the parser, but all of the ones below
+%% 
+\begin{verbatim}
+   \(My 'parent''s' house\)
+   \(My 'parent\'s' house\)
+   \(My parent''s house\)
+\end{verbatim}
+%% 
+are fine. (Note that in the last case \texttt{parent''s} actually consists
+of \emph{three} separate tokens: \texttt{parent}, \texttt{''}, and
+\texttt{s} and separating them with spaces will yield the same three tokens,
+\texttt{parent} \texttt{''} \texttt{s}, and the same template.)
+
+The following is a sample \ERGO knowledge base that consists mostly of
+ErgoText phrases, some of which (S3,S5) are intermixed with the normal
+\ERGO syntax.
+%% 
+\begin{verbatim}
+   \(Tom is not only a Student, but also a (salaried) Employee\).      // S1
+   \(If ?someone has ?something and paid for it then s/he likes it\).  // S2
+   \(?X cares for ?Y\), ?Y[inGoodShape] :-                             // S3
+                   \(?X has ?Y\), ?Y:ValuableThing.
+   \(insert rule: if ?X has more than 5M then he is rich\).            // S4
+   ?- delete{\(Tom is an Employee\)}, ?X:Employee.                     // S5
+   ?- deleterule{\(?someone with at least 5M is rich\)}.               // S6
+\end{verbatim}
+%% 
+Each phrase must match one and only one template (matching templates for
+the above are given below). All details of the syntax of the corresponding
+template must be followed to the letter: commas, parentheses (cf. S1),
+letter case, etc. Only variables can be replaced with HiLog terms when
+templates are used. For instance, as will be seen shortly, in S1 we replaced the
+variables in the template (T1) with the terms \texttt{Tom},
+\texttt{Student}, and \texttt{Employee}, respectively.   
+The phrases S1, S2, and S4 also illustrate the use of special features, like
+parentheses, commas, slashes, etc., which might be desirable for
+readability and other purposes.
+
+Needless to say that the template text must be
+clear, unambiguous, and easily understood in order for ErgoText to be
+useful; achieving these goals is the job of the template designer. Typically, templates
+are designed for a particular domain (e.g., legal documents) and thus must
+involve both a domain expert to supply the template text and semantics
+and a skilled \ERGO user to provide the \ERGO translation.
+
+To summarize, ErgoText phrases are NL phrases that can be mixed
+with \FLSYSTEM syntax, such as terms, variables, etc. These phrases must
+be bound to \FLSYSTEM statements using template definitions (see
+below). These definitions are kept in separate template definition files (with the
+extension \texttt{.ergotxt}) and these files must be either declared or
+loaded (with the \texttt{ergotext\{...\}} directive) before compiling the
+\FLSYSTEM knowledge bases that contain the ErgoText phrases in question.
+These phrases can also be used in the \FLSYSTEM shell, provided that the
+corresponding template definition file is loaded beforehand---again
+using an appropriate \texttt{ergotext\{...\}} directive.
+
+\subsection{ErgoText Template Definitions}
+
+\index{ErgoText template}
+%%
+ErgoText template definitions are supposed to be stored in files with the
+extension \texttt{.ergotxt}. Each template definition has the form 
+%% 
+\begin{alltt}
+    template(\textnormal{\textit{Context}, \textit{ErgoText phrase}, \textit{Ergo translation}})
+\end{alltt}
+%% 
+\emph{ErgoText phrases}
+were described in the previous subsection. The \emph{Ergo
+translation}   is an Ergo formula into which the phrase in the second
+argument is to be
+translated. What is allowed as such translations depends on the context
+specified as the first argument.
+The \texttt{Context} argument is one of the following reserved keywords (they are
+reserved
+only in the template definitions, not in general):
+\index{ErgoText context!insert}
+\index{ErgoText context!delete}
+\index{ErgoText context!insdel}
+\index{ErgoText context!headbody}
+\index{ErgoText context!dynrule}
+\index{ErgoText context!head}
+\index{ErgoText context!body}
+\index{head!ErgoText context}
+\index{body!ErgoText context}
+\index{headbody!ErgoText context}
+\index{insert!ErgoText context}
+\index{insert!ErgoText context}
+\index{delete!ErgoText context}
+\index{insdel!ErgoText context}
+\index{dynrule!ErgoText context}
+%% 
+\begin{itemize}
+\item  \texttt{head},  \texttt{body},  \texttt{headbody} 
+\item  \texttt{insert},  \texttt{delete},  \texttt{insdel} 
+\item  \texttt{dynrule}  
+\end{itemize}
+%% 
+Why is context needed? The problem is that the same \ERGO formula may
+need to be compiled differently depending on where it occurs: rule head,
+rule body, in an insert or delete statement, etc. Some syntax may be allowed, say,
+in the rule body and insert/delete statements (e.g., \texttt{@module}) but
+not in rule heads; rule Ids and tags can occur only in facts and rules, but
+not in rule bodies; delete statements allow syntax that is not allowed in
+insert statements, and so on.  Thus, the \texttt{head} context means that
+the corresponding template is allowed in rule heads (and facts), but not in
+rule bodies (e.g., S3 above). The \texttt{body} context means the template
+is suitable only for rule bodies (also S3).  Since often the same template
+might be allowable in both contexts, a combined \texttt{headbody} context
+is provided for convenience (e.g., for S1 above).  The \texttt{insert} and
+\texttt{delete} contexts are provided for the templates that are meant to
+be used
+inside the \texttt{insert\{...\}} and \texttt{delete\{...\}} statements,
+respectively (cf., S5). Some formulas may be suitable for both of these
+update commands and also for rule heads and bodies. An
+all-encompassing context \texttt{insdel}, which subsumes all four of the
+aforesaid contexts, is provided for this kind of
+formulas, for convenience.  Finally, \texttt{dynrule} is a context for
+formulas that are meant to appear inside \texttt{insertrule\{...\}}
+and \texttt{deleterule\{...\}} statements (as in S6 above).
+
+\index{ErgoText context!dynrule}
+%%
+Apart from the above contexts, there are, of course, rules (outside of
+\texttt{insertrule\{...\}} and \texttt{deleterule\{...\}}), like 
+S2 above, queries as in S4, and latent queries (not shown). The context for
+these is ``anything else'' and any keyword other than the above reserved
+ones can be used for them. It is a good practice to use \texttt{rule}, \texttt{fact},
+\texttt{query}, and \texttt{latentquery} in these cases, for documentation
+purposes (so that you will be able to recognize and easily understand
+the purpose of the corresponding templates). Internally, these latter contexts are represented by the keyword
+\texttt{toplevel}, and this is what is shown by various debugging
+primitives described in Section~\ref{sec-ergotext-debug}. 
+
+Here are examples of template definitions that are suitable for the above
+knowledge base (S1-S6) to be placed in \texttt{mytemplates.ergotxt}:
+%% 
+\begin{verbatim}
+   template(headbody,   // headbody is reserved context                  (T1)
+            \(?X is not only a ?Y, but also a (salaried) ?Z\),
+            (?X:{?Y,?Z})).
+   template(rule,       // rule is not a reserved context keyword        (T2)
+            \(If ?P has ?Thing and paid for it then s/he likes it\),
+            (?P[likes->?Thing] :- ?P[{has,paidfor}->?Thing])).
+   template(head,      // reserved context, used for documentation       (T3)
+            \(?X cares for ?Y\), ?X[caresfor->?Y]).
+   template(body,      // reserved context keyword                       (T4)
+            \(?X has ?Y\), ?X[has->?Y]).
+   template(query,     // not reserved: query is used for documentation  (T5)
+            \(insert rule: if ?X has more than 5M then he is rich\),
+            (?- insertrule{?X:rich :- ?X[networth->?W], ?W>50000000})).
+   template(insdel,    // reserved for insert{...}/delete{...}           (T6)
+            \(?X is an ?Y\), ?X:?Y).
+   template(dynrule,   // reserved                                       (T7)
+            \(?someone with at least 5M is rich\),
+            (?someone:rich :- ?someone[networth->?W], ?W>=50000000))
+\end{verbatim}
+%% 
+The reader may have noticed that
+the \FLSYSTEM side of the above definitions (argument 3) is
+sometimes enclosed in parentheses, as in (T1), (T2), (T5), and (T7). This is
+needed in cases when the definitions contain infix operators, like
+\texttt{?-}, \texttt{:-}, \texttt{<==}, and the like, which bind its
+arguments weaker than the comma (or when the definitions contain commas,
+colons, as in (T1), or other operators, like
+semicolons). In these cases, the templates might not parse
+without the aforesaid parentheses.
+
+Note that template definitions can be arbitrarily complex as long as they
+fit the declared context. For instance,
+%% 
+\begin{verbatim}
+    template(fact,
+             \(Every state has a senator\),
+             (forall(?State)^exist(?Sen)^senator(?State,?Sen) <== ?State:State))
+\end{verbatim}
+%% 
+
+In case one wants to create a template for rules or facts with descriptors,
+such as rule Ids, tags, and the like, keep in mind that rule descriptor
+constructs like \texttt{@\{...\}} and \texttt{@!\{...\}} are not permitted
+in ErgoText phrases. Instead, one should just use NL and whatever
+symbols are allowed to stick in the variables for rule Ids and tags. For
+instance, a template definition that defines a rule with descriptors could
+look like this:
+%% 
+\begin{verbatim}
+ template(rule,
+          \(Here is a rule with Id=?I and Tag=?T: If it rains, it pours\),
+          (@!{?I} @{?T} pours(?X) :- rains(?X))).
+\end{verbatim}
+%% 
+One can then construct a concrete \FLSYSTEM rule via the following
+ErgoText phrase:
+%% 
+\begin{verbatim}
+ \(Here is a rule with Id=badweather & Tag = watchout: If it rains, it pours\).
+\end{verbatim}
+%% 
+
+\subsection{ErgoText Queries and Command Line}
+
+So far we have been talking about ErgoText statements that appear in files.
+What if we want to ask an ErgoText query using the \ERGO shell, i.e., 
+on command line (in a terminal,
+the Studio Listener, or the Studio Query tool)?  Just as with file-based
+ErgoText, one must tell the command line processor which templates to
+use. There are two ways to do that.
+
+The most common and convenient way to import a template definition file into the \ERGO
+shell is to load or add
+a file that contain the directive \texttt{:- ergotext\{...\}}.
+The template specified in that directive will be then imported into the
+module to which the file was loaded or added.
+For instance, if  a file, say
+\texttt{example.ergo} is loaded into the module \texttt{main} and contains
+a directive of the form \texttt{:- ergotext\{'some/place/templ'\}}     
+then one can issue a query like
+%% 
+\begin{verbatim}
+    ?- \(my ?H template\).
+\end{verbatim}
+%% 
+in the \ERGO shell (assuming such a template exists in
+\texttt{some/place/templ.ergotxt}).
+If \texttt{example.ergo} is loaded into the module \texttt{foo} then
+%% 
+\begin{verbatim}
+    ?- \(my ?H template\)@foo.
+\end{verbatim}
+%% 
+can be used as a command line query.
+
+The other method is to load a template definition file explicitly. This can be used if
+the first method cannot be used for some reason.
+In Section~\ref{sec-ergotext-kb}, we already mentioned that ErgoText
+template definition files can be loaded at runtime by executing the query
+%%
+\index{ergotext\{...\} primitive}
+%% 
+\begin{verbatim}
+   ?- ergotext{mytemplates}.
+\end{verbatim}
+%% 
+where \texttt{mytemplates.ergotxt} is a suitable template file. 
+To load a template definition file into a module other than \texttt{main}, a two-argument
+directive can be used. For instance,
+%% 
+\begin{alltt}
+    ?- ergotext\{mytemplates,foobar\}.
+\end{alltt}
+%% 
+
+
+\subsection{ErgoText and \ERGO Modules}
+
+ErgoText understands \ERGO modules, so the expressions like
+%% 
+\begin{verbatim}
+    p(?H) :- \(my ?H template\)@foo.
+\end{verbatim}
+%% 
+are understood subject to the following:
+%% 
+\begin{enumerate}
+\item  A compiler directive
+  %% 
+\begin{alltt}
+    :- ergotext\{mytemplate,foo\}.   
+\end{alltt}
+  %% 
+  must appear at the top of the file containing a phrase like
+  \texttt{\bs(my ?H template\bs)@foo} above and the template definition file
+  \texttt{mytemplate.ergotxt} must exist and be locatable, i.e.,
+  it must either be an absolute path name (not
+  recommended) or a name relative to the directory of the containing file.
+\item  The module specification must be a constant;
+  a variable or a quasi-constant like \bs$@$ will cause the compiler
+  to issue an error. That is, something like the following
+%% 
+\begin{verbatim}
+      ?- ?Mod = foo, \(my ?H template\)@?Mod.
+      ?- \(my ?H template\)@\@.
+\end{verbatim}
+%% 
+  are not allowed.
+\end{enumerate}
+%% 
+
+\subsection{Debugging ErgoText Templates}
+\label{sec-ergotext-debug}
+
+\index{ErgoText template!debugging}
+\index{ErgoText template!overlapping contexts}
+\index{ErgoText template!disjoint phrases}
+\index{ErgoText template!ambiguity}
+\index{ambiguity!among ErgoText templates}
+%%
+\FLSYSTEM makes many syntactic checks to verify the templates are
+syntactically correct and otherwise make sense. It also checks that
+there is no \emph{ambiguity} among templates; that is, that
+templates with \emph{overlapping} contexts have {\rm disjoint} template
+phrases.
+
+Two contexts overlap if their phrases can be used in
+the same syntactic position in \FLSYSTEM statements.
+Clearly, identical contexts (like
+\texttt{body}/\texttt{body} or \texttt{head}/\texttt{head}) overlap. In
+addition, \texttt{headbody} is a shorthand for a set of contexts
+\texttt{body}, \texttt{head}, and \texttt{toplevel}. The context
+\texttt{head} actually also includes \texttt{toplevel}, while \texttt{insdel} 
+includes \texttt{body}, \texttt{head}, \texttt{insert}, \texttt{delete},
+and \texttt{toplevel}. So, \texttt{head} overlaps with \texttt{insdel} and
+\texttt{toplevel}, while \texttt{insdel} overlaps with \texttt{body},
+\texttt{head}, and others.
+Two templates are \emph{disjoint}
+if they cannot match the same ErgoText
+phrase; in other words, if they do not unify.
+
+Besides the checks,
+\FLSYSTEM provides several primitives to help the template designer to debug the
+templates before releasing them to the end user.
+The most typical problem is when an ErgoText phrase \emph{seems} to match
+a template, but it does not and the compiler issues an error claiming that
+no template definition matches the phrase. To better see the problem,
+consider the following template:
+%% 
+\begin{verbatim}
+   template(body,\(Is ?X true?\), ?X).
+\end{verbatim}
+%% 
+and a query
+%% 
+\begin{verbatim}
+   ?- \(Is p:q true?\).
+\end{verbatim}
+%% 
+Intuitively, one might think that this should be translated into the query
+\texttt{?- p:q}, but it does not. The reason is that \FLSYSTEM's syntax is
+rich with infix operators, like \texttt{:}, \texttt{::}, \texttt{->},
+comma, etc.  These operators have precedence values that indicate which
+operator binds tighter. The magic of the operator grammars combines the
+above text into regular terms of the form
+\texttt{functor(argument\_list)}. Since the details of that algorithm are
+complicated and one cannot and does not want to consult the table of
+precedence values, it is sometimes hard to see how a phrase, like the
+above, will be parsed. The bottom line here is that the above query will
+\emph{not} match the template---to much surprise and chagrin of the
+template developer and the user. To help debug such cases, \FLSYSTEM
+provides a parser API call \texttt{show\_ergotext\_phrase\_as\_term/1},
+which can be used as follows:
+%% 
+\index{show\_ergotext\_phrase\_as\_term/1}
+\begin{verbatim}
+   ?- show_ergotext_phrase_as_term(\(Is p:q true?\))@\prolog(flrparser).
+   ErgoText phrase parsed form:
+       [Is, p : (q, (true, ?))]
+\end{verbatim}
+%% 
+This means that the above ErgoText query gets parsed as a list of two terms
+the second of which
+is \texttt{p:(q,(true,?))}. Asking the same question about the
+template phrase, we get:
+%% 
+\begin{verbatim}
+   ?- show_ergotext_phrase_as_term(\(Is ?X true?\))@\prolog(flrparser).
+   ErgoText phrase parsed form:
+       [Is, ?X, true, ?]
+\end{verbatim}
+%% 
+which is quite different. In such a situation, one can force the parser do
+the needful by placing commas in strategic places. For instance,
+%% 
+\begin{verbatim}
+   ?- show_ergotext_phrase_as_term(\(Is, p:q, true?\))@\prolog(flrparser).
+   ErgoText phrase parsed form:
+       [Is, p : q, true, ?]
+\end{verbatim}
+%% 
+yields the same parse as the phrase in the template, and one can verify
+that the above ErgoText phrase will now match the template.
+
+\index{ergo\_show\_active\_templates/0}
+%%
+To list all the active templates (i.e., templates that are
+currently affecting the parser), \FLSYSTEM's parser provides
+\texttt{ergo\_show\_active\_templates/0}. The following example
+shows a use of that call along with some of the results it produces.
+%% 
+\begin{verbatim}
+    ?- ergo_show_active_templates@\prolog(flrparser).
+    Active ErgoText templates:
+
+      Template context:    body
+      Template phrase:     ?A is not only a ?B but also a (salaried) ?C
+      Template definition: ?A : {?B, ?C}
+
+      Template context:    head
+      Template phrase:     ?A cares for ?B
+      Template definition: ?A[caresfor->{?B}]
+
+      Template context:    body
+      Template phrase:     ?A has ?B
+      Template definition: ?A[has->{?B}]
+
+      Template context:    delete
+      Template phrase:     ?A is an ?B
+      Template definition: ?A : ?B
+\end{verbatim}
+%% 
+If one wants to see templates that are \emph{not} currently loaded (active),
+the API call \texttt{ergo\_show\_templates/1} will do it:
+%% 
+\begin{verbatim}
+    ?- ergo_show_templates(template3)@\prolog(flrparser).
+\end{verbatim}
+%% 
+The output is similar to \texttt{ergo\_show\_active\_templates/0}.
+
+Given an ErgoText phrase, one might want to
+see the templates that match it. This is done via
+the calls \texttt{ergo\_show\_matching\_templates/2} and
+\texttt{ergo\_show\_active\_matching\_templates/2}.
+The difference between these calls is that the latter matches against the
+active templates that are in effect in the \emph{module} specified in the second
+argument, while the former
+takes the template file argument explicitly. For instance,
+%% 
+\begin{verbatim}
+   ?- ergo_show_matching_templates(\(Is,p:q,true?\),template3)@\plg(flrparser).
+   Context:    body
+   Definition: p : q
+\end{verbatim}
+%% 
+or
+%% 
+\begin{verbatim}
+   ?- ergo_show_active_matching_templates(\(Is,p:q,true?\),main)@\plg(flrparser).
+\end{verbatim}
+%% 
+The latter produces similar output but it contains the matches against
+the templates currently active in module \texttt{main}. The context part in the above listing is
+either one of the reserved keywords \texttt{body},  \texttt{head},
+\texttt{insert}, \texttt{delete}, or  \texttt{dynrule}, or it is
+\texttt{toplevel}. The latter corresponds to all other contexts, i.e.,
+rule, query, latent query, or fact (facts can match either \texttt{head}
+context or \texttt{toplevel}).   
+
+\subsection{ErgoText and Error Reporting}
+
+ErgoText templates present a number of challenges when it comes to error
+reporting, and the template designer must be aware of the possible
+pitfalls. One such pitfall has to do with templates that obscure so much of the
+underlying \FLSYSTEM formulas that it is hard for the end user to
+understand the reasons for various errors and warnings.
+To illustrate, consider the following buggy template:
+%% 
+\begin{verbatim}
+   template(body,\(test\),(\neg insert{foobar})). 
+\end{verbatim}
+%% 
+Here explicit negation is applied to the insert operator, which is an error.
+The problem is that the template compiler uses a shallow parser, which does
+not catch all the errors and leaves further error detection to a later
+stage. As a result, the above template would be compiled without
+any errors or warnings. The error (``illegal use of explicit negation'')
+will be reported
+only when the template will be actually used at compile or run time:
+%% 
+\begin{verbatim}
+   :- ergotext{mytemplates}. 
+   ?- \(test\).
+\end{verbatim}
+%% 
+Although the
+error will point to the line number where the above ErgoText phrase was
+used, the template designer (who failed
+to debug his templates) --- and certainly the end user --- will find it
+difficult to
+understand what is going on because the template phrase provides no hint
+regarding the underlying \FLSYSTEM statement.
+
+For another example, consider the template
+%% 
+\begin{verbatim}
+   template(head,\(test\),p(b)).
+\end{verbatim}
+%% 
+and the knowledge base 
+%% 
+\begin{verbatim}
+   :- ergotext{mytemplates}. 
+   f(p(a)).
+   \(test\).
+\end{verbatim}
+%% 
+Although this is not a mistake, it is suspicious: the symbol \texttt{p/1} is used in two
+different ways here---once explicitly, as a HiLog function symbol, and once
+implicitly,
+as a predicate symbol (in the template). \FLSYSTEM will issue a warning
+about the ambiguous use of \texttt{p/1}  (see Section~\ref{sec:symbol}),
+but the end user will likely be at a loss as to why.
+
+The lesson of these examples is that ErgoText templates must be
+designed in a way that the template phrases will
+have enough information to help the end user resolve the possible issues
+with errors and warnings reported by \FLSYSTEM.
+
+
+\subsection{ErgoText and Text Generation}\label{sec-ergo-textgen}
+
+\emph{Text generation}   refers to the ability to generate textual
+description of \ERGO facts, queries, and rules. Currently text generation
+is used for generating textual explanations to query answers---see
+Section~\ref{sec-expl-answers}.
+
+\index{text generation}
+\index{text generation!ErgoText-based}
+\index{text generation!TextIt}
+\ERGO supports two kinds of text generation: ErgoText-based and a
+light-weight \emph{TextIt} facility, described in Section~\ref{sec-textit}.
+As far as ErgoText-based text generation is concerned, it is triggered
+whenever a subgoal is chosen as an explanation
+and that subgoal matches the definitional part in an ErgoText template. In
+that case,
+the NL phrase in the template will be shown as an explanation
+instead of the subgoal.
+Only the templates of type \texttt{body} (and, by implication,
+\texttt{headbody} and \texttt{insdel}) are used for text generation.
+Thus, if you want to \emph{exclude} a certain template from being used for text
+generation, use an ErgoText context other than the above three. For instance,
+\texttt{rulehead}, \texttt{rulebody}, or some other easily recognizable  
+keyword.
+
+Text generation via ErgoText and TextIt can be used together.
+If a subgoal matches both an ErgoText template and a TextIt template,
+the latter will be shown as an explanation. If only one kind of a template
+(ErgoText or TextIt) matches the subgoal, the text generated from that
+template will be used.
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

@@ -1,0 +1,93 @@
+
+?- setsemantics{class_expressions=on}.
+// quantified_typed_variables - now always on; the switch is not used
+//:- compiler_options{quantified_typed_variables=on}.
+
+
+:- iriprefix{pref='http://foo.bar.com/abc'}.
+
+{1,2}:foo, {2,3}:pref#moo.
+
+%tst1 :- ?^^foo = 4, writeln(test1=failed)@\plg.
+%tst1 :- ?^^foo = 1, writeln(test1=ok)@\plg.
+
+%tst2 :- ?X^^foo = ?^^pref#moo, ?X=3, writeln(test2=fail)@\plg.
+%tst2 :- ?X^^foo = ?^^pref#moo, ?X=2, writeln(test2=ok)@\plg.
+
+%tst3 :- ?^^(foo-pref#moo) = 2, writeln(test3=fail)@\plg.
+%tst3 :- ?^^(foo-pref#moo) = 1, writeln(test3=ok)@\plg.
+
+%tst4 :- ?^^foo = "aaa"^^foo,  writeln(test4=ok)@\plg.
+
+%tst5 :- ?^^((foo-pref#moo);(pref#moo-foo)) = 2, writeln(test5=fail)@\plg.
+%tst5 :- ?^^((foo-pref#moo);(pref#moo-foo)) = 3, writeln(test5=ok)@\plg.
+
+%tst6 :- ?X^^\real=?, ?X^^\short=1, writeln(test6=fail)@\plg.
+%tst6 :- {1,2,-3}:{\integer,\short,\long},
+	 {1.2,3.4}:{\real,\float,\double},
+	 [a,3] = ?X^^\list,
+	 ?X:\list,
+	 "abc"^^\charlist=?Y,
+	 ?Y:\charlist,
+	 writeln(test6=ok)@\plg.
+
+p(a:ppp), q(b). pp({a,b}). qq(a).
+a:pref#ppp.
+obj[pr->a, pr2->b, pr3->{a,b}, pr4->a].
+
+%tst7 :- \naf forall(?X)^(pp(?X) ~~> qq(?X)),
+        forall(?X^^ppp)^(pp(?X) ~~> qq(?X)),
+        writeln(test7=ok)@\plg.
+%tst7b :- \naf forall(?X)^(qq(?X) \or \naf pp(?X)),
+        forall(?X^^ppp)^(qq(?X) \or \naf pp(?X)),
+        writeln(test7b=ok)@\plg.
+%tst7c :- \naf forall(?X)^(\naf pp(?X) \or qq(?X)),
+        forall(?X^^ppp)^(\naf pp(?X) \or qq(?X)),
+        writeln(test7c=ok)@\plg.
+%tst8 :- exist(?X^^ppp)^p(?X), \naf exist(?X^^ppp)^q(?X),
+        writeln(test8=ok)@\plg.
+
+%tst9 :-  \naf forall(?X)^(obj[pr3->?X] ~~> obj[pr4->?X]),
+        forall(?X^^pref#ppp)^(obj[pr3->?X] ~~> obj[pr4->?X]),
+        writeln(test9=ok)@\plg.
+%tst9b :-  \naf forall(?X)^(obj[pr4->?X] \or \naf obj[pr3->?X]),
+        forall(?X^^pref#ppp)^(obj[pr4->?X] \or \naf obj[pr3->?X]),
+        writeln(test9b=ok)@\plg.
+
+%tst10 :- \naf obj[\naf exists(?X^^ppp)^pr->?X],
+        obj[\naf exists(?X^^pref#ppp)^pr2->?X],
+        \naf obj[\naf exists(?X)^pr2->?X],
+        \naf obj[\naf exists(?X)^pr->?X],
+        writeln(test10=ok)@\plg.
+
+%tst11 :- \naf forall(?X)^(pp(?X) ~~> qq(?X)),
+        forall(?X)^(pp(?X^^ppp) ~~> qq(?X)),
+        writeln(test11=ok)@\plg.
+%tst11b :- \naf forall(?X)^(qq(?X) \or \naf pp(?X)),
+        forall(?X)^(qq(?X) \or \naf pp(?X^^ppp)),
+        writeln(test11b=ok)@\plg.
+%tst12 :- exist(?X)^p(?X^^ppp), \naf exist(?X)^q(?X^^ppp),
+        writeln(test12=ok)@\plg.
+
+%tst13 :-  \naf forall(?X)^(obj[pr3->?X] ~~> obj[pr4->?X]),
+        // Important to type the premise variable or all vars.
+        // For instance, typing just pr4's ?X won't give a correct answer.
+        forall(?X)^(obj[pr3->?X^^ppp] ~~> obj[pr4->?X^^ppp]),
+        writeln(test13=ok)@\plg.
+
+%tst14 :- \naf obj[\naf exists(?X)^pr->?X^^ppp],
+        obj[\naf exists(?X)^pr2->?X^^ppp],
+        \naf obj[\naf exists(?X)^pr2->?X],
+        \naf obj[\naf exists(?X)^pr->?X],
+        writeln(test14=ok)@\plg.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst7b, %tst7c,
+        %tst8, %tst9, %tst9b, %tst10, %tst11, %tst11b, %tst12, %tst13, %tst14.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.

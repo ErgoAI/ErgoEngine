@@ -1,0 +1,78 @@
+
+:- prolog{pppp/2}.
+:- symbol_context{
+        b@?,
+        b/1,
+        p(?)@?,
+        p/0
+    }.
+
+%tst1 :- false{?X^^\integer = ?Y^^\float, ?Y:\double},
+         setsemantics{class_expressions=on},
+         true{?X^^\integer = ?Y^^\float, ?Y:\double},
+         true{?X:\float, ?Y:\integer},
+         // the below does not work, as the type of Y becomes
+         // (\double,\long,\double,\long) and dtype_sub is too weak for that.
+         //true{?X^^\integer = ?Y^^\float, ?Y:\float, ?Y:\integer},
+         writeln(test1=ok)@\plg.
+%tst2 :- 1:\integer, undefined{?:\float}, undefined{?:\long},
+         writeln(test2=ok)@\plg.
+%tst3 :- true{?X^^\integer:\decimal},
+         true{?X^^\long:\integer},
+         false{x:\decimal},
+         true{3:\decimal},
+         false{3.0:\integer},
+         writeln(test3=ok)@\plg.
+%tst4 :- false{?^^\integer:\double},
+         true{(\integer,\float) :: (\decimal;\double)},
+         writeln(test4=ok)@\plg.
+%tst5 :- true{?X:\integer, ?X = 1},
+         undefined{?Y:\integer, ?Y = ?},
+         false{?Z:\integer, ?Z = 1.1},
+         writeln(test5=ok)@\plg.
+%tst6 :- false{p(?X):\modular},
+         false{p(?X):\callable},
+         true{${p(?X)}:\callable},
+         true{${p(?X)@\plg}:\callable},
+         false{${p(?X)@\plg}:\modular},
+         true{aaaaa:\callable},
+         false{\integer:\callable},
+         writeln(test6=ok)@\plg.
+%tst7 :- true{${p[?X->?Y]@foo}:\modular},
+         true{${pppp(?X,?Y)}:\modular},
+         false{1:\modular},
+         false{1:\callable},
+         false{[]:\callable},
+         false{[a]:\callable},
+         writeln(test7=ok)@\plg.
+%tst8 :- undefined{?:\modular},
+         undefined{?:\callable},
+         true{?^^\modular:\modular},
+         true{?^^\callable:\callable},
+         writeln(test8=ok)@\plg.
+%tst9 :- true{${isnumber{aaa}}:\callable},
+         false{${isnumber{aaa}}:\modular},
+         true{${enable{aaa}}:\callable},
+         true{${sum{?X|p(?X)}=?Z}:\callable},
+         false{sum{?X|p(?X)}:\callable},
+         false{${sum{?X|p(?X)}=?Z}:\modular},
+         writeln(test9=ok)@\plg.
+%tst10 :- false{${a=b} :\modular},
+          true{${a=b} : \callable},
+          true{(a=b) : \callable},
+          true{${a[b->c,d->e]} : \callable},
+          true{${a[b->c;d->e]} : \modular},
+          true{${a-->>b} : \modular},
+          true{(a,b) : \callable},
+          false{(a,b(1)) : \callable},
+          true{${(a-->>b)@\plg} : \callable},
+          true{((a-->> b(a)@\plg)@\prolog) :\callable},
+          writeln(test10=ok)@\plg.
+
+
+%pretest :-
+        %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9, %tst10.
+
+%test :- tell(temp)@\plg,
+	 %pretest,
+	 told@\plg.

@@ -1,0 +1,121 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhatDoesNotOverlapWithCytokinesis-Version3 (query 3)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_In-House_1
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, isa(temporalBoundsIntersectInSituationType, PartiallyCommutativePredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, isa(Telophase, MitosisSubprocessType)).
+istAsserted(BiologyMt, superEventTypes(Mitosis, MitoticPhaseOfCellCycle)).
+istAsserted(BiologyMt, superEventTypes(MitoticPhaseOfCellCycle, EukaryoticCellCycle)).
+istAsserted(UniversalVocabularyMt, isa(superEventTypes, TransitiveBinaryPredicate)).
+istAsserted(BiologyMt, uniqueProperSubEventTypes(EukaryoticCellCycle, MitoticPhaseOfCellCycle)).
+istAsserted(BiologyMt, startsDuringInSituationType(MitoticPhaseOfCellCycle, Cytokinesis, Telophase)).
+istAsserted(UniversalVocabularyMt, relationAllInstance(superEventTypes, MitosisSubprocessType, Mitosis)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genls(SeriesOfCellDivisionRounds, 'BiologicalProcess-CellularLevel')).
+istAsserted(BiologyMt, genls(MitoticPhaseOfCellCycle, SeriesOfCellDivisionRounds)).
+
+// Implicit Background Rules
+forwardSentence(superEventTypes(?PHASE, Mitosis)) :- removalSentence(isa(?PHASE, MitosisSubprocessType)).
+forwardSentence(superEventTypes(?COLL, Mitosis)) :- removalSentence(isa(?COLL, MitosisSubprocessType)).
+forwardSentence(startsDuringInSituationType(?SUPER, ?SUB_SIT_TYPE_1, ?SUB_SIT_TYPE_2)) :- removalSentence(assertedSentence(startsDuringInSituationType(?SIT_TYPE, ?SUB_SIT_TYPE_1, ?SUB_SIT_TYPE_2))), removalSentence(assertedSentence(superEventTypes(?SIT_TYPE, ?SUPER))), removalSentence(uniqueProperSubEventTypes(?SUPER, ?SIT_TYPE)).
+forwardSentence(temporalBoundsIntersectInSituationType(?TYPE, ?SUB_TYPE_1, ?SUB_TYPE_2)) :- removalSentence(startsDuringInSituationType(?TYPE, ?SUB_TYPE_1, ?SUB_TYPE_2)).
+forwardSentence(startsDuringInSituationType(?SUPER, ?SUB1, ?SUB2)) :- removalSentence(startsDuringInSituationType(?TYPE, ?SUB1, ?SUB2)), removalSentence(superEventTypes(?TYPE, ?SUPER)).
+forwardSentence(startsDuringInSituationType(?TYPE, ?SUB1, ?SUB3)) :- removalSentence(startsDuringInSituationType(?TYPE, ?SUB1, ?SUB2)), removalSentence(startsDuringInSituationType(?SUB2, ?SUB1, ?SUB3)).
+forwardSentence(startsDuringInSituationType(?TYPE, ?SUB1, ?SUB3)) :- removalSentence(startsDuringInSituationType(?TYPE, ?SUB1, ?SUB2)), removalSentence(superEventTypes(?SUB3, ?TYPE)), removalSentence(superEventTypes(?SUB2, ?SUB3)).
+
+// Explicit Background Facts
+istAsserted(UniversalVocabularyMt, commutativeInArgs(temporalBoundsIntersectInSituationType, 2, 3)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-WhatDoesNotOverlapWithCytokinesis-Version3 3').
+%pretest :- genls(MitoticPhaseOfCellCycle, 'BiologicalProcess-CellularLevel'), temporalBoundsIntersectInSituationType(?_SCRIPT, Cytokinesis, MitoticPhaseOfCellCycle), %write_results('SUCCESS  : $CPTTest-WhatDoesNotOverlapWithCytokinesis-Version3 3').
+
+// Debugging
+proof(2285, 0) :- genls(MitoticPhaseOfCellCycle, 'BiologicalProcess-CellularLevel').
+proof(2285, 1) :- temporalBoundsIntersectInSituationType(EukaryoticCellCycle, Cytokinesis, MitoticPhaseOfCellCycle).
+proof(2285, 2) :- temporalBoundsIntersectInSituationType(EukaryoticCellCycle, Cytokinesis, MitoticPhaseOfCellCycle).
+proof(2285, 3) :- genls(MitoticPhaseOfCellCycle, 'BiologicalProcess-CellularLevel'), temporalBoundsIntersectInSituationType(EukaryoticCellCycle, Cytokinesis, MitoticPhaseOfCellCycle).
+
+proof(2285, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(2285, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(2285, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(2285, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(2285, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(2285, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(2285, 1006) :- superEventTypes(Telophase, Mitosis).
+proof(2285, 1007) :- superEventTypes(Telophase, Mitosis).
+proof(2285, 1008) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(2285, 1009) :- startsDuringInSituationType(EukaryoticCellCycle, Cytokinesis, Telophase).
+proof(2285, 1010) :- startsDuringInSituationType(MitoticPhaseOfCellCycle, Cytokinesis, Mitosis).
+proof(2285, 1011) :- startsDuringInSituationType(EukaryoticCellCycle, Cytokinesis, MitoticPhaseOfCellCycle).
+proof(2285, 1012) :- startsDuringInSituationType(EukaryoticCellCycle, Cytokinesis, Mitosis).
+proof(2285, 1013) :- temporalBoundsIntersectInSituationType(EukaryoticCellCycle, Cytokinesis, MitoticPhaseOfCellCycle).
+
+proof(2285, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(2285, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(2285, 2002) :- admittedArgument(SecondFn(14, MinuteFn(7, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(2285, 2003) :- admittedArgument(SecondFn(14, MinuteFn(7, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(2285, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(2285, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(2285, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiologyMt).
+proof(2285, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(2285, 2008) :- genls(MitoticPhaseOfCellCycle, 'BiologicalProcess-CellularLevel').
+proof(2285, 2009) :- isa(Telophase, MitosisSubprocessType).
+proof(2285, 2010) :- isa(temporalBoundsIntersectInSituationType, PartiallyCommutativePredicate).
+proof(2285, 2011) :- superEventTypes(Telophase, MitoticPhaseOfCellCycle).
+proof(2285, 2012) :- superEventTypes(Mitosis, EukaryoticCellCycle).
+proof(2285, 2013) :- superEventTypes(MitoticPhaseOfCellCycle, EukaryoticCellCycle).
+proof(2285, 2014) :- superEventTypes(Telophase, MitoticPhaseOfCellCycle).
+proof(2285, 2015) :- superEventTypes(Telophase, Mitosis).
+proof(2285, 2016) :- superEventTypes(Telophase, Mitosis).
+proof(2285, 2017) :- superEventTypes(Mitosis, MitoticPhaseOfCellCycle).
+proof(2285, 2018) :- superEventTypes(Mitosis, EukaryoticCellCycle). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

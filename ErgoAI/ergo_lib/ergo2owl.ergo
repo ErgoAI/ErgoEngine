@@ -1,0 +1,249 @@
+/* File:      ergo_lib/ergo2owl.ergo -- Ergo-OWL adaptor
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2018-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+#include "flora_terms.flh"
+
+#define INCREMENTAL_TRIE 16
+
+:- symbol_context{rdf_load/4, rdf_load/2}.
+
+:- ignore_depchk{?[rdf_insert(?,?,?)],
+                 ?[rdf_delete(?,?,?)]
+             }.
+
+:- compiler_options{expert=on,production=on}.
+:- nontabled_module.
+:- suppress_rule_signatures.
+
+:- table{rdf_reachable/4}.
+
+:- prolog{rdf_loaded_module/2,
+          rdf_check_module/1,
+          rdf_check_module_format/2
+      }.
+
+:- export{
+        ?[rdf_load(?, ?, ?, ?, ?)],
+        ?[rdf_load(?, ?, ?, ?)],
+        ?[rdf_load(?, ?)],
+        ?[rdf_predicate->?],
+        ?[rdf_subject->?],
+        ?[rdf_object->?],
+        ?[rdf_reachable(?,?)->?],
+        ?[rdf_insert(?,?,?)],
+        ?[rdf_delete(?,?,?)],
+        ?[rdf_deleteall],
+        ensure_loaded
+}.
+
+:- ignore_depchk{insert{?},deleteall{?}}.
+
+%initialize :-
+        flora_install_dir(?ErgoDir)@\prolog(flrporting),
+        flora_slash(?S)@\prolog(flrporting),
+        flora_concat_atoms([?ErgoDir,?S,ergosuite,?S,jena,?S,'JenaAllInOne.jar'], ?_JenaJar)@\prolog(flrporting),
+        flora_concat_atoms([?ErgoDir,?S,ergo_lib,?S,ergo2owl], ?E2Sdir)@\prolog(flrporting),
+        flora_concat_atoms([?E2Sdir,?S, java,?S,'ergoOWL.jar'],?_OwlJar)@\prolog(flrporting),
+        // *** We now batch these Jars with the studio: no need to add them here
+        // add JenaAllInOne.jar & ergoOWL.jar; also load the ergo2java lib
+        //System[addJar(?_JenaJar)]@\e2j,
+        //System[addJar(?_OwlJar)]@\e2j,
+        ensure_loaded@\e2j,
+        // add ergo2owl to library path
+        Libpath[add(?E2Sdir)]@\sys,
+        // load OWL API
+        [ergo_owl].
+%initialize :- !.
+
+?-  // initialize
+        feedback{tempoff},
+        %initialize.
+
+// calling ensure_loaded@\owl ensures that the module \owl is loaded
+ensure_loaded :- !.
+
+// Loads a RDF or OWL file
+// Example: System[rdf_load('../BodyCorporate.owl', 'RDF/XML', fastload, '', rdfStorage)]@\owl.
+// THIS IS NOT DOCUMENTED ON PURPOSE: we want to expose only the fastload API,
+// for simplicity.
+System[rdf_load(?InFile, ?InLangSyntax, ?OutFormat, ?IrisText, ?OwlMod)] :-
+        isnonvar{?InFile}, isnonvar{?InLangSyntax},
+        isnonvar{?OutFormat}, isnonvar{?IrisText}, isnonvar{?OwlMod},
+        rdf_check_module_format(?OwlMod,?OutFormat),
+
+        p2h{?InFilePlg,?InFile},
+        (flora_locate_file_basic(?InFilePlg,?InFileCached)@\prolog(flrutils) -->> \true
+        ; flora_concat_atoms(['<ErgoOWL API> file ',?InFilePlg,' is not found'], ?ErrMsg)@\prolog(flrporting),
+            sysabort(?ErrMsg)@\sys
+        ),
+
+        (
+            owl2ergo_outfile_name(?InFileCached,?OutFormat,?OutFileName),
+            rdfTranslate(?InFileCached,?InLangSyntax,
+                         ?OutFileName,?OutFormat,?IrisText)
+        )@\prolog(ergo_owl),
+        \if ( ?OutFormat == fastload )
+        \then (
+            fastload{?OutFileName,?OwlMod},
+            \unless isloaded{?OwlMod}
+            //\do newmodule{?OwlMod},
+            // use internal hack to make sure the fastload module is nontabled
+            \do fllibnewmodule(?,?OwlMod,nontabled)@\prolog,
+            insertrule{(?S[?P->?O] :- fastquery{?OwlMod,?P(?S,?O)})@?OwlMod}
+        )
+        // add to module, if the method is predicates/frames
+        \else (
+            [+ ?OutFileName >> ?OwlMod]
+        ),
+        insert{rdf_loaded_module(?OwlMod,?OutFormat)}.
+
+// Fastloads RDF/OWL
+// Example: System[rdf_load('BodyCorporate.owl','RDF/XML','',rdfStorage)]@\owl.
+System[rdf_load(?InFile, ?InLangSyntax, ?IrisText, ?OwlMod)] :-
+        System[rdf_load(?InFile, ?InLangSyntax, fastload, ?IrisText, ?OwlMod)].
+
+
+// Fastloads an RDF or OWL file, takes no IRI prefixes and guesses the type
+// Example: System[rdf_load('../BodyCorporate.owl', rdfStorage)]@\owl.
+System[rdf_load(?InFile, ?OwlMod)] :-
+        System[rdf_load(?InFile,'',fastload,'',?OwlMod)].
+
+// Enumerating objects by role
+// enumerates all the predicates
+// also True when ?P is a currently known predicate,
+// i.e., it appears in the predicate position of some triple
+// System[rdf_predicate(rdfStorage)->?P]@\owl.
+?OwlMod[rdf_predicate -> ?P] :-
+        rdf_check_module(?OwlMod),
+        ?_S[?P -> ?_O]@?OwlMod.
+
+// enumerates all the subjects
+// also True when ?S is a currently known subject,
+// i.e., it appears in the subject position of some triple
+// System[rdf_subject(rdfStorage)->?S]@\owl.
+?OwlMod[rdf_subject -> ?S] :-
+        rdf_check_module(?OwlMod),
+        ?S[?_P -> ?_O]@?OwlMod.
+
+// returns all the objects
+// System[rdf_object(rdfStorage)->?O]@\owl.
+?OwlMod[rdf_object -> ?O] :-
+        rdf_check_module(?OwlMod),
+        ?_S[?_P -> ?O]@?OwlMod.
+
+// True when O can be reached from S using the transitive closure
+// of P in module ?OwlMod
+// Potentially expensive.
+?S[rdf_reachable(?OwlMod,?P) -> ?O] :-
+        rdf_check_module(?OwlMod),
+        rdf_reachable(?S,?P,?O,?OwlMod).
+
+rdf_reachable(?S,?P,?O,?OwlMod) :- ?S[?P->?O]@?OwlMod.
+rdf_reachable(?S,?P,?O,?OwlMod) :-
+        rdf_reachable(?S,?P,?Interim,?OwlMod),
+        ?Interim[?P->?O]@?OwlMod.
+
+?OwlMod[rdf_insert(?S,?P,?O)] :-
+        rdf_check_module(?OwlMod),
+        isnonvar{?S}, isnonvar{?P}, isnonvar{?O},
+        rdf_check_module_format(?OwlMod,?Method),
+        (?Method == fastload -->>
+            fastload_insert(?OwlMod,?P(?S,?O),?)@\prolog(ergo_fastloader)
+        ; ?Method == frames -->>  insert{?S[?P->?O]@?OwlMod}
+        ; insert{?P(?S,?O)@?OwlMod}
+        ).
+
+// fails if nothing is deleted
+?OwlMod[rdf_delete(?S,?P,?O)] :-
+        rdf_check_module(?OwlMod),
+        rdf_check_module_format(?OwlMod,?Method),
+        (?Method == fastload -->>
+            fastload_delete(?OwlMod,?P(?S,?O),?Deleted)@\prolog(ergo_fastloader),
+            ?Deleted == 1
+        ; ?Method == frames -->> delete{?S[?P->?O]@?OwlMod}
+        ; delete{?P(?S,?O)@?OwlMod}
+        ).
+
+// always succeed, deletes everything from the trie
+?OwlMod[rdf_deleteall] :-
+        rdf_check_module(?OwlMod),
+        rdf_check_module_format(?OwlMod,?Method),
+        ?Method == fastload,
+        !,
+        // incr_storage_delete_all does not seem to be doing the incremental
+        // action, so we trigger incrementality via this
+        // fake incr_storage_delete_fact
+        (fastload_delete(?OwlMod,?(?,?),?)@\prolog(ergo_fastloader)
+        ; true
+        ),
+        !,
+        (fastload_deleteall(?OwlMod)@\prolog(ergo_fastloader) ; true),
+        !,
+        // recreate the empty trie; otherwise, XSB gets confused
+        fastload_create_storage(?OwlMod)@\prolog(ergo_fastloader).
+// if frames/predicates format
+?OwlMod[rdf_deleteall] :- erasemodule{?OwlMod}.
+
+
+
+// rdf_literal(?Term)
+// True if Term is a known literal.
+
+// rdf_bnode(?BNode)
+// True if BNode is a currently known blank node. 
+
+// rdf_iri(?IRI)
+// True if IRI is a current IRI.
+
+//rdf_name(?Name)
+//True if Name is a current IRI or literal.
+
+//rdf_statistics(?KeyValue)
+//Total number of triples in the database.
+
+
+rdf_check_module(?OwlMod) :-
+        isnonvar{?OwlMod},
+        isloaded{?OwlMod},
+        rdf_loaded_module(?OwlMod,?),
+        !.
+rdf_check_module(?OwlMod) :-
+        flora_concat_atoms(['<ErgoOWL API> no RDF files were loaded into module ', ?OwlMod], ?Message)@\prolog(flrporting),
+        sysabort(?Message)@\sys.
+
+rdf_check_module_format(?Mod,?OutFormat) :-
+        isnonvar{?Mod},
+        isnonvar{?OutFormat},
+        rdf_loaded_module(?Mod,?OutFormat2),
+        ?OutFormat \== ?OutFormat2,
+        !,
+        flora_concat_atoms(['<ErgoOWL API> RDF module ', ?Mod,
+                            ' was created via the method `', ?OutFormat2,
+                            '''; cannot change the method to `', ?OutFormat,
+                            ''''],
+                            ?Message)@\prolog(flrporting),
+        sysabort(?Message)@\sys.
+rdf_check_module_format(?Mod,?OutFormat) :-
+        isnonvar{?Mod},
+        rdf_loaded_module(?Mod,?OutFormat),
+        !.
+rdf_check_module_format(?_Mod,?_OutFormat) :- !.

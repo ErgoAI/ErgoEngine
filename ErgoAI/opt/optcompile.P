@@ -1,0 +1,123 @@
+/* File:      opt/optcompile.P  -- the Ergo compiler preprocessor
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, 2014-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+%% This preprocessor is invoked using compiler_options([xpp_on(gpp,optcompile)])
+
+:- import register_xsb_preprocessor/2 from parse.
+:- import xsb_configuration/2 from xsb_configuration.
+:- import slash/1 from machine.
+:- import
+	flora_running_under/1,
+	flora_double_backslash/2
+   from flrporting.
+:- import flora_configuration/2 from flrregistry.
+
+?- register_xsb_preprocessor(optcompile,ergo_preprocess_cmd(_,_,_,_)).
+?- load_structures.
+
+ergo_preprocess_cmd(_InputFile,_PreprocName,_Options,Cmd) :-
+	xsb_configuration(config_bindir,ConfigBindir),
+	opt_installdir(FlrInstallDir),
+	slash(Slash),
+	(flora_running_under(windows) ->
+	    flora_double_backslash(FlrInstallDir,FlrInstallDir2),
+	    fmt_write_string(Flr2File, '"%s%s%sflora2"', arg(FlrInstallDir2,Slash,Slash)),
+	    fmt_write_string(Cmd,
+			     '"%s%s%sxsb" --noprompt --quietload --nobanner --nofeedback -e "add_lib_dir(a(''%s'')),[''%s''],see(userin),ergo_cmpopt,halt."',
+			     f(ConfigBindir,Slash,Slash,FlrInstallDir2,Flr2File))
+	;
+	    fmt_write_string(Flr2File, '"%s%sflora2"', arg(FlrInstallDir,Slash)),
+	    fmt_write_string(Cmd,
+			     '"%s%sxsb" --noprompt --quietload --nobanner --nofeedback -e "add_lib_dir(a(''%s'')),[''%s''],see(userin),ergo_cmpopt,halt."',
+			     f(ConfigBindir,Slash,FlrInstallDir,Flr2File))
+	).
+	
+%% postprocess the output from gpp
+ergo_cmpopt :-
+	repeat,
+	read(Term),
+	(Term == end_of_file -> true
+	;
+	    opttransform(Term,OptTermList),
+	    optwrite_rules(OptTermList),
+	    fail
+	).
+
+opttransform((H:-(Guard1;Guard2),Rest),OptTermList) :-
+        optget_guarded_clauses((H :- Rest),Guard1,OptTermList1),
+        optget_guarded_clauses((H :- Rest),Guard2,OptTermList2),
+        !,
+        basics:append(OptTermList1,OptTermList2,OptTermList).
+opttransform((H :- (Guard1;Guard2)),OptTermList) :-
+        optget_guarded_clauses(H,Guard1,OptTermList1),
+        optget_guarded_clauses(H,Guard2,OptTermList2),
+        !,
+        basics:append(OptTermList1,OptTermList2,OptTermList).
+
+opttransform((H:-Guard,Rest),OptTermList) :-
+        optget_guarded_clauses((H :- Rest),Guard,OptTermList),
+	!.
+opttransform((H :- Guard),OptTermList) :-
+        optget_guarded_clauses(H,Guard,OptTermList),
+	!.
+
+%% catch-all
+opttransform(R,['_$_$^,,^tr^ergo'(R)]).
+
+
+optwrite_rules([]) :- !.
+optwrite_rules([RuleSpec|OptTermList]) :- 
+        (RuleSpec = '_$_$^,,^tr^ergo'(Rule) -> true
+        ; Rule = RuleSpec,
+            writeln('%% TRANSFORMED')
+        ),
+	write_canonical(Rule),
+	writeln('.'),
+	optwrite_rules(OptTermList).
+
+
+optget_guarded_clauses(Template,Guard,Clauses) :-
+        nonvar(Guard),
+        findall(Template,preproc_struct(Guard),Clauses),
+        Clauses \= [].
+
+
+
+
+%% utilities
+
+opt_installdir(FlrInstallDir) :-
+	flora_configuration(installdir,FlrInstallDir).
+
+load_structures :-
+	opt_installdir(FlrInstallDir),
+	slash(Slash),
+	(flora_running_under(windows) ->
+	    flora_double_backslash(FlrInstallDir,FlrInstallDir2),
+	    fmt_write_string(CompStructures, '%s%s%sopt%s%soptstructures', arg(FlrInstallDir2,Slash,Slash,Slash,Slash))
+	;
+	    fmt_write_string(CompStructures, '%s%sopt%soptstructures', arg(FlrInstallDir,Slash,Slash))
+	),
+        %% loading does not seem to work, but dyn-loading does
+	%%[CompStructures].
+        load_dyn(CompStructures).
+

@@ -1,0 +1,49 @@
+/************************************************************************
+  file: headerinc/flrheader2_inc.flh
+
+  Author(s): Michael Kifer
+
+  This file is automatically included by the Flora-2 compiler.
+  It has files that must be included in the header and typically
+  contain some Prolog statements. Such files cannot appear
+  in flrheader.flh because flrheader.flh is included in various restricted
+  contexts where Prolog statements are not allowed.
+
+  NOT included in ADDED files (compiled for addition) -- only in LOADED
+  ones and in trailers/patch
+************************************************************************/
+
+:-(compiler_options([xpp_on])).
+
+#define TABLING_CONNECTIVE  :-
+
+%% flora_tabling_methods is included here to affect preprocessing of
+%% flrtable/flrhilogtable.flh dynamically
+#include "flora_tabling_methods.flh"
+
+/* note: inside flrtable.flh there are checks for FLORA_NONTABLED_DATA_MODULE
+   that exclude tabling non-signature molecules
+*/
+#ifndef FLORA_NONTABLED_MODULE
+#include "flrtable.flh"
+#endif
+
+/* if normal tabled module, then table hilog */
+#if !defined(FLORA_NONTABLED_DATA_MODULE) && !defined(FLORA_NONTABLED_MODULE)
+#include "flrhilogtable.flh"
+#endif
+
+#include "flrtable_always.flh"
+
+#include "flrauxtables.flh"
+
+%% include list of tabled predicates
+#mode save
+#mode nocomment "%"
+#if defined(FLORA_FLT_FILENAME)
+#include FLORA_FLT_FILENAME
+#endif
+#mode restore
+
+/***********************************************************************/
+

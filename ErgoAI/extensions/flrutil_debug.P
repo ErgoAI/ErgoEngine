@@ -1,0 +1,138 @@
+/* File:   extensions/flrutil_debug.P -- Various debugging Java-related support
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2016-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+#include "flrheader.flh"
+#define ALL_MODULES    'all modules'
+
+:- import
+        flora_user_module_registry/1
+   from flrregistry.
+:- import
+        flora_load_system_module/1
+   from flrlibman.
+:- import
+        flora_decode_goal_as_atom_substitute_vars/2
+   from flrdecode.
+:- import
+        ipListenerWindow/1,
+        editGtGetResult/3
+   from usermod.
+
+:- import
+        FLORA_WORKSPACE(FLSYSMODSYSTEM_UNQ,system_turn_off_debug_all)/1,
+        FLORA_WORKSPACE(FLSYSMODSYSTEM_UNQ,system_turn_off_debug)/2,
+        FLORA_WORKSPACE(FLSYSMODSYSTEM_UNQ,system_turn_on_debug_all)/1,
+        FLORA_WORKSPACE(FLSYSMODSYSTEM_UNQ,system_turn_on_debug)/2,
+        FLORA_WORKSPACE(FLSYSMODSYSTEM_UNQ,system_ignore_undefined_errors)/2
+   from usermod.
+
+:- export set_mustDefine/0.
+
+set_mustDefine :-
+        ergo_gui_mode,
+        !,
+        check_ergo_gui_busy('mustDefine{}'),
+        (initialize_java ; true),
+        (ipListenerWindow(W) ; W = null),
+        findall(Module,flora_user_module_registry(Module),ModuleList),
+        !,
+        GT = gt('Treatment of calls with no axioms',
+                [class = 'com.xsb.xj.containers.LabelValueColumn',
+                 label_anchor = west,
+                 updatable],
+                [
+                 gt('   ', [atom,readonly,nonpersistent],[]), %% spacer
+                 gt('',
+                    [caption='If unsupported call:  ',
+                     atom,readonly,nonpersistent],
+                    [
+                     gt(_,
+                        [comboBox(error,[error,ignore]),
+                         tip = 'Action when calling a predicate/frame that has no rules of facts to support it'
+                        ],[]),
+                     gt('      Module:  ',[atom,readonly,nonpersistent],[]),
+                     gt(_,
+                        [comboBox(ALL_MODULES,[ALL_MODULES|ModuleList]),
+                         tip = 'Apply setting to this module'
+                        ],[])
+                    ]),
+                 gt('   ', [atom,readonly,nonpersistent],[]), %% spacer
+                 gt('',
+                    [caption='Do not issue errors for:    ',atom,readonly,nonpersistent],
+                    [
+                     gt(_,
+                        [atom, optional,
+                         typicalSize =  32,
+                         tip = 'Patterns for which errors are not to be issued',
+                         emptyTip='E.g.,   (?(?)@foo,  ?[bar->?]@\@,  ?(?)@?,  ?:class@foo)'
+                        ],[])
+                    ]),
+                 gt('   ', [atom,readonly,nonpersistent],[]) %% spacer
+                ]),
+        editGtGetResult(W,GT,Result),
+        Result =.. [_,Action,Module,IgnorePattern],
+        flora_load_system_module(FLSYSMODSYSTEM),
+        (Action==ignore ->
+            set_mustDefineOff(Module)
+        ; %% error
+            set_mustDefineOn(Module,IgnorePattern)
+        ).
+
+set_mustDefine :-
+        flora_abort('mustDefine{} is defined only for the GUI mode',FLORA_ABORT_NOTRACE).
+        
+set_mustDefineOn(Module,IgnorePattern) :-
+        (var(IgnorePattern) -> set_mustDefineOn(Module)
+        ; set_mustDefineOn(Module),
+            set_mustDefineIgnore(IgnorePattern)
+        ).
+
+set_mustDefineOff(Module) :-
+        (Module == ALL_MODULES ->
+            FLORA_WORKSPACE(FLSYSMODSYSTEM_UNQ,system_turn_off_debug_all)(_)
+        ; FLORA_WORKSPACE(FLSYSMODSYSTEM_UNQ,system_turn_off_debug)(Module,_)
+        ).
+
+set_mustDefineOn(Module) :-
+        (Module == ALL_MODULES ->
+            FLORA_WORKSPACE(FLSYSMODSYSTEM_UNQ,system_turn_on_debug_all)(_)
+        ; FLORA_WORKSPACE(FLSYSMODSYSTEM_UNQ,system_turn_on_debug)(Module,_)
+        ).
+
+%% IgnorePattern - atom that should represent the pattern
+set_mustDefineIgnore(IgnorePattern) :-
+        get_goal_from_string(IgnorePattern,Code,Outcome),
+        (Outcome \== error -> 
+            FLORA_WORKSPACE(FLSYSMODSYSTEM_UNQ,system_ignore_undefined_errors)(Code,_)
+        ; 
+            %%print_errors(_ErrorList)
+            flora_decode_goal_as_atom_substitute_vars(IgnorePattern,IgnorePatternAtm),
+            flora_abort(['syntax error in the specification of the pattern(s) for which undefinedness is to be ignored, ', IgnorePatternAtm], FLORA_ABORT_NOTRACE)
+        ).
+
+%% Outcome \== error -> good
+:- export get_goal_from_string/3.
+get_goal_from_string(Goal,Code,Outcome) :-
+        flora_concat_atoms(['${',Goal,'}.'],ReifiedGoal),
+        Source = atom(ReifiedGoal),
+        flora_read_parse_compile_build_term(Source,Code,_Module,Status),
+        Status = [Outcome,_|_ErrorList].

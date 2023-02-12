@@ -1,0 +1,123 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhichOfTheFollowingIsInCentrosome (query 1)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28derived_from.29_Princeton_APR_Ch._7_quiz.2C_question_8_.28p._111.29
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(relationAllExistsCount, relationAllExistsMin)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genls(Centrosome, MicrotubuleOrganizingCenter)).
+
+// Explicit Background Facts
+istAsserted(MicrobiologyMt, relationAllExistsCount(properPhysicalParts, Centrosome, Centriole, 2)).
+
+// Explicit Background Rules
+backwardSentence(relationAllExists(?SLOT, ?UNIV_COL, ?EXIST_COL)) :- mtVisible(BaseKB), naf backchainForbidden(relationAllExists), relationAllExistsMin(?SLOT, ?UNIV_COL, ?EXIST_COL, ?NUM), greaterThan(?NUM, 0).
+backwardSentence(not(greaterThan(?NUM, 0))) :- mtVisible(BaseKB), naf backchainForbidden(greaterThan), relationAllExistsMin(?SLOT, ?UNIV_COL, ?EXIST_COL, ?NUM), not(relationAllExists(?SLOT, ?UNIV_COL, ?EXIST_COL)).
+backwardSentence(not(relationAllExistsMin(?SLOT, ?UNIV_COL, ?EXIST_COL, ?NUM))) :- mtVisible(BaseKB), naf backchainForbidden(relationAllExistsMin), not(relationAllExists(?SLOT, ?UNIV_COL, ?EXIST_COL)), greaterThan(?NUM, 0).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260657', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260657', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Collection-260658', Collection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-Collection-260658', Thing)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260657', MtTimeDimFn(Now)), relationAllExists(properPhysicalParts, 'HYP-Collection-260658', G2Phase)).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260660', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260660', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Collection-260661', Collection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-Collection-260661', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260660', MtTimeDimFn(Now)), genls('HYP-Collection-260661', MicrotubuleOrganizingCenter)).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260663', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260663', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Collection-260664', Collection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-Collection-260664', Thing)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260663', MtTimeDimFn(Now)), relationAllExists(properPhysicalParts, 'HYP-Collection-260664', Chromatin)).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260667', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260667', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Collection-260668', Collection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-Collection-260668', Thing)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260667', MtTimeDimFn(Now)), relationAllExists(properPhysicalParts, 'HYP-Collection-260668', Centromere)).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260671', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260671', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Collection-260672', Collection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-Collection-260672', Thing)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260671', MtTimeDimFn(Now)), relationAllExists(properPhysicalParts, 'HYP-Collection-260672', Centriole)).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260675', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260675', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Collection-260676', Collection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-Collection-260676', Thing)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260675', MtTimeDimFn(Now)), relationAllExists(properPhysicalParts, 'HYP-Collection-260676', SPhase)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-WhichOfTheFollowingIsInCentrosome 1').
+%pretest :- genls(?CENTER, MicrotubuleOrganizingCenter), relationAllExists(properPhysicalParts, ?CENTER, ?WHAT), %write_results('SUCCESS  : $CPTTest-WhichOfTheFollowingIsInCentrosome 1').
+
+// Debugging
+proof(6545, 0) :- genls(Centrosome, MicrotubuleOrganizingCenter).
+proof(6545, 1) :- genls(Centrosome, MicrotubuleOrganizingCenter).
+proof(6545, 2) :- relationAllExistsMin(properPhysicalParts, Centrosome, Centriole, 2).
+proof(6545, 3) :- relationAllExistsMin(properPhysicalParts, Centrosome, Centriole, 2).
+proof(6545, 4) :- greaterThan(2, 0).
+proof(6545, 5) :- greaterThan(2, 0).
+proof(6545, 6) :- greaterThan(2, 0), relationAllExistsMin(properPhysicalParts, Centrosome, Centriole, 2).
+proof(6545, 7) :- greaterThan(2, 0), relationAllExistsMin(properPhysicalParts, Centrosome, Centriole, 2).
+proof(6545, 8) :- genls(Centrosome, MicrotubuleOrganizingCenter), greaterThan(2, 0), relationAllExistsMin(properPhysicalParts, Centrosome, Centriole, 2).
+proof(6545, 9) :- genls(Centrosome, MicrotubuleOrganizingCenter), relationAllExists(properPhysicalParts, Centrosome, Centriole).
+
+proof(6545, 1000) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(6545, 1001) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(6545, 1002) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(6545, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(6545, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(6545, 2002) :- admittedArgument(SecondFn(20, MinuteFn(57, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(6545, 2003) :- admittedArgument(SecondFn(20, MinuteFn(57, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(6545, 2004) :- greaterThan(2, 0).
+proof(6545, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(6545, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(6545, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MicrobiologyMt).
+proof(6545, 2008) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(6545, 2009) :- genlPreds(relationAllExistsCount, relationAllExistsMin).
+proof(6545, 2010) :- genls(Centrosome, MicrotubuleOrganizingCenter). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

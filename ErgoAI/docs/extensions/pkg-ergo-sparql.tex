@@ -1,0 +1,416 @@
+\chapter[Querying SPARQL Endpoints]
+{Querying SPARQL Endpoints\\
+  {\Large by Paul Fodor and Michael Kifer}}
+
+
+This chapter describes the \ERGO interface to 
+SPARQL endpoints (i.e., remote processors that
+support the SPARQL protocol---both querying and update statements),
+which is based on Apache Jena. It should be noted from the outset
+that several triple stores
+implement SPARQL extensions that go well beyond the SPARQL 1.1 protocol and
+Jena might not support some of them. The user will see syntax errors
+whenever such extensions are used in SPARQL queries or update statements.
+
+\section{General}
+
+The \ERGO-to-SPARQL API is available through the \ERGO system module
+\texttt{\bs{}sparql}
+and calling anything \texttt{@\bs{}sparql}  will load that module. If, however, for
+some reason it is necessary to load this module without executing any
+operations, one can accomplish this by calling 
+%% 
+\begin{itemize}
+\item  \texttt{ensure\_loaded@\bs{}sparql}. 
+\end{itemize}
+%% 
+
+Prior to performing any queries against a SPARQL endpoint the user must
+\emph{open} a \emph{connection} to that endpoint.
+A connection is identified via \ERGO symbols, like \texttt{MyConnection123},
+which are chosen by the user.
+An endpoint is usually capable of supporting either queries (\emph{query
+endpoint})   or updates (\emph{update endpoint}), but not both.  
+%% 
+\begin{itemize}
+\item
+  \texttt{System[open(?ConnectionId,?EndpointURL,?Username,?Password)]@\bs{}sparql}.
+  Binds \texttt{?ConnectionId} to a \emph{query} endpoint specified by the
+  \texttt{?EndpointURL} URL.  (See about \emph{update} endpoints
+  below.) 
+  \texttt{?ConnectionId}  must be bound to an \ERGO symbol (Prolog atom);
+  it is a connection identifier, and it is chosen by the user.
+  After opening, the connection Id
+  can be used to query the endpoint without re-authentication.
+  \texttt{?EndpointURL} must be the URL of a valid \emph{query}
+  endpoint to which the user wishes
+  to connect. It must be an atom.
+  \texttt{Username}, and 
+  \texttt{?Password}  must be bound to Prolog atoms (\ERGO
+  symbols).  
+  \\
+  \emph{Example}:\\
+  \texttt{System[open(DBPEDIAConnectionID,'http://dbpedia.org/sparql','','')]@\bs{}sparql}. 
+  \\
+  Binds the symbol \texttt{DBPEDIAConnectionID}  to the given
+  \emph{query} endpoint
+  with empty credentials (no user id or password). 
+  If the connection fails due to an error at the endpoint URL or the user 
+  credentials, an error will be issued.
+  If the connection is successful, the query will succeed and one can use
+  \texttt{DBPEDIAConnectionID} to query the specified endpoint.
+\item
+  \texttt{System[open(update(MyConnection),'http://localhost:7200/repositories/test/\\statements','','')]@\bs{}sparql}.
+  \\
+  Due to the peculiarities of the SPARQL 1.1 protocol, triple stores
+  usually maintain \emph{different} endpoints (with different URLs!) for
+  query and update operations. So, to both query and update the same triple
+  store one must open two connections. The above form of the \texttt{open} 
+  statement is used if one wants to connect to an \emph{update}
+  endpoint.
+\item \texttt{System[connectionType(?ConnectionId) -> ?Type]@\bs{}sparql}.\\
+  Sometimes one might need to test programmatically if a particular
+  connection is already open and get its connection type. This can be
+  accomplished with the above call.
+  \\
+  If the connection is open, \texttt{?Type} gets bound to \texttt{query} or
+  \texttt{update}---whichever applies. If the connection is not open, the
+  call fails.   
+\item \texttt{System[connectionURL(?ConnectionId) -> ?URL]@\bs{}sparql}.\\
+  Like \texttt{connectionType} but returns the URL of the connection's 
+  target endpoint instead of the connection's type.
+\item  \texttt{System[close(?ConnectionId)]@\bs{}sparql}.
+  \texttt{ConnectionId} must be an id of a previously open (and not yet
+  closed) connection to a SPARQL end point.
+  The method closes the connection and releases the space it holds.
+  \\
+  \emph{Example}:\\
+  \texttt{System[close(DBPEDIAConnectionID)]@\bs{}sparql}. 
+\end{itemize}
+%% 
+
+It should be noted that closing a connection is usually \emph{not} necessary
+because each connection involves a relatively small memory overhead and the
+memory is released when \ERGO exits.
+This only becomes a problem if
+the user opens (and keeps open) hundreds of thousands
+connections. The only real inconvenience with keeping many connections open
+is that one must keep all the names distinct.
+
+Finally, it should be kept in mind
+that all the definitions and examples in this chapter
+show \ERGO statements in the context of a query or of a rule body. It should be
+clear that these statements cannot be put in rule heads. If one wants to
+execute them from within a file, they have to be prefixed with a
+\texttt{?-}, as usual. For instance,
+%% 
+\begin{verbatim}
+    ?- System[close(DBPEDIAConnectionID)]@\sparql.
+\end{verbatim}
+%% 
+
+
+
+\section{Queries and Updates}
+
+The \ERGO-to-SPARQL API supports several kinds of queries:
+ \texttt{select},
+ \texttt{selectAll},
+ \texttt{construct}, 
+ \texttt{ask},
+ \texttt{describe}, 
+ \texttt{describeAll}, 
+ and 
+ \texttt{update}.   
+ Recall that SPARQL normally uses different endpoints for queries and
+ updates. Accordingly,
+ the first six statements utilize connections that were previously open and
+ bound to SPARQL \emph{query} endpoints. The last (\texttt{update})
+ statement utilizes connections that are bound to \emph{update} endpoints.   
+%% 
+\begin{itemize}
+\item  \texttt{Query[select(?ConnectionId,?Query)->?Result]@\bs{}sparql} 
+  \\
+  runs a SPARQL SELECT 
+  \texttt{?Query} and successively binds \texttt{?Result} to each answer via
+  backtracking. 
+  The \texttt{?Query} must be an \ERGO atom \emph{or} a  list. In the former case,
+  the atom must form a valid SPARQL query. In the
+  latter case, the list elements (which typically are \ERGO 
+  atoms and variables)
+  are converted into atoms and concatenated
+  to form a valid SPARQL query.
+  If the query is not valid, a syntax error is issued.
+  Forming a query using lists is usually necessary only if one wants to pass
+  values through variables from \ERGO to the query. The first example below
+  does not pass any
+  variables to the query, so we represent the query simply as an atom.
+  The second example is more interesting, as it passes the \ERGO variable
+  \texttt{?Subj}   into
+  the query and so we use a list.
+  \\
+  \emph{Example}: \\
+  \texttt{Query[select(DBPEDIAConnectionID,'SELECT * WHERE \{?x ?r ?y\}
+    LIMIT 2')\\\hspace*{2cm}
+    -> ?Result]@\bs{}sparql}.
+  \\
+\emph{Output}:
+\begin{verbatim}
+?Result=
+   ["http://www.openlinksw.com/virtrdf-data-formats#default-iid"^^\iri,
+    rdf#type,
+    "http://www.openlinksw.com/schemas/virtrdf#QuadMapFormat"^^\iri]
+?Result=
+   ["http://www.openlinksw.com/virtrdf-data-formats#default-iid-nullable"^^\iri,
+    rdf#type,
+    "http://www.openlinksw.com/schemas/virtrdf#QuadMapFormat"^^\iri]
+\end{verbatim}
+  %% 
+  \emph{Example}: \\
+  \verb|?Subj="http://dbpedia.org/ontology/person"^^\iri,|
+  \texttt{Query[select(DBPEDIAConnectionID,
+    \\\hspace*{25mm}
+    ['SELECT * WHERE \{', ?Subj, '?r ?y\} LIMIT 2'])
+    \\ \hspace*{12mm}
+    -> ?Result]@\bs{}sparql.}
+  \\
+  Note that this query passes the binding from the variable
+  \texttt{?Subj} into the query. 
+  It is important to not confuse \ERGO variables, like \texttt{?Subj}, with
+  SPARQL variables, like \texttt{?r} and \texttt{?y}, in the above query.
+  From the \ERGO perspective, \texttt{?Subj} is a real logical variable 
+  and its binding is substituted into the
+  list that forms the query. Without knowing anything about the actual SPARQL
+  variables, \ERGO nevertheless ``magically'' successively binds the variable
+  \texttt{?Result}  to the lists of pairs
+  $[r_1,y_1],[r_2,y_2],...,[r_k,y_k]$, where each $r_i,y_i$ are
+  the answers returned by SPARQL.
+  In contrast, \texttt{?r} and \texttt{?y} are
+  seen by \ERGO simply as sequences of characters that form the string
+  \texttt{'?r ?y\} LIMIT 2'} that becomes part of the query after the list
+  is concatenated. In fact, \ERGO does not even look inside that string.
+  From SPARQL perspective, on the other hand, \texttt{?r}
+  and \texttt{?y} are real variables through which it passes the answers to
+  the query. In contrast, SPARQL does not see the \ERGO
+  variable \texttt{?Subj} at all, as the binding for
+  that variable becomes part of the query list before the actual query is
+  formed and sent to SPARQL processor.
+  
+\item \texttt{Query[selectAll(?ConnectionId,?Query)->?ResultList]@\bs{}sparql}
+  \\
+  runs a SPARQL query, similarly to \texttt{select}, 
+  except that \emph{all} results are returned at once
+  in the list \texttt{?ResultList}. In contrast, the \emph{select} query
+  returns the results from the query one-by-one. 
+  Since we do not pass any values from \ERGO to the query, we represent the
+  query simply as an atom.
+  \\
+   \emph{Example}: \\
+  \texttt{Query[selectAll(DBPEDIAConnectionID,'SELECT * WHERE \{?x ?r ?y\} LIMIT 2')
+    \\\hspace*{12mm}
+    -> ?ResultList]@\bs{}sparql}.
+   \\
+\emph{Output}:
+\begin{verbatim}
+?Result=
+   [["http://www.openlinksw.com/virtrdf-data-formats#default-iid"^^\iri,
+     rdf#type,
+     "http://www.openlinksw.com/schemas/virtrdf#QuadMapFormat"^^\iri],
+    ["http://www.openlinksw.com/virtrdf-data-formats#default-iid-nullable"^^\iri,
+     rdf#type,
+     "http://www.openlinksw.com/schemas/virtrdf#QuadMapFormat"^^\iri]]
+\end{verbatim}
+  %% 
+  
+
+\item \texttt{Query[construct(?ConnectionId,?Query)->?Result]@\bs{}sparql}
+  \\
+  runs a 
+  SPARQL \texttt{CONSTRUCT}  query.
+  As before, \texttt{?Query} must be bound either to an atom (which must be
+  a valid CONSTRUCT query) or to a list, which must concatenate into such a
+  valid query. The latter, again, is used to pass values to the query via
+  variables. 
+  The CONSTRUCT query is an alternative
+  query to SELECT, that instead of returning a table of results
+  returns an RDF graph. The resulting RDF graph is created by taking
+  the results of the equivalent SELECT query and filling in the values of
+  variables that occur in the CONSTRUCT clause.
+  The resulting graph (a list of triples) is then bound to \texttt{?Result}. 
+  \\
+  \emph{Example}: \\
+  \texttt{Query[construct(DBPEDIAConnectionID,'CONSTRUCT
+    {<http://example3.org/person> ?r ?y} WHERE {?x ?r ?y}  LIMIT
+    2')->?Res]@\bs{}sparql}.
+
+  Note that the query refers to a URL constant
+  \texttt{<http://example3.org/person>}  using the SPARQL syntax for
+  URLs (angle brackets). This syntax differs from the syntax for URLs in
+  \ERGO, which is
+  \texttt{"http://example3.org/person"$\hat{~}\hat{~}$\bs{}iri}. Note that
+  in the second example for SELECT we passed an IRI to the query using
+  the \ERGO syntax. \ERGO IRIs are converted to SPARQL URLs automatically.
+  However, in that example, we could as well use an atom that represents
+  the desired URL. For instance,
+  \verb|?Subj = '<http://dbpedia.org/ontology/person>'|.
+
+\item \texttt{Query[ask(?ConnectionId,?Query)]@\bs{}sparql}\\
+  runs a SPARQL ASK query.
+ An ASK query tests whether or not a query pattern has a solution.
+ It does not return any results and simply succeeds or fails.
+  \\
+  \emph{Example}: \\
+  \texttt{Query[ask(DBPEDIAConnectionID,'ASK \{?x ?prop  "Alice"\}')]@\bs{}sparql}.\\
+  \emph{Output}: 'Yes' because DBpedia has a matching triple.
+  
+\item \texttt{Query[describe(?ConnectionId,?Query)->?Result]@\bs{}sparql}
+  \\
+  runs a SPARQL DESCRIBE query, which returns descriptions of
+  RDF resources. These descriptions are bound to \texttt{?Result}. 
+  \\
+  \emph{Example}: \\
+  \texttt{Query[describe(DBPEDIAConnectionID,'DESCRIBE ?y WHERE \{?x ?r ?y\} LIMIT 1')->?Result]@\bs{}sparql}.
+
+\item \texttt{Query[update(?ConnectionId,?Query)]@\bs{}sparql}\\
+  runs update operations on connection \texttt{?ConnectionId}, which must
+  be bound to an \emph{update} endpoint.  The operations are
+  \emph{insert}, \emph{delete},
+  \emph{modify}, \emph{load}, and \emph{clear} (described in the standard: 
+  \url{https://www.w3.org/TR/sparql11-update/}). 
+  The update requires an update-enabled RDF triple server (e.g., GraphDB,
+  Jena TDB, Virtuoso Universal Server).      
+  \\
+  \emph{Examples}: 
+  \\
+  \texttt{Query[update(ServerConnectionID,\\
+    \hspace*{22mm}
+    'PREFIX dc: <http://purl.org/dc/elements/1.1/> 
+    \\
+    \hspace*{24mm}
+          INSERT DATA \{ <http://example/john> dc:title "A new book" ;
+    \\
+    \hspace*{54mm}
+    dc:creator	"A.N.Other" . \}')]@\bs{}sparql}.
+  \\
+  \texttt{Query[update(ServerConnectionID,\\
+    \hspace*{22mm}
+    'PREFIX dc: <http://purl.org/dc/elements/1.1/>
+    \\
+    \hspace*{24mm}
+    DELETE DATA \{ <http://example/john> dc:title "A new book" ;
+    \\
+    \hspace*{54mm}
+    dc:creator	"A.N.Other" . \}')]@\bs{}sparql}.
+\end{itemize}
+%%
+Here \texttt{ServerConnectionID} must be an endpoint that was previously
+open on an update endpoint.
+
+In addition, there are \texttt{constructAll} and \texttt{describeAll}
+queries, which are related to \texttt{construct} and \texttt{describe}
+queries the same way \texttt{selectAll} is related to \texttt{select}: the
+variable \texttt{?Result} gets bound to a list that contains all answers
+rather than one answer at a time.       
+
+Additional examples of queries to standard endpoints (e.g., DBpedia and Wikidata
+SPARQL endpoints) are provided in Coherent's ErgoAI Tutorial,
+in the section on \ERGO connectors,
+at
+\url{https://sites.google.com/a/coherentknowledge.com/ergo-suite-tutorial/home/ergo-connectors}.
+
+\section{Creating Your Own Triple Store}
+
+A number of public SPARQL endpoints, such as DBpedia, exist in order to
+play with SPARQL queries. However, if one wants to modify triples in the
+store and create endpoints, a local (or a cloud) installation is needed.
+In this section, we provide the instructions for two triple stores: GraphDB
+fro Ontotext and Apache's Jena TDB with Fuseki server.
+
+\subsection{GraphDB}
+
+We found that GraphDB from Ontotext (\url{http://graphdb.ontotext.com/}) is
+one of the easiest to install, maintain, and experiment with. This is a
+commercial triple store, but by registering
+(\url{http://info.ontotext.com/graphdb-free-ontotext} one can obtain a free
+license, which supports all major features of the product for small
+projects.  To
+install GraphDB, use the installation package appropriate for your system.
+Below are the instructions for Ubuntu Linux (Mint Linux with Cinnamon, to
+be precise).
+
+After installing the \texttt{graphdb-free-7.1.0.deb} package (provided to
+you by Ontotext after registering), you will find
+GraphDB in the Programming category in the Start menu.
+Choosing GraphDB from the menu will open a console and a Firefox browser 
+with a tab open on the GraphDB workbench. If you don't have Firefox installed,
+just head to \texttt{localhost:7200}  in your favorite browser.
+The Workbench lets you create new triple stores (in the \texttt{Admin}
+menu), put information into the store, and query it.
+Since we want to query our triple store using \ERGO, skip the query/update
+form: just use the \texttt{Admin} menu to create/administer your
+store.
+
+Let's suppose we created a triple store called \texttt{Test}. 
+In response, GraphDB creates two endpoints:
+\url{http://localhost:7200/repositories/Test} --- a query endpoint and
+\url{http://localhost:7200/repositories/Test/statements} --- an update endpoint.
+By opening an \ERGO query connection to the former endpoint
+and an update connection to the latter you will be able to
+use \ERGO to manage your own triple store!
+
+\subsection{Jena TDB}
+
+Jena TDB from Apache is an open source triple store with full support for
+the SPARQL 1.1 protocol.
+To install it, visit \url{http://jena.apache.org/download/#jena-fuseki}
+and download the latest Apache Jena Fuzeki. As of this writing, the latest
+release is
+\texttt{apache-jena-fuseki-2.4.0.zip} (or you can choose a tar.gz file).
+
+Unzip the above file in a desired directory (say, \texttt{TDB}), change to the directory
+\texttt{TDB/apache-jena-fuseki-2.4.0/} and type
+%% 
+\begin{verbatim}
+   fuseki-server --update --mem /test
+\end{verbatim}
+%% 
+(\texttt{fuseki-server.bat} on Windows).
+This will create an \emph{in-memory} triple store called \texttt{test}.
+Since it is an in-memory store, any data inserted into it will be deleted
+when the Fuseki server terminates (kill it by typing Ctrl-C).
+In addition, Fuseki will create two SPARQL endpoints: a query endpoint at
+\url{http://localhost:3030/test/query} and an update endpoint at
+\url{http://localhost:3030/test/update}. Use these endpoints to perform
+operations on this triple store via \ERGO.
+
+To create a persistent triple store, you need to create a subdirectory in
+\texttt{TDB/apache-jena-fuseki-2.4.0/}, say \texttt{MyTestDB} and then
+start the Fuseki server like this:
+%% 
+\begin{verbatim}
+   fuseki-server --update --loc=MyTestDB /test
+\end{verbatim}
+%% 
+Note that \texttt{MyTestDB} is the name of the directory in which to store
+the data while \texttt{test} is the name of the \emph{service}. So, the
+SPARQL endpoints for this persistent store would be the same as in the
+previous example:    \url{http://localhost:3030/test/query} and 
+\url{http://localhost:3030/test/update}.
+
+You can manage this and other triple stores on this server by heading to
+the Fuseki workbench site at \url{localhost:3030} in your favorite browser.
+
+To protect the triple stores with a password, edit the file 
+\texttt{TDB/apache-jena-fuseki-2.4.0/run/shiro.ini} and add
+users under the \texttt{[users]} section. For instance,
+%% 
+\begin{verbatim}
+[users]
+its_me=its_my_pw
+\end{verbatim}
+%% 
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora-packages"
+%%% End: 

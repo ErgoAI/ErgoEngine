@@ -1,0 +1,195 @@
+
+\section{Alerts} \label{sec-alerts}
+
+\index{alert}
+%%
+An \emph{alert} statement is a request to monitor a predicate or a frame
+(including isa- and subclass-literals) for certain predefined conditions.
+Note: the monitored predicate cannot be a complex subgoal, nor can it be a
+conjunction or disjunction, not even a \texttt{\bs{}naf} of something.
+It \emph{can} be a \texttt{\bs{}neg} of a predicate or a frame, however. 
+If the status of a predicate (or frame) monitored by an alert changes
+as a result of an update transaction, the alert is raised.
+At present, \ERGO supports these types of alerts:
+%% 
+\begin{itemize}
+\item  \texttt{conflict} alerts
+\item  \texttt{truth}  alerts
+\end{itemize}
+%% 
+\index{alert!of type conflict}
+\index{alert!of type truth}
+A \texttt{conflict} alert is raised if a monitored predicate or frame
+has a conflict \emph{after} a transaction and that conflict did not exist
+\emph{before} the transaction.
+
+For a true literal, \texttt{foo},  defined via \emph{non-defeasible} rules (see
+Section~\ref{sec-defeasible}), this means
+that \texttt{\bs{}neg} \texttt{foo} can also be derived and therefore the
+information about \texttt{foo} is contradictory.
+If foo is \emph{defeasible}, a conflict
+means that there is an \textit{opposing}
+literal \texttt{bar} (i.e., \texttt{\bs{}opposes}(\texttt{foo},\texttt{bar}) is
+true) and both \texttt{foo} and \texttt{bar} are derivable if defeasibility is
+disregarded.  Note that both \texttt{foo} and \texttt{bar} could be false due
+to being defeated and yet they maybe in conflict (and this is likely the
+reason why they were defeated).
+
+\texttt{Truth} alerts are simpler. A truth alert for a literal \texttt{foo}
+is raised after a transaction
+if \texttt{foo} was false before  the transaction and became true after.
+
+\index{alert!of type conflict}
+\paragraph{Conflict alerts.}
+To illustrate the concept of a conflict, suppose
+\texttt{employee(Acme,John,2016)} means that John works for Acme and
+\texttt{\bs{}neg employee(Acme,Bob,2017)} means that Bob was fired by Acme.
+If neither \texttt{employee(foo,bar)} nor \texttt{\bs{}neg
+  employee(foo,bar)} is true, it means that \texttt{foo} neither hired nor
+fired \texttt{bar}.   The management might want to be alerted if the same
+employee was hired and fired in the same year. Note that
+this is not a constraint, as hiring and firing of the same employee in the
+same year is \emph{not} an integrity violation.
+
+\index{alert\{...\} primitive}
+\index{primitive!alert\{...\}}
+To tell \ERGO that we would like to be notified about the aforesaid events,
+we can use the alert primitive:
+%% 
+\begin{verbatim}
+    ?-  +alert{conflict,employee(?,?,?)}.
+\end{verbatim}
+%% 
+Then, if \texttt{employee(Acme,John,2016)} already exists and we execute
+the transaction \texttt{insert\{\bs{}neg employee(Acme,John,2016)\}} then
+this alert will be raised:
+%% 
+\begin{verbatim}
+?-  insert{\neg employee(Acme,John,2016)}.
+
+*** Conflict alerts raised after transaction insert{\neg employee(Acme,John,2016)}:
+        employee(Acme,John,2016)
+    These alerts were activated on line 3 in file mykb.ergo
+\end{verbatim}
+%% 
+
+\index{callback!in alert}
+\index{alert!with callback}
+\paragraph{Alerts with callbacks.}
+Similarly to constraints, one can tell \ERGO to call a HiLog predicate when
+an alert is raised. Again as in the case of a constraint, the callback
+predicate must be at least one argument, and that argument must be unbound.
+It will be bound by the system to the list of alerts discovered during the
+transaction. 
+For instance, we could define
+%% 
+\begin{verbatim}
+    employee_alert_callback(?Alerts,?Module) :-
+            insert{employee_alerts(?Alerts)},
+            fmt_write('Employee alerts in module %s\n', arg(?Module))@\io,
+            fmt_write('The alerts %S are logged.\n', arg(?Alerts))@\io.
+\end{verbatim}
+%% 
+Then we could activate the alert using the 3-argument version of the
+\texttt{+alert\{...\}} primitive:
+%% 
+\begin{verbatim}
+    ?-  +alert{conflict,employee(?,?,?), employee_alert_callback(?,\@)}.
+\end{verbatim}
+%% 
+Recall that \texttt{\bs{}@} above is a quasi-constant denoting the current
+module. 
+
+\paragraph{Complex alerts.} Lest the reader thinks that only simple
+alerts can be specified using the above mechanism, here is a much more
+involved example. Suppose we want to be notified if an employee 
+was fired not only in the same year, but within less that 4 years. To do so, we
+cannot simply use the \texttt{employee} 
+predicate as before, but we can define what
+we need via rules:
+%% 
+\begin{verbatim}
+    longtime_or_current_employee(?Company,?Empl) :- employee(?Company,?Empl,?).
+    \neg longtime_or_current_employee(?Company,?Empl) :-
+            employee(?Company,?Empl,?Year),
+            \neg employee(?Company,?Empl,?Year2),
+            ?Year2 >= ?Year,
+            ?Year2 - ?Year < 4.
+    ?-  +alert{conflict,longtime_or_current_employee(?,?)}.
+\end{verbatim}
+%% 
+Now, a conflict alert will be raised whenever an employee is fired within
+4 years from hiring.  With a little bit of thinking, arbitrarily complex
+alerts can be specified with the help of rules using the above idea.
+
+\index{alert!of type truth}
+\paragraph{Truth alerts.}
+Truth alerts are defined similarly to conflict alerts except that
+\texttt{truth} is used as the first argument instead of \texttt{conflict}:
+%% 
+\begin{verbatim}
+    +alert{truth,longtime_or_current_employee(?,?)}.
+\end{verbatim}
+%% 
+If some instances of \texttt{longtime\_or\_current\_employee(?Company,?Empl)} 
+become true as a result of a transaction, a warning similar to conflict
+updates will appear. For instance,
+%%
+\begin{verbatim}
+*** Truth alerts raised after transaction insert{\neg employee(Acme,John,2016)}:
+        longtime_or_current_employee(Acme,John)
+        longtime_or_current_employee(GroupLTD,Bob)
+    These alerts were activated on line 3 in file mykb.ergo
+\end{verbatim}
+%% 
+Callbacks and deactivation of truth alerts are specified
+analogously to conflict alerts.
+
+Note that alerts of type \texttt{truth} have many similarities with
+integrity constraints described in
+Section~\ref{sec-kb-constraints}. Indeed, instead of
+%% 
+\begin{verbatim}
+   ?-  +constraint{COI(?,?)}.
+\end{verbatim}
+%% 
+in the examples in that section we could as well request
+%% 
+\begin{verbatim}
+   ?-  +alert{truth,COI(?,?)}.
+\end{verbatim}
+%% 
+and the results would be similar. Indeed, in both cases, the true instances of
+the query \texttt{COI(?Company, ?Person)} would be reported after each
+transaction. There are, however, several significant differences: 
+%% 
+\begin{itemize}
+\item  An alert is \emph{not} conceptualized as an integrity constraint, so
+  transactional updates will \emph{not} be rolled back, if the monitored
+  predicate becomes true.
+\item  An alert is raised only for the instances of the monitored
+  predicate that became true as a result of the preceding transaction.
+  Instances that were true before the transaction are not reported.
+  In contrast, constraint violations are always reported---new and
+  old---after each update transaction.
+\item Alerts are more expensive computationally than constraints because
+  they monitor the state of the knowledge base before and after each
+  transaction. A constraint checks only the after-states.
+\end{itemize}
+%% 
+
+Finally, we would like to remind something that important even if obvious:
+each alert results in a query (to find prior conflicts or truths)
+prior to evaluation of \emph{any}
+top-level query. It also results in an execution of \emph{another} query
+right after the previous top-level query, if the latter was a
+state-changing transaction. Therefore, one should keep the number of active
+alerts to absolute necessity and one should strive
+to keep the monitored predicates rather lightweight.
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

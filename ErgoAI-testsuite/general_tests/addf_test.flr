@@ -1,0 +1,17 @@
+?- add{addf_test_aux}.
+:- useudf{addf/2}.
+
+@!{P1Query(?x)} !- a [ p1 -> ?x ].
+
+@!{P2Query(?x)} !- a [ p2 -> ?x ].
+
+%tst1 :- query{P1Query(?x)}, writeln(test1=?x)@\plg.
+%tst2 :- query{P2Query(?x)}, writeln(test2=?x)@\plg.
+
+%pretest :- %tst1, %tst2.
+
+%test :- tell(temp)@\plg,
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        told@\plg.

@@ -1,0 +1,119 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-ProkaryoticCellCyclePreservesChromosomeNumber (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(subEvents, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genls(ProkaryoticCellCycle, CellCycle)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Explicit Background Rules
+backwardSentence(ratioOfTo(?N, ?M, 1)) :- mtVisible(BiologyMt), naf backchainForbidden(ratioOfTo), daughterCells(?DIV, ?OUTPUT), cellHasNumberOfChromosomes(?OUTPUT, ?M), parentCell(?DIV, ?INPUT), cellHasNumberOfChromosomes(?INPUT, ?N), subEvents(?CYCLE, ?DIV), isa(?CYCLE, CellCycle).
+backwardSentence(not(isa(?CYCLE, CellCycle))) :- mtVisible(BiologyMt), naf backchainForbidden(isa), daughterCells(?DIV, ?OUTPUT), cellHasNumberOfChromosomes(?OUTPUT, ?M), parentCell(?DIV, ?INPUT), cellHasNumberOfChromosomes(?INPUT, ?N), not(ratioOfTo(?N, ?M, 1)), subEvents(?CYCLE, ?DIV).
+backwardSentence(not(subEvents(?CYCLE, ?DIV))) :- mtVisible(BiologyMt), naf backchainForbidden(subEvents), daughterCells(?DIV, ?OUTPUT), cellHasNumberOfChromosomes(?OUTPUT, ?M), parentCell(?DIV, ?INPUT), cellHasNumberOfChromosomes(?INPUT, ?N), not(ratioOfTo(?N, ?M, 1)), isa(?CYCLE, CellCycle).
+backwardSentence(not(daughterCells(?DIV, ?OUTPUT))) :- mtVisible(BiologyMt), naf backchainForbidden(daughterCells), cellHasNumberOfChromosomes(?OUTPUT, ?M), parentCell(?DIV, ?INPUT), cellHasNumberOfChromosomes(?INPUT, ?N), not(ratioOfTo(?N, ?M, 1)), subEvents(?CYCLE, ?DIV), isa(?CYCLE, CellCycle).
+backwardSentence(not(cellHasNumberOfChromosomes(?OUTPUT, ?M))) :- mtVisible(BiologyMt), naf backchainForbidden(cellHasNumberOfChromosomes), daughterCells(?DIV, ?OUTPUT), parentCell(?DIV, ?INPUT), cellHasNumberOfChromosomes(?INPUT, ?N), not(ratioOfTo(?N, ?M, 1)), subEvents(?CYCLE, ?DIV), isa(?CYCLE, CellCycle).
+backwardSentence(not(parentCell(?DIV, ?INPUT))) :- mtVisible(BiologyMt), naf backchainForbidden(parentCell), daughterCells(?DIV, ?OUTPUT), cellHasNumberOfChromosomes(?OUTPUT, ?M), cellHasNumberOfChromosomes(?INPUT, ?N), not(ratioOfTo(?N, ?M, 1)), subEvents(?CYCLE, ?DIV), isa(?CYCLE, CellCycle).
+backwardSentence(not(cellHasNumberOfChromosomes(?INPUT, ?N))) :- mtVisible(BiologyMt), naf backchainForbidden(cellHasNumberOfChromosomes), daughterCells(?DIV, ?OUTPUT), cellHasNumberOfChromosomes(?OUTPUT, ?M), parentCell(?DIV, ?INPUT), not(ratioOfTo(?N, ?M, 1)), subEvents(?CYCLE, ?DIV), isa(?CYCLE, CellCycle).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259716', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259716', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-ProkaryoticCellCycle-259717', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259716', isa('HYP-ProkaryoticCellCycle-259717', ProkaryoticCellCycle)).
+istAsserted('Hypothesis-HypotheticalContext-259716', isa('HYP-ProkaryoticCellCycle-259717', OrganismReproductionEvent)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-259718', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259716', isa('HYP-Cell-259718', Cell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PositiveInteger-259719', PositiveInteger)).
+istAsserted(UniversalVocabularyMt, isa('HYP-ProkaryoticCell-259720', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259716', isa('HYP-ProkaryoticCell-259720', ProkaryoticCell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-PositiveInteger-259721', PositiveInteger)).
+istAsserted('Hypothesis-HypotheticalContext-259716', daughterCells('HYP-ProkaryoticCellCycle-259717', 'HYP-Cell-259718')).
+istAsserted('Hypothesis-HypotheticalContext-259716', cellHasNumberOfChromosomes('HYP-Cell-259718', 'HYP-PositiveInteger-259719')).
+istAsserted('Hypothesis-HypotheticalContext-259716', parentCell('HYP-ProkaryoticCellCycle-259717', 'HYP-ProkaryoticCell-259720')).
+istAsserted('Hypothesis-HypotheticalContext-259716', cellHasNumberOfChromosomes('HYP-ProkaryoticCell-259720', 'HYP-PositiveInteger-259721')).
+
+// Query
+queryMt('Hypothesis-HypotheticalContext-259716').
+//REMOVED TITLE('KBQ  : $CPTTest-ProkaryoticCellCyclePreservesChromosomeNumber 0').
+%pretest :- ratioOfTo('HYP-PositiveInteger-259721', 'HYP-PositiveInteger-259719', 1), %write_results('SUCCESS  : $CPTTest-ProkaryoticCellCyclePreservesChromosomeNumber 0').
+
+// Debugging
+proof(2675, 0) :- parentCell('HYP-ProkaryoticCellCycle-259717', 'HYP-ProkaryoticCell-259720').
+proof(2675, 1) :- parentCell('HYP-ProkaryoticCellCycle-259717', 'HYP-ProkaryoticCell-259720').
+proof(2675, 2) :- cellHasNumberOfChromosomes('HYP-ProkaryoticCell-259720', 'HYP-PositiveInteger-259721').
+proof(2675, 3) :- daughterCells('HYP-ProkaryoticCellCycle-259717', 'HYP-Cell-259718').
+proof(2675, 4) :- daughterCells('HYP-ProkaryoticCellCycle-259717', 'HYP-Cell-259718').
+proof(2675, 5) :- cellHasNumberOfChromosomes('HYP-Cell-259718', 'HYP-PositiveInteger-259719').
+proof(2675, 6) :- cellHasNumberOfChromosomes('HYP-Cell-259718', 'HYP-PositiveInteger-259719').
+proof(2675, 7) :- cellHasNumberOfChromosomes('HYP-Cell-259718', 'HYP-PositiveInteger-259719'), daughterCells('HYP-ProkaryoticCellCycle-259717', 'HYP-Cell-259718').
+proof(2675, 8) :- isa('HYP-ProkaryoticCellCycle-259717', CellCycle).
+proof(2675, 9) :- isa('HYP-ProkaryoticCellCycle-259717', CellCycle).
+proof(2675, 10) :- subEvents('HYP-ProkaryoticCellCycle-259717', 'HYP-ProkaryoticCellCycle-259717').
+proof(2675, 11) :- subEvents('HYP-ProkaryoticCellCycle-259717', 'HYP-ProkaryoticCellCycle-259717').
+proof(2675, 12) :- isa('HYP-ProkaryoticCellCycle-259717', CellCycle), subEvents('HYP-ProkaryoticCellCycle-259717', 'HYP-ProkaryoticCellCycle-259717').
+proof(2675, 13) :- isa('HYP-ProkaryoticCellCycle-259717', CellCycle), cellHasNumberOfChromosomes('HYP-ProkaryoticCell-259720', 'HYP-PositiveInteger-259721'), cellHasNumberOfChromosomes('HYP-Cell-259718', 'HYP-PositiveInteger-259719'), daughterCells('HYP-ProkaryoticCellCycle-259717', 'HYP-Cell-259718'), subEvents('HYP-ProkaryoticCellCycle-259717', 'HYP-ProkaryoticCellCycle-259717').
+proof(2675, 14) :- isa('HYP-ProkaryoticCellCycle-259717', CellCycle), cellHasNumberOfChromosomes('HYP-Cell-259718', 'HYP-PositiveInteger-259719'), cellHasNumberOfChromosomes('HYP-ProkaryoticCell-259720', 'HYP-PositiveInteger-259721'), daughterCells('HYP-ProkaryoticCellCycle-259717', 'HYP-Cell-259718'), subEvents('HYP-ProkaryoticCellCycle-259717', 'HYP-ProkaryoticCellCycle-259717').
+proof(2675, 15) :- isa('HYP-ProkaryoticCellCycle-259717', CellCycle), cellHasNumberOfChromosomes('HYP-Cell-259718', 'HYP-PositiveInteger-259719'), cellHasNumberOfChromosomes('HYP-ProkaryoticCell-259720', 'HYP-PositiveInteger-259721'), parentCell('HYP-ProkaryoticCellCycle-259717', 'HYP-ProkaryoticCell-259720'), daughterCells('HYP-ProkaryoticCellCycle-259717', 'HYP-Cell-259718'), subEvents('HYP-ProkaryoticCellCycle-259717', 'HYP-ProkaryoticCellCycle-259717').
+proof(2675, 16) :- ratioOfTo('HYP-PositiveInteger-259721', 'HYP-PositiveInteger-259719', 1).
+
+proof(2675, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(2675, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(2675, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(2675, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(2675, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(2675, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(2675, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(2675, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-259716', 1, genlMt).
+proof(2675, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-259716', 2, genlMt).
+proof(2675, 2002) :- admittedArgument('HYP-ProkaryoticCellCycle-259717', 1, subEvents).
+proof(2675, 2003) :- admittedArgument('HYP-ProkaryoticCellCycle-259717', 2, subEvents).
+proof(2675, 2004) :- genlMt('Hypothesis-HypotheticalContext-259716', UniversalVocabularyMt).
+proof(2675, 2005) :- genlMt('Hypothesis-HypotheticalContext-259716', 'Hypothesis-HypotheticalContext-259716').
+proof(2675, 2006) :- genlMt('Hypothesis-HypotheticalContext-259716', BiologyMt).
+proof(2675, 2007) :- isa('HYP-ProkaryoticCellCycle-259717', CellCycle).
+proof(2675, 2008) :- subEvents('HYP-ProkaryoticCellCycle-259717', 'HYP-ProkaryoticCellCycle-259717'). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project default="create_run_jar" name="Create Runnable Jar for Project ErgoSPARQL with libraries in sub-folder">
+  <property environment="env"/>
+  <property name="ErgoSPARQL.location" value="../ErgoSPARQL"/>
+  <property name="debuglevel" value="source,lines,vars"/>
+  <property name="target" value="1.8"/>
+  <property name="source" value="1.8"/>
+  <path id="ErgoSPARQL.classpath">
+    <pathelement location="classes"/>
+      <pathelement location="../JenaAllInOne.jar"/>
+      <pathelement location="../../../ergo_lib/ergo2java/java/ergoStudio.jar"/>
+  </path>
+  <target depends="build" name="create_run_jar">
+    <jar destfile="../../../ergo_lib/ergo2sparql/java/ergoSPARQL.jar">
+      <manifest>
+        <attribute name="Main-Class" value="ErgoSPARQL_GUI"/>
+        <attribute name="Class-Path" value="../JenaAllInOne.jar"/>
+      </manifest>
+      <fileset dir="classes"/>
+    </jar>
+  </target>
+  <target depends="init" name="build">
+    <echo message="${ant.project.name}: ${ant.file}"/>
+    <javac debug="true" debuglevel="${debuglevel}" destdir="classes" includeantruntime="false" source="${source}" target="${target}">
+      <src path="src"/>
+      <classpath refid="ErgoSPARQL.classpath"/>
+    </javac>
+  </target>
+  <target name="init">
+    <mkdir dir="classes"/>
+    <copy includeemptydirs="false" todir="classes">
+      <fileset dir="src">
+        <exclude name="**/*.java"/>
+      </fileset>
+    </copy>
+  </target>
+</project>

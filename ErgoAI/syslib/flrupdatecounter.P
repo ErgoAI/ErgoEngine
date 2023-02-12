@@ -1,0 +1,64 @@
+/* File:      flrupdatecounter.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2016-2018,
+**      Coherent Knowledge, LLC, 2016-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "trie_defs.h"
+#include "flora_terms.flh"
+
+
+%% incremented on each update
+#define FL_UPDATE_COUNTER FLORA_SYMBOL('update^counter')
+%% set to 1 with each update; reset to 0 when a top-level query finishes
+%% or by flora_query.
+#define FL_UPDATE_FLAG    FLORA_SYMBOL('update^flag')
+
+:- import
+        flora_set_counter/2,
+        flora_increment_counter/4,
+        flora_get_counter/2
+   from flrporting.
+
+:- export
+        flora_raise_update_flag/0,
+        flora_clear_update_flag/0,
+        flora_update_flag_raised/0,
+        flora_increment_update_counter/0,
+        flora_get_update_counter/1.
+
+?- %% initialize
+   flora_set_counter(FL_UPDATE_COUNTER,0),
+   flora_set_counter(FL_UPDATE_FLAG,0).
+
+
+flora_raise_update_flag :- flora_set_counter(FL_UPDATE_FLAG,1).
+flora_clear_update_flag :- flora_set_counter(FL_UPDATE_FLAG,0).
+flora_update_flag_raised :- flora_get_counter(FL_UPDATE_FLAG,1).
+
+flora_increment_update_counter :-
+        flora_raise_update_flag,
+        flora_increment_counter(FL_UPDATE_COUNTER,1,_X,_Y).
+
+flora_get_update_counter(X) :- flora_get_counter(FL_UPDATE_COUNTER,X).

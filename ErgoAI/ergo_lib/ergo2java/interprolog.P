@@ -1,0 +1,2764 @@
+/* Prolog code to support the Java language interface
+** By Miguel Calejo, InterProlog Consulting
+** Float conversion and optimized handle lookup by David Warren, XSB, Inc.
+** Contributions by Vera Pereira, Luis Marco Cruz, Tatyana Vidrevich and Michael Kifer
+Contact: info@interprolog.com, www.interprolog.com
+Copyright InterProlog Consulting / Renting Point Lda, Portugal 2014-2018
+Use and distribution, without any warranties, under the terms of the
+Apache License, as per http://www.apache.org/licenses/LICENSE-2.0.html
+IMPORTANT WARNING:  THIS FILE WAS EXTRACTED FROM THE INTERPROLOG JAR FILE.
+If you decide to edit, rebuild the jar file.
+Simply saving the text file is not enough - unless you're setting the loadFromJar bit to false, 
+see ListenerWindow.commonMain() and PrologEngine constructor
+
+XSB note: to make sure InterProlog does not interfere with ongoing XSB DCG parsing using "datalog" style terminals,
+before compiling this file call dcg:set_dcg_terminal_functor(interprolog,ipGrammarChandler).
+*/
+
+:- module(interprolog,[
+%% Initialization:
+	ipUsesNativeNonterminals/0,
+	ipinitialize/4,
+	setupWindowsInterrupt/2,
+	setupJavaInterrupt/1,
+	getPrologPID/1,
+	ipLearnExamples/0,
+	ipProcessExamples/1,
+	already_loaded_path/1,
+	did_load_path/1,
+%% Glorified remote procedure calling:
+	deterministicGoal/1,
+	javaMessage/7,
+	javaMessage/6,
+	javaMessage/4,
+	javaMessage/3,
+	javaMessage/2,
+	javaMessage_throws/3,
+	java/2,
+	java/3,
+	java/4,
+	%% These are available only with "OnTop" Java classes, to be released Nov 2018:
+	spawn_java/1,
+	spawn_java/2,
+	spawn_java/3,
+	set_debug/1,
+	kill_java/0,
+	handle_ip_exception/2,
+	checkUndefined/2,
+	fjIsErgo/1,
+	fj_flora_query/2,
+	fj_flora_query/5,
+	ipPutTermList/2,
+	rethrow_if_stop/1,
+%% Runtime object structures and references, grammar:
+	streamContents/4,
+	%% these are asserted
+	ipJavaMachinePID/1,
+	ipObjectSpec/4,
+	ipObjectTemplate/5,
+	ipPrologEngine/1,
+	%% these are defined by rules
+	termToObjectSpec/3,
+	ipObjectSpec/3,
+	ipIsObjectReference/1,
+	ipSocketsAreBusy/0,
+	ipTimedCallActive/1,
+	ipTimingAcall/0,
+	ipReportWork/1,
+	ipInitIsShowing/1,
+	entered_break/0,
+	resumed_computation/0,
+	returned_to_toplevel/0,
+%% Term<->TermModel:
+	buildTermModel/2,
+	buildTermModels/2,
+	buildTermModel_/2,
+	buildTermModelList_/2,
+	buildTermModelList_2/2,
+	buildTermModelArray/2,
+	buildInitiallyFlatTermModel/2,
+	buildInitiallyFlatTermModels/2,
+	ip_inc_var_counter/1,
+	recoverTermModel/2,
+	recoverTermModels/2,
+	recoverTermModelArray/2,
+%% Used by Java side in the JNI version:
+	ipLearnExamples/1,
+%% Utility:
+	%% atom_2_codes_dlist/3,
+	stringArraytoList/2,
+	ipIsDebugging/0,
+	ipIsProfiling/0,
+	ipProgressMessage/1,
+	ipProfilingMessage/1,
+	ip_may_rethrow_exception/1,
+	set_single_javaMessage_thread/1,
+	ipGrammarChandler/3,
+	ip_add_lib_dir/1,
+	username/1,
+	datetimestamp/1,
+	create_counter/1,
+	get_increment_counter/2,
+	get_counter/2,
+	recordSessionIn/2,
+%% These are exported to silence compiler. Are not currently used
+        playSessionFrom/1,
+	atomchars2utf/4,  %% performance testing 
+	atomchars2utf_/4, %% performance testing 
+	utf2Atomchars/4,
+	utf2Atomchars_/4,
+	termsToObjectSpecs/3,
+	ip_error_atom_description/2,
+	ipProgressMessage/3,
+	ipProgressMessageIf/2,
+	ipProgressMessageIf/4,
+	ipShowTerminalsIf/3,
+	ipRestorePrompt/1,
+	ipSetNoprompt/1,
+% JSON stuff (experimental for XSB only)
+	term2json/2, json2term/2, objectKeyValue/3, jsonDGhandler/2
+	]).
+
+
+/*** XSB-dependent stuff; also includes some specifics for Coherent Knowledge Systems ***/
+
+:- if(current_prolog_flag(dialect, xsb)).
+
+/*  see comment firther down below wrt XSB/emu/builtin.h
+:- compiler_options([xpp_on]).
+#include "builtin.h"
+*/
+
+%% Imports:
+:- use_module(socket,[
+	socket/2,
+	socket_connect/4,
+	socket_get0/3,
+	socket_put/3]).
+:- use_module(file_io,[
+	%% file_open/3,
+	%% file_close/1/2,
+	file_write_line/2,
+	fmt_write_string/3]). 
+:- use_module(shell,[
+        shell/5,
+        platform/1,
+        process_control/2,
+        process_status/2,
+        spawn_process/5,
+        sys_pid/1]).
+:- use_module(standard,[datime/1]).
+:- use_module(basics, [length/2, append/3, member/2]). 
+:- use_module(machine,[
+	conset/2,
+	conget/2,
+	get_attributes/2,
+	put_attr/3,
+	get_attr/3,
+	delete_attributes/1,
+	stat_set_flag/2,
+	stat_flag/2,
+	getenv/2,
+	term_set_arg/4]).
+:- use_module(xsb_configuration, [xsb_configuration/2]).
+:- use_module(string,[
+    str_sub/2,
+    substring/4,
+	read_atom_to_term/2,
+	term_to_atom/3, 
+	term_to_atom/2,
+	term_to_codes/3,
+	concat_atom/2]).
+
+:- use_module(format,[
+	format/3, format/2
+	]).
+:- use_module(error_handler,[
+	%% get_sys_error_description/3,
+	domain_error/4, domain_error/5]).
+
+%% Actually FLQUERYCMD/5
+:- use_module(flora2,[
+	flora_query/5,
+	flora_disable_keyboard_interrupts/0,
+	flora_enable_keyboard_interrupts/0]).
+:- use_module(flrshell_loop_handler,[flora_shell_loop_message/3]).
+:- use_module(usermod,[
+	ipStopBall/1,
+	fj_ABORT_NOTRACE/2,
+	repeatedObjectsDetectedGenerating/0, %% Is this really needed??
+	interprolog_callback_/5,
+	ipIsShowing/2]).
+
+:- dynamic interprolog_callback_/5. %% Not really, but to shut up dependency watchers
+
+%% asserted from the Java side:
+:- dynamic ipStopBall/1. 
+:- dynamic ipIsShowing/2 /* ipIsShowing(SomeGUIObjectRef,true/false) */.
+
+%% Other Prologs require a file path and assert this from the Java side:
+:- assert(usermod:ipInterprologModule(interprolog)). 
+
+%% Some clients prefer to call this through usermod:
+ip_add_lib_dir(D) :- consult:add_lib_dir(D).
+
+prolog_home_dir(D) :- xsb_configuration(install_dir,D).
+
+temporary_filename(TmpFile) :- path_sysop(tmpfilename,TmpFile).
+
+delete_file(File) :- path_sysop(rm,File).
+
+% Synchronously launch subprocess command Cmd, and return its output in file Output
+shell_with_output(Cmd,Output) :- shell(Cmd, none, Output, none, ErrCode), ErrCode==0. % shell(+CmdSpec,-StreamToProc, -StreamFromProc, -ProcStderr, -ErrorCode)
+
+:- dynamic '_$_$file_to_linelist'(_).
+file_to_linelist(File,List) :-
+        retractall('_$_$file_to_linelist'(_)),
+        repeat,
+	(file_read_line_atom(File, LineNL) ->
+            %% strip newline, if present
+            (str_sub('\r\n',LineNL) ->
+                substring(LineNL,0,-3,Line)
+            ; str_sub('\n',LineNL) ->
+                substring(LineNL,0,-2,Line)
+            ; Line = LineNL
+            ),
+            (Line == '' -> true
+            ; assert('_$_$file_to_linelist'(Line))
+            ),
+            fail
+        ; !,
+            findall(X,'_$_$file_to_linelist'(X),List),
+            retractall('_$_$file_to_linelist'(_))
+        ).
+
+%% returns java executable path. if no Java found, then fail
+get_java_executable(Out) :-
+        (platform(OS), OS == windows ->
+            shell_with_output('for /f "usebackq tokens=*" %i in (`where java.exe`) do @echo %i',Output)
+        ;   %% Unixes
+            shell_with_output('which java', Output)
+        ),
+        file_to_linelist(Output,List),
+        close(Output),
+        List = [Out1|_],
+        concat_atom(['"',Out1,'"'],Out).
+
+%% Syntactic emulation of SWI predicate; this variant does NOT postpone execution until after the file is loaded
+initialization(G) :- call(G).
+
+ipLength(List,Length) :- ipUsesNativeNonterminals, !, lengthNative(List,Length).
+ipLength(List,Length) :- length(List,Length).
+
+:- index(ipObjectSpec/4,1,97).	% larger to avoid hash collisions
+
+%% ipInitIsShowing(GUI) GUI must be a reference to a java.awt.Component
+%%  a single ipIsShowing(GUI,true/false) fact will be maintained by the Java side, whenever the
+%%  GUI state changes; the Prolog side is notified only when the PrologEngine is idle
+ipInitIsShowing(GUI) :- ipPrologEngine(E), java('com.declarativa.interprolog.JavaStateCaching',initIsShowingCache(E,GUI)).
+
+%% ipSetNoprompt(-Old) : Old=true if prompt was off, fail otherwise
+%% See values in xsb/syslib/banner.P
+ipSetNoprompt(Old) :- stat_flag(45, Value), % cf. BANNER_CTL
+	(0 is Value mod 5 -> Old = true ; Old = fail, NewValue is Value*5, stat_set_flag(45,NewValue)).
+
+%% ipRestorePrompt(+Old)
+ipRestorePrompt(true) :- !, stat_flag(45, Value), 
+	(0 is Value mod 5 /* no prompt at the moment */ -> true ; NewValue is Value*5, stat_set_flag(45,NewValue)).
+ipRestorePrompt(fail) :- stat_flag(45, Value), 
+	(0 is Value mod 5 -> NewValue is Value/5, stat_set_flag(45,NewValue) ; true ).
+
+writeAllSocketChars(More,S) :- 
+	writeAllSocketChars_(More,S). 
+
+ipinitsockets(Host,Sport) :-
+	ipProgressMessage('Creating socket'),
+	socket(S,0), 
+	(socket_connect(S,Sport,Host,0)->true;write('Weird socket_connect failure 1'),nl),
+        %% socket_flush(S), % XSB needs to be flushed to show stderr...
+	ipProgressMessage('Created socket'-S),
+	asserta(ipsocketstreams(S, S)),
+	ipLearnExamples.
+
+%% This is specific for Windows, does not apply to Unix
+setupWindowsInterrupt(Host,INTport) :-
+	socket(IntS,0),
+	(socket_connect(IntS,INTport,Host,0)->true;write('Weird socket_connect failure 3')),
+	setupJavaInterruptBuiltin(IntS).
+
+% Constants copied from XSB/emu/builtin.h, to avoid preprocessing this file, which would displease other Prologs:
+setupJavaInterruptBuiltin(_S) :- '_$builtin'(253 /*JAVA_INTERRUPT*/). 
+interprolog_callback(_Length,_Bytes,_NewBytes) :-'_$builtin'(255/*INTERPROLOG_CALLBACK*/).
+
+%% This is specific for UNIX, does not apply to Windows 95/NT
+getPrologPID(N) :- sys_pid(N).
+
+spawn_process(CmdSpec,ProcId) :- spawn_process(CmdSpec,none,none,none,ProcId). % spawn_process(+CmdSpec,-StreamToProc,-StreamFromProc,-ProcStderrStream,-ProcId)
+
+process_kill(PID) :- process_control(PID,kill).
+
+exists_file(File) :- path_sysop(exists,File).
+
+term_to_atom_IFTM(T,Atom) :- term_to_atom(T,Atom,[quoted(true),ignore_ops(canonical/*true for binary lists*/),numbervars(false)]).
+
+term_to_codes_ptl(T,Codes) :- term_to_codes(T,[quoted(true),ignore_ops(canonical/*true for binary lists*/),numbervars(false)],Codes).
+
+atomRead(Atom,Term) :- 
+	(read_atom_to_term(Atom,Term) -> true ; Term = end_of_file).
+%%	file_open(Atom,sr,F), file_read(F,Term), % The XSB way to parse atoms
+%%	file_close(F). % So XSB does not crash after 5 calls
+
+socket_get0(Sockfd,C) :- socket_get0(Sockfd,C,0).
+my_socket_put(Sockfd,C)  :- socket_put(Sockfd,C,0).
+
+%% calls the C function that calls the Java method byte[] callback(byte[]); One more arg in the next InterProlog version..requires XSB change
+%% interprolog_callback(_Length,_Bytes,_NewBytes) :- interprolog_callback_(1,_Length,_Bytes,_NewBytes,_).
+atomchars2utfNative(_CodesList,_Count,_L1,_Ln) :-
+	interprolog_callback_(2,_CodesList,_Count,_L1,_Ln).
+utf2AtomcharsNative(BytesLeft,AtomChars,L1,Ln) :-
+	interprolog_callback_(4,BytesLeft,AtomChars,L1,Ln).
+lengthNative(_List,_Length) :- interprolog_callback_(3,_List,_Length,_,_).
+
+%% fjIsErgo(yes) for Ergo, fjIsErgo(no) for Flora, undefined for neither
+fjIsErgo(YN) :-
+        %%catch(flrporting:flora_running_as(L),_,fail),
+        %%(L==ergo->YN=yes;YN=no).
+        catch(flrporting:flora_running_as(_),_,fail),
+        YN=yes.
+
+/* Why would we atomize a complex term with the exception description..? Let the Java client grok it at will.
+get_ip_exception_description(Exception, ExceptionDescription) :- 
+	xsb_configuration(version,V), V@>='2.7', 
+	!,
+	(get_sys_error_description(Exception, ExceptionDescriptionCL, BacktraceList)
+        ->
+            ip_error_atom_description(ExceptionDescriptionCL, ExceptionDescription0),
+            (BacktraceList = [ForCont|BackCont]
+            ->	ExceptionDescription =.. [ExceptionDescription0, ForCont, BackCont]
+            ;	ExceptionDescription = ExceptionDescription0
+            )
+        ;   ExceptionDescription = Exception
+	).
+*/
+get_ip_exception_description(Exception, Message) :-
+        fjIsErgo(_),
+        !,
+        flora_shell_loop_message(Exception,Message,_).
+get_ip_exception_description(Exception, Exception).
+
+ip_error_atom_description(Text, Text):-
+	atom(Text), !.
+ip_error_atom_description(CommaList, Text):-
+	ip_list_comma_list(PrologList, CommaList),
+	convert_to_atom_list(PrologList, PrologAtomList),
+	concat_atom(PrologAtomList, Text).
+
+%% ip_list_comma_list(PrologList, CommaList)
+ip_list_comma_list(Var1, Var2):- var(Var1), var(Var2), !, fail.
+ip_list_comma_list([], true) :- !.
+ip_list_comma_list([Term|L], Term1):-
+	L == [], var(Term1), !, Term1 = Term.
+ip_list_comma_list([Arg1|List], ','(Arg1,Arg2)):-
+        !,
+	ip_list_comma_list(List, Arg2).
+ip_list_comma_list([Term], Term1) :-
+	nonvar(Term1), Term1 = Term.
+
+convert_to_atom_list([], []).
+convert_to_atom_list([Term|PrologList], [Term|PrologAtomList]):- atom(Term), !,
+	convert_to_atom_list(PrologList, PrologAtomList).
+convert_to_atom_list([Term|PrologList], NewPrologAtomList):- is_list(Term), !,
+	convert_to_atom_list(Term, AList), append(AList, PrologAtomList, NewPrologAtomList),
+	convert_to_atom_list(PrologList, PrologAtomList).
+convert_to_atom_list([Term|PrologList], [Atom|PrologAtomList]):-
+	term_to_atom(Term, Atom),
+	convert_to_atom_list(PrologList, PrologAtomList).
+
+username(U) :- xsb_configuration(host_os,windows), !, getenv('USERNAME',U).
+username(U) :- getenv('USER',U), !.
+username('??').
+
+datetimestamp(D) :- datime(Date), fmt_write_string(D,'%d-%02d-%02d at %02d:%02d:%02d',Date).
+
+ipProfilingMessage(M) :- ipIsProfiling, !, write(M), walltime(T), MS is T*1000, write(' '), write(MS), write('mS'), nl.
+ipProfilingMessage(_).
+
+writeln_warning(X) :- writeln(user_warning,X).
+
+minus_infinite(X) :- X is -1/0.
+plus_infinite(X) :- X is 1/0.
+not_a_number(X) :- X is 0/0.
+
+
+
+
+%% Add nothing, as XSB goals launched inside the interprolog module have see other modules and usermod
+setupGoalModule(G,G).
+
+/** Preliminary support for JSON (experimental, XSB only)
+JSON is represented in Prolog as follows:
+- Just like JSON, except:
+- JSON Strings are Prolog atoms
+- JSON's true,false,null,[] and {} are atoms. 
+-- strings for the previous are s(Atom), for example s(true) represents "true"
+So JSON arrays are Prolog lists, and an object {"S1":V1,"s2":V2,"s3":V3} is = {}((S1:V1,(s2:V2,s3:V3)))
+... but which can be written simply as {'S1':V1,s2:V2,s3:V3}
+For example:
+[s(true),{a:1,b:13.4,c:foo,d:[one,'www\tyyy',two],e:null},true]
+represents JSON:
+["true",{"a":1,"b":13.4,"c":"foo","d":["one","www\tyyy","two"],"e":null},true]
+To build a list of objects from a predicate, simply do:
+	findall({name:N,age:A}, person(N,A), L)
+*/
+
+%jsonDGhandler(I,O) This is assumed to be called through deterministicGoal; exceptions may be thrown
+% no explicit callbacks implemented; java(...) callbacks will be handled normally elsewhere
+% Example: 
+% ipPrologEngine(E), JSON='{"g":s("string:concat_atom([hello_,I],O)"),"i":s("I"),"o":s("O"),"x":s("miguel")}', java(E,string(R),deterministicGoalJSON(string(JSON),int(1))).
+jsonDGhandler(I,O) :- 
+	json2term(I,Gobj), 
+	objectKeyValue(Gobj,g,Gatom), objectKeyValue(Gobj,i,Iatom), objectKeyValue(Gobj,o,Oatom), 
+	objectKeyValue(Gobj,x,X),
+	fmt_write_string(String,"((%s),(%s),(%s))",t(Gatom,Iatom,Oatom)),
+  	( read_atom_to_term(String,(G,X,Ovar)) -> 
+  		G, term2json(Ovar,Ocodes), atom_codes(O,Ocodes)
+  		; throw('bad formed goal or I/O variables')
+  	).	
+
+% JSON string generator from Prolog form
+% Assumes XSB to generate correct Unicode codes from atoms
+% term2json(TermForm,CharCodes)  
+% [] {} true false null must be enclosed in s(..), e.g. s('[]') to get "[]" - e.g. force string
+% example: [s(true),{a:1,b:13.4,c:foo,d:[one,'www\tyyy',two],e:null}]
+term2json(T,_) :- var(T), !, bad_json('JSON terms must be ground').
+term2json(X,L) :- special_atom(X), !, atom_codes(X,L).
+term2json(Array,[91|L]) :- is_list(Array), !, elements2json(Array,LE), append(LE,"]",L).
+term2json('{}'(F),[123|L]) :- !, fields2json(F,LF), append(LF,"}",L).
+term2json(s(A),[34|L]) :- !, % meta notation for special string cases
+	(atom(A)->atom_codes(A,Codes);is_list(A),A=Codes), append(Codes,[34/*"*/],L). 
+term2json(A,L) :- atom(A), !, string2json(A,L).
+term2json(N,L) :- number(N), !, number_codes(N,L).
+
+string2json(A,L) :- atom_codes(A,AL), escape_string(AL,ALQ), append([34|ALQ],[34],L).
+
+fields2json(S:V,L) :- !, string2json(S,LS), term2json(V,LV), append(LS,[58/*:*/|LV],L).
+fields2json((F1,F2),L) :- fields2json(F1,L1), fields2json(F2,L2), append(L1,[44/*,*/|L2],L).
+
+elements2json([V],L) :- !, term2json(V,L).
+elements2json([V1|Vn],L) :- term2json(V1,L1), elements2json(Vn,Ln), append(L1,[44|Ln],L).
+
+
+escape_string([],[]) :- !.
+escape_string([C/*"*/|L],[92/*\*/,EscapeC|NewL]) :- requires_escape_char(C,EscapeC),
+	!,
+	escape_string(L,NewL).
+escape_string([C|L],[C|NewL]) :-
+	escape_string(L,NewL).
+
+% requires_escape_char(CharCode,CodeOfEscapeChar) (other than generic Unicode)
+requires_escape_char(9,116).
+requires_escape_char(13,114).
+requires_escape_char(10,110).
+requires_escape_char(12,102).
+requires_escape_char(8,98).
+requires_escape_char(92,92).
+requires_escape_char(34,34).
+
+special_atom(null).
+special_atom(true).
+special_atom(false).
+special_atom('{}').
+special_atom('[]').
+
+%json2term(JSONstreamCodes,Term)
+% We're taking a (almost) free ride on Prolog's parser. 
+% Price to pay: disambiguating strings and integer lists, as follows:
+% Any JSON is acceptable, BUT its strings MUST be wrapped in s(...)
+% HOW? Just use JSON.mystringify(X) , cf. myjson2.js
+% Instead of {"a":"bla"} it is required {"a":s("bla")} 
+% Otherwise strings will be interpreted as lists of their character codes
+% Object keys are not required to be wrapped with s(..)
+% The same mechanism is used to disambiguate JSON's "true" and true (which in Prolog become s(true) and true resp.)
+% ...ditto for null/false/{},[]
+% To see a Term prettier: write_term(T,[quoted(false)]) , removes () from {(...)}
+
+json2term(Codes,Term) :- 
+	read_atom_to_term(Codes,Raw), 
+	(ground(Raw)->true;bad_json('Bad JSON string, contains Prolog variables')),
+	atomize(Raw,Term).
+
+% atomize(RawTerm,AtomizedTerm)  builds atoms out of (mostly) s(...) terms
+atomize(s(String),T) :- !, 
+	atom_codes(A,String),
+	(special_atom(A)->T=s(A);T=A).
+atomize([V1|Vn],[T1|Tn]) :- !, atomize(V1,T1), atomize(Vn,Tn).
+atomize({}(R),{}(T)) :- !, atomizeFields(R,T).
+atomize(R,R) :- atomic(R).
+
+atomizeFields((SR:VR,Rn),(ST:VT,Tn)) :- !, 
+	atomizeKey(SR,ST), atomize(VR,VT),
+	atomizeFields(Rn,Tn).
+atomizeFields(SR:VR,ST:VT) :-
+	atomizeKey(SR,ST), atomize(VR,VT).
+
+atomizeKey(s(S),T) :- !, atom_codes(T,S).
+atomizeKey(S,T) :- is_list(S), !, atom_codes(T,S).
+atomizeKey(S,_T) :- bad_json('Weird JSON object key '-S).
+
+
+bad_json(M) :- throw(error(M)).
+
+
+% JSON gimmicks on the Prolog side
+% arrays are lists, so treat them as such...use member/2 etc.
+% objects are a bit more convoluted, so:
+% objectKeyValue(JSONobject,Key,Value) tests/generates presence of Key:Value pairs
+% plain unification won't work in general as fields are unordered
+objectKeyValue({}(F),K,V) :- fieldsKeyValue(F,K,V).
+
+fieldsKeyValue(K:V,K,V).
+fieldsKeyValue((F1:V1,Fields),K,V) :- F1=K,V1=V ; fieldsKeyValue(Fields,K,V).
+
+/* Incomplete JSON gramar:
+value(X) --> string(X). % not true/false/null
+value(X) --> number(X).
+value(X) --> object(X).
+value(X) --> array(X).
+value(true) --> "true".
+value(false) --> "false".
+value(null) --> "null".
+
+object('{}') --> "{}".
+object('{}'(F)) --> "{", fields(F), "}".
+
+fields(S:V) --> string(S), ":", value(V).
+fields((S:V,MoreFields)) --> string(S), ":", value(V), ",", fields(MoreFields).
+
+array([]) --> "[]".
+array(E) --> "[", elements(E), "]".
+
+elements([V]) --> value(V).
+elements([V|More]) --> value(V), ",", elements(More).
+
+string('') --> [34,34].
+string(A) --> {var(A)}, [34], anycharacters(L), [34], atom_codes(A,L).
+string(A) --> {nonvar(A), atom_codes(A,L)}, [34], anycharacters(L), [34].
+*/
+
+:- endif. %% XSB dependent
+
+
+/*** SWI-dependent stuff ***/
+
+:- if(current_prolog_flag(dialect, swi)).
+
+:- use_module(library(charsio)), use_module(library(lists)), use_module(library(system)), use_module(library(process)).
+
+:- dynamic fjIsErgo/1.
+
+% Asserted from the Java side:
+% :- assert(usermod:ipInterprologModule(File path....)). 
+
+ipLength(List,Length) :- length(List,Length).
+
+conget(Name,Value) :- catch(nb_getval(Name, Value),_,fail).
+conset(Name,Value) :- nb_setval(Name, Value).
+
+% Swi has no undefined values:
+:- assert(user:(call_tv(G,true) :- G)).
+call_tv(G,true) :- G.
+
+% Grabbed from XSB Prolog:
+domain_error(Valid_type,Culprit,Predicate,Arg):- 
+	throw(error(domain_error(Valid_type,Culprit),context((' in arg ',Arg,' of predicate ',Predicate),no_Bt))).
+domain_error(Valid_type,Culprit,Predicate,Arg,Msg):- 
+	throw(error(domain_error(Valid_type,Culprit),context((' in arg ',Arg,' of predicate ',Predicate, ' (',Msg,')'),no_Bt))).
+
+
+socket_get0(Sockfd,C) :- get_byte(Sockfd,C).
+
+my_socket_put(Sockfd,C)  :- put_byte(Sockfd,C).
+
+writeAllSocketChars(More,S) :- writeAllSocketChars_(More,S), flush_output(S).
+
+ipinitsockets(Host,Sport) :-
+	ipProgressMessage('Creating socket'),
+	tcp_socket(S), 
+	(tcp_connect(S, Host:Sport)->true;write('Weird socket connect failure 1'),nl,fail),
+	tcp_open_socket(S, InStream, OutStream),
+	ipProgressMessage('Created socket'-S),
+	asserta(ipsocketstreams(InStream, OutStream)),
+	ipLearnExamples, 
+	!. % debugging messages below assume no backtracking occurs
+
+% This is specific for Windows, does not apply to Unix
+setupWindowsInterrupt(Host,INTport) :-
+	ipProgressMessage('Creating interrupt socket'),
+	tcp_socket(IntS),
+	(tcp_connect(IntS, Host:INTport)->true;write('Weird socket connect failure 3'),nl,fail),
+	tcp_open_socket(IntS, InStream, _OutStream),
+	setupJavaInterrupt(InStream).
+
+
+% This is specific for UNIX, does not apply to Windows 95/NT
+getPrologPID(N) :- current_prolog_flag(pid,N).
+
+atomRead(Atom,Term) :- catch(atom_to_term(Atom,Term,_),_E,Term=end_of_file).
+
+reset_dcg_mode. % do nothing, only necessary in SWI Prolog
+
+supportsExceptions.
+
+get_ip_exception_description(error(type_error(callable,_),_), interprolog_interrupt).
+get_ip_exception_description(E, E).
+
+writeln_warning(X) :- writeln(user_error,X).
+
+username(U) :- environ('USER',U), !.
+username('??').
+
+prolog_home_dir(D) :- current_prolog_flag(home,D).
+
+temporary_filename(TmpFile) :- tmp_file(ip_ontop,TmpFile).
+
+platform(OS) :- current_prolog_flag(windows,true), !, OS = windows.
+platform(unix).
+
+% Synchronously launch subprocess command Cmd, and returns a stream with its output
+shell_with_output(Cmd,Out) :- current_prolog_flag(unix,true), !, process_create( path(sh), [ '-c', Cmd ],  [ stdout(pipe(Out))]).
+shell_with_output(Cmd,Out) :- current_prolog_flag(windows,true), !, process_create( path('cmd.exe'), [ '/C', Cmd ],  [ stdout(pipe(Out))]).
+
+spawn_process([Cmd|Args],ProcId) :- !, process_create( path(Cmd), Args,  [process(ProcId)]).
+spawn_process(Cmd,ProcId) :- current_prolog_flag(unix,true), !, process_create( path(sh), [ '-c', Cmd ],  [process(ProcId)]).
+% This does not work due to cmd.exe quotes and space troubles: 
+% spawn_process(Cmd,ProcId) :- current_prolog_flag(windows,true), !, process_create( path('cmd.exe'), [ '/C', Cmd ],  [process(ProcId)]).
+
+get_java_executable(Path) :- platform(windows), !, Path='java.exe'.
+get_java_executable(Path) :- absolute_file_name(path(java), Path, [access(execute)]).
+
+string_replace(String,Pattern,Replacement,Result) :- 
+	atomics_to_string(Items,Pattern,String), atomics_to_string(Items,Replacement,Result).
+
+% Just an empty stub on SWI, as process_create only returns quietly for processes which have not erred:
+process_status(PID,running) :- is_process(PID).
+
+file_read_line_atom(File, LineNL) :- read_line_to_codes(File,Codes), is_list(Codes), atom_codes(LineNL,Codes).
+
+file_read_line_list(Stream,Codes) :- read_line_to_codes(Stream,Codes).
+
+str_sub(Sub,String) :- sub_string(String,_,_,_,Sub), !.
+
+datetimestamp(Stamp) :- datime(Date), Date=..[_,Y,M,D,H,Min,S], term_to_atom(Y/M/D-H:Min:S,Stamp).
+
+term_to_atom_IFTM(T,A) :- simple_enough_for_IFTM(T), !, format(atom(A),'~W',[T, [quoted(true),ignore_ops(true),numbervars(false)]]).
+term_to_atom_IFTM(_T,_A) :- throw(buildInitiallyFlatTerm_limited_in_SWI). 
+%%  SWI does not quote operator functors, breaking Java's StreamTokenizer scanning; thus require lowercase functors only:
+%% see InitiallyFlatTermModel.parseTerm()
+simple_enough_for_IFTM(T) :- (var(T);atomic(T)), !.
+simple_enough_for_IFTM([H|T]) :- !, simple_enough_for_IFTM(H), simple_enough_for_IFTM(T).
+simple_enough_for_IFTM(T) :- T=..[F|Args], atom_codes(F,Codes), simple_enough_functor(Codes), simple_enough_for_IFTM(Args).
+
+simple_enough_functor([C|_]) :-  between(97,122,C), !.
+simple_enough_functor([C]) :- member(C,[43,45,42,47,61,58]), !. %% +-*/=:
+
+
+term_to_codes_ptl(T,Codes) :- format(codes(Codes),'~W',[T,[quoted(true),ignore_ops(true),numbervars(false)]]).
+
+file_write_line(Codes,_) :- format('~s~n',[Codes]).
+
+ipProfilingMessage(M) :- ipIsProfiling, !, write(M), T is cputime, write(' '), write(T), write('mS'), nl.
+ipProfilingMessage(_).
+
+% Make sure module-less goals launched inside the interprolog module actually run in 'user'
+setupGoalModule(M:G,M:G) :- !.
+setupGoalModule(G,user:G).
+
+minus_infinite(X) :- XX is -inf, X=XX.
+plus_infinite(X) :- XX is inf, X=XX.
+not_a_number(X) :- XX is nan, X=XX.
+
+delete_attributes(V) :- del_attrs(V).
+
+ip_add_lib_dir(D) :- throw(that_is_a_xsb_dependent_call(ip_add_lib_dir(D) )).
+ipInitIsShowing(GUI) :- throw(that_is_a_xsb_dependent_call(ipInitIsShowing(GUI))).
+ipSetNoprompt(Old) :- throw(that_is_a_xsb_dependent_call(ipSetNoprompt(Old))).
+ipRestorePrompt(true) :- throw(that_is_a_xsb_dependent_call(ipRestorePrompt(true))).
+ip_error_atom_description(_,_) :- throw(that_is_a_xsb_dependent_call).
+objectKeyValue(_,_,_) :- throw(that_is_a_xsb_dependent_call).
+term2json(_,_) :- throw(that_is_a_xsb_dependent_call).
+jsonDGhandler(_,_) :- throw(that_is_a_xsb_dependent_call).
+json2term(_,_) :- throw(that_is_a_xsb_dependent_call).
+
+:- endif. %% SWI dependent
+
+
+
+/*** GENERIC STUFF - SAME FOR ALL SUPPORTED PROLOGS ***/
+
+%% The following articulates with the OnTopSubprocessEngine Java class
+%%
+%% Dropbox/XSB/bin/xsb -e "['/Users/mc/git/fidji/interprologForJDK/src/com/declarativa/interprolog/xsb/interprolog.P'], spawn_java('/Users/mc/git/fidji/interprologForJDK/ergoStudio.jar')."
+%% ['/Users/mc/git/fidji/interprologForJDK/src/com/xsb/xj/xjdisplays.P','/Users/mc/git/fidji/interprologForJDK/src/com/xsb/xj/xj2.P','/Users/mc/git/fidji/interprologForJDK/src/com/xsb/xj/prologCache.P'].
+%% ipPrologEngine(E), java(E,setDebug(boolean(1))), java('com.declarativa.interprolog.gui.ListenerWindow',initializeVisualizationObjects(E)).
+%% ipPrologEngine(E), java('com.xsb.xj.XJPrologEngine',initPrologLayer(E)).
+%% java(string('Happy 54!'),int(R),length).
+%% ipPrologEngine(E), java(E,R,toString).
+%% ipPrologEngine(E), javaMessage('com.declarativa.interprolog.OnTopSubprocessEngine', string(Result), testDG(E,string('xsb_configuration(install_dir,D)'),string('string(D)'))).
+%% GT=gt(a,[root],[gt(b,[ operation(term(A,B),(java('java.awt.Toolkit',_T,getDefaultToolkit), java(_T,beep)),menu('Test'))],[])]), createXJcomponent(GT,GUI), javaMessage('com.xsb.xj.XJDesktop',TheGUIW,testGUI(GUI)).
+%%   Adding XJ operations "OnTop" BREAKS the GUI
+%% (ipPrologEngine(?E), java(?E,string(?R),toString))@\prologall(interprolog).
+%% (ipPrologEngine(?E), java(?E,setDebug(boolean(1))), javaMessage('com.declarativa.interprolog.OnTopSubprocessEngine', string(?Result), testDG(?E,string('xsb_configuration(install_dir,D)'),string('string(D)'))))@\plg(interprolog).
+%% (ipPrologEngine(?E), javaMessage('com.declarativa.interprolog.OnTopSubprocessEngine', string(?Result), testDG(?E,string('xsb_configuration(install_dir,D)'),string('string(D)'))))@\prologall(interprolog).
+%%spawn_java :-
+%%	spawn_java('/Users/mc/git/fidji/interprologForJDK/ergoStudio.jar').
+
+/** a Java machine is spawned and a PrologEngine (actually OnTopSubprocessEngine) is created on its end 
+hooked to the current engine. javaMessage(...) can be used as normally, as can Java->Prolog "callbacks" with deterministicGoal. 
+Limitations: Prolog output is not available, nor is interrupt(); Java stdout is not available to Prolog, and stderr maps to Prolog's stderr. */
+
+spawn_java(CP) :- spawn_java(CP,_,['','']).
+
+spawn_java(CP,ParamList):- spawn_java(CP,_,ParamList).
+
+%% NOT checking that the third argument is correct because
+%% this is a developer's tool.
+%% JavaArgs: catom of Java parameters
+%% ClassArgs: Atom of Class parameters
+spawn_java(CP,Class,[JavaArgs,ClassArgs]):-
+        (var(Class) ->
+            %% default
+            Class = 'com.declarativa.interprolog.OnTopSubprocessEngine'
+        ; true
+        ),
+	%% Debug should be handled using the methods set_debug(on/off) above
+	(ipIsDebugging -> Debug = true
+	; Debug = false
+	),
+	( ipPrologEngine(_) ->
+	    %%ipIsDebugging,
+	    writeln('*** Logic engine is already hooked to a Java machine ***'),
+	    fail
+	; true
+	),
+	prolog_home_dir(PrologDir), getPrologPID(PrologPID),
+	temporary_filename(TmpFile), temporary_filename(TmpFileFlag),
+
+        (get_java_executable(JavaExec) ->
+            (ipIsDebugging -> writeln('Java executable found: ' = JavaExec)
+            ; true
+            ),
+            ((current_prolog_flag(dialect,swi), platform(windows)) ->
+            	Cmd = [JavaExec,JavaArgs,'-classpath',CP,Class,PrologDir,PrologPID,TmpFile,TmpFileFlag,Debug,ClassArgs] ;
+				concat_atom([JavaExec,
+							 %% args to pass to Java itself
+							 ' ', JavaArgs,
+							 %% the main class
+							 ' -classpath "', CP, '" ', Class,
+							 %% predefined args of the main class
+							 ' "', PrologDir,'" ',
+							 PrologPID,' ',TmpFile,' ',TmpFileFlag,' ',Debug,
+							 %% args to pass to the main() class
+							 ' ', ClassArgs
+							 ],
+							Cmd)
+			),
+            ipProgressMessage(spawning-Cmd),
+            %% no input sent to Prolog, its stdout will get us what
+            %% we need now. Java's stderr will pipe to Prolog's
+            %% spawn_process(Cmd,none,JOutput,none,JavaPID), 
+            
+            spawn_process(Cmd,JavaPID), 
+            ipProgressMessage('Java has hopefully spawn'),
+            process_status(JavaPID,Status), Status == running,
+            waitForFile(TmpFileFlag,JavaPID), % a little lock of our own
+            ipProgressMessage('Java did spawn and wrote a file to Prolog '-TmpFileFlag),
+            asserta(ipJavaMachinePID(JavaPID)),
+            open(TmpFile,read,JOutput),
+            file_read_line_list(JOutput,HostS),
+            file_read_line_atom(JOutput,PortA), 
+            file_read_line_atom(JOutput,IntPortA),
+            file_read_line_atom(JOutput,EngineIDA),
+            close(JOutput),
+            delete_file(TmpFile), delete_file(TmpFileFlag),
+            remove_line_ending(HostS,CleanHostS),
+            atom_codes(Host,CleanHostS),
+            atomRead(PortA,Port),
+            atomRead(IntPortA,IntPort),
+            atomRead(EngineIDA,EngineID),
+            ipProgressMessage(java_items-[Host,Port,EngineID]/JavaPID),
+            ipinitialize(Host,Port,EngineID,Debug), 
+            (IntPort \== 0 -> setupWindowsInterrupt(Host,IntPort) ; true),
+            (ipIsDebugging ->
+                write('connected to Java process '),
+                writeln(JavaPID)
+            ; true
+            )
+        ; writeln_warning(
+                  '\n\n++Warning[Interprolog] Java installation not found - please install.\n\t\tIf Java is installed, add the path to java.exe\n\t\tto your system''s Path environment variable.\n'),
+            fail
+        ).
+
+%% we could use sleep but this is better and more reactive
+waitForFile(F,JavaPID) :-
+        (waitForFile_(1500000,F) -> true
+        ; writeln_warning( '\n\n++Warning[Interprolog]: Java startup timed out: the system is too slow.\n'),
+            process_kill(JavaPID),
+            fail
+        ).
+
+waitForFile_(_,F) :- exists_file(F), !.
+waitForFile_(N,F) :- N>0, NN is N-1, waitForFile_(NN,F).
+
+kill_java :-
+	retract(ipJavaMachinePID(JavaPID)),
+	!, 
+	(ipPrologEngine(E), java(E,deleteTempFiles), fail; true),
+	retractall(ipPrologEngine(_)),
+	retractall(ipsocketstreams(_,_)),
+	retractall(ipObjectSpec(_,_,_,_)),
+	retractall(ipObjectTemplate(_,_,_,_,_)),
+	retractall(ipIsDebugging),
+	process_kill(JavaPID).
+kill_java :- 
+	ipIsDebugging -> writeln('*** Java was not being used as a subprocess'),
+	fail.
+
+remove_line_ending(Codes,NewCodes) :-
+        append(Prefix,[Last],Codes),
+        (Last==10;Last==13),
+        !,
+	remove_line_ending(Prefix,NewCodes).
+remove_line_ending(Codes,Codes).
+
+%%%% End of fragment related to OnTopSubprocessEngine
+
+
+:- dynamic(ipUsesNativeNonterminals/0). %% Actually, experimental XSB only (ipUsesNativeNonterminals)
+
+%% To make sure we number Prolog variables uniquely in a session
+ip_inc_var_counter(N) :- conget(ip_var_counter,N), N1 is N+1, conset(ip_var_counter,N1).
+
+?- initialization(conset(ip_var_counter,0)).
+
+% Can't live without local counters
+create_counter(Counter) :- Counter = '$contador'(0).
+
+get_increment_counter(C,N) :- C = '$contador'(CurrentN), NN is CurrentN+1, term_set_arg(C,1,NN,1), CurrentN=N.
+
+get_counter(C,N) :- C = '$contador'(N).
+
+% Maintain "the con" (as in a warship's wheel), a conceptual token moving from 
+% Prolog <-> Java as our Prolog single thread stacks over/under Java calls
+% Used to optionally prevent another Prolog thread (such as a timeout interrupt) to call
+% Java at a bad time; this applies only after set_single_javaMessage_thread(true) 
+prolog_take_the_con :- conset('_$ip_the_wheel',0).
+java_take_the_con :- conset('_$ip_the_wheel',1).
+
+% Whether we can NOT javaMessage; if true, it means the Prolog thread calling this "undesirable":
+no_javaMessage_allowed :-
+        conget('_$ip_the_wheel_active',1),
+        conget('_$ip_the_wheel',1).
+
+set_single_javaMessage_thread(true) :- conset('_$ip_the_wheel_active',1).
+set_single_javaMessage_thread(false) :- conset('_$ip_the_wheel_active',0).
+
+%% Older versions to support XSB subprocesses used a Prolog builtin to setup a C thread 
+%% doing what now follows and is done... in Prolog, as lightly as possible
+setupJavaInterrupt(InStream) :- 
+	thread_self(Main), 
+	thread_create(ipInterrupter(InStream,Main),
+                      _Id,
+                      [
+                       alias(interProlog_interrupter) 
+                      /* to optimize... after XSB docs in sync: ,glsize(1),tcpsize(1),complsize(1),pdlsize(1),detached(true)*/
+                      ]).
+
+ipInterrupter(InStream,Main) :- 
+        %% tell('dump1.txt'), write(waitingForCtrlC-InStream-Main), told,
+	socket_get0(InStream,C), C=3, 
+	!,
+        %%tell('dump2.txt'), write(interrupting-Main), told,
+	thread_signal(Main,throw(interprolog_interrupt)),
+	ipInterrupter(InStream,Main).
+ipInterrupter(_InStream,_Main) :- ipProgressMessage('Failed to read proper char in interrupt socket').
+
+
+handle_ip_exception(Exception, ExceptionModel):- nonvar(Exception), functor(Exception,object,2), !,
+	ExceptionModel = Exception. % Seems a Java ex eption already... just propagate it
+handle_ip_exception(Exception, ExceptionModel):-
+        %% ipProgressMessage(handlingException-Exception),
+	get_ip_exception_description(Exception, ExceptionDescription),
+        %% buggy (buildInitiallyFlatTermModel(ExceptionDescription, ExceptionModel) -> true ; ExceptionModel = string('Weird exception')).
+	(buildTermModel(ExceptionDescription, ExceptionModel) -> true
+        ;
+            ExceptionModel = string('Weird exception')
+        ).
+
+%% Some facilities for Prolog-side debugging, namely of this file...
+:- dynamic(ipIsDebugging/0).
+:- dynamic(ipIsProfiling/0).
+
+set_debug(on) :- !, assert(ipIsDebugging).
+set_debug(off) :- retractall(ipIsDebugging).
+
+%% for simpler use within grammar rules
+ipProgressMessage(M,L,L) :- ipProgressMessage(M).
+
+ipProgressMessageIf(M,C,L,L) :- ipProgressMessageIf(M,C). % for simpler use within grammar rules
+
+ipProgressMessage(M) :- ipIsDebugging, !, write(M),nl.
+ipProgressMessage(_).
+
+ipProgressMessageIf(M,C) :- ipIsDebugging, C, !, write(M),nl.
+ipProgressMessageIf(_,_).
+
+ipShowTerminalsIf(C,L,L) :-
+	ipIsDebugging,
+	C,
+	!,
+	write('Current grammar terminals:'),
+	write(L),
+	nl.
+ipShowTerminalsIf(_,L,L).
+
+
+%% For use in grammar rules meta logical conditions
+ipPeekTerminal(T,[T|L],[T|L]).
+
+
+
+/****** Socket Utilities ******/
+
+readNSocketChars(0,_,[]) :- !.
+readNSocketChars(N,S,[C|Cn]) :-
+        socket_get0(S,C),
+        NN is N-1,
+        readNSocketChars(NN,S,Cn).
+
+writeAllSocketChars_([],_).
+writeAllSocketChars_([C|More],S) :-
+        my_socket_put(S,C),
+        writeAllSocketChars_(More,S).
+
+
+/****** Initialization ******/
+
+
+:- dynamic(already_loaded_path/1).
+did_load_path(Path) :- assert(already_loaded_path(Path)).
+
+ipinitialize(Host,Sport,EngineID,Debug) :-
+	(Debug=true->asserta(ipIsDebugging);true),
+	ipinitsockets(Host,Sport), 
+	ipObjectSpec('InvisibleObject',E,[EngineID],_),
+        asserta(ipPrologEngine(E)),
+	ipProgressMessage('ipinitialize concluded').
+
+%% reference to the Java object representing this engine; usually Java spawns Prolog subprocesses
+:- dynamic(ipPrologEngine/1).
+:- dynamic(ipsocketstreams/2).
+%% If defined, ipPrologEngine denotes a Java object in a Java machine spawned by Prolog
+:- dynamic(ipJavaMachinePID/1). 
+
+:- dynamic(ipObjectSpec/4).
+:- dynamic(ipObjectTemplate/5).
+
+%% Fetches all examples available from the callback socket
+ipLearnExamples :-
+	ipsocketstreams(Input,_Output),
+	ipProgressMessage('Reading four bytes'),
+	ipSetSocketsAreBusy(true),
+	readNSocketChars(4,Input,FourBytes),
+	int(Size,FourBytes,[]), % stick to our grammar...
+	ipProgressMessage('Reading more bytes'-Size),
+	readNSocketChars(Size,Input,Bytes), 
+	ipSetSocketsAreBusy(false),
+	streamContents(Examples,_,Bytes,[]), !,
+	ipProgressMessage('Grammar finished analysing examples'),
+	ipProcessExamples(Examples),
+	/* Useful to look at system object specs after they change and break it:
+	tell('IPexamples.txt'), 
+	listing(ipObjectSpec/4), listing(ipObjectTemplate/5),
+	told, */
+	ipProgressMessage('Asserted ipObjectXXX facts').
+ipLearnExamples :- ipProgressMessage('ipLearnExamples failed'), fail.
+
+%% Fetches all examples given by the argument passed through JNI
+ipLearnExamples(Bytes) :-
+	streamContents(Examples,_,Bytes,[]), !,
+	ipProcessExamples(Examples).
+
+ipProcessExamples([]) :- !.
+ipProcessExamples([
+                   object( % This clause must be strictly in sync with this Java class:
+                           class('com.declarativa.interprolog.ObjectExamplePair',_ ,_),
+                           [] + [A,B,string(Name)] ) | MoreExamples]
+                 ) :-
+        %% ipProgressMessageIf(aTerm-A,Name='InitiallyFlatTermModel') ,
+	ipcompareTerms(A,B,G,Vars,SubstA,SubstB),
+	ipAnalyseTerm(A,Template,ANames,TVars,TSubs),
+        %% Currently we keep 2 (sort of redundant) template flavours, until more programming 
+        %% experience with this is collected:
+	assertz(ipObjectSpec(Name,G,Vars,examples-[SubstA,SubstB]/ANames)),
+	assertz(ipObjectTemplate(Name,Template,ANames,TVars,TSubs)),
+	ipProcessExamples(MoreExamples).
+
+
+
+
+
+%% ipcompareTerms(A,B,G,Vars,SubstA,SubstB).
+%% Given two *ground* object specs, obtains a generic object, the substitutions 
+%% that would allow the production of both from the generic object,
+%% and list of its free variables
+ipcompareTerms(A,A,A,[],[],[]) :- ! .
+ipcompareTerms(A,B,G,Vars,VA,VB) :-
+        functor(A,F,N), functor(B,F,N), N>0, \+ ipWholeTerm(A), !,
+        A=..[_|ArgsA], B=..[_|ArgsB], 
+        ipcompareArgs(ArgsA,ArgsB,ArgsG,Vars,VA,VB),
+        G=..[F|ArgsG].
+ipcompareTerms(A,B,G,[G],[A],[B]). % different atomic term or different functor
+
+ipcompareArgs([],[],[],[],[],[]) :- !.
+ipcompareArgs([A|An],[B|Bn],[G1|Gn],Vars,VA,VB) :- 
+	ipcompareTerms(A,B,G1,Vars1,VA1,VA2), 
+	ipcompareArgs(An,Bn,Gn,Varsn,VAn,VBn),
+	append(Vars1,Varsn,Vars), append(VA1,VAn,VA), append(VA2,VBn,VB).
+
+%% For convenience, some grammar semantic representations are terms, 
+%% although later they may be converted to atomic terms...
+%% ipWholeTerm(long(_,_,_,_,_,_,_,_)).
+ipWholeTerm(long(_,_)).
+%% ipWholeTerm(double(_,_,_,_,_,_,_,_)).  [DE]
+%% not any more: ipWholeTerm(float(_,_,_)).
+
+
+ipIsObjectReference(object(class('com.declarativa.interprolog.util.InvisibleObject',_,_),_)).
+
+/****** Support for Prolog -> Java goal calls (callbacks) ******/
+
+%% javaMessage, non-sugared version   
+
+javaMessage(Target,Result,Exception,MessageName,ArgList,ReturnArgs,NewArgList) :-
+	(atom(MessageName) -> true ; domain_error('Java message name',MessageName,javaMessage,4,'Must be an atom')),
+	(ground(Target) -> true ; domain_error('Java target object',Target,javaMessage,1,'Must be ground')),
+	(ground(ArgList) -> true ; domain_error('Java message arguments',Target,javaMessage,5,'Must be ground')),
+	ip_inc_jm_counter(Timestamp),
+	(playingSession -> (
+		format('~n  javaMessage ~a  ~w...~n',[MessageName,Timestamp]),
+		( (javaMessageCall(Timestamp,Target,MessageName,ArgList,ReturnArgs) ; javaMessageCall(OtherTS,Target,MessageName,ArgList,ReturnArgs)) -> 
+			(
+				(nonvar(OtherTS) -> TheTimestamp=OtherTS, format('...using ~w instead of ~w...',[OtherTS,Timestamp]) ; TheTimestamp=Timestamp),
+				(usedJavaMessageCall(TheTimestamp) -> format('..REPEATED!..',[]), conset(repeatedJavaMessageCall,1) ; assert(usedJavaMessageCall(TheTimestamp))),
+				once(javaMessageResult(TheTimestamp,Result,Exception,NewArgList,Duration)), 
+				DurationMS is round(Duration*1000), sleep_ms(DurationMS), 
+				format('OK (~w mS)~n',[DurationMS])
+			)
+			; 
+			format(' UNEXPECTED javaMessage ~w ~n for target ~q~n message ~a~n args ~q~n',[Timestamp,Target,MessageName,ArgList]), 
+			conset(sessionErrors,1), fail)
+		) ; (
+		rsFormat('javaMessageCall(~w,~q,~q,~q,~q).~n',[Timestamp,Target,MessageName,ArgList,ReturnArgs]),
+		walltime(Start),
+		specifyJavaCallback(ReturnArgs,Timestamp,Target,MessageName,ArgList,MessageFromProlog),
+		( streamContents([MessageFromProlog],handles(_,_),Bytes,[]) -> true
+		; domain_error('Java message',Target,javaMessage,1,'bad target or arguments, streamContents failed')),
+		javaMessage2(Bytes,Timestamp,Result,Exception,NewArgList),
+		walltime(End), Duration is End-Start,
+		rsFormat('  javaMessageResult(~w,~q,~q,~q,~w).~n',[Timestamp,Result,Exception,NewArgList,Duration])
+	)).
+
+
+javaMessage2(Bytes,Timestamp,Result,Exception,NewArgList):-
+	retract(ipMessageResultAlreadyReceived(Timestamp,RFJ)),
+	ipProgressMessage(ipMessageResultAlreadyReceived(Timestamp,RFJ)),
+	!,
+	interprologSend(Bytes), % must be the result of some dg
+	handleCallbackResult(RFJ,Timestamp,Result,Exception,NewArgList).
+javaMessage2(Bytes,Timestamp,Result,Exception,NewArgList):-
+	interprologSendReceive(Bytes,ResultBytes),
+	streamContents([Contents],_,ResultBytes,[]), !,
+	handleCallbackResult(Contents,Timestamp,Result,Exception,NewArgList).
+
+interprologSend(Bytes) :-
+	ipsocketstreams(_Input,Output), !, % socket implementation only
+	ipSetSocketsAreBusy(true),
+	writeAllSocketChars(Bytes,Output),
+	ipSetSocketsAreBusy(false),
+	ipProgressMessage(leaving_interprologSend).	   
+
+interprologSendReceive(Bytes, NewBytes) :- 
+	ipsocketstreams(Input,Output), !, % socket implementation
+	ipProgressMessage(calling_writeAllSocketChars-Output),
+	( no_javaMessage_allowed -> throw(java_busy_with_another_message_from_prolog) ; true),
+	ipSetSocketsAreBusy(true),
+	java_take_the_con,
+	writeAllSocketChars(Bytes,Output),
+        %% ipSetSocketsAreBusy(false),
+	ipProgressMessage(calling_readNSocketChars-Input),
+	readNSocketChars(4,Input,FourBytes),
+        %% ipSetSocketsAreBusy(true),   this apparently was causing Windows hangs
+        %% TODO: this wait condition is beeing evaluated too late... somehow readNSocketChars should affect the busy flag
+	prolog_take_the_con,
+	int(Size,FourBytes,[]), % stick to our grammar...
+	ipProgressMessage(bytes_to_read-Size),
+	readNSocketChars(Size,Input,NewBytes),
+	ipSetSocketsAreBusy(false),
+	ipProgressMessage(leaving_interprologSendReceive).	   
+interprologSendReceive(Bytes, NewBytes) :- % JNI implementation
+	ipProgressMessage(preparing_interprolog_callback-Bytes),
+	ipLength(Bytes, L), 
+	/*ipProfilingMessage('Prolog about to rest'), */ 
+	( no_javaMessage_allowed -> throw(java_busy_with_another_message_from_prolog) ; true),
+	java_take_the_con,
+	interprolog_callback(L,Bytes,NewBytes),
+	prolog_take_the_con,
+	ipProgressMessage(interprolog_callback_returned-NewBytes)/*, ipProfilingMessage('Prolog working')*/.
+
+handleCallbackResult(RFJ,Timestamp,Result,Exception,NewArgList):-
+	extractResultParts(RFJ,NewTimestamp,Result1,Exception1,NewArgList1),
+	!, %% this is a result to the last javaMessage
+	(
+          NewTimestamp==Timestamp -> 
+          (NewArgList=NewArgList1,Result=Result1,Exception=Exception1) ; 
+          (NewTimestamp<Timestamp -> 
+              ipProgressMessage('different timestamps in handleCallbackResult. Remembering result and skipping to next message...'),
+              ipProgressMessage((Timestamp-NewTimestamp)/Result1/Exception1),
+              assert(ipMessageResultAlreadyReceived(NewTimestamp,RFJ)),
+              interprologSendReceive([],ResultBytes),
+              streamContents([Contents],_,ResultBytes,[]),
+              handleCallbackResult(Contents,Timestamp,Result,Exception,NewArgList)
+          ; 
+              writeln('Error: different timestamps in handleCallbackResult, failing'),
+              nl,
+              fail
+          )
+	).
+handleCallbackResult(Contents,Timestamp,Result,Exception,NewArgList):-
+	extractGoalVars(Contents,NewTimestamp,Goal,RVars,Error),
+	!, %% this is a new deterministicGoal call
+	ipProfilingMessage('Starting Prolog goal'),
+	handleDeterministicGoal(Goal,RVars,Error,NewTimestamp,NewBytes,_OriginalException),
+        !, %% nec for gc
+	ipProfilingMessage('Ended Prolog goal and got bytes'),
+	javaMessage2(NewBytes,Timestamp,Result,Exception,NewArgList).
+
+%% The next clauses must be kept in sync with the corresponding Java Classes:
+specifyJavaCallback(ReturnArgs,Timestamp,Target,MessageName,ArgList,MessageFromProlog) :-
+        ipObjectSpec('MessageFromProlog',MessageFromProlog,[ReturnArgs,Timestamp,ArgList,MessageName,Target],_).
+
+extractResultParts(ResultFromJava,Timestamp,Result,Exception,Arguments) :-
+        ipObjectSpec('ResultFromJava',ResultFromJava,[Timestamp,Arguments,Exception,Result],_).
+
+
+%% Counter/timestamp for javaMessage requests
+ip_inc_jm_counter(N) :- conget(ip_jm_counter,N), N1 is N+1, conset(ip_jm_counter,N1).
+
+?- initialization(conset(ip_jm_counter,0)).
+
+
+
+%%% javaMessage, sugared versions
+
+/*
+Examples:
+javaMessage(string(miguel),R,E,length,[],0,NewArgs), ipObjectSpec(Class,R,Value,_).
+ipObjectSpec(int,BeginIndex,[2],_),ipObjectSpec(int,EndIndex,[4],_),
+javaMessage(string('miguel'),R,E,substring,[BeginIndex,EndIndex],1,NewArgs).
+ipObjectSpec('IPClassVariable',Out,['java.lang.System','out'],_),
+javaMessage(Out,R,E,println,[string('Hello world!')],NewArgs).
+ipObjectSpec('IPClassObject',Class,['java.lang.System'],_),
+javaMessage(Class,R,E,'getProperty',[string('java.home')],NArgs).
+*/
+
+%% For compatibility:
+javaMessage(Target,Result,Exception,MessageName,ArgList,NewArgList) :-
+	javaMessage(Target,Result,Exception,MessageName,ArgList,1,NewArgList).
+
+javaMessage(Target,Message) :- javaMessage(Target,_,Message).
+
+javaMessage(Target,Result,Message) :-
+	javaMessage_4(Target,Exception,Result,Message),
+	(Exception \= null ->
+            term_to_atom(Exception,ExceptionAtm),
+            concat_atom(['Exception in javaMessage: ', ExceptionAtm], ErrMsg),
+            ipProgressMessage(ErrMsg),
+            fail
+        ; true
+        ).
+
+%% Variant throwing Java exceptions as Prolog terms
+javaMessage_throws(Target,Result,Message) :-
+	javaMessage_4(Target,Exception,Result,Message),
+	(Exception \= null ->
+            write('\nException in javaMessage, see Java console\n'),
+            throw(Exception)
+        ;true
+        ).
+
+%% Exception null if no exception caught; Java will return strings, so the string object wrapper is taken off
+javaMessage(Target,Exception,Result,Message) :- 
+	javaMessage_4(Target,Exception_,Result,Message),
+	(Exception_ = string(Exception) -> true; Exception=Exception_).
+
+javaMessage_4(Target,Exception,Result,Message) :-
+	javaTarget(Target,RealTarget),
+	!,
+	( Message = [Index] -> 
+            %% to access array elements; could be generalized for multidimensional, by passing an array of ints
+            MName=get, integer(Index), ipObjectSpec(int,Int,[Index],_), RealArgs=[Int]
+	; 
+            Message =..[MName|Args], javaTargets(Args,RealArgs)
+        ),
+	javaMessage(RealTarget,Result,Exception,MName,RealArgs,0,_).
+
+
+javaTarget(V,_) :- var(V), !, ipProgressMessage('javaMessage target can not be a variable'), fail.
+javaTarget(null,null) :- !.
+javaTarget(Target,RealTarget) :- integer(Target), !,
+	ipObjectSpec('InvisibleObject',RealTarget,[Target],_).
+javaTarget(Target,RealTarget) :- atom(Target), !,
+	ipObjectSpec('IPClassObject',RealTarget,[Target],_).
+javaTarget(Class-Variable,RealTarget) :- atom(Class), atom(Variable), !,
+	ipObjectSpec('IPClassVariable',RealTarget,[Class,Variable],_).
+javaTarget(Target,Target).
+
+javaTargets([],[]) :- !.
+javaTargets([A|Args],[RA|RealArgs]) :- javaTarget(A,RA), javaTargets(Args,RealArgs).
+
+%%% Even more sugared: higher level API
+
+
+java(Target,Message) :- java(Target,_Result,Message) .
+
+java(Target,Result,Message) :- 
+	java(Target,Result,Exception,Message),
+	(Exception \= null ->
+            term_to_atom(Exception,ExceptionAtm),
+            concat_atom(['\nException in javaMessage: ', ExceptionAtm], ErrMsg),
+            writeln(ErrMsg),
+            /* write(Exception), nl,*/
+            fail
+	;
+            true
+        ).
+
+%% similar to javaMessage, but using termToObjectSpec_ and prepareExceptionTerm to simplify object analysis and synthesis
+java(Target,Result,Exception,Message) :-
+	% ((Target = int(Ref), integer(Ref)) -> Target_ = Ref ; Target_ = Target),
+	termToObjectSpec_(Target,RealTarget,input),
+	( Message = [Index] -> 
+            %% to access array elements; could be generalized for multidimensional, by passing an array of ints
+	    MName=get,
+	    integer(Index),
+	    ipObjectSpec(int,Int,[Index],_),
+	    RealArgs=[Int]
+	; 
+	    Message =..[MName|Args],
+	    termsToObjectSpecs_(Args,RealArgs,input)
+	),
+	javaMessage(RealTarget,PreResult,PreException,MName,RealArgs,0,_),
+	prepareExceptionTerm(PreException,Exception),
+	termToObjectSpec_(Result,PreResult,output).
+
+prepareExceptionTerm(null,null) :- !.
+prepareExceptionTerm(OS,exception(Class,Message)):- OS=object(class(Class,_,_),_), !, ipAnalyseTerm(OS,_Template,[_,Message|_],_Vars,[_,Message|_Subs]).
+prepareExceptionTerm(string(A),exception(Class,Message)) :- atomRead(A,Class-Message).
+
+termToObjectSpec_(T,OS,Mode) :- termToObjectSpec(T,OS,Mode), !.
+%% later make usermod; xj and others could add here with assertz
+:- dynamic(termToObjectSpec/3).
+%% termToObjectSpec(?SimplerSpec,?GrammarSpec,+Direction) Direction==input if we're calling a Java method, output if we're groking its result
+termToObjectSpec(X,_,input) :- var(X), !, domain_error('object term','free var',termToObjectSpec,1).
+termToObjectSpec(null,null,_).
+termToObjectSpec(Int,OS,Mode) :- (Mode == input -> integer(Int); true), ipObjectSpec('InvisibleObject',OS,[Int],_).
+termToObjectSpec(ClassName,OS,Mode) :- (Mode == input -> atom(ClassName); true), ipObjectSpec('IPClassObject',OS,[ClassName],_).
+termToObjectSpec(Class-Variable,OS,Mode) :- 
+	(Mode == input -> atom(Class), atom(Variable); true), ipObjectSpec('IPClassVariable',OS,[Class,Variable],_).
+termToObjectSpec(string(X),string(Y),input) :- atom(X), !, X=Y.
+termToObjectSpec(string(X),string(Y),input) :- catch(string(X),_E,fail), !, atom_string(X,Y). % For SWI only
+termToObjectSpec(string(X),_,input) :- domain_error('object term',string(X),termToObjectSpec,1,'not an atom').
+termToObjectSpec(string(X),string(X),output).
+termToObjectSpec(byte(X),OS,input) :- integer(X), !, ipObjectSpec(byte,OS,[X],_).
+termToObjectSpec(byte(X),_,input) :- domain_error('object term',byte(X),termToObjectSpec,1,'not an integer').
+termToObjectSpec(byte(X),OS,output) :- ipObjectSpec('java.lang.Byte',OS,[X],_).
+termToObjectSpec(short(X),OS,input) :- integer(X), !, ipObjectSpec(short,OS,[X],_).
+termToObjectSpec(short(X),_,input) :- domain_error('object term',short(X),termToObjectSpec,1,'not an integer').
+termToObjectSpec(short(X),OS,output) :- ipObjectSpec('java.lang.Short',OS,[X],_).
+termToObjectSpec(int(X),OS,input) :- integer(X), !, ipObjectSpec(int,OS,[X],_).
+termToObjectSpec(int(X),_,input) :- domain_error('object term',int(X),termToObjectSpec,1,'not an integer').
+termToObjectSpec(int(X),OS,output) :- ipObjectSpec('java.lang.Integer',OS,[X],_).
+termToObjectSpec(long(X),OS,input) :- integer(X), !, long_to_longpair(X,Pair), ipObjectSpec(long,OS,[Pair],_).
+termToObjectSpec(long(X),_,input) :- domain_error('object term',long(X),termToObjectSpec,1,'not a long integer').
+termToObjectSpec(long(High,Low),OS,input) :- integer(High), integer(Low), !, ipObjectSpec(long,OS,[long(High,Low)],_).
+termToObjectSpec(Pair,OS,output) :- ipObjectSpec('java.lang.Long',OS,[long(High,Low)],_), 
+	(Pair=long(High,Low), !; domain_error('object term',long(_X),termToObjectSpec,1,'output longs must be long(High,Low)')).
+		% TODO: get long(High,Low) with ipObjectSpec('java.lang.Long',OS,[long(High,Low)],_) and convert it to int
+termToObjectSpec(float(X),OS,input) :- float(X), !, ipObjectSpec(float,OS,[X],_).
+termToObjectSpec(float(X),_,input) :- domain_error('object term',float(X),termToObjectSpec,1,'not a float').
+termToObjectSpec(float(X),OS,output) :- ipObjectSpec('java.lang.Float',OS,[X],_).
+termToObjectSpec(double(X),OS,input) :- float(X), !, ipObjectSpec(double,OS,[X],_).
+termToObjectSpec(double(X),_,input) :- domain_error('object term',double(X),termToObjectSpec,1,'not a float').
+termToObjectSpec(double(X),OS,output) :- ipObjectSpec('java.lang.Double',OS,[X],_).
+termToObjectSpec(boolean(X),OS,input) :- (X==1;X==0), !, ipObjectSpec(boolean,OS,[X],_).
+termToObjectSpec(boolean(X),_,input) :- domain_error('object term',boolean(X),termToObjectSpec,1,'is neither 1 nor 0').
+termToObjectSpec(boolean(X),OS,output) :- ipObjectSpec('java.lang.Boolean',OS,[X],_).
+termToObjectSpec(char(X),OS,input) :- integer(X), !, ipObjectSpec(char,OS,[X],_).
+termToObjectSpec(char(X),_,input) :- domain_error('object term',char(X),termToObjectSpec,1,'not an integer char code').
+termToObjectSpec(char(X),OS,output) :- ipObjectSpec('java.lang.Character',OS,[X],_).
+termToObjectSpec(term(X),OS,input) :- buildTermModel(X,OS).
+termToObjectSpec(term(X),OS,output) :- recoverTermModel(OS,X).
+termToObjectSpec(terms(X),OS,input) :- buildTermModelArray(X,OS).
+termToObjectSpec(terms(X),OS,output) :- recoverTermModelArray(OS,X).
+termToObjectSpec(SimpleObj,OS,input) :- 
+	SimpleObj=..[ClassName,Value], ipObjectSpec(ClassName,OS,[Value],_),
+	(number(Value)->true; domain_error('object term',SimpleObj,termToObjectSpec,1,'Specification too complex')).
+%%  e.g. for javaMessage(...,'java.lang.Float'(3.14),....
+termToObjectSpec(array(string,List),OS,Mode) :- 
+	ipObjectSpec('ArrayOfString',OS,[Elements],_), 
+	termsToObjectSpecs(List,Elements,string,Mode).
+termToObjectSpec(array(term,List),OS,input) :- buildTermModelArray(List,OS).
+termToObjectSpec(array(term,List),OS,output) :- recoverTermModelArray(OS,List).
+termToObjectSpec(array(byte,List),OS,_) :- ipObjectSpec('ArrayOfbyte',OS,[List],_).
+termToObjectSpec(array(int,List),OS,_) :- ipObjectSpec('ArrayOfint',OS,[List],_).
+termToObjectSpec(array(float,List),OS,_) :- ipObjectSpec('ArrayOffloat',OS,[List],_).
+%% This after the above inpout case so that the above clauses can aplly
+termToObjectSpec(SimpleObj,OS,output) :- ipObjectSpec(ClassName,OS,[Value],_), SimpleObj=..[ClassName,Value].
+%% Catchall cases, non processed:
+termToObjectSpec(object(Class,Data),object(Class,Data),_) /* :- maybe not..: ipObjectSpec(_,object(Class,Data),_,_) */.
+termToObjectSpec(arrayObject(BaseClass,Elements),arrayObject(BaseClass,Elements),_) /* idem */.
+
+termToObjectSpec(Obj,_,input) :- domain_error('object term',Obj,termToObjectSpec,1,'malformed object spec').
+
+%% termsToObjectSpecs(PrologList,ArrayObjects,TransformingFunctor,Mode)
+termsToObjectSpecs([],[],_,_):-!.
+termsToObjectSpecs([T|Terms],[E|Elements],Type,Mode) :- 
+	functor(Term,Type,1),
+	arg(1,Term,T),
+	termToObjectSpec(Term,E,Mode),
+	termsToObjectSpecs(Terms,Elements,Type,Mode).
+
+termsToObjectSpecs([],[],_):-!.
+termsToObjectSpecs([T|Terms],[E|Elements],Mode) :- 
+	termToObjectSpec(T,E,Mode),
+	termsToObjectSpecs(Terms,Elements,Mode).
+
+%% deterministic variant
+termsToObjectSpecs_([],[],_):-!.
+termsToObjectSpecs_([T|Terms],[E|Elements],Mode) :- 
+	termToObjectSpec_(T,E,Mode),
+	termsToObjectSpecs_(Terms,Elements,Mode).
+
+
+extractGoalVars(Object,Timestamp,Goal,RVars,Error) :-
+        var(Error), 
+        ipObjectSpec('GoalFromJava',Object,[Timestamp,GoalAtom,Objects],_),
+        atomRead(GoalAtom,X),
+        (X==end_of_file -> Error=string('Syntax error in goal'), ipProgressMessage(bad_goal_atom-GoalAtom)
+        ; X=gfj(Goal,OVar,RVars), (Objects=OVar -> true ; Error=string('Bad objects variable list'))).
+
+
+mayPrepareGoalBindings(RVars,G,[Model],(G,buildTermModel(G,Model))) :- RVars==null, !.
+mayPrepareGoalBindings(RVars,G,RVars,G).
+
+:- dynamic(ipTimedCallActive/1).
+:- dynamic(ipTimingAcall/0).
+:- dynamic(ipJavaGoalAlreadyExecuted/1).
+:- dynamic(ipMessageResultAlreadyReceived/2).
+
+handleDeterministicGoal(_Goal,_RVars,Error,Timestamp,NewBytes,_) :- nonvar(Error), !,
+	specifyPrologResult(Timestamp,0,[],Result,Error,0),
+	streamContents([Result],_,NewBytes,[]).
+handleDeterministicGoal(Goal,RVars,Error,Timestamp,NewBytes,OriginalException)  :- 
+	mayPrepareGoalBindings(RVars,Goal,RVars2,Goal_),
+	setupGoalModule(Goal_,Goal2),
+	ipProgressMessage('Calling dg '-Goal2/Timestamp),
+	assert(ipJavaGoalAlreadyExecuted(Timestamp)),
+	ipProfilingMessage('Actually calling goal'),
+        %% ( call(Goal2) -> Succeeded=1, NewRVars=RVars2 ; Succeeded=0, NewRVars=[]),
+	((ipTimedCallActive(MS), \+ ipTimingAcall) -> %% only one timed_call active for our purpose
+            assert(ipTimingAcall), TheCall = timed_call(call_tv(Goal2,NotUndefined),[repeating(MS,ipReportWork(Goal2))]) 
+        ; TheCall = call_tv(Goal2,NotUndefined)),
+    rsFormat('goalCall(~w,~q,~q).~n',[Timestamp,TheCall,RVars2]),
+	( catch( (TheCall) ,OriginalException, handle_ip_exception(OriginalException,Error2)) -> 
+            (	
+              checkUndefined(NotUndefined,U),
+              (var(Error2) -> Succeeded=1, NewRVars=RVars2
+              ; Succeeded=0, NewRVars=[]
+              )
+            )
+        ; 
+            Succeeded=0, NewRVars=[], U=0
+        ),
+    rsFormat('  goalResult(~w,~w,~q).~n',[Timestamp,Succeeded,NewRVars]), % NewRVars is ground, so no need to link vars here
+	(functor(TheCall,timed_call,_) -> retractall(ipTimingAcall) ; true),
+	ipProfilingMessage('...ended goal...'),
+	ipProgressMessage(dg_result-Goal2-Succeeded/OriginalException),
+	(	specifyPrologResult(Timestamp,Succeeded,NewRVars,Result,Error2,U), streamContents([Result],_,NewBytes,[]) -> 
+            Error2=Error
+        ;
+            Error = string('IP grammar failure, probably bad object specification'), 
+            specifyPrologResult(Timestamp,0,[],Result,Error,0), streamContents([Result],_,NewBytes,[])),
+	ipProfilingMessage('...and serialized its bytes').
+
+checkUndefined(true,0) :- !. %% if var we assume no undefinedness
+checkUndefined(undefined,1).
+
+%% Somewhere else an aborting predicate must be provided, through fj_ABORT_NOTRACE
+ipReportWork(_) :- ipSocketsAreBusy, !.
+ipReportWork(_) :- ipReportingWork, !.
+ipReportWork(_TopGoal) :- ipSetReportingWork(true), ipPrologEngine(E), 
+	ipProgressMessage(calling-prologCanWork),
+	catch(javaMessage(E,R,prologCanWork),Ex,writeln(ipReportWork-Ex)), 
+	ipProgressMessage(exited-prologCanWork),
+	ipSetReportingWork(false),
+	(R==null -> true ; R=string(Message), /*writeln(aborting-TopGoal),*/ fj_ABORT_NOTRACE(Message,G), G ).
+%% (Boolean == 0 -> throw('Java forbid Prolog to work') ; Boolean == 1).
+
+
+%% Useful for catch handlers that want to make sure not to absorb a user stop request
+rethrow_if_stop( Ball ) :- ipStopBall(Ball), ! /*, tell('throwing.txt'), writeln(Ball), told*/ , throw(Ball).
+rethrow_if_stop(_).
+
+%% Predicates to notify the Java side of state transitions; currently used only for Ergo
+%% The notification request may be ignored, if so we just print the exception
+entered_break :- ipPrologEngine(E), catch(javaMessage(E,prologEnteredBreak),Ex,writeln(entered_break-Ex)).
+resumed_computation :- ipPrologEngine(E), catch(javaMessage(E,prologResumedComputation),Ex,writeln(resumed_computation-Ex)).
+returned_to_toplevel :- ipPrologEngine(E), catch(javaMessage(E,prologReturnedToTopLevel),Ex,writeln(returned_to_toplevel-Ex)).
+
+
+%% The next clauses must be kept in sync with the corresponding Java Classes:
+%% specifyPrologResult(Timestamp,Succeeded,RVars,Result,Error,Undefined) Undefined is either 0 or 1 (this meaning undefined)
+
+specifyPrologResult(Timestamp,Succeeded,RVars,Result,Error,Undefined) :- nonvar(Error), !,
+	ipObjectSpec('ResultFromProlog',Result,[Succeeded,Timestamp,Undefined,Error,RVars],_).
+
+specifyPrologResult(Timestamp,Succeeded,RVars,Result,Error,Undefined) :- var(Error),
+	is_list(RVars),
+	\+ ((RVars=[X|_], (var(X);is_list(X)))), % guard against common programmer error
+	!,
+	ipObjectSpec('ResultFromProlog',Result,[Succeeded,Timestamp,Undefined,null,RVars],_).
+
+specifyPrologResult(Timestamp,_Succeeded,_RVars,Result,Error,Undefined) :- var(Error),
+	ipObjectSpec('ResultFromProlog',Result,[0,Timestamp,Undefined,string('Bad specification of result bindings'),[]],_).
+
+
+/****** Support for Java -> Prolog TOP deterministicGoal over sockets ******/
+
+% called for the first goal sent from Java; subsequent goals in the same (and only...) thread call stack
+% will come via the fecthing of results for javaMessage
+deterministicGoal(Timestamp) :- 
+	ipJavaGoalAlreadyExecuted(Timestamp), !. % it has already been executed during a javaMessage
+deterministicGoal(Timestamp) :-
+	ipProgressMessage('Entering deterministicGoal '-Timestamp),
+	seeing(Old),
+	ipsocketstreams(Input,Output),
+        %% ipProgressMessage(readNSocketChars_from-Input),
+    \+ ipSocketsAreBusy,
+    !,
+	ipSetSocketsAreBusy(true),
+	prolog_take_the_con,
+	deterministicGoalMaySkip(Input,Goal,RVars,Error,Timestamp),
+	ipSetSocketsAreBusy(false),
+	handleDeterministicGoal(Goal,RVars,Error,Timestamp,NewBytes,OriginalException),
+	ipSetSocketsAreBusy(true),
+	writeAllSocketChars(NewBytes,Output),
+	ipSetSocketsAreBusy(false),
+        %% ipSetNoprompt(_), hangs on startup...
+	see(Old), %% make sure the XSB top level keeps fed
+	ipProgressMessage('Exiting deterministicGoal '-Goal/Timestamp),
+	ip_may_rethrow_exception(OriginalException),
+	java_take_the_con.
+deterministicGoal(_) :- throw(busyipSockets). 
+	% since this predicate is used only for the first goal, this is unexpected; 
+	% InterProlog assumed the logic side to be idle!
+
+deterministicGoalMaySkip(Input,Goal,RVars,Error,Timestamp) :-
+	ipReadSocketBytes(Input,Bytes), 
+	(streamContents([Contents],_,Bytes,[]) -> 
+            extractGoalVars(Contents,NewTimestamp1,Goal1,RVars1,Error1) 
+        ; 
+            Error=string('Could not understand objects sent from Java')
+	),
+	(Timestamp == NewTimestamp1 -> 
+            Goal=Goal1,RVars=RVars1,Error=Error1
+        ; 
+            (
+              Timestamp > NewTimestamp1 ->
+              ipProgressMessage('Skipping goal object, probably due to previous error'-(Timestamp/NewTimestamp1)), 
+              deterministicGoalMaySkip(Input,Goal,RVars,Error,Timestamp)
+            ; 
+              Goal=Goal1,RVars=RVars1,Error=string('Bad timestamp in deterministicGoal')
+            )
+	).	
+
+ipReadSocketBytes(Input,Bytes) :- 
+	readNSocketChars(4,Input,FourBytes), int(Size,FourBytes,[]), % stick to our grammar...
+	readNSocketChars(Size,Input,Bytes).
+
+ipSocketsAreBusy :- conget(ipSocketsAreBusy_,1).
+
+%% as a side effect, these update whether Flora/Ergo's ctrl-C is allowed
+ipSetSocketsAreBusy(State) :- ipProgressMessage(ipSetSocketsAreBusy(State)), fail.
+ipSetSocketsAreBusy(true) :- conset(ipSocketsAreBusy_,1), 
+	(fjIsErgo(_) -> flora_disable_keyboard_interrupts ; true).
+ipSetSocketsAreBusy(false) :- conset(ipSocketsAreBusy_,0),
+	(fjIsErgo(_) -> flora_enable_keyboard_interrupts ; true).
+
+ipReportingWork :- conget(ipReportingWork_,1).
+
+ipSetReportingWork(true) :- conset(ipReportingWork_,1).
+ipSetReportingWork(false) :- conset(ipReportingWork_,0).
+
+%% New flag to avoid Prolog initiated execution interrupting, such as with timed_call/2
+?- initialization((ipSetSocketsAreBusy(false), ipSetReportingWork(false))).
+
+/****** Prolog term <-> TermModel specification ******/
+
+% Java longs have (or had in the old days) to be represented as 2 ints in XSB Prolog, so this tests that
+% an integer does not need to be a long, it can be a 32 bit int:
+not_too_long(X) :- integer(X), X >= -(32768*65536), X =< (32768*65536-1). 
+	% X >= - 2147483648, X=<2147483647 : "too big for xwam file"
+
+long_to_longpair(X,long(High,Low)) :- 
+	integer(X),
+	(X>=0 -> High is X>>32, Low is X /\ (65536*65536-1) 
+        ; Low is X /\ (65536*65536-1), High is (X>>32 /\ 32768*65536) \/ 32768*65536).
+
+%% buildTermModel(Term,TermModelSpec) 
+buildTermModel(X,Model) :- copy_term(X,XX), buildTermModel_(XX,Model).
+
+%% Binds variables with iP_Variable_ terms
+buildTermModel_(X,Model) :- not_too_long(X), !,
+	ipObjectSpec('java.lang.Integer',Integer,[X],_),
+	ipObjectSpec('TermModel',Model,[0,null,Integer],_).
+%% This is fragile regarding maximum range of longs in XSB...?
+buildTermModel_(X,Model) :- integer(X), % bigger int
+	!,
+	long_to_longpair(X,Pair),
+	ipObjectSpec('java.lang.Long',Integer,[Pair],_),
+	ipObjectSpec('TermModel',Model,[0,null,Integer],_).
+buildTermModel_(X,Model) :- nonvar(X), X=long(H,L), integer(H), integer(L),
+	!, % hack to encode large longs
+	ipObjectSpec('java.lang.Long',Integer,[long(H,L)],_),
+	ipObjectSpec('TermModel',Model,[0,null,Integer],_).
+buildTermModel_(X,Model) :- float(X), !, 
+        %%ipObjectSpec('java.lang.Float',Float,[X],_),
+	ipObjectSpec('java.lang.Double',Float,[X],_), % [DE]
+	ipObjectSpec('TermModel',Model,[0,null,Float],_).
+buildTermModel_(X,Model) :- nonvar(X), X=float(F), float(F),!, 
+	ipObjectSpec('java.lang.Float',Float,[F],_),
+	ipObjectSpec('TermModel',Model,[0,null,Float],_).
+buildTermModel_(X,Model) :- nonvar(X), X=double(D), float(D),!, 
+	ipObjectSpec('java.lang.Double',Double,[D],_),
+	ipObjectSpec('TermModel',Model,[0,null,Double],_).
+buildTermModel_(X,Model) :- X==[], !, 
+	ipObjectSpec('TermModel',Model,[1,null,string('[]')],_). % NOTE: Java side won't be able to distinguish list terminator from this atom
+buildTermModel_(X,Model) :- atom(X), !, 
+	ipObjectSpec('TermModel',Model,[0,null,string(X)],_).
+buildTermModel_(X,Model) :- var(X), catch(get_attributes(X,_),_,fail), !, % attributed vars cannot be bound...
+	buildTermModel_attr(X,Model).
+buildTermModel_(X,Model) :- var(X), !, 
+	ip_inc_var_counter(N), X= iP_Variable_(N), buildTermModel_(X,Model).
+buildTermModel_(iP_Variable_(N),Model) :-
+        !,
+	ipObjectSpec('VariableNode',VN,[N],_),
+	ipObjectSpec('TermModel',Model,[0,null,VN],_).
+%% flat lists (DEC 2011): 
+%%buildTermModel_(X,Model) :- is_list(X), is_closed_list(X), !, 
+%%	ipObjectSpec('TermModel',Model,[1/*hasListFunctor*/,1/*flat list*/,ModelList,string('.')],_),	
+%%	buildTermModelList_(X,ModelList). % flat the list
+%% lists with a var tail (actually all now...) are treated here:
+buildTermModel_(X,Model) :-
+        X=..[Functor|Args],
+        (is_list(X)->HasListFunctor=1;HasListFunctor=0),
+        ipObjectSpec('TermModel',Model,[HasListFunctor,ModelList,string(Functor)],_),
+        buildTermModelList_(Args,ModelList).
+
+buildTermModel_attr(X,Model) :- get_attr(X,interprologVar,N), !, buildTermModel_(iP_Variable_(N),Model).
+buildTermModel_attr(X,Model) :- ip_inc_var_counter(N), put_attr(X,interprologVar,N), buildTermModel_(iP_Variable_(N),Model).
+
+buildTermModelList_([],null) :- !.
+buildTermModelList_(Args,ModelList) :- 
+	buildTermModelList_2(Args,ModelList_),
+	ipObjectSpec('ArrayOfTermModel',ModelList,[ModelList_],_).
+
+buildTermModelList_2([],[]).
+buildTermModelList_2([A1|An],[Model1|ModelN]) :- 
+	buildTermModel_(A1,Model1), buildTermModelList_2(An,ModelN).
+
+%% Renumbers each term''s variables separately
+buildTermModels([],[]).
+buildTermModels([T1|Tn],[M1|Mn]) :- buildTermModel(T1,M1), buildTermModels(Tn,Mn).
+
+
+%% buildTermModelArray(+Terms,-Array)
+buildTermModelArray(T,ArrayModel) :- 
+	buildTermModelList_2(T,TMs),
+        ipObjectSpec('ArrayOfTermModel',ArrayModel,[TMs],_).
+
+
+
+%% recoverTermModel(Model,Term) ground(Model) holds
+recoverTermModel(Model,Term) :-	
+	ipObjectSpec('InitiallyFlatTermModel',Model,[_,Atom],_), !,
+	atomRead(Atom,Term).
+recoverTermModel(Model,Term) :-
+	recoverTermModel(Model,VarChunks,[],Term),
+	bindRepeatedVars(VarChunks).
+
+recoverTermModels(Models,Terms) :-
+	recoverTermModelList2(Models,VarChunks,[],Terms),
+	bindRepeatedVars(VarChunks).
+
+bindRepeatedVars([]) :- !.
+bindRepeatedVars([_]) :- !.
+bindRepeatedVars([C1|Chunks]) :-
+        bindRepeatedVars(Chunks,C1),
+        bindRepeatedVars(Chunks).
+
+bindRepeatedVars([],_) :- !.
+bindRepeatedVars([N-Var|Chunks],N-Var) :- !, bindRepeatedVars(Chunks,N-Var).
+bindRepeatedVars([_|Chunks],NV) :- bindRepeatedVars(Chunks,NV).
+
+
+recoverTermModel(Model,[N-Var|VarChunks],VarChunks,Var) :- 
+	ipObjectSpec('TermModel',Model,[0,null,VN],_), % A variable cannot have children, Prolog syntax
+	ipObjectSpec('VariableNode',VN,[N],_), !.
+:- if(current_prolog_flag(dialect, swi)).  % cf. http://www.swi-prolog.org/pldoc/man?section=ext-lists
+recoverTermModel(Model,V,V,[]) :-
+	 % on SWI will accept both "." and this as list functor;
+	ipObjectSpec('TermModel',Model,[1,null,string('[|]')],_), !. 
+:-endif.
+recoverTermModel(Model,V,V,[]) :- 
+	ipObjectSpec('TermModel',Model,[1,null,string('.')],_), !.
+recoverTermModel(Model,V,V,[]) :- 
+	ipObjectSpec('TermModel',Model,[1,null,string('[]')],_), !.
+recoverTermModel(Model,V,V,Atom) :- 
+	ipObjectSpec('TermModel',Model,[0,null,string(Atom)],_), !.
+recoverTermModel(Model,V,V,X) :- 
+	ipObjectSpec('TermModel',Model,[0,null,Integer],_),
+	ipObjectSpec('java.lang.Integer',Integer,[X],_), !.
+recoverTermModel(Model,V,V,X) :- % Here we could perhaps recover a Prolog int, rather than the long(High,Low) term
+	ipObjectSpec('TermModel',Model,[0,null,Long],_),
+	ipObjectSpec('java.lang.Long',Long,[X],_), !.
+recoverTermModel(Model,V,V,X) :- 
+	ipObjectSpec('TermModel',Model,[0,null,Float],_),
+	ipObjectSpec('java.lang.Double',Float,[X],_), !. % [DE]
+recoverTermModel(Model,V,V,X) :- 
+	ipObjectSpec('TermModel',Model,[0,null,Float],_),
+	ipObjectSpec('java.lang.Float',Float,[X],_), !.
+/* flat list.... DO WE NEED THIS CLAUSE??? guess not!
+recoverTermModel(Model,V1,Vn,X) :- 
+	ipObjectSpec('TermModel',Model,[1,1,ModelList,string('.')],_), !,
+*/
+:- if(current_prolog_flag(dialect, swi)).  % the Java side may use "." as list functor
+recoverTermModel(Model,V1,Vn,X) :- 
+	ipObjectSpec('TermModel',Model,[1,ModelList,string('.')],_),
+	recoverTermModelList(ModelList,V1,Vn,Args),
+	X=..['[|]'|Args].
+:-endif.
+recoverTermModel(Model,V1,Vn,X) :- 
+	ipObjectSpec('TermModel',Model,[_PrologWillAssume,ModelList,string(Functor)],_),
+	recoverTermModelList(ModelList,V1,Vn,Args),
+	X=..[Functor|Args].
+
+recoverTermModelList(null,V,V,[]) :- !.
+recoverTermModelList(ModelList,V1,Vn,Args) :- 
+	ipObjectSpec('ArrayOfTermModel',ModelList,[ModelList_],_),
+	recoverTermModelList2(ModelList_,V1,Vn,Args).
+
+recoverTermModelList2([],V,V,[]) :- !.
+recoverTermModelList2([M1|Mn],V1,Vn,[A1|An]) :-
+	recoverTermModel(M1,V1,V2,A1), !, recoverTermModelList2(Mn,V2,Vn,An).
+
+
+%% recoverTermModelArray(+Model,-List)
+recoverTermModelArray(Model,List) :-
+	ipObjectSpec('ArrayOfTermModel',Model,[ModelList_],_),
+	recoverTermModelList2(ModelList_,VarChunks,[],List),
+	bindRepeatedVars(VarChunks).
+
+
+%% buildInitiallyFlatTermModel(Term,Model)
+%% similar in function to buildTermModel, but uses a InitiallyFlatTermModel to simplify serialization,
+%% deferring the TermModel construction to the Java side
+%% Attributes of variables are discarded
+
+buildInitiallyFlatTermModel(T,M) :-
+	delete_all_attributes(T), term_to_atom_IFTM(T,Atom),
+	once(ipObjectSpec('InitiallyFlatTermModel',M,[0,/*0, these two booleans will be rebuilt on the Java side anyway */Atom],_)).
+
+%% buildInitiallyFlatTermModels(Terms,Models)
+buildInitiallyFlatTermModels([T|Terms],[M|Models]) :-
+        !,
+	buildInitiallyFlatTermModel(T,M),
+        buildInitiallyFlatTermModels(Terms,Models).
+buildInitiallyFlatTermModels([],[]).
+
+delete_all_attributes(V) :- var(V), !, delete_attributes(V).
+delete_all_attributes(X) :- atomic(X), !.
+delete_all_attributes([X1|Xn]) :- !, delete_all_attributes(X1), delete_all_attributes(Xn).
+delete_all_attributes(X) :- X=..[_|L], delete_all_attributes(L).
+
+%% ipPutTermList(List,FilePath)  
+%% NOTE: Variables occurring in different list elements are NOT preserved; recommended for ground lists mostly
+ipPutTermList(List,FilePath) :- is_list(List), atom(FilePath), List=[First|L],
+	tell(FilePath),
+	write('['), 
+        %% write_term(First,Options), %% should use write_canonical, but that is NOT ignoring ops!
+	term_to_codes_ptl(First,String1), file_write_line(String1,0),
+	( member(X,L), write(','), term_to_codes_ptl(X,String), file_write_line(String,0), fail ; true),
+	write(']'), told.
+
+%%stringArraytoList(?StringArrayObject,?List)
+stringArraytoList(Array,List) :- 
+	ipObjectTemplate('ArrayOfString',Array,_,[L],_),
+	stringArraytoList2(L,List).
+
+stringArraytoList2([],[]).
+stringArraytoList2([string(X)|L],[X|List]) :- stringArraytoList2(L,List).
+
+
+/*
+is_closed_list(L) :- var(L), !, fail.
+is_closed_list([]) :- !.
+is_closed_list([_H|T]):- is_closed_list(T).
+*/
+
+/****** Object <-> Term Definite Clause Grammar ******/
+
+%% A DCG implementing most of Sun Object Serialization Stream Protocol Grammar, 
+%% cf. Serialization Specification JDK 1.1, 
+%% http://java.sun.com/products/jdk/1.1/docs/guide/serialization/spec/protocol.doc.html
+%% Provides InterProlog's core ability to map Java objects to/from their Prolog term specifications  
+%% Same as the stream grammar, first letters changed to lowercase where needed
+%% Grammar terminals are stream bytes
+%% Two extra args are PreviousHandles, NewHandles, to keep previous known objects
+%% Java references among objects in the stream map into Prolog unification
+%% For unimplemented aspects check the InterProlog README file, and comments below
+
+%% Asserting 'repeatedObjectsDetectedGenerating' will cause streamContents/4 
+%% to detect repeated terms and map them into object handles,
+%% as one would normally expect. The default however is to detect only repeated 
+%% CLASS, string (note these are kept unique anyway on the Java side)
+%% and VariableNode objects, for speed... AND for correctness too:
+%% Consider two objects X and Y in Java, such that !(X==Y) && X.equals(Y(), e.g. they're different objects 
+%% but similar; they'll be serialized to Prolog as two different terms, TX and TY. But since TX and TY
+%% are ground, on the Prolog side TX==TY. When sending them back to Java, if repeatedObjectsDetectedGenerating,
+%% then a single object Z will be received by Java. This may be fixable by adding an extra (free) variable
+%% to object term specifications
+
+%% Handles in the Java-> Prolog direction are ALWAYS mapped into term unification, 
+%% possibly creating circular Prolog terms. So to serialize such objects back to Java,
+%% you need 'repeatedObjectsDetectedGenerating' asserted... Which works, but incurring in the above 
+%% correctness problem :-( In conclusion, this needs fixing in a future version - but not on this one
+%% because there's been no need yet to serialize objects that contain cyclic references from Prolog to Java ...
+
+%% The object <-> term grammar has been extended to support blockdata, so for example Vectors continue 
+%% to be serializable to Prolog (even under JDK 1.4.2, which changed the serialization ways of Vectors) 
+%% and other things such as AWT objects etc. may be serialized to Prolog too, and recovered later by Java 
+%% (but see comments above for limitations). Notice that typically this "huge serialization" business 
+%% is bad practice - if something is huge and mostly opaque from the Prolog side, it's better to 
+%% pass an InvisibleObject (reference to the object) rather than to the object itself, and javaMessage to it as needed
+
+
+:- dynamic(repeatedObjectsDetectedGenerating/0).
+%%:- asserta(repeatedObjectsDetectedGenerating).
+
+ipGrammarChandler([Token|Tokens],Token,Tokens).
+
+%% ipDCGModeHacker((word([Token|Tokens],Token,Tokens) /*:- Hack=interprolog, ! */ )).
+
+streamContents(C,Handles,Bytes0,Bytes) :-
+	(var(Bytes0) -> 
+            Job=generated(N), ipProgressMessage(grammar_generating-C), nonvar(C)
+        %% ,tell('generatingFor.txt'),write(C), nl,told
+        ; 
+            Job=parsed(N), ipProgressMessage(grammar_analysing)
+	),
+	Job=_, %% quiet compiler
+    %% reset_dcg_mode, no longer needed. See note above on set_dcg_terminal_functor/2
+    %% Caused problems with timed_call (ipReportWork) for apps using tabled grammars
+    %% hack to make sure we do not disrupt "datalog mode" DCGs active during timed_calls: 
+	streamContents0(C,Handles,Bytes0,Bytes),
+    !,
+    %% retractall(H),
+	Handles = handles(N,_), ipProgressMessage(grammar_executed).
+streamContents(C,Handles,Bytes0,Bytes) :- 
+        %% ipDCGModeHacker(H), retractall(H),
+	ipIsDebugging,
+	tell('lastStreamContents.txt'), write('This failed unexpectedly:'), nl,
+	write(streamContents(C,Handles,Bytes0,Bytes)), nl, told,
+	fail.
+
+streamContents0(C,Handles) --> 
+	magic, streamversion, contents(C,handles(-1,[]),Handles), !.
+
+%% Slightly different recursion pattern at the top level:
+contents([C|More],H1,Hn) --> content(C,H1,H2), moreContents(More,H2,Hn).
+
+moreContents(More,H1,Hn) --> contents(More,H1,Hn).
+moreContents([],H,H) --> [].
+
+content(O,H1,Hn) --> object(O,H1,Hn).
+content(Block,H,H) --> blockdata(Block).
+
+object(O,H1,Hn) --> nullReference(O,H1,Hn) /*, !*/.
+object(O,H1,Hn) --> prevObject(O,H1,Hn). % this alternative must be before the next ones
+object(O,H1,Hn) --> newString(O,H1,Hn).
+object(O,H1,Hn) --> newObject(O,H1,Hn).
+object(O,H1,Hn) --> newArray(O,H1,Hn).
+object(O,H1,Hn) --> newClass(O,H1,Hn).
+object(O,H1,Hn) --> newClassDesc(O,H1,Hn).
+object(O,H1,Hn) --> exception(O,H1,Hn).
+object(O,H1,Hn) --> newEnum(O,H1,Hn).
+object(tC_RESET,H,H) --> tC_RESET.
+
+newClass(D,H1,Hn) --> tC_CLASS, classDesc(D,H1,Hn) /* buggy Sun grammar! , newHandle(D)*/.
+
+classDesc(D,H1,Hn) --> prevObject(D,H1,Hn), {D = class(_,_,_) /* probably superfluous */}, !.
+classDesc(D,H1,Hn) --> nullReference(D,H1,Hn), !.
+classDesc(D,H1,Hn) --> newClassDesc(D,H1,Hn).
+
+superClassDesc(D,H1,Hn) --> classDesc(D,H1,Hn).
+
+newClassDesc(class(Name,VUID,Info),H1,Hn) --> 
+	tC_CLASSDESC, className(Name,H1,H2), 
+        %% {ipProgressMessage(newClassDesc-Name)},
+        %% ipShowTerminalsIf(Name='[Ljava.lang.String;'),
+	serialVersionUID(VUID,H2,H3), 
+	newHandle(class(Name,VUID,Info),H3,H4), 
+        %% {ipProgressMessageIf('added handle',Name=='[Ljava.lang.String;')},
+	classDescInfo(Info,H4,Hn).
+newClassDesc(_Class,H,H) -->
+        tC_PROXYCLASSDESC,
+        { /* ipProgressMessage('Not handling proxy class descriptions'),*/
+          fail
+        }.
+
+classDescInfo(classDescInfo(Fields,Flags,Super),H1,Hn) --> 
+	classDescFlags(Flags,H1,H2), fields(Fields,H2,H3), classAnnotation(H3,H4), 
+	superClassDesc(Super,H4,Hn).
+
+className(Name,H,H) --> utf(Name).
+
+serialVersionUID(VUID,H,H) --> long(VUID).
+
+classDescFlags(Flags,H,H) --> byte(Flags). 
+
+fields(Fields,H1,Hn) --> ipPeekTerminal(NextByte),
+        %%	{ground(Fields) -> ipLength(Fields,Count) ; Count=Count},
+	{var(NextByte) -> ipLength(Fields,Count) ; Count=Count},
+	short(Count), nFieldDesc(Count,Fields,H1,Hn).
+
+nFieldDesc(0,[],H,H) --> [].
+nFieldDesc(N,[F|More],H1,Hn) -->
+	a_fieldDesc(F,H1,H2), {NN is N-1}, nFieldDesc(NN,More,H2,Hn).
+
+a_fieldDesc(F,H1,Hn) --> 
+	(primitiveDesc(F,H1,Hn) ; objectDesc(F,H1,Hn)).
+
+primitiveDesc(byte(Name),H,H) --> [66], fieldName(Name).    %% B
+primitiveDesc(boolean(Name),H,H) --> [90], fieldName(Name). %% Z
+primitiveDesc(short(Name),H,H) --> [83], fieldName(Name).   %% S
+primitiveDesc(int(Name),H,H) --> [73], fieldName(Name).     %% I
+primitiveDesc(char(Name),H,H) --> [67], fieldName(Name).    %% C
+primitiveDesc(float(Name),H,H) --> [70], fieldName(Name).   %% F
+primitiveDesc(double(Name),H,H) --> [68], fieldName(Name).  %% D
+primitiveDesc(long(Name),H,H) --> [74], fieldName(Name).    %% J
+
+objectDesc(arrayField(Name,ClassName),H1,Hn) --> 
+	[91], fieldName(Name), object(string(ClassName),H1,Hn). % '[' previously used nonterminal className
+objectDesc(objectField(Name,ClassName),H1,Hn) --> 
+	[76], fieldName(Name), object(string(ClassName),H1,Hn). % 'L' previously used nonterminal className
+
+fieldName(Name) --> utf(Name).
+
+%% className(Name) --> utf(Name).
+
+classAnnotation(H,H) --> endBlockData. %% Not accepted: endBlockData ; contents, endBlockData.
+
+newArray(arrayObject(D,Values),H1,Hn) --> 
+	tC_ARRAY, classDesc(D,H1,H2), newHandle(arrayObject(D,Values),H2,H3), 
+	ipPeekTerminal(NextByte),
+	{var(NextByte) -> ipLength(Values,Size) ; Size=Size},
+        %%	{ground(Values) -> ipLength(Values,Size) ; Size=Size},
+	int(Size), nvalues(Size,D,Values,H3,Hn).
+
+
+nvalues(0,_,[],H,H) --> [], !.
+nvalues(N,D,[V|More],H1,Hn) --> elementValue(D,V,H1,H2), {NN is N-1}, nvalues(NN,D,More,H2,Hn).
+
+%% this test should be done before the loop... but would require either redundancy or a meta-call...
+elementValue(class('[B',_,_),V,H,H) --> !, byte(V).
+elementValue(class('[Z',_,_),V,H,H) --> !, boolean(V).
+elementValue(class('[S',_,_),V,H,H) --> !, short(V).
+elementValue(class('[I',_,_),V,H,H) --> !, int(V).
+elementValue(class('[C',_,_),V,H,H) --> !, char(V).
+elementValue(class('[F',_,_),V,H,H) --> !, float(V).
+elementValue(class('[D',_,_),V,H,H) --> !, double(V).
+elementValue(class('[J',_,_),V,H,H) --> !, long(V).
+elementValue(class('[I',_,_),V,H,H) --> !, int(V).
+elementValue(_,V,H1,Hn) --> object(V,H1,Hn). 
+%% Final case: not an array of basic type. Type verifications (D...) superfluous...
+
+
+newObject(object(D,Data),H1,Hn) --> 
+	tC_OBJECT, classDesc(D,H1,H2), 
+	newHandle(object(D,Data),H2,H3), classesData(D,Data,H3,Hn).
+
+%% Topmost class (Object) causes topmost value to always be []...
+%% Beware of ingenuous use of append to flatten + .. + ... we do need invertibility ;-)
+classesData(class(Name,VUID,classDescInfo(Fields,Flags,Super)),SData+ThisData,H1,Hn) -->
+	superClassData(Super,SData,H1,H2),
+	classData(class(Name,VUID,classDescInfo(Fields,Flags,Super)),ThisData,H2,Hn).
+
+superClassData(null,[],H,H) --> !.
+superClassData(D,Data,H1,Hn) --> classesData(D,Data,H1,Hn).
+
+/* Several cases to consider depending the serialization flags. First is 
+serializable without writeObject method:*/
+classData(class(Name,VUID,classDescInfo(Fields,Flags,Super)),Data,H1,Hn) --> 
+	{Flags=2}, 
+        %% cf. http://java.sun.com/j2se/1.4.2/docs/api/constant-values.html#java.io.ObjectStreamConstants.SC_SERIALIZABLE
+	nowrclass(class(Name,VUID,classDescInfo(Fields,Flags,Super)),Data,H1,Hn).
+/* Second is serializable with writeObject method:*/
+classData(class(Name,VUID,classDescInfo(Fields,Flags,Super)),DefaultData-BlockData,H1,Hn) -->
+	{Flags=3},
+        %% cf. http://java.sun.com/j2se/1.4.2/docs/api/constant-values.html#java.io.ObjectStreamConstants.SC_WRITE_METHOD
+	wrclass(class(Name,VUID,classDescInfo(Fields,Flags,Super)),DefaultData,H1,H2), 
+	objectAnnotation(BlockData,H2,Hn).
+/* Cases involving Externalizable are not handled, as in general parsing requires knowledge coded in Externalizable.readExternal */	
+classData(class(Name,_VUID,classDescInfo(_Fields,Flags,_Super)),_,_,_) -->
+	{nonvar(Flags), Flags\==2, Flags\==3, !, ipProgressMessage(('Bad flags in class:'-Flags-Name)), fail}.
+
+
+nowrclass(D,Data,H1,Hn) --> values(D,Data,H1,Hn). % fields in order of class descriptor.....
+
+wrclass(D,Data,H1,Hn) --> nowrclass(D,Data,H1,Hn).
+
+objectAnnotation(blockdata(empty),H,H) --> endBlockData.
+objectAnnotation(Contents,H1,Hn) --> contents(Contents,H1,Hn) , endBlockData.
+
+endBlockData --> tC_ENDBLOCKDATA.
+
+blockdata(Block) --> blockdatashort(Block).
+blockdata(Block) --> blockdatalong(Block).
+
+blockdatashort(blockdata(Block)) --> 
+	tC_BLOCKDATA, [Size], {var(Size)->ipLength(Block,Size);true},
+	{Size<256, Size>=0},
+	blockbytes(Size,Block).
+blockdatalong(blockdata(Block)) --> 
+	tC_BLOCKDATALONG, {nonvar(Block)->ipLength(Block,Size);true},
+	int(Size), 
+	{Size>255},
+	blockbytes(Size,Block).
+
+%% blockbytes(+Size,?Block)
+blockbytes(0,[]) --> !.
+blockbytes(Size,[Byte|Block]) --> 
+	[Byte], {NewSize is Size-1}, blockbytes(NewSize,Block).
+
+newString(string(S),H1,Hn) --> [Type], 
+	{( nonvar(S) -> 
+		   (S=[]->S_='[]';S_=S), % deal with SWI handling of lists
+           (atom_codes(S_,SL), ipLength(SL,N), 
+               (N<16384 ; N<65536, atomchars2utf__(SL,ByteCount,_L1,_Ln), ByteCount<65536 ), 
+               Type=116) 
+         ; Type=116 /*tC_STRING*/) }, 
+	!,
+	utf(S), newHandle(string(S),H1,Hn).
+newString(string(S),H1,Hn) --> tC_LONGSTRING, 
+	utfLong(S), newHandle(string(S),H1,Hn).
+
+newEnum(_O,H,H) -->
+        tC_ENUM,
+        {/*ipProgressMessage('Not handling enums yet'),*/ fail}.
+
+prevObject(X,H1,Hn) --> tC_REFERENCE, handle(X,H1,Hn).
+
+
+/* Handles argument: handles(TotalCount,Objects), where Objects is a
+2-3 tree (see below) with key-value pairs of the object
+and its handle number.  If the use is java->prolog (parsing), then
+handle number is the key and the object is the value; if the use is
+prolog->java (generation), then the object is the key and the
+handle-number is the value.  This is for improved indexing. */
+
+/*
+handle(X,Handles,Handles) --> [0,126,H1,H0], 
+        %% baseWireHandle in java.io.ObjectStreamConstants; no more than 64k-1 objects!
+	{(nonvar(H1)-> N is H1*256+H0 ; N=N)}, 
+	{handle2Object(N,Handles,X), H0 is N mod 256, H1 is N//256}. 
+*/
+%% No longer limited to 64k-1 objects, courtesy XSB, Inc.:
+handle(X,Handles,Handles) --> [B1,B2,B3,B4],
+	{(nonvar(B1)
+         ->	 N is (B1<<24 + B2<<16 + B3<<8 + B4) - 8257536 /*16'7E0000*/,
+          handle2Object(N,Handles,X)
+         ;	 handle2Object(N1,Handles,X),
+          N is N1 + 8257536 /*16'7E0000*/,
+          B4 is N /\ 255,
+          Na is N>>8,
+          B3 is Na /\ 255,
+          Nb is Na>>8,
+          B2 is Nb /\ 255,
+          B1 is Nb>>8 /\ 255
+	 )}.
+
+handle2Object(N,H1,X) :- 
+	nonvar(N) -> fetchPreviousHandle(H1,N,X)
+        ; findPreviousObject(X,H1,N), nonvar(N).
+
+
+%% var(N) and nonvar(X) hold, we are generating
+%% findPreviousObject(X,Handles,N)
+%% notice that objects in handles are ground terms
+
+findPreviousObject(Object,handles(_N,Tree),N) :-
+	once(( Object = class(_,_,_) ; Object = string(_) ; 
+               Object = object(class('com.declarativa.interprolog.VariableModel',_,_),_);
+               repeatedObjectsDetectedGenerating )),
+	find(Tree,Object,N).
+
+%% nonvar(N) holds, we are parsing
+fetchPreviousHandle(handles(_C,Tree),N,Object) :-
+	find(Tree,N,Object).
+
+%% we''re generating:
+newHandle(Object,handles(N0,Tree0),handles(N1,Tree1),Bytes,Bytes) :-
+	N1 is N0+1,
+	(nonvar(Bytes)
+        ->     addkey(Tree0,N1,Object,Tree1)
+        ;      addkey(Tree0,Object,N1,Tree1)
+        ),
+        !.
+%% do not fail if already in tree, in sync with findPreviousObject
+newHandle(_,handles(N0,Tree0),handles(N1,Tree0),Bytes,Bytes) :- N1 is N0+1.
+
+
+nullReference(null,H,H) --> tC_NULL.
+
+exception(unsupportedException,H,H) --> tC_EXCEPTION. 
+%% not supported: , reset, object(X), {is_throwable(X)}, reset ????
+
+%%%resetContext --> tC_RESET.
+
+magic --> sTREAM_MAGIC.
+
+streamversion --> sTREAM_VERSION.
+
+%% values(+ClassDescription,-Data,H1,Hn)
+values(class(_Name,_VUID,classDescInfo(Fields,_Flags,_Super)),Data,H1,Hn) --> 
+	valuesOfFields(Fields,Data,H1,Hn).
+
+valuesOfFields([],[],H,H) --> [].
+valuesOfFields([F1|Fn],[D1|Dn],H1,Hn) --> valueOfField(F1,D1,H1,H2), valuesOfFields(Fn,Dn,H2,Hn).
+
+valueOfField(byte(_FieldName),X,H,H) --> byte(X).
+valueOfField(short(_FieldName),X,H,H) --> short(X).
+valueOfField(int(_FieldName),X,H,H) --> int(X).
+valueOfField(long(_FieldName),X,H,H) --> long(X).
+valueOfField(boolean(_FieldName),X,H,H) --> boolean(X).
+valueOfField(char(_FieldName),X,H,H) --> char(X).
+valueOfField(float(_FieldName),X,H,H) --> float(X).
+valueOfField(double(_FieldName),X,H,H) --> double(X).
+valueOfField(objectField(_FieldName,_ClassName),Value,H1,Hn) --> 
+	object(Value,H1,Hn). %% Avoid binding ClassName downwards, weird chars in it...
+        %% No type checking here, that's not our job
+        valueOfField(arrayField(_FieldName,_ClassName),Values,H1,Hn) --> 
+                object(Values,H1,Hn). 
+
+
+
+%% BASIC TYPES...
+byte(X) --> [B0], {var(X) -> analyseByte(B0,X) ;  integer(X), generateByte(B0,X)}.
+short(X) --> [B1,B0], {var(X) -> analyseShort(B1,B0,X) ;  integer(X), generateShort(B1,B0,X)}.
+int(X) --> [B3,B2,B1,B0], 
+	{var(X) -> analyseInt(B3,B2,B1,B0,X) ; integer(X), generateInt(B3,B2,B1,B0,X)}.
+
+analyseByte(B0,X) :- B0>=128, !, X is B0-256.
+analyseByte(B0,B0).
+
+generateByte(B0,X) :- X<0, !, B0 is X+256.
+generateByte(B0,B0).
+
+
+analyseShort(B1,B0,X) :- B1>=128, !, X is B1*256+B0 - 65536.
+analyseShort(B1,B0,X) :- X is B1*256+B0.
+
+generateShort(B1,B0,X) :- X<0, !, XX is X + 65536, B0 is XX mod 256, B1 is XX // 256.
+generateShort(B1,B0,X) :- B0 is X mod 256, B1 is X // 256, B1 < 256.
+
+analyseInt(B3,B2,B1,B0,X) :- B3>=128, !, X is ((B3/\127)<< 24 ) \/ (B2 << 16) \/ (B1 << 8) \/ B0 - (32768*65536). 
+analyseInt(B3,B2,B1,B0,X) :- X is (B3<< 24) \/ (B2 << 16) \/ (B1 << 8) \/ B0.
+
+generateInt(B3,B2,B1,B0,X) :- X<0, !, XX is X + (32768*65536),
+	B3 is ((XX >> 24) /\ 127) \/ 128, B2 is (XX >> 16) /\  255, B1 is (XX >> 8) /\  255, B0 is XX /\ 255.
+generateInt(B3,B2,B1,B0,X) :- 
+	B3 is (X >> 24) /\ 255, B2 is (X >> 16) /\  255, B1 is (X >> 8) /\  255, B0 is X /\ 255.
+
+%% too big for Prolog to handle:
+%% long(long(B7,B6,B5,B4,B3,B2,B1,B0)) --> [B7,B6,B5,B4,B3,B2,B1,B0]. 
+%%long(long(B76,B54,B32,B10)) --> short(B76), short(B54), short(B32), short(B10). 
+long(long(B64,B32)) --> int(B64), int(B32).
+
+boolean(X) --> [X].
+
+float(X) --> [B3,B2,B1,B0], 
+	{var(X) -> analyseFloat(B3,B2,B1,B0,S,M,E), cvtFloat(S,E,M,X)
+        ; number(X), XX is X+0.0, float(XX), % attempt casting
+         (XX=0.0 -> B3=0, B2=0, B1=0, B0=0 ;
+             cvtFloat(S,E,M,XX), generateFloat(B3,B2,B1,B0,S,M,E)) }.
+
+%% [DE]
+double(X) --> [B7,B6,B5,B4,B3,B2,B1,B0], 
+	{var(X) -> bytes2double(B7,B6,B5,B4,B3,B2,B1,B0,X) 
+        ; 
+        number(X), catch(XX is X+0.0,_,X=XX), % hack for SWI, who refuses to add to inf
+        float(XX), double2bytes(XX,B7,B6,B5,B4,B3,B2,B1,B0) % attempt casting
+        }.
+%% double(double(B7,B6,B5,B4,B3,B2,B1,B0)) --> [B7,B6,B5,B4,B3,B2,B1,B0]. % cf. IEEE 754
+
+/*
+Double.NaN, NEGATIVE_INFINITY and POSITIVE_INFINITY; 
+cf. http://download.oracle.com/javase/6/docs/api/java/lang/Double.html#doubleToLongBits(double)
+0/0: 0x 7f f8 00 00 00 00 00 00L
+-1/0: 0x ff f0 00 00 00 00 00 00L
+1/0: 0x 7f f0 00 00 00 00 00 00L
+*/
+
+bytes2double(127,248,0,0,0,0,0,0,X) :- !, not_a_number(X).
+bytes2double(255,240,0,0,0,0,0,0,X) :- !, minus_infinite(X).
+bytes2double(127,240,0,0,0,0,0,0,X) :- !, plus_infinite(X).
+bytes2double(B7,0,0,0,0,0,0,0,X) :- 0 is B7 /\ 127, !, X = 0.0. 
+bytes2double(B7,B6,B5,B4,B3,B2,B1,B0,X) :- analyseDouble(B7,B6,B5,B4,B3,B2,B1,B0,S,M1,M2,E), cvtDouble(S,E,M1,M2,X).
+
+double2bytes(X,B7,B6,B5,B4,B3,B2,B1,B0) :- X=0.0, !, B7=0, B6=0, B5=0, B4=0, B3=0, B2=0, B1=0, B0=0.
+double2bytes(X,B7,B6,B5,B4,B3,B2,B1,B0) :-  not_a_number(X), !, B7=127, B6=248, B5=0, B4=0, B3=0, B2=0, B1=0, B0=0.
+double2bytes(X,B7,B6,B5,B4,B3,B2,B1,B0) :-  minus_infinite(X), !, B7=255, B6=240, B5=0, B4=0, B3=0, B2=0, B1=0, B0=0.
+double2bytes(X,B7,B6,B5,B4,B3,B2,B1,B0) :-  plus_infinite(X), !, B7=127, B6=240, B5=0, B4=0, B3=0, B2=0, B1=0, B0=0.
+double2bytes(X,B7,B6,B5,B4,B3,B2,B1,B0) :- cvtDouble(S,E,M1,M2,X), generateDouble(B7,B6,B5,B4,B3,B2,B1,B0,S,M1,M2,E).
+
+char(X) --> [B1,B0], 
+	{var(X) -> X is B1*256 + B0 ;  
+         integer(X), X >= 0, B0 is X mod 256, B1 is X // 256, B1 < 256}.
+
+
+/*atom_chars is bad according to Michael Kifer, should use atom_codes:*/  
+utf(Name) --> {var(Name)}, !, 
+	[B1,B0], {Length is B1*256+B0}, utf2Atomchars(Length,List), {atom_codes(Name,List)}.
+utf(Name) --> {atom_codes(Name,List)}, [B1,B0], 
+	atomchars2utf(List,ByteCount), {generateShort(B1,B0,ByteCount)}.
+
+utfLong(Name) --> {var(Name)}, !, 
+	long(long(0,Length)),   % smaller than 2^32 please
+	utf2Atomchars(Length,List), {atom_codes(Name,List)}.
+utfLong(Name) --> {atom_codes(Name,List), ipLength(List,Length)},
+	long(long(0,Length)),   % smaller than 2^32 please
+	atomchars2utf(List,Length).
+
+
+/* obsolete
+utfChars(0,[]) --> [].
+utfChars(N,[C|More]) --> [C], {NN is N-1}, utfChars(NN,More).
+*/
+
+%% cf. DataInput.readUTF() documentation:
+%% utf2Atomchars(+BytesLeft,-AtomChars)  parsing the stream
+
+
+utf2Atomchars(BytesLeft,AtomChars,L1,Ln)  :- ipUsesNativeNonterminals, !, utf2AtomcharsNative(BytesLeft,AtomChars,L1,Ln).
+utf2Atomchars(BytesLeft,AtomChars,L1,Ln)  :- 
+	utf2Atomchars__(BytesLeft,AtomChars,L1,Ln).
+
+utf2Atomchars_(0,[]) --> [].
+utf2Atomchars_(N,[A|More]) --> [A], {A<128, !, NN is N-1}, utf2Atomchars_(NN,More).
+utf2Atomchars_(N,[AC|More]) --> [A,B], 
+	{NN is N-2, AC is (((A /\ 31) << 6) \/ (B /\ 63)), AC<256}, utf2Atomchars_(NN,More).
+
+
+%% cf. DataOutput.writeUTF(String) documentation:
+%% atomchars2utf(+AtomChars,-ByteCount)  generating the stream
+
+atomchars2utf(AtomChars,ByteCount,L1,Ln) :- ipUsesNativeNonterminals, !, atomchars2utfNative(AtomChars,ByteCount,L1,Ln).
+atomchars2utf(AtomChars,ByteCount,L1,Ln) :- atomchars2utf__(AtomChars,ByteCount,L1,Ln).
+
+atomchars2utf_([],0) --> [].
+atomchars2utf_([C|More],N) --> [C], {C<128, !}, atomchars2utf_(More,NN), {N is NN+1}.
+atomchars2utf_([C|More],N) --> [C1,C2], 
+	{C<256, C1 is (192 \/ (31 /\ (C >> 6))), C2 is (128 \/ (63 /\ C))}, 
+	atomchars2utf_(More,NN), {N is NN+2}.
+
+%% New versions to take advantage of larger Unicode codepoints in Prolog atom codes
+utf2Atomchars__(0,[]) --> [].
+utf2Atomchars__(N,[A|More]) --> [A], {A<128, !, NN is N-1}, utf2Atomchars__(NN,More).
+utf2Atomchars__(N,[AC|More]) -->
+        [A,B], {192 is A/\224, ! }, % two bytes
+        {NN is N-2, AC is (((A /\ 31) << 6) \/ (B /\ 63))}, utf2Atomchars__(NN,More).
+utf2Atomchars__(N,[AC|More]) -->
+        [A,B,C], {224 is A/\224, ! }, % three bytes
+        {NN is N-3, AC is (((A /\ 15) << 12) \/ ((B /\ 63) << 6) \/ (C /\ 63))}, utf2Atomchars__(NN,More).
+
+
+atomchars2utf__([],0) --> [].
+atomchars2utf__([C|More],N) --> {C<128, C>=0, ! }, [C], atomchars2utf__(More,NN), {N is NN+1}.
+atomchars2utf__([C|More],N) --> {C<2048, C>=0, ! }, [C1,C2], 
+	{ C1 is (192 \/ (31 /\ (C >> 6))), C2 is (128 \/ (63 /\ C))}, 
+	atomchars2utf__(More,NN), {N is NN+2}.
+atomchars2utf__([C|More],N) --> {C<65536, C>=0, ! }, [C1,C2,C3], 
+	{ C1 is (224 \/ (15 /\ (C >> 12))), C2 is (128 \/ (63 /\ (C >> 6))), C3 is (128 \/ (63 /\ C)) }, 
+	atomchars2utf__(More,NN), {N is NN+3}.
+atomchars2utf__([C|_More],_N) --> {write('Bad UTF codepoint:'), writeln(C), fail}. % Java would not like it
+
+
+
+
+%%cf. java.io.ObjectStreamConstants
+sTREAM_MAGIC --> [172,237].
+sTREAM_VERSION --> [0,5].
+tC_NULL --> [112].
+tC_REFERENCE --> [113].
+tC_CLASSDESC --> [114].
+tC_OBJECT --> [115].
+%% not necessary, hardcoded above tC_STRING --> [116].
+tC_ARRAY --> [117].
+tC_CLASS --> [118].
+tC_BLOCKDATA --> [119].
+tC_ENDBLOCKDATA --> [120].
+tC_RESET --> [121].
+tC_BLOCKDATALONG --> [122].
+tC_EXCEPTION --> [123].
+tC_LONGSTRING --> [124].
+tC_PROXYCLASSDESC --> [125].
+tC_ENUM --> [126].
+
+
+%%%%%%%%% Grammar ends here
+
+%% cf. IEEE 754 float(B3,B2,B1,B0)
+
+analyseFloat(B3,B2,B1,B0,Sign,Mantissa,Exponent) :- 
+	Sign is B3 >> 7, Exponent is ((B3 /\ 127)<<1)+ (B2 >>7) - 127, 
+	Mantissa is ((B2 /\  127)<< 16) + (B1<<8) + B0. % without the extra 1 to the left of decimal point
+
+generateFloat(B3,B2,B1,B0,Sign,Mantissa,Exponent) :- 
+	B3 is (Sign << 7) \/ ((Exponent+127) >> 1),
+	B2 is (((Exponent+127) /\ 1) << 7)   \/ (Mantissa >> 16),
+	B1 is (Mantissa >> 8) /\ 255,
+	B0 is Mantissa /\ 255. 
+
+%% [DE]
+analyseDouble(B7,B6,B5,B4,B3,B2,B1,B0,Sign,M1,M2,Exponent) :- 
+	Sign is B7 >> 7, 
+	Exponent is ((B7 /\ 127)<<4) + (B6>>4) - 1023,
+	M1 is ((B6 /\ 15)<<17) + (B5<<9) + (B4<<1) + (B3>>7), 
+        %% Breaks M1,M2 at bits 31/30; XSB version splitted M1,M2 at bits 32/31 instead
+        %% this option affects generateDouble too
+	M2 is ((B3 /\ 127)<<24) + (B2<<16) + (B1<<8) + B0 .
+
+%% [DE]
+generateDouble(B7,B6,B5,B4,B3,B2,B1,B0,Sign,M1,M2,Exponent) :- 
+	B7 is (Sign << 7) \/ ((Exponent+1023) >> 4),
+	B6 is (((Exponent+1023) /\ 15) << 4) \/ (M1 >> 17),
+	B5 is (M1 >> 9) /\ 255,
+	B4 is (M1 >> 1) /\ 255,
+	B3 is ((M1<<7) /\ 255) \/ (M2 >> 24),
+	B2 is (M2 >> 16) /\ 255,
+	B1 is (M2 >> 8) /\ 255,
+	B0 is M2 /\ 255 .
+
+/************************************************/
+/* convert float (IEEE 754), courtesy of Davis S. Warren
+cvtFloat(+Sign,+Exponent,+Mantissa,-Float)
+cvtFloat(-Sign,-Exponent,-Mantissa,+Float)
+
+interconverts between a sign/exponent/mantissa representation of a float
+and an XSB float.  sign/exponent and mantissa are all integers.
+
+sign is 1 if Float is negative, 0 if positive
+exponent is the integer power of 2 of the Float
+mantissa is an integer of 23 bits which are the bits of the
+mantissa in IEEE 754 floating point standard (without the extra 1
+                                             to the left of the binary point.)
+
+[These routines work for sign and exponent for any representation.  The
+mantissa representation is special for single precision floats and
+would need to be changed (to include another mantissa integer) to work
+for doubles. IT WAS CHANGED :-) Cf. below]
+**/
+
+cvtFloat(Sign,Power,Mantissa,Float) :-
+	(nonvar(Float)
+        ->     float_to_intrep(Sign,Power,Mantissa,Float)
+        ; nonvar(Sign),nonvar(Power),nonvar(Mantissa)
+        ->     intrep_to_float(Sign,Power,Mantissa,Float)
+        ;      write('Instantiation Error: in cvtFloat/4'), nl,
+            fail
+        ).
+
+%% [DE]
+cvtDouble(Sign,Power,M1,M2,Float) :-
+	(nonvar(Float)
+        ->     double_to_intrep(Sign,Power,M1,M2,Float)
+        ; nonvar(Sign),nonvar(Power),nonvar(M1),nonvar(M2)
+        ->     intrep_to_double(Sign,Power,M1,M2,Float)
+        ;      write('Instantiation Error: in cvtFloat/4'), nl,
+            fail
+        ).
+
+
+%% These two contributed by Tatyana Vidrevich for XSB Prolog:
+
+float_to_intrep(Sign,Power,Mantissa,Float) :-
+	(Float < 0.0
+        ->     FloatA is - Float,
+            Sign = 1
+        ;      FloatA = Float,
+            Sign = 0
+	),
+	extractPower(FloatA,Rem,0,Power1),
+	Rem1 is Rem - 1.0,
+        %%will only use 23 bits but get more for better rounding
+	extractMantissa(32,Rem1,_,0,Mantissa1),
+        %% bits after 23 bits are truncated. 1 is added if either the truncated bits 
+        %% were > 10...0 or the truncated bits were = 10...0 and the last maintained bit is equal to 1. 
+        %% (IEEE 754 round-to-nearest even compatible?)
+	TopTruncatedBit is (Mantissa1 /\ 256),
+	(TopTruncatedBit =:= 0
+        ->	Mantissa is (Mantissa1 >> 9) /\ 8388607,
+            Power = Power1
+        ;	round_to_nearest_even(Mantissa1, Mantissa, Power1, Power)
+	).
+
+round_to_nearest_even(Mantissa1, Mantissa, Power1, Power):-
+	LastSignificantBit is Mantissa1 /\ 512,
+	EightOfNineTruncBits is Mantissa1 /\ 255,
+	(LastSignificantBit =:= 0, EightOfNineTruncBits = 0
+        ->	Mantissa is (Mantissa1 >> 9) /\ 8388607,
+            Power = Power1
+        ;	Mantissa2 is (Mantissa1 >> 9) /\ 8388607,
+            Mantissa3 is Mantissa2 + 1,
+            %% overflow ?
+            (Mantissa3 > 8388607 % 2^23-1
+            ->	Power is Power1+1,
+                Mantissa is Mantissa3 >> 1
+            ;	Power = Power1,
+                Mantissa = Mantissa3
+            )
+	).
+
+extractMantissa(N,Float,Rem,MantI,Mant) :-
+	(N =< 0
+        ->     Mant = MantI,
+            Rem = Float
+        ;      (Float >= 0.5
+               ->    MantI1 is MantI+MantI+1,
+                   Float1 is Float - 1.0 + Float
+               ;     MantI1 is MantI+MantI,
+                   Float1 is Float + Float
+               ),
+            N1 is N-1,
+            extractMantissa(N1,Float1,Rem,MantI1,Mant)
+	).
+
+intrep_to_float(Sign,Power,Mantissa,Float) :-
+	(Power < 0
+        ->   PowerA is - Power,
+            generatePower2(PowerA,2.0,1.0,PfA),
+            Pf is 1.0 / PfA
+        ;    generatePower2(Power,2.0,1.0,Pf)
+        ),
+	generateMantissa(23,Mantissa,0.0,Mf1),
+	Mf is Mf1 + 1.0,
+	FloatP is Pf * Mf,
+	(Sign > 0 -> Float is - FloatP ; Float = FloatP).
+
+%% [DE]
+intrep_to_double(Sign,Power,M1,M2,Float) :-
+	(Power < 0
+        ->   PowerA is - Power,
+            generatePower2(PowerA,2.0,1.0,PfA),
+            Pf is 1.0 / PfA
+        ;    generatePower2(Power,2.0,1.0,Pf)
+        ),
+	generateMantissa(31,M2,0.0,Mf1),
+	generateMantissa(21,M1,Mf1,Mf2),
+	Mf is Mf2 + 1.0,
+	FloatP is Pf * Mf,
+	(Sign > 0 -> Float is - FloatP ; Float = FloatP).
+
+%% [DE]
+double_to_intrep(Sign,Power,M1,M2,Float) :-
+	(Float < 0.0
+        ->     FloatA is - Float,
+            Sign = 1
+        ;      FloatA = Float,
+            Sign = 0
+	),
+	extractPower(FloatA,Rem,0,Power),
+	Rem1 is Rem - 1.0,
+	extractMantissa(21,Rem1,Rem2,0,M1),
+	extractMantissa(31,Rem2,_,0,M2).
+
+generatePower2(N,P,Fi,Fo) :-
+	N > 0
+        ->     B is N /\ 1,
+        N1 is N >> 1,
+        (B > 0 -> Fi1 is Fi*P ; Fi1 = Fi),
+        P1 is P*P,
+        generatePower2(N1,P1,Fi1,Fo)
+        ;      Fo=Fi.
+
+
+generateMantissa(K,N,Fi,Fo) :-
+	K =< 0
+        ->     Fo = Fi
+        ;      K1 is K-1,
+        N1 is N>>1,
+        (N/\1 > 0
+        ->     Fi1 is (Fi+1.0)/2
+        ;      Fi1 is Fi/2
+        ),
+        generateMantissa(K1,N1,Fi1,Fo).
+
+extractPower(Float,Rem,PowI,Power) :-
+	Float < 1.0
+        ->     extractPowerM(Float,Rem,PowI,Power)
+        ;      extractPowerP(Float,Rem,PowI,Power).
+
+extractPowerP(Float,Rem,PowI,Power) :-
+	(Float < 2.0
+        ->     Rem = Float,
+            Power = PowI
+        ;      Float1 is Float / 2,
+            Power1 is PowI+1,
+            extractPowerP(Float1,Rem,Power1,Power)
+	).
+
+extractPowerM(Float,Rem,PowI,Power) :-
+	(Float >= 1.0
+        ->     Rem = Float,
+            Power = PowI
+        ;      Float1 is Float * 2,
+            Power1 is PowI-1,
+            extractPowerM(Float1,Rem,Power1,Power)
+	).
+
+
+/****** Object term analysis (cf. also ipProcessExamples and ipcompareTerms) ******/
+
+%% ipAnalyseTerm(Term,Template,Names,Vars,Subs)
+%% A helper predicate to obtain variable names and types
+%% This depends on the Java object grammar; it might perhaps be produced by partial evaluation
+%% of a grammar lookahead...
+
+ipAnalyseTerm(
+              object(class(Name,VUID,ClassInfo),Data),
+              object(class(Name,VUID,ClassInfo),TData),
+              Names,Vars,Subs
+             ) :-
+        !,
+	ipAnalyseFields(ClassInfo,Data,TData,Names,Vars,Subs).
+ipAnalyseTerm(
+              arrayObject(class(Name,VUID,Info),Values),
+              arrayObject(class(Name,VUID,Info),VarValues),
+              [arrayof-Name],[VarValues],[Values]
+             ) :-
+        !.
+ipAnalyseTerm(T,T,[],[],[]).
+
+ipAnalyseFields(classDescInfo(Fields,_,null),[]+ThisData, []+TemplateData,Names,Vars,Subs) :-
+	!,
+	ipAnalyseClassFields(Fields,ThisData,TemplateData,Names,Vars,Subs).
+ipAnalyseFields(classDescInfo(Fields,_,/*Super*/ 
+                             class(_SName,_SVUID,SuperInfo)),
+                SuperData+ThisData,
+                TemplateSuper+TemplateThis,
+                Names,
+                Vars,
+                Subs
+               ) :-
+	ipAnalyseFields(/*Super*/ SuperInfo,SuperData,TemplateSuper,Names1,Vars1,Subs1),
+	ipAnalyseClassFields(Fields,ThisData,TemplateThis,Names2,Vars2,Subs2),
+	append(Names1,Names2,Names),
+	append(Vars1,Vars2,Vars),
+	append(Subs1,Subs2,Subs).
+
+%% ipAnalyseClassFields(Fields,ThisData,TemplateThis,Names2,Vars2,Subs2): do it for one class
+ipAnalyseClassFields([],[],[],[],[],[]) :- !.
+ipAnalyseClassFields(Fields,Data-blockdata(empty),Templates,Names,Vars,Subs) :-
+        !, %% special case for custom "writeObject"
+	ipAnalyseClassFields(Fields,Data,Templates,Names,Vars,Subs).
+ipAnalyseClassFields([Field1|Fields],[Data1|Data],[Var1|Templates],[Field1|Names],[Var1|Vars],[Data1|Subs]) :-
+	ipAnalyseClassFields(Fields,Data,Templates,Names,Vars,Subs).
+
+
+
+
+%% ipObjectSpec(ClassName,VarValues,Object)
+%% This predicate can be used both to build new objects and to introspect its variables
+%% Keep in mind we are talking about object specifications on the Prolog side, not real Java objects
+%% A ClassName instance must have been taught with teachMoreObjects
+%% If the class is an array, VarValues will be a list simply with the array values
+%% Else:
+%% VarValueList is a list [VarName1=Value1,...,VarNameN=ValueN]
+%% Each VarName must be an atom, the name of a Java instance variable of the class
+%% If var(Object) then all values must be ground, and Object will be bound to a specification
+%% of an object similar to the Class prototype that was taught except for the different values in the list
+%% If nonvar(Object) then the unbound values in the list will be bound to the object variable values
+%% Each Value must be compatible with the corresponding object field; this is only partially checked
+
+
+ipObjectSpec(Class,Values,arrayObject(D,Values)) :-
+	ipObjectTemplate(Class,arrayObject(D,Values),_,_,_),
+	!,
+	is_list(Values).
+
+ipObjectSpec(Class,VarValueList,Object) :-
+	atom(Class), is_list(VarValueList), 
+	ipObjectTemplate(Class,Object,ANames,TVars,TSubs),
+	bindObjectVars(VarValueList,ANames,TVars),
+	bindFreeVarsWith(TVars,TSubs).
+
+bindFreeVarsWith([],[]) :- !.
+bindFreeVarsWith([V|Vn],[_|Xn]) :- nonvar(V), !, bindFreeVarsWith(Vn,Xn).
+bindFreeVarsWith([X|Vn],[X|Xn]) :- bindFreeVarsWith(Vn,Xn).
+
+
+bindObjectVars([],_ANames,_TVars) :- !.
+bindObjectVars([VarName=X|VarValues],ANames,TVars) :-
+	findCheckVarAndType(ANames,TVars,VarName,X),
+	bindObjectVars(VarValues,ANames,TVars).
+
+
+%% findCheckVarAndType(Names,Vars,VarName,Value) 
+findCheckVarAndType([Term|_],[Value|_],VarName,Value) :- 
+	typeNameTerm(Term,VarName,Value), !.
+findCheckVarAndType([_|Terms],[_|FreeVars],VarName,Value) :-
+	findCheckVarAndType(Terms,FreeVars,VarName,Value).
+
+%% typeNameTerm(Term,VarName,Value)
+%% succeeds if Term denotes an object field with name VarName, to which a
+%% assignment of Value can be performed; this test is incomplete, as (1) the Java class hierarchy is not available
+%% and (2) we are not dissecting and checking object type strings
+%% cf. cases for valueOfField in grammar
+typeNameTerm(byte(VarName),VarName,X) :-
+        !,
+        integer(X),
+        X >= -128, X =< 127.
+typeNameTerm(short(VarName),VarName,X) :-
+        !,
+        integer(X),
+        X >= -32768, X =< 32767.
+typeNameTerm(int(VarName),VarName,X) :- !, integer(X).
+typeNameTerm(long(VarName),VarName,X) :- !, X=long(_,_).
+typeNameTerm(boolean(VarName),VarName,X) :- !, integer(X), X>=0, X=<1.
+typeNameTerm(char(VarName),VarName,X) :- !, integer(X), X>=0, X=<255.
+typeNameTerm(float(VarName),VarName,X) :- !, float(X).
+%%typeNameTerm(double(VarName),VarName,X) :-
+%%      !,
+%%      X=double(_B7,_B6,_B5,_B4,_B3,_B2,_B1,_B0).
+typeNameTerm(double(VarName),VarName,X) :- !, float(X). %% [DE]
+typeNameTerm(objectField(VarName,_Type),VarName,Value) :-
+        !, 
+	(Value = object(_D,_V)
+        ; Value = class(_,_,_)
+        ; Value = null
+        ; Value = string(A), atom(A)
+        ).
+typeNameTerm(arrayField(VarName,_Type),VarName,Value) :-
+        !,
+        Value = arrayObject(_D,Values), is_list(Values).
+
+
+/******************************************************************/
+/* 2-3 tree routines, taken initially from I. Bratko, Prolog      */
+/* Programming for AI, and modified by David S. Warren.           */
+/******************************************************************/
+addkey([],X,V,l(X,V)) :- !.
+addkey(Tree,X,V,Tree1) :-
+	ins2(Tree,X,V,Trees),
+	cmb0(Trees,Tree1).
+
+
+find(l(X,V),Xs,V) :- X == Xs.
+find(n2(T1,M,T2),X,V) :-
+	M @=< X
+        ->	find(T2,X,V)
+        ;	find(T1,X,V).
+find(n3(T1,M2,T2,M3,T3),X,V) :-
+	M2 @=< X
+        ->	(M3 @=< X
+                ->	find(T3,X,V)
+                ;	find(T2,X,V)
+		)
+        ;	find(T1,X,V).
+
+
+
+
+ins2(n2(T1,M,T2),X,V,Tree) :- 
+	(M @=< X ->
+            ins2(T2,X,V,Tree1),
+            cmb2(Tree1,T1,M,Tree)
+        ;  ins2(T1,X,V,Tree1),
+            cmb1(Tree1,M,T2,Tree)
+        ).
+ins2(n3(T1,M2,T2,M3,T3),X,V,Tree) :- 
+	(M2 @=< X ->
+            (M3 @=< X
+            ->	ins2(T3,X,V,Tree1),
+                cmb4(Tree1,T1,M2,T2,M3,Tree)
+            ;	ins2(T2,X,V,Tree1),
+                cmb5(Tree1,T1,M2,M3,T3,Tree)
+            )
+        ;   ins2(T1,X,V,Tree1),
+            cmb3(Tree1,M2,T2,M3,T3,Tree)
+        ).
+ins2(l(A,V),X,Vn,Tree) :-
+	(A @=< X ->
+            (X @=< A ->	fail
+            ;	Tree = t(l(A,V),X,l(X,Vn))
+            )
+        ;  Tree = t(l(X,Vn),A,l(A,V))
+        ).
+
+cmb0(t(Tree),Tree).
+cmb0(t(T1,M,T2),n2(T1,M,T2)).
+
+cmb1(t(NT1),M,T2,t(n2(NT1,M,T2))).
+cmb1(t(NT1a,Mb,NT1b),M,T2,t(n3(NT1a,Mb,NT1b,M,T2))).
+
+cmb2(t(NT2),T1,M,t(n2(T1,M,NT2))).
+cmb2(t(NT2a,Mb,NT2b),T1,M,t(n3(T1,M,NT2a,Mb,NT2b))).
+
+cmb3(t(NT1),M2,T2,M3,T3,t(n3(NT1,M2,T2,M3,T3))).
+cmb3(t(NT1a,Mb,NT1b),M2,T2,M3,T3,t(n2(NT1a,Mb,NT1b),M2,n2(T2,M3,T3))).
+
+cmb4(t(NT3),T1,M2,T2,M3,t(n3(T1,M2,T2,M3,NT3))).
+cmb4(t(NT3a,Mb,NT3b),T1,M2,T2,M3,t(n2(T1,M2,T2),M3,n2(NT3a,Mb,NT3b))).
+
+cmb5(t(NT2),T1,M2,M3,T3,t(n3(T1,M2,NT2,M3,T3))).
+cmb5(t(NT2a,Mb,NT2b),T1,M2,M3,T3,t(n2(T1,M2,NT2a),Mb,n2(NT2b,M3,T3))).
+
+
+%%% Support for Flora-2 and Ergo
+fj_flora_query(Query,Vars,Status,WAMSTATE,Ex) :-
+	flora_query(Query,Vars,Status,WAMSTATE,Ex).
+
+fj_flora_query(Query,Vars) :-
+	fj_flora_query(Query,Vars,_Status,_WAMSTATE,Ex),
+	Ex == normal.
+
+%% The following depends on FLORA_EXIT_BREAK defined in flora_exceptions.flh
+ip_may_rethrow_exception(E) :-
+	fjIsErgo(_),
+	E == '_$ergo:exit_break',
+	!,
+	throw(E).
+ip_may_rethrow_exception(_).
+
+
+%%%% Support for recording Java+Flora/Prolog sessions (currently XSB only)
+
+:- dynamic(recordingStream/1).
+:- dynamic(goalResult/3).
+:- dynamic(goalCall/3).
+:- dynamic(sessionRecordedFrom/1).
+
+
+%  recordSessionIn(Filename,JarFile) This is to be called only after IP is initialized
+recordSessionIn(F,JarFile) :- 
+	set_prolog_flag(write_depth,9999), % so our result terms remain "complete"
+	open(F,write,S), assert(recordingStream(S)),
+	datetimestamp(T), 
+	rsFormat('/* InterProlog session on ~w~nThis file contains deterministicGoal and javaMessage calls and results, as well as ipObjectSpect and other InterProlog predicates*/~n~n',[T]),
+	rsFormat("sessionRecordedFrom('~w').~n",[JarFile]),
+	rsFormat('% goalCall(Timestamp,TheCall,RVars2) ~n'),
+	rsFormat('%   goalResult(Timestamp,Succeeded,NewRVars) ~n'),
+	rsFormat('% javaMessageCall(Timestamp,Target,MessageName,ArgList,ReturnArgs)~n'),
+	rsFormat('%   javaMessageResult(Timestamp,Result,Exception,NewArgList,Duration)~n~n'),
+	% commands in net.sf.flora2.API.PrologFlora.initCommandStrings(String); not all, others are already done by FloraSubprocessEngine:
+	rsFormat('?- consult(flrimportedcalls).~n'),
+	rsFormat('?- import flora_get_DT_var_datatype/2 from usermod(flrunify_handlers).~n'),
+	rsFormat('?- import flora_call_string_command/5 from flrcallflora.~n'),
+	rsFormat('?- import flora_decode_oid_as_atom/2 from flrdecode.~n'),
+	rsFormat("?- import '\\\\load'/1, '\\\\add'/1 from flora2.~n"),
+
+	conget(ip_jm_counter,N), rsFormat('?- machine:conset(ip_jm_counter,~w).~n',[N]), % hack the javaMessage timestamps
+	conget(ip_var_counter,VN), rsFormat('?- machine:conset(ip_var_counter,~w).~n',[VN]), % hack the TermModel var namer; seems useless, but just in case
+	
+	rsFormat(':- dynamic(javaMessageCall/5). :- dynamic(javaMessageResult/5).~n'),
+	rsFormat(':- dynamic(ipPrologEngine/1). :- dynamic(ipObjectSpec/4). :- dynamic(ipObjectTemplate/5).~n',[]),
+	ToDump = [ipPrologEngine(_), ipObjectSpec(_,_,_,_), ipObjectTemplate(_,_,_,_,_)],
+	(member(G,ToDump), G, rsFormat("~q.~n",[G]), fail ; true),
+	rsFormat("~n",[]).
+
+% Format (print) output to recording session file
+rsFormat(Format,Args) :- recordingStream(S), !, format(S,Format,Args), flush_output(S).
+rsFormat(_Format,_Args).
+
+rsFormat(_Format) :- rsFormat(_Format,[]).
+
+:- dynamic(playingSession/0).
+:- dynamic(javaMessageCall/5).
+:- dynamic(javaMessageResult/5).
+
+:- dynamic(usedJavaMessageCall/1).
+
+% Ex. launch xsb, [interprolog], playSessionFrom(..)
+playSessionFrom(Dir) :- cd(Dir),  playSession.
+
+?- initialization(conset(sessionErrors,0)).
+
+% Ex: cd to session directory, then:
+% 	~/Flora-2/flora2/runflora -e "[interprolog]".
+%	playSession@\plg(interprolog).
+% OR SIMPLY: ~/Flora-2/flora2/runflora -e "[interprolog], playSession@\\plg(interprolog)."
+% Uses current directory as session storage
+playSession :- 
+	['patched_interprologTrace.P'], 
+	ToCopy = [ipPrologEngine(_), ipObjectSpec(_,_,_,_), ipObjectTemplate(_,_,_,_,_), javaMessageCall(_,_,_,_,_), javaMessageResult(_,_,_,_,_)],
+	findall(G, (member(G,ToCopy), usermod:G), Facts),
+	(member(Fact,Facts), assert(Fact), fail; true),
+	% (member(G,ToCopy), retractall(usermod:G), fail; true),
+	assert(playingSession),
+	conset(sessionErrors,0), conset(repeatedJavaMessageCall,0),
+	sessionRecordedFrom(Jar), format("~n---------------------~nPlaying back session recorded by ~w~n---------------------~n",[Jar]),
+	goalCall(Timestamp,TheCall,RVars2), 
+	once(goalResult(Timestamp,Succeeded,NewRVars)),
+	nicerRecordedGoal(TheCall,NicerCall),
+	format('~nCalling goal ~w: ~w...~n',[Timestamp,NicerCall]), 
+	walltime(Start),
+	(TheCall -> 
+		( (Succeeded==1, RVars2=NewRVars/*subsumes:subsumes(RVars2,NewRVars)*/) -> 
+			(walltime(End), Duration is End-Start, format('~n..OK in ~f seconds~n',[Duration]) )
+			; 
+			(
+			nicerTerm(RVars2,RVars2_), nicerTerm(NewRVars,NewRVars_),
+			format('~n..UNEXPECTED success with result vars: expected~n ~q ~n BUT GOT:~n ~q~n',[NewRVars_,RVars2_]),
+			conset(sessionErrors,1)
+			)  )
+		; 
+		(Succeeded==0 -> (walltime(End), Duration is End-Start, format('~n..OK in ~f seconds~n',[Duration]) ) ; (format('~n..UNEXPECTED failure: ~q~n',[TheCall]), conset(sessionErrors,1)))
+	),
+	fail.
+playSession :- 
+	format('~n--------~nThe End: ',[]), 
+	(conget(repeatedJavaMessageCall,1)->writeln('WARNING: a javaMessageCall was used more than once!');true),
+	(conget(sessionErrors,0)->writeln('OK!'); writeln('ERRORS occurred')).	
+
+nicerRecordedGoal(call_tv(G,_),Goal) :- G = (_=Goal,_), !.
+nicerRecordedGoal(call_tv((R,Goal),_),Goal) :- functor(R,F,_), member(F,[recoverTermModelArray,recoverTermModel]), !.
+nicerRecordedGoal(call_tv(G,_),G) :- !.
+nicerRecordedGoal(G,G).
+
+nicerTerm([T1|Terms],[NT1|Nicer]) :- !, nicerTerm(T1,NT1), nicerTerm(Terms,Nicer).
+nicerTerm([],[]) :- !.
+nicerTerm(T,NT) :- recoverTermModel(T,NT), !.
+nicerTerm(T,T).
+
+% To see Flora goals: goalCall(?N,call_tv(?_G,?),?)@\prologall, ?_G ~ ( ? = ?Goal, ?_Rest).

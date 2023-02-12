@@ -1,0 +1,33 @@
+
+a:c1.
+b:c2.
+c1::c2.
+
+a[attr1->7, attr2->2].
+b[attr1->5, attr2->4].
+
+// method 1 defined for every instance
+?X[foo(?Y) -> ?Z] :- ?X[attr1->?V], ?Z \is ?V+?Y.
+// method 2 defined for every instance
+?X[bar(?Y) -> ?Z] :- ?X[attr2->?V], ?Z \is ?V*?Y.
+
+
+c2[|meth -> foo|].
+c1[|meth -> bar|].
+
+?X[invoke(meth)(?Y) -> ?Z] :- ?X[meth->?RealMeth], ?X[?RealMeth(?Y) -> ?Z].
+
+%tst1 :- write('tst1: ')@\prlg, a[invoke(meth)(4) -> ?Z], writeln(?Z)@\prlg.
+%tst2 :- write('tst2: ')@\prlg, b[invoke(meth)(4) -> ?Z], writeln(?Z)@\prlg.
+
+
+%pretest :- \abolishtables, %tst1, %tst2.
+
+%test :- tell(temp)@\prlg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\prolog.
+
+

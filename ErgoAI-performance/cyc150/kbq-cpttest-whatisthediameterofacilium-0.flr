@@ -1,0 +1,74 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhatIsTheDiameterOfACilium (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, ProprietaryMtFn(MicrobiologyMt))).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(MicrobiologyMt), BaseKB)).
+
+// Explicit Background Facts
+istAsserted(MicrobiologyMt, relationAllInstance(diameterOfObject, Cilium, Micro(Meter)(0.2, 0.3))).
+istAsserted(MicrobiologyMt, relationAllInstance(diameterOfObject, Cilium, Micron(0.2, 0.3))).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259698', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259698', MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cilium-259699', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259698', isa('HYP-Cilium-259699', Cilium)).
+
+// Query
+queryMt('Hypothesis-HypotheticalContext-259698').
+//REMOVED TITLE('KBQ  : $CPTTest-WhatIsTheDiameterOfACilium 0').
+%pretest :- diameterOfObject('HYP-Cilium-259699', ?DIAMETER), %write_results('SUCCESS  : $CPTTest-WhatIsTheDiameterOfACilium 0').
+
+// Debugging
+proof(2632, 0) :- diameterOfObject('HYP-Cilium-259699', Micron(0.2, 0.3)).
+proof(2632, 1) :- diameterOfObject('HYP-Cilium-259699', Micron(0.2, 0.3)).
+proof(2632, 2) :- diameterOfObject('HYP-Cilium-259699', Micro(Meter)(0.2, 0.3)).
+proof(2632, 3) :- diameterOfObject('HYP-Cilium-259699', Micro(Meter)(0.2, 0.3)).
+
+proof(2632, 1000) :- genlMt(MicrobiologyMt, ProprietaryMtFn(MicrobiologyMt)).
+proof(2632, 1001) :- genlMt(ProprietaryMtFn(MicrobiologyMt), BaseKB).
+proof(2632, 1002) :- relationAllInstance(diameterOfObject, Cilium, Micron(0.2, 0.3)).
+
+proof(2632, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-259698', 1, genlMt).
+proof(2632, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-259698', 2, genlMt).
+proof(2632, 2002) :- genlMt('Hypothesis-HypotheticalContext-259698', UniversalVocabularyMt).
+proof(2632, 2003) :- genlMt('Hypothesis-HypotheticalContext-259698', 'Hypothesis-HypotheticalContext-259698').
+proof(2632, 2004) :- genlMt('Hypothesis-HypotheticalContext-259698', BaseKB).
+proof(2632, 2005) :- genlMt('Hypothesis-HypotheticalContext-259698', MicrobiologyMt).
+proof(2632, 2006) :- isa('HYP-Cilium-259699', Cilium). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

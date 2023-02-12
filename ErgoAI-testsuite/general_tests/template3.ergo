@@ -1,0 +1,69 @@
+:- ergotext{template3}.
+
+f(p(a)).
+   \(Tom is not only a Student, but also a (salaried) Employee\).      // S1
+   \(Bob is not only a Student, but also a (salaried) Employee\).      // S1
+   \(If ?someone has ?something and paid for it then s/he likes it\).   // S2
+   \(?X cares for ?Y\), ?Y[inGoodShape] :-                             // S3
+                   \(?X has ?Y\), ?Y:ValuableThing.
+   \(insert rule: if ?X has more than 5M then he is rich\).            // S4
+   ?- delete{\(Tom is an Employee\)}, ?X:Employee.                     // S5
+   %delrich :- deleterule{\(?someone with at least 5M is rich\)}.      // S6
+   %insrich :- insertrule{\(?someone with at least 5M is rich\)}.      // S6
+   \(Here is a rule with Id=badweather & Tag = high: If it rains, it pours\).
+
+   \(test for symbol context\).
+
+John[networth->10000000].
+\(banana is an ValuableThing\).
+\(Bob has banana\), Bob[paidfor->banana].
+
+%tst1 :-
+	nl@\plg, write(Test1)@\plg, ergo_show_templates(template3)@\prolog(flrparser).
+%tst2 :- nl@\plg, write(Test2)@\plg,
+	ergo_show_matching_templates(\(Tom is not only a Student, but also a (salaried) Employee\),template3)@\prolog(flrparser).
+
+%tst3 :- nl@\plg, write(Test3)@\plg,
+	ergo_show_matching_templates(\(If ?_someone has ?_something and paid for it then s/he likes it\),template3)@\plg(flrparser).
+
+%tst4 :- nl@\plg, write(Test4)@\plg,
+	ergo_show_matching_templates(\(?_X cares for ?_Y\),template3)@\plg(flrparser).
+
+%tst5 :- nl@\plg, write(Test5)@\plg,
+	ergo_show_matching_templates(\(insert rule: if ?_X has more than 5M then he is rich\),template3)@\plg(flrparser).
+
+%tst6 :- nl@\plg, write(Test6)@\plg,
+	ergo_show_matching_templates(\(Tom is an Employee\),template3)@\plg(flrparser).
+
+%tst7 :- nl@\plg, write(Test7)@\plg,
+	ergo_show_matching_templates(\(?_someone with at least 5M is rich\),template3)@\plg(flrparser).
+
+%tst8 :- nl@\plg, write(Test8)@\plg,
+	ergo_show_matching_templates(\(Here is a rule with Id=badweather & Tag = high: If it rains, it pours\),template3)@\plg(flrparser).
+
+%tst9 :- nl@\plg, write(Test9)@\plg,
+	ergo_show_matching_templates(\(test for symbol context\),template3)@\plg(flrparser).
+
+%tst10 :- \(?X cares for ?Y\), ?Y[inGoodShape], writeln(test10=?X+?Y)@\plg.
+
+%tst11 :- \(?X is an rich\),
+	  %delrich,
+	  \if \(? is an rich\)
+          \then writeln(test11 = ?X+failed)@\plg
+          \else writeln(test11 = ?X+ok)@\plg,
+	  %insrich.
+
+
+
+
+%pretest :- %tst1, %tst2, %tst3,  %tst4, %tst5, %tst6, %tst7, %tst8, %tst9,
+	    %tst10, %tst11.
+
+
+%test :- tell(temp)@\plg(),
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        %pretest,
+	writeln('Note: if configured with -P, test11 will not be printed')@\plg,
+        told@\plg().

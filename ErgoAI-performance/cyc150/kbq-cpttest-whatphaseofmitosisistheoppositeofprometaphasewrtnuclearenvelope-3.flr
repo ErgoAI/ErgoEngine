@@ -1,0 +1,70 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhatPhaseOfMitosisIsTheOppositeOfPrometaphaseWRTNuclearEnvelope (query 3)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_Biology_6th_Edition_Chapter_12.2C_Question_27
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, completelyAssertedCollection(MitosisSubprocessType)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Implicit Background Rules
+forwardSentence(completelyEnumerableCollection(?COL)) :- removalSentence(completelyAssertedCollection(?COL)).
+
+// Explicit Background Facts
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-WhatPhaseOfMitosisIsTheOppositeOfPrometaphaseWRTNuclearEnvelope 3').
+%pretest :- (neg oppositeSituationTypesWRTActorType(Prometaphase, InterphaseOfEukaryoticCellCycle, NuclearEnvelope) or neg isa(InterphaseOfEukaryoticCellCycle, MitosisSubprocessType)), %write_results('SUCCESS  : $CPTTest-WhatPhaseOfMitosisIsTheOppositeOfPrometaphaseWRTNuclearEnvelope 3').
+
+// Debugging
+proof(7604, 0) :- not(isa(InterphaseOfEukaryoticCellCycle, MitosisSubprocessType)).
+
+proof(7604, 1000) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(7604, 1001) :- completelyEnumerableCollection(MitosisSubprocessType).
+
+proof(7604, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(7604, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(7604, 2002) :- admittedArgument(SecondFn(43, MinuteFn(7, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(7604, 2003) :- admittedArgument(SecondFn(43, MinuteFn(7, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(7604, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(7604, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(7604, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(7604, 2007) :- unknownSentence(isa(InterphaseOfEukaryoticCellCycle, MitosisSubprocessType)). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

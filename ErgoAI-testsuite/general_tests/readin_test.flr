@@ -1,0 +1,121 @@
+/*
+   THIS FILE IS IN THE PUBLIC DOMAIN.
+
+   IT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+   IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+   OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+   OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+/*
+**  Methods for various reading tasks from files.
+*/
+
+:- symbol_context{ergo_read/?}.
+
+
+// Important: %do_read_prolog must be transactional!
+%do_read_prolog(?Stream) :-
+        ?Stream[prolog_read->?Fact]@\io,
+        writeln('Prolog fact' = ?Fact)@\io,
+        \false.
+%do_read_prolog(?Stream) :- ?Stream[close]@\io.
+
+// read canonical terms. Terms like a+b. will give errors
+%do_read_canonical(?Stream) :-
+        ?Stream[read_canonical->?Fact]@\io,
+        writeln('Prolog canonical fact' = ?Fact)@\io,
+        \false.
+%do_read_canonical(?Stream) :- ?Stream[close]@\io.
+
+// read file line by line, each line as an atom
+%do_read_lines_as_atoms(?Stream) :-
+        ?Stream[readline(atom)->?Line]@\io,
+        // Note: lines already have newlines, so using write, not writeln
+        write('Line: ' = ?Line)@\io,
+        \false.
+%do_read_lines_as_atoms(?Stream) :-
+        nl@\plg,
+        ?Stream[close]@\io.
+
+// read file line by line, each line as an atom, BUT removing training newlines
+%do_read_lines_as_atoms_no_newlines(?Stream) :-
+        ?Stream[readline(atom)->?Line]@\io,
+        // if ends with a newline, cut it off
+        \if ?Line[endsWith('\n')]@\basetype \then
+           ?Line[substring(0,-2) -> ?LineSansNewline]@\basetype
+        \else
+           ?LineSansNewline = ?Line,
+        write(?LineSansNewline)@\io,
+        \false.
+%do_read_lines_as_atoms_no_newlines(?Stream) :-
+        nl@\plg,
+        ?Stream[close]@\io.
+
+
+// read file line by line, each line as an atom, BUT removing training newlines
+%do_read_lines_as_character_lists_no_newlines(?Stream) :-
+        ?Stream[readline(charlist)->?Line]@\io,
+        // if ends with a character list consisting of the newline char,
+        // cut it off
+        \if ?Line[endsWith("\n"^^\charlist)]@\basetype \then
+           ?Line[substring(0,-2) -> ?LineSansNewline]@\basetype
+        \else
+           ?LineSansNewline = ?Line,
+        write(?LineSansNewline.toSymbol@\basetype)@\io,
+        \false.
+%do_read_lines_as_character_lists_no_newlines(?Stream) :-
+        nl@\plg,
+        ?Stream[close]@\io.
+
+// %do_read_ergo must be transactional!
+%do_read_ergo(?Stream) :-
+        ?Stream[flora_read->?Fact]@\io,
+        writeln('Flora term' = ?Fact)@\io,
+        \false.
+%do_read_ergo(?Stream) :- ?Stream[close]@\io.
+
+%do_read_ergo_mod(?Stream) :-
+        ?Stream[ergo_read(foobar)->?Fact]@\io,
+        write('Ergo term: ')@\plg,
+        writeln(?Fact)@\io,
+        \false.
+%do_read_ergo_mod(?Stream) :- ?Stream[close]@\io.
+
+
+%tst1 :- 'auxfiles/prologfacts.txt'[open(read)->?_Stream]@\io,
+        writeln('+++ Reading file of Prolog terms:')@\io,
+        %do_read_prolog(?_Stream).
+
+%tst2 :- 'auxfiles/prologfacts.txt'[open(read)->?_Stream]@\io,
+        writeln('+++ Reading file of canonical Prolog terms:')@\io,
+        %do_read_canonical(?_Stream).
+
+%tst3 :- 'auxfiles/linefile.txt'[open(read)->?_Stream]@\io,
+        writeln('+++ Reading file line by line:')@\io,
+        %do_read_lines_as_atoms(?_Stream).
+
+%tst4 :- 'auxfiles/linefile.txt'[open(read)->?_Stream]@\io,
+        writeln('+++ Reading file line by line, removing trailing newlines:')@\io,
+        %do_read_lines_as_atoms_no_newlines(?_Stream).
+
+%tst5 :- 'auxfiles/linefile.txt'[open(read)->?_Stream]@\io,
+        writeln('+++ Reading file line by line, converting to character lists,\n    then removing trailing newlines.\n    Converting back to atoms before printing out:')@\io,
+        %do_read_lines_as_character_lists_no_newlines(?_Stream).
+
+%tst6 :- 'auxfiles/factfile.txt'[open(read)->?_Stream]@\io,
+        writeln('+++ Reading file of Ergo terms:')@\io,
+        %do_read_ergo(?_Stream).
+
+%tst7 :- 'auxfiles/factfile.txt'[open(read)->?_Stream]@\io,
+        writeln('+++ Reading a file of Ergo terms, placing reified terms in foobar:')@\io,
+        %do_read_ergo_mod(?_Stream).
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7.
+
+%test :- tell(temp)@\plg,
+        %pretest,
+        told@\plg.

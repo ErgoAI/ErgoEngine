@@ -1,0 +1,63 @@
+#! /bin/sh
+
+flrshell=ergo_shell
+
+if test "$1" = "--devel"; then
+    STARTUPOPTIONS=""
+    PROFILEFLAG="-p"
+    PROFILEINDEX="xsb_profiling:profile_unindexed_calls(once),"
+    shift
+else
+    STARTUPOPTIONS="--noprompt --quietload --nofeedback --nobanner"
+fi
+
+# $extra_args - we want to quote to preserve original quotes on command line
+# This does not work because spaces break arguments in $extra_args despite
+# the quotes. So, we pass "$@" directly to the XSB command
+#if test ! "$*" = ""; then
+#    for arg_elt in "$@"
+#    do
+#        extra_args="$extra_args \"$arg_elt\""
+#    done
+#fi
+
+# If readlink exists - use it
+thisscript=`(readlink -f "$0") 2> /dev/null || (readlink "$0") 2> /dev/null || echo "$0"`
+thisdir=`dirname "$thisscript"`
+
+# a hack for BSD and Macs
+case "$thisdir" in
+    /*)
+	;;
+    *)
+	if [ "$thisscript" != "$0" ] ; then
+	    thisscript=`dirname "$0"`/$thisscript
+	    thisdir=`dirname "$thisscript"`
+	fi
+	;;
+esac
+
+. "$thisdir/.ergo_paths"
+
+if [ -n "`which rlwrap 2> /dev/null`" -a "$TERM" != "dumb" ]; then
+    RLWRAP="rlwrap --history-no-dupes 2 --command-name flora2 --complete-filenames --file ""$thisdir/rlwrap_keywords.txt"""
+    SLEEP="sleep 0.07"
+else
+    RLWRAP=
+    SLEEP=
+fi
+
+#PROLOGOPTIONS="-m 8000000 -c 12000000"
+#PROLOGOPTIONS="-m 4000000 -c 12000000"
+#PROLOGOPTIONS="-m 2000000 -c 50000"
+
+# otherwise, XSB bug 209 kicks in
+# Linux: unlimited, Mac - hard
+ulimit -s unlimited 2> /dev/null || ulimit -s hard 2> /dev/null
+
+# SLEEP is needed because of a bug in rlwrap that affects pseudo-ttys
+# https://github.com/adoroszlai/docker-sqlplus/commit/88b687ed7282d2d9a14724209864785a5f3760e9
+$SLEEP
+# previously we passed $extra_args instead of "$@", but this didn't work
+# because spaces were breaking arguments
+$RLWRAP "$PROLOG" $STARTUPOPTIONS $PROLOGOPTIONS $PROFILEFLAG -e "$PROFILEINDEX add_lib_dir(a($FLORADIR)). [flora2]. $flrshell." "$@"

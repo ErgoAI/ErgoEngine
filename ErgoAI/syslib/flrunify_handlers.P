@@ -1,0 +1,175 @@
+/* File:      flrunify_handlers.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2020;
+**      and Vulcan, Inc., 2011-2013.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+
+:- import flora_load_library/1 from flrlibman.
+:- import
+	%%put_attr/3,
+	get_attr/3,
+	install_attribute_portray_hook/3,
+	install_verify_attribute_handler/5
+   from machine.
+
+:- import flora_put_attr/3 from flrwhen.
+
+:- import
+	append/3
+   from basics.
+
+:- import
+	flora_write_oid/1,
+	flora_write_goal/1
+   from flrdecode.
+
+:- import flora_match_substring/3 from flrporting.
+
+:- import
+	%%FL_IRI/1,
+	%%FL_STRING/1,
+	%%FL_SYMBOL/1,
+	%%FL_BOOL/1,
+	flora_datatype_name/2
+    from flrdatatype.
+
+
+?- flora_load_library(FLLIBMETAOPS).
+
+/***************** Commands to install the unify handlers ***************/
+
+/***********************************************************************
+ Set attributed variable handler for FLDYNRULEVARCHECK.
+  Used in syslib/flrdynrule.P
+ Here we accummulate variables in inserted rules in order to be able to
+ issue warnings about unsafe and singleton variables.
+ ***********************************************************************/
+:- install_verify_attribute_handler(
+	FLDYNRULEVARCHECK,AttrValue,VarBinding,
+	flora_dynrule_check_handler(AttrValue,VarBinding),
+	no_warnings
+    ).
+
+:- install_verify_attribute_handler(
+	FLSEMANTICUNIFICATION,AttrValue,VarBinding,
+	flora_semantic_unification_handler(AttrValue,VarBinding),
+	no_warnings
+    ).
+
+%% attribute here should be a check for the datatype.
+%% E.g., is_list(_), integer(_), etc.
+:- install_verify_attribute_handler(
+	FL_DT_VAR,AttrValue,VarBinding,
+	flora_DT_variable_handler(AttrValue,VarBinding),
+        no_warnings
+   ).
+
+%% attribute here is the token number assigned by the lexer
+:- install_verify_attribute_handler(
+	FLTOKENIDX,AttrValue,VarBinding,
+	%%AttrValue=VarBinding,  %% don't use: token #s for same atom may differ
+	%%(AttrValue = VarBinding -> true; (DBGOUTLN(aaa=AttrValue+VarBinding),abort)),
+	(AttrValue = VarBinding -> true; true),
+        no_warnings
+   ).
+
+:- install_attribute_portray_hook(FLDYNRULEVARCHECK,Attr,flora_write_oid(Attr)).
+
+:- install_attribute_portray_hook(FLSEMANTICUNIFICATION,Attr,flora_write_goal(Attr)).
+
+:- install_attribute_portray_hook(FL_DT_VAR,Attr,flrvar_dt_portray(Attr)).
+
+:- install_attribute_portray_hook(FLTOKENIDX,Attr,PRINT(Attr)).
+
+/****************** The actual handlers **************************************/
+
+%% attributed var handler for FLDYNRULEVARCHECK (used in syslib/flrdynrule).
+flora_dynrule_check_handler(AttributeValue,VariableBinding) :-
+        ( var(VariableBinding) ->
+            ( get_attr(VariableBinding,FLDYNRULEVARCHECK,DynruleCheckVars) ->
+                append(AttributeValue,DynruleCheckVars,NewDynruleCheckVars),
+                flora_put_attr(VariableBinding,FLDYNRULEVARCHECK,NewDynruleCheckVars)
+            ;
+                flora_put_attr(VariableBinding,FLDYNRULEVARCHECK,AttributeValue)
+            )
+        ;
+            true
+        ).
+
+
+%% attributed var handler for FLSEMANTICUNIFICATION.
+%% Handles variables that have reification and other stuff attached
+%% to them as attributes.
+flora_semantic_unification_handler(AttributeValue,VariableBinding) :-
+	FLLIBUNIVEQFORM(AttributeValue,VariableBinding).
+
+
+flora_DT_variable_handler(AttrValue,VarBinding) :-
+	get_attr(VarBinding,FL_DT_VAR,BindingAttr),
+	!,
+	( %% vars of exactly the same type
+	  BindingAttr = AttrValue -> true
+	; %% two typed vars of different types - take intersection of the types
+	    BindingAttr = (TestVar,BindingTest),
+	    AttrValue = (TestVar,AttrTest),
+	    flora_put_attr(VarBinding,FL_DT_VAR,(TestVar,(BindingTest,AttrTest)))
+	).
+flora_DT_variable_handler(AttrValue,VarBinding) :-
+	%% var of a user-defined DT bound to a constant of that type
+	flora_datatype_name(VarBinding,TypeName),
+	AttrValue = (_,AttrTest),
+	%% AttrTest is something like isa(_h12609,foo,_$ctxt(main,_h12606,4)))
+	arg(2,AttrTest,TypeName),
+	!.
+flora_DT_variable_handler(AttrValue,VarBinding) :-
+	%% AttrValue is something like is_list(_) or integer(_)
+	AttrValue = (VarBinding,AttrTest),
+	call(AttrTest).
+
+flrvar_dt_portray((_,AttrTest)) :-
+	flr_dt_portray_printable(AttrTest,Printable),
+	PRINT(type=Printable).
+
+flr_dt_portray_printable((Test1,Test2),(Class1,Class2)) :-
+	!,
+	flr_dt_portray_printable(Test1,Class1),
+	flr_dt_portray_printable(Test2,Class2).
+
+flr_dt_portray_printable(IsaTest,Class) :-
+	functor(IsaTest,Fun,3),
+	flora_match_substring(WRAP_ISA,Fun,_),
+	arg(2,IsaTest,Class),
+	!.
+
+%% this is the only one that gets used outside
+flora_get_DT_var_datatype(Var,VarType) :-
+        var(Var),
+        %%get_attr(Var,FL_DT_VAR,(_,Attr)),
+        %%arg(2,Attr,VarType).
+        get_attr(Var,FL_DT_VAR,(_,VarAttr)),
+        flr_dt_portray_printable(VarAttr,VarType).

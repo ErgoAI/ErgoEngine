@@ -1,0 +1,1431 @@
+<h1><font color="#0c343d">Tutorial: Capturing Real World Knowledge in Ergo
+    </font></h1>
+
+    
+<h2>Vinay Chaudhri and Michael Kifer</h2>
+
+    <br>
+<p><font size="3">The goal of this tutorial is to illustrate the process of capturing
+      real world knowledge
+      in Ergo, with the goal of enabling reasoning and question answering.
+      The tutorial is based on the lecture notes of a course on knowledge
+      representation that the first author taught at Stanford in 2011.
+      We focus mainly on how to approach the problem of representing real world
+      knowledge rather than on how to exercise the various features of
+      Ergo. Therefore, for the most part,
+      the tutorial assumes only basic familiarity with Ergo at the level of the
+      first three lessons of
+      the <a href="https://sites.google.com/a/coherentknowledge.com/ergo-suite-tutorial/home"
+      target="_blank">ErgoAI tutorial</a> (<a href="https://sites.google.com/a/coherentknowledge.com/ergo-suite-tutorial/home" target="_blank">Getting Started</a>, <a href="https://sites.google.com/a/coherentknowledge.com/ergo-suite-tutorial/home/encoding-in-ergo-basics" target="_blank">The      Basics</a>, and <a href="https://sites.google.com/a/coherentknowledge.com/ergo-suite-tutorial/home/encoding-with-ergo-advanced" target="_blank">More      Advanced Features</a>) plus the lessons
+      <a href="https://sites.google.com/a/coherentknowledge.com/ergo-suite-tutorial/home/multifile-knowledge-bases" target="_blank"> Multi-file and Multi-module Knowledge Bases</a>
+      and <a href="https://sites.google.com/a/coherentknowledge.com/ergo-suite-tutorial/home/specifying-types-in-the-frame-syntax" target="_blank">User-defined Types and Default Values in the Frame      Syntax</a>.
+      When more advanced features are used, we try to explain them inline.
+    </font></p>
+    
+<p><font size="3">We use the California Driverâs Handbook as the source of the
+      knowledge
+      to be represented. The focus of the reasoning task will be on knowledge
+      that can be objectively and operationally used by the driver of a vehicle
+      (examples of this will be given in the tutorial).
+      We will test the knowledge by using two sets of questions: a training set
+      and an additional set of questions created later.
+      This will force us to develop a general representation
+      and discourage "overfitting" of representation to specific questions.
+    </font></p>
+
+    <br>
+ 
+
+    
+<h2>Table of Contents</h2>
+    
+<ul>          
+      <li>
+        <font size="3"><a href="#sec-overview">Overview of the problem</a>
+      </font></li>
+      <li>
+        <font size="3"><a href="#sec-benefits">Benefits of capturing the driving laws
+          in logic</a>
+      </font></li>
+      <li>
+        <font size="3"><a href="#sec-representing">Representing the right-of-way laws</a>
+      </font></li>
+      <li>
+        <font size="3"><a href="#sec-additional-questions">Additional test questions</a>
+      </font></li>
+      <li>
+        <font size="3"><a href="#sec-advanced-testing">Elements of advanced testing</a>
+      </font></li>
+      <li>
+        <a href="#sec-notes-on-organization"><font size="3">Notes on knowledge base organization</font></a>
+      </li>
+    </ul>
+          
+    
+<p><br>
+ </p>
+    <a name="sec-overview">
+    
+<h2><font color="#134f5c">Overview of the problem</font></h2>
+    </a>
+
+    
+<p><font size="3">For this tutorial, we will reduce the task of answering questions to
+      answering queries using a knowledge base.&nbsp;An electronic version of the California Driverâs Handbook is available at&nbsp;
+      <a href="http://www.dmv.ca.gov/pubs/dl600.pdf">http://www.dmv.ca.gov/pubs/dl600.pdf</a>.
+         We will formally represent the content from one page in Driverâs
+         Handbook.
+      
+      We  will then test the representation using a set of training questions
+      prepared in advance.&nbsp;The development  will follow these main steps:</font></p>
+    
+<ul><li>
+<p><font size="3">Design the knowledge representation informally, on paper or
+            electronically, using English sentences or pseudocode.
+          </font></p>
+          
+<p><font size="3">
+            For each sentence appearing on the drivers handbook page, analyze it
+          to identify the knowledge that is specific and can be operationally
+          used by the driver of a vehicle. One does not need to represent any
+          sentences that do not contain such knowledge. We will have to make
+          some
+          modeling decisions and and choices, and it is a good practice to
+          document and justify whatever choices were made.
+          </font></p>
+        </li>
+        <li>
+          
+<p><font size="3">
+            Represent the knowledge in Ergo
+          </font></p>
+          
+<p><font size="3">
+            For all the sentences that need to be represented, formalize them
+            using Ergo rules and facts.
+          </font></p>
+        </li>
+        <li>
+          
+<p><font size="3">
+            Test the knowledge base (henceforth, KB)
+            using sample questions prepared in advance.
+          </font></p>
+          
+<p><font size="3">
+          Devise any
+          questions that would be necessary to test the knowledge that was
+          created. Check the answers returned by Ergo in response to the
+          questions.
+          </font></p>
+        </li>
+        <li>
+          
+<p><font size="3">
+            Test the KB on additional  questions.
+          </font></p>
+          
+<p><font size="3">
+          Perform a failure analysis for any questions that the KB failed to
+          answer. Identify knowledge and inference pieces that prevented the
+          question from being answered. Suggest ways in which one could have
+          made the KB more robust and complete for answering new questions.
+          </font></p>
+        </li>
+      </ul>
+    
+<p><font size="3">The tutorial also includes all the
+      Ergo files for this example, which one can load and try out.
+      These files are linked to from within the text.
+      All but one of these examples will also work in
+      the <a href="http://flora.sourceforge.net/">Flora-2 system</a> and almost everything
+      in this tutorial applies
+      to that system as well. One would only need to change the file extensions
+      from <em><font color="#134f5c">.ergo</font></em> to <em><font color="#134f5c">.flr</font></em> and not use the parts marked as
+      Ergo-only.</font></p>
+
+    
+<a name="sec-benefits"><font size="3">
+</font>
+<h2><font color="#134f5c">
+Benefits of capturing the driving laws in logic</font></h2>
+</a>
+
+    
+
+    
+<p><font size="3">
+      If we had a complete representation of the driving law, as suggested in
+      this tutorial, one could formulate interesting questions against the
+      knowledge base, which cannot be easily answered without the KB. For
+      example:
+    </font></p>
+    
+<ul><li>
+<p><font size="3">Given a driving situation, is it safe to proceed through the
+          intersection? Should I expect the other participants to give me the
+          right of way? Is it lawful to pass a car in a given situation?
+          Such questions would, perhaps, be relevant for self-driving cars.
+        </font></p>
+      </li>
+      <li>
+        
+<p><font size="3">
+          Is the law complete and consistent? If people drive by exactly
+          following the law, can they get into a situation where they get into
+          an accident?
+          Another set of questions relevant to self-driving systems.
+        </font></p>
+      </li>
+      <li>
+        
+<p><font size="3">
+          Is the law contradictory? Are there any inconsistencies or situations
+          where the driving law gives us conflicting guidance on what should be
+          done?
+          Again, an issue relevant to self-driving.
+        </font></p>
+      </li>
+      <li>
+<p><font size="3">
+          How can the law be improved? What
+          sections of the law are too vague to be useful?
+        </font></p>
+      </li></ul>
+    
+<p><font size="3">Answering most of these
+      questions is outside the scope of this tutorial, but
+      they are good candidates for a research project.</font></p>
+
+    <br>
+
+    <a name="sec-representing">
+    
+<h2><font color="#134f5c">Representing the right-of-way laws</font></h2>
+    </a>
+
+
+    
+<p><font size="3">As an example, we will consider part of the Handbook found at
+      <a href="https://www.dmv.ca.gov/portal/dmv/detail/pubs/hdbk/right_of_way" target="_blank">Laws        and Rules of the Road</a>.  We will analyze three paragraphs from this
+        page, and then show the relevant formalization. We have added line
+        numbers to the paragraph for ease of reference.</font></p>
+    
+<font size="3"><span style="background-color:rgb(255,255,255)"><font color="#0b5394">&nbsp; &nbsp;Laws and rules of the road (</font><font color="#3d85c6">Right-of-way rules,&nbsp;<i>General Information):</i></font></span>
+</font>
+<ol>
+<li><span style="background-color:rgb(208,224,227)"><i><font size="3">Right-of-way rules, together with courtesy and common sense, help to
+          promote traffic safety.
+        </font></i></span></li>
+<li><span style="background-color:rgb(208,224,227)"><i><font size="3">
+          It is important to respect the right-of-way of others, especially
+          pedestrians, motorcycle riders, and bicycle riders.
+        </font></i></span></li>
+<li><span style="background-color:rgb(208,224,227)"><i><font size="3">
+          Never assume other drivers will give you the right-of-way.
+        </font></i></span></li>
+</ol>
+        
+    
+<p><font size="3">
+      This paragraph emphasizes the importance of the right of way rules. While
+      concepts such as <i>courtesy</i> and <i>common sense</i> are generally
+      understood by humans (albeit differently), their explicit definition is beyond the
+      current state of the art in AI, and we will decline the challenge of
+      defining these notions here.  On the other hand, since the concept
+      of <i>Right of Way</i> is very important for driving and operationally
+      relevant, we <em>will</em> represent it here even though it is not
+      defined anywhere in the handbook.  The second sentence can be viewed as
+      an integrity constraint for driving in that one should never undertake an
+      action that violates the right-of-way of others. The third sentence
+      implicitly states that just because one has the right-of-way, do not
+      assume that it is safe to take a driving action permitted by it.
+    </font></p>
+    
+<p><font size="3">Wikipedia defines right-of-way as:</font></p>
+    
+
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<div>
+<p><i><font color="#0b5394" size="3">The general principle that establishes who has the right to go first
+      is called "the right of way", or "priority".</font></i></p>
+</div>
+</div>
+</blockquote>
+<div>
+    
+<p><font size="3">Let us start building our knowledge base. We will show the Ergo
+      definitions as we introduce new facts and rules.  First, we define the
+      root class <font color="#b45f06"><code>Thing</code></font> with
+      <font color="#b45f06"><code>Event</code></font> and <font color="#b45f06"><code>Entity</code></font> as two subclasses of <font color="#b45f06"><code>Thing</code></font>.</font></p>
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+
+</div>
+<div>
+<p><span style="font-style:normal"><code>Event :: Thing.
+      </code>
+<br>
+<code>
+      Entity :: Thing.</code></span></p>
+</div>
+</blockquote>
+<div>
+    
+<p><font size="3">Next, we define <font color="#b45f06"><code>DrivingSituation</code></font> and <font color="#b45f06"><code>Action</code></font>  as subclasses
+      of <font color="#b45f06"><code>Event</code></font>; 
+      <font color="#b45f06"><code>DrivingEntity</code></font> as a subclass of <font color="#b45f06"><code>Entity</code></font>; and
+      <font color="#b45f06"><code>SpatialEntity</code></font> as a subclass of <code>Entity</code> to denote a
+      geographical location.</font></p>
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<p><span style="font-style:normal"><code>{DrivingSituation,Action} :: Event.</code>
+<br>
+ 
+<span style="color:rgb(0,96,0);font-size:10pt"><code>DrivingEntity :: Entity.&nbsp;</code></span>
+<br>
+ 
+<code>
+      SpatialEntity :: Entity.</code></span></p>
+</div>
+</blockquote>
+<div>
+    
+
+    
+<p><font size="3">We remind that the set notation,
+      such as <code>{DrivingSituation,Action} ::
+      Event</code>, is a shorthand for two facts, <code>DrivingSituation::Event</code><code style="font-style:italic">
+      </code>and<code style="font-style:italic"> </code><code>Action::Event</code>. It is a matter of taste whether to
+      use this shorthand or to spell things out.</font></p>
+      
+<p><font size="3">Next, we define <code>Drive</code> as a subclass of <code>Action</code> and
+      <code>IllegalDrive</code> as a subclass of <code>Drive</code>.
+      We also introduce the
+      property <i>agent</i> with domain <code>Action</code> and range <code>Entity</code>.
+    </font></p>
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<p style="text-align:left"><span style="font-style:normal"><code>Action[|agent =&gt; Entity|].
+      </code>
+  <br>
+ 
+<code>
+      Drive::Action.
+    </code>
+<br>
+<code>
+      IllegalDrive::Drive.</code></span>
+    </p>
+</div>
+</blockquote>
+<div>
+    
+
+    
+<p><font size="3">Recall that the above frame notation <tt><code>[|...|]</code></tt> is used to specify the
+      type information for the properties in a class, which apply to all
+      subclasses and objects in that class. 
+      The next two statement use that notation to specify the types of  a pair
+      of properties.
+      The property <code>participant</code> is defined to have the domain
+      of <code>Event</code> and range of <code>Entity</code>. The same statement also
+      specifies that the property <code>follows</code> has the domain
+      <code>Event</code> and the range <code>Event</code> as well; it will be used
+      to state when one event immediately follows some other event.
+      The property <code>rightOfWay</code> is defined to have the
+      domain <code>DrivingSituation</code> and range <code>DrivingEntity</code>.</font></p>
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<p><span style="font-style:normal"><code>Event[|participant =&gt; Entity, follows =&gt; Event|].</code>
+  <br>
+ 
+<span style="color:rgb(0,96,0);font-size:10pt"><code>DrivingSituation[|rightOfWay =&gt; DrivingEntity|].</code></span></span></p>
+</div>
+</blockquote>
+<div>
+    
+
+    
+<p><font size="3">To formalize the second sentence, we introduce the notion
+      of <code>IllegalDrive</code>. If a driving entity takes a driving action in a
+      situation in which it does not have the right of way,
+      it is an instance of <code>IllegalDrive</code>.</font></p>
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<p>
+</p>
+<div>
+  <span style="font-style:normal"><code>@!{illegal_drive}&nbsp;</code>
+  <br>
+<code>?D : IllegalDrive &nbsp;:-</code>
+<br>
+</span>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<span style="font-style:normal"><span style="font-size:10pt"><code>{?E1,?E2} : Entity,</code></span>
+</span></blockquote>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<span style="font-style:normal"><code>?D : Drive[agent -&gt; ?E1, follows -&gt; ?S], </code>
+</span></blockquote>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<span style="font-style:normal"><code>
+      ?S:DrivingSituation[participant -&gt; {?E1, ?E2}, rightOfWay -&gt; ?E2],
+    </code>
+</span></blockquote>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<code style="font-style:normal">?E1 != ?E2.</code>
+</blockquote>
+</blockquote>
+</div>
+
+</blockquote>
+
+
+
+<div>
+    
+
+    
+
+    
+
+    
+<p><font size="3">This rule says that if entities e1 and e2 are involved in a driving
+      situation when e2 has the right of way, but e1 drives first, then e1's
+      drive is illegal.
+      The piece <code>@!{illegal_drive}</code> in the above rule is the <em>Id of that
+      rule</em>. There are many advanced uses for rule Ids in Ergo, but in this
+      tutorial they are mainly used as a way of referencing the
+      different rules in the text.</font></p>
+
+    
+<p><font size="3">As we write each rule, we test it by creating a mock-up situation and
+      ensuring that it gives us the result we want. Each rule should be tested
+      in isolation, and also in a way where it interacts with other rules in the
+      knowledge base. We will give a test case for each rule as we introduce
+      it. For the above rule, consider the situation:</font></p>
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<p><span style="font-size:10pt"><code>// </code></span><em style="font-size:10pt"><code>Test 1: testing illegal_drive</code></em>
+<br>
+ 
+<span style="font-style:normal"><code>
+      P1 : DrivingEntity.
+      </code>
+<br>
+ 
+<code>
+      P2 : DrivingEntity.
+    </code>
+<br>
+ 
+<code>
+      D1 : Drive [agent -&gt; P1, follows -&gt; S1].
+      </code>
+<br>
+ 
+<code>
+      S1 : DrivingSituation [participant -&gt; {P1, P2}, rightOfWay -&gt; P2].</code></span>
+    </p>
+</div>
+</blockquote>
+<div>
+    
+
+    
+<p><font size="3">In other words, two driving entities, <code>P1</code> and <code>P2</code>, are involved in a
+      driving situation <code>S1</code> and <code>P2</code> has the right of way. Nevertheless, <code>P1</code> make
+      the first move (because drive <code>D1</code>, caused by agent <code>P1</code>, immediately
+      follows <code>S1</code>).
+      To test our rule,
+      we pose a query at the Ergo command prompt: would <code>D1</code> be an illegal
+      drive?</font></p>
+    
+<p><font size="3"><font color="#783f04">ergo&gt;</font>  <code>D1:IllegalDrive.</code>
+      <br>
+<font color="#0b5394">
+      Yes
+    </font></font></p>
+    
+<p><font size="3">The answer of ``Yesââ confirms the intended behavior of this rule and
+      gives us some assurance that we are on the right way.</font></p>
+    
+<p><font size="3">We represent the third sentence from the handbook
+      by stating that having the right of the
+      way is a necessary but not sufficient condition for a safe and legal
+      driving action.</font></p>
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<p>
+  <span style="font-style:normal"><span style="font-size:10pt"><code>SafeDrive :: Drive.</code></span>
+  </span></p>
+<span style="font-style:normal"><span style="font-size:10pt"><code>@!{right_of_way_safe_drive}&nbsp;</code></span>
+<br>
+<code>
+      ?S [ rightOfWay -&gt; ?E] :-
+    </code>
+</span></div>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<span style="font-style:normal"><code>
+      ?S : DrivingSituation[participant -&gt; ?E],
+    </code>
+</span></blockquote>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<span style="font-style:normal"><code>
+      ?E : DrivingEntity,
+    </code>
+</span></blockquote>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<code style="font-style:normal">
+      ? : SafeDrive[follows -&gt; ?S, agent -&gt; ?E].</code>
+</blockquote>
+</blockquote>
+</blockquote>
+
+
+<div>
+<p><font size="3">This rule says that if a driving entity <em>e</em>  is involved in a driving
+      situation <em>s</em>   and what follows <em>s</em>   is a safe drive then <em>e</em> must have had the
+      right-of-way in the driving situation <em>s</em>.
+      To test this rule, we introduce the following situation:
+    </font></p>
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<p><span style="font-size:10pt"><code>// </code></span><em style="font-size:10pt"><code>Test 2: testing right_of_way_safe_drive</code></em>
+<br>
+ 
+<span style="font-style:normal"><code>
+      S2:DrivingSituation [participant -&gt; P3].
+      </code>
+<br>
+ 
+<code>
+      P3: DrivingEntity.
+    </code>
+<br>
+ 
+<code>
+      D2: SafeDrive[ follows -&gt; S2, agent -&gt; P3].</code></span>
+    </p>
+</div>
+</blockquote>
+<div>
+    
+
+    
+<p><font size="3">This mock-up situation says that <code>P3</code> is a participant in a driving
+      situation <code>S2</code> and the safe drive <code>D2</code> follows <code>S2</code> immediately.
+      Who has the right of way here?</font></p>
+    
+<p><font size="3"><font color="#783f04">ergo&gt;</font>  <code>S2[rightOfWay -&gt; ?x].</code>
+    </font></p>
+    
+<p><font size="3"><font color="#0b5394">?x = <code>P3</code>
+    </font>
+     <br>
+   
+<font color="#0b5394">1 solution(s) in 0.0160 seconds
+      <br>
+      Yes
+    </font></font></p>
+    
+<p><font size="3">Yes, <code>P3</code>! This confirms that the above <em><code>right_of_way_safe_drive</code></em>  
+      rule appears to be functioning as expected.</font></p>
+    
+<p><font size="3">Let us now
+    turn to the second paragraph in the same section of Driver's Handbook:</font></p>
+
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+
+<ol start="4"><li><span style="background-color:rgb(208,224,227)"><font size="3"><b>Respecting</b>  the right-of-way of others is
+          not limited to situations such as yielding to pedestrians in
+          crosswalks, or 
+          watching carefully to ensure the right-of-way of bicyclists and
+          motorcyclists.</font></span></li>
+<li><span style="background-color:rgb(208,224,227)"><font size="3">Motorists must <b>respect</b> the right-of-way of others by not
+        violating traffic laws such as failing to stop at a stop sign or
+        traffic light, speeding, making unsafe lane changes, or illegal turns.</font></span></li>
+<li><span style="background-color:rgb(208,224,227)"><font size="3">Statistics show that right-of-way violations cause a high percentage
+        of injury collisions in California.</font></span></li>
+</ol>
+
+</div>
+</blockquote>
+<div>
+
+    
+<p><font size="3">
+      This paragraph is a source of many useful terms for the driving
+      domain. Sentence 4 introduces the notion that the right of way is not
+      just limited to yielding to others when needed, but it also means obeying
+      the law, as suggested in Sentence 5. Sentence 6 is a general statement
+      highlighting the importance of following the right-of-way law. From this
+      paragraph, we will only represent the terms introduced in sentence 4, and
+      represent Sentence 5 as a rule <em><code>violates_ROW</code></em> below.  We begin by
+      defining the terms introduced in this paragraph.
+    </font></p>
+    
+<p><font size="3">We define the class <code>Person</code> and make <code>Pedestrian</code> into
+      its subclass.
+      The classes <code>Bicyclist</code><i>, </i><code>Motorist</code>, and <code>MotorCyclist</code>  are
+      defined as subclasses of <code>DrivingEntity</code> and <code>Person</code><i>.</i></font></p>
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<p><span style="font-style:normal"><span style="font-size:10pt"><code>Person :: Entity.&nbsp;</code></span>
+<br>
+ 
+<code>
+      Pedestrian :: Person.</code>
+<br>
+ 
+<span style="font-size:10pt"><code>Bicyclist :: {DrivingEntity, Person}.&nbsp;</code></span>
+<br>
+ 
+<code>
+      Motorist :: {DrivingEntity, Person}.
+      </code>
+<br>
+ 
+<code>
+      MotorCyclist :: {DrivingEntity, Person}.</code></span></p>
+</div>
+</blockquote>
+<div>
+
+    
+
+
+    
+<p><font size="3">The classes <code>Crosswalk</code> and <code>StreetCorner</code>  are introduced as
+      subclasses of <code>SpatialEntity</code>.  We also
+      define <code>TrafficSign</code> as a
+      subclass of <code>SpatialEntity</code>, and
+      <code>StopSign</code> and <code>TrafficSign</code><i> </i>as subclasses
+      of <code>TrafficSign</code>.</font></p>
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<p><span style="font-style:normal"><font size="3"><code>{CrossWalk, StreetCorner, TrafficSign} :: SpatialEntity.</code>
+<br>
+ 
+<code>
+      {StopSign, TrafficSignal} :: TrafficSign.</code></font></span></p>
+</div>
+</blockquote>
+<div>
+    
+
+    
+    
+<p><font size="3">We define <code>FailToStopAtTrafficSign</code>, <code>Speeding</code>,
+      <code>MakingIllegalTurn</code>   and
+      <code>MakingUnsafeLaneChange</code>
+      as subclasses of  <code>IllegalDrive</code></font></p>
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<p><font size="3"><span style="font-style:normal"><code>FailToStopAtTrafficSign :: IllegalDrive.&nbsp;</code>
+<br>
+ 
+<code>
+      Speeding :: IllegalDrive.
+    </code>
+<br>
+ 
+<code>
+      MakingIlliegalTurn :: IllegalDrive.
+      </code>
+<br>
+ 
+<code>
+      UnsafeLaneChange :: IllegalDrive.</code></span>
+    </font></p>
+</div>
+</blockquote>
+<div>
+    
+
+    
+<p><font size="3">Next comes the
+      property <code>violatesRightOfWay</code> with domain <code>Drive</code>
+      and range <code>Entity</code>. For this we again use the <tt><code>[|...|]</code></tt>
+      notation.</font></p>
+    </div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<p><font size="3"><code style="font-style:normal">Drive :: Action [|violatesRightOfWay =&gt; Entity|].</code>
+    </font></p>
+</div>
+</blockquote>
+<div>
+    
+<p><font size="3">
+    To represent the intent of Sentence 5, we say that
+      any <code>IllegalDrive</code><i> </i>violates the right of way of others that are also
+      on the road. &nbsp; &nbsp;&nbsp;</font></p>
+    </div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<span style="font-style:normal"><code>@!{violates_ROW} </code>
+<br>
+<code> ?I [violatesRightOfWay -&gt; ?Q] :- </code>
+</span></div>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<span style="font-style:normal"><code> {?P,?Q} : Entity, </code>
+</span></blockquote>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<span style="font-style:normal"><code>
+      ?S : DrivingSituation [participant -&gt; {?P, ?Q}],
+    </code>
+</span></blockquote>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<span style="font-style:normal"><code>
+      ?I : IllegalDrive [agent -&gt; ?P, follows -&gt; ?S],
+      </code>
+</span></blockquote>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<code style="font-style:normal">
+      ?P != ?Q.</code>
+</blockquote>
+</blockquote>
+</blockquote>
+
+
+<div>
+<p><font size="3">To spell out, this rule says that if entities <em>p</em> and <em>q</em>
+      are involved in a driving situation <em>s</em> and <em>p</em> makes an
+      illegal drive <em>i</em> in that situation, then the illegal
+      drive <em>i</em> violates the right of way of <em>q</em>.       
+      To test this rule, we introduce the following situation:</font></p>
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<p><font size="3"><code>// </code><em><code>Test 3: testing violates_ROW</code></em>
+<br>
+ 
+<span style="font-style:normal"><code>
+      {P4, P5} : Person.
+    </code>
+<br>
+ 
+<code>
+      S3 : DrivingSituation [participant -&gt; {P4, P5}].
+      </code>
+<br>
+ 
+<code>
+      I1 : FailToStopAtTrafficSign [agent -&gt; P4, follows -&gt; S3].</code>
+    </span></font></p>
+</div>
+</blockquote>
+<div>
+    
+
+    
+<p><font size="3">and verify the rule by posing the following query:</font></p>
+    
+<p><font size="3"><font color="#783f04">ergo&gt;</font>  <code>I1 [violatesRightOfWay -&gt; ?x].</code>
+    </font></p>
+    
+<p><font size="3"><font color="#134f5c">?x = <code>P5</code>
+    </font>
+    <br>
+<font color="#134f5c">
+      1 solution(s) in 0.0310 seconds
+      <br>
+      Yes
+    </font></font></p>
+    
+<p><font size="3">Indeed, the illegal drive <code>I1</code> violates the right of way
+      of <code>P5</code>, so the test confirms the correct functioning
+      of the rule.  
+      It is not necessary to represent Sentence 6 as it does not provide
+      operational or actionable information for a driver.</font></p>
+    
+<p><font size="3">Next, we consider the 6th paragraph on the Right-of-Way page:</font></p>
+    
+<div>
+<ol start="7"><li><span style="background-color:rgb(208,224,227)"><font size="3"><b>Respect</b> the right-of-way of
+              pedestrians. Always stop for any pedestrian crossing at
+              corners or other crosswalks, even if the crosswalk is in
+              the middle of the block and at corners with or without traffic
+              lights, whether or not the crosswalks are marked by painted
+              lines.</font></span></li>
+</ol>
+</div>
+
+      
+</div>
+<p><font color="#000000" face="monospace" size="3">We can represent this as</font></p>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<font size="3"><span style="font-style:normal"><code>@!{right_of_way_pedestrian} </code>
+</span>
+</font></div>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<font size="3"><span style="font-style:normal"><code>
+        ?S[rightOfWay -&gt; ?P] :-
+</code></span>
+</font></div>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<font size="3"><span style="font-style:normal"><code>
+        (?C : CrossWalk \or ?C : StreetCorner),
+        </code></span>
+</font></div>
+</blockquote>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<font size="3"><span style="font-style:normal"><code>
+        ?P : Pedestrian,
+</code></span>
+</font></div>
+</blockquote>
+</blockquote>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<font size="3"><span style="font-style:normal"><code>
+   ?S : DrivingSituation[location -&gt; ?C, participant -&gt; ?P].</code></span>
+</font></div>
+</blockquote>
+</blockquote>
+</blockquote>
+
+<div>
+<p><font size="3">
+        This rule says that if a pedestrian <em>p</em> is involved in a driving
+        situation at location <em>c</em>, which is either a crosswalk or a
+        street corner, then <em>p</em> has the right of way in this situation.
+        To test this rule, we introduce the following situation:
+      </font></p>
+      </div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+
+</div>
+<div>
+<font size="3"><code>// </code><em><code>Test 4: testing right_of_way_pedestrian</code></em>
+</font></div>
+<div>
+<span style="font-style:normal"><font size="3"><code> C1 : CrossWalk. </code>
+</font></span></div>
+<div>
+<span style="font-style:normal"><font size="3"><code> P6 : Pedestrian. </code>
+</font></span></div>
+<font size="3"><span style="font-style:normal">
+</span>
+</font>
+<div>
+<font size="3"><code style="font-style:normal"> S4 : DrivingSituation[location -&gt; C1, participant -&gt; P6].</code>
+</font></div>
+</blockquote>
+
+<div>
+<p><font size="3">and then pose the following query:</font></p>
+      
+<p><font size="3"><font color="#783f04">ergo&gt;</font>  <code>S4 [rightOfWay -&gt; ?x].</code>
+      </font></p>
+      
+<p><font size="3"><font color="#134f5c">
+        ?x = <code>P6</code>
+      </font>
+<br>
+<font color="#134f5c">
+      1 solution(s) in 0.0000 seconds
+      <br>
+      Yes
+    </font></font></p>
+    
+<p><font size="3">Indeed, <code>P6</code> is involved in a driving situation at a crosswalk and
+      so has the right of way. 
+      Obtaining a correct answer to this query
+      confirms the correctness of the rule <em><code>right_of_way_pedestrian</code></em>.</font></p>
+    
+<p><br>
+</p>
+
+    <a name="sec-additional-questions">
+    
+<h2><font color="#134f5c">
+      Additional test questions</font></h2>
+    </a>
+
+    
+<p><font size="3">Now that we have tested each rule separately, let us
+      consider <em>new</em> test questions that exercise more than one rule at
+      a time. This will help ascertain that the rules are chained properly and
+      will provide an assurance of the overall question answering ability of
+      our knowledge base, as well as the ability to handle new questions that
+      are not given ahead of time.</font></p>
+    
+<p><font size="3">Consider the question: <em>A car and pedestrian are stopped at a corner. If
+      the car proceeds, whose right of way will it violate?</em> To answer this
+      question, the system first needs to determine that the pedestrian has the
+      right of way, and by noticing that the car violates the right of way
+      conclude that it is an illegal drive. From this it can then conclude that
+      this drive must violate the right of way of the pedestrian.
+      To test this, we construct the following situation:
+    </font></p>
+    
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<font size="3"><code>// </code><em><code>Test 5: A car and a pedestrian are stopped at a corner ...</code></em>   
+</font></div>
+<div>
+<span style="font-style:normal"><font size="3"><code> P7 : Car. </code>
+</font></span></div>
+<div>
+<span style="font-style:normal"><font size="3"><code> P8 : Pedestrian. </code>
+</font></span></div>
+<div>
+<span style="font-style:normal"><font size="3"><code> C3 : StreetCorner. </code>
+</font></span></div>
+<div>
+<span style="font-style:normal"><font size="3"><code>S6 : DrivingSituation[location -&gt; C3, participant -&gt; {P7,P8}]. </code>
+</font></span></div>
+<div>
+<font size="3"><code style="font-style:normal"> D3 : Drive[agent -&gt; P7, follows -&gt; S6].</code>
+</font></div>
+</blockquote>
+<div>
+
+    
+<p><font size="3">The first four statements say that there is a driving situation at a
+      street corner that involves a car and a pedestrian. The last statement
+      says that the car proceeds to drive next (which we expect to be illegal).
+      As an aside, now that we have seen many examples of the frame syntax, it
+      is a good time to remind that the first four statements can actually be
+      condensed into one:</font></p>
+    </div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<p><span style="font-style:normal"><font size="3"><code>S6:DrivingSituation[location-&gt;C3:StreetCorner, participant-&gt;{P7:Car,P8:Pedestrian}].</code>
+    </font></span></p>
+</div>
+</blockquote>
+<div>
+<p><font size="3">Let us now pose this query: <em>Does the car's drive action violate
+      somebody's right of way and who that somebody is?</em>
+    </font></p>
+    
+<p><font size="3"><font color="#783f04">ergo&gt;</font> <code>D3[violatesRightOfWay -&gt; ?x].</code></font></p>
+    
+<p><font size="3"><font color="#0b5394">
+      ?x = <code>P8</code>
+    </font>
+    <br>
+<font color="#0b5394">
+    1 solution(s) in 0.0160 seconds
+    <br>
+    Yes
+  </font>
+  </font></p>
+  
+<p><font size="3">As we see, the query returns the expected answer: the car's action violates
+    the right-of-way of the pedestrian.
+    On the wings of this success, let us now consider yet another question:
+    <em>If I do not stop at a traffic sign, do I violate somebodyâs right of
+    way?</em> For this, we create the following test case:</font></p>
+  </div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<font size="3"><code>// </code><em><code>Test 6: If I do not stop at a traffic sign ...</code></em> 
+</font></div>
+<div>
+<span style="font-style:normal"><font size="3"><code> {P9,P10} : Entity. </code>
+</font></span></div>
+<div>
+<span style="font-style:normal"><font size="3"><code> S7 : DrivingSituation[participant -&gt; {P9, P10}]. </code>
+</font></span></div>
+<div>
+<font size="3"><code style="font-style:normal"> F1:FailToStopAtTrafficSign[agent -&gt; P9, follows -&gt; S7].</code>
+</font></div>
+</blockquote>
+<div>
+  
+<p><font size="3">or, more succinctly,</font></p>
+  
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<span style="font-style:normal"><font size="3"><code>S7 : DrivingSituation[participant -&gt; &nbsp;{P9, P10}:Entity].&nbsp;</code>
+</font></span></div>
+<div>
+<font size="3"><code style="font-style:normal"> F1:FailToStopAtTrafficSign[agent -&gt; P9, follows -&gt; S7].</code>
+</font></div>
+</blockquote>
+<div>
+  
+<p><font size="3">To answer this question, Ergo must realize that
+    <code>FailToStopAtTrafficSign</code> is a special case of
+    <code>IllegalDrive</code>, and so
+    the rule
+    that defines the property <code>violatesRightOfWay</code> applies
+    to <code>F1</code>. With this rule, Ergo concludes that  
+    the action <code>F1</code> must violate the right of way of
+    whoever might be at the same location. Indeed, if we
+    pose the following query, we get the expected result:</font></p>
+  
+<p><font size="3"><font color="#783f04">ergo&gt;</font> <code>F1[violatesRightOfWay -&gt; ?x].</code>
+  </font></p>
+  
+<p><font color="#0b5394" size="3">
+    ?x = <code>P10</code>
+    <br>
+    1 solution(s) in 0.0000 seconds
+    <br>
+    Yes
+  </font></p>
+  
+<p><font size="3">
+    In other words, if <code>P9</code> fails to stop at a traffic sign, that entity
+    violates the right-of-way of <code>P10</code>.  
+  </font></p>
+
+  
+<p><font size="3">So far, we have been constructing test cases by adding facts to the KB and
+  then issuing queries. However, this has a problem: test case facts
+  tend to accumulate and one needs to make an effort to keep these facts from
+  interfering with other tests.  For example, if in the last example we make a mistake and reuse
+  <code>P7</code> and <code>P8</code> instead of inventing the new names <code>P9</code>
+  and <code>P10</code>, then the results to the last query might turn out
+  differently because of the interference between the test cases.
+  There can even be more subtle interactions among the facts in different
+  tests, especially if they were conceived and added days or weeks apart.
+  This problem can be overcome via a pair of more advanced features of
+  Ergo: <em>hypothetical queries</em> and <em>Skolem constants</em>.
+  The former enables one to create a test case, temporarily add its facts
+  to the KB,
+  and then ask a query in the new state state of the KB.
+  After the query is answered, the state of the KB is
+  rolled back to what it was before the temporary change.
+  A Skolem constant is a special symbol,
+  which gets replaced by the compiler with a completely knew constant
+  that has not been seen before. Thus, hypothetical queries let us do testing
+  without accumulating "junk" in the knowledge base, while Skolem constants
+  give us a convenient way of avoiding name clashes between constants in a test
+  case and in the main KB. We can now redo Test 6 as follows:
+  </font></p>
+  
+<p><font size="3"><font color="#783f04">ergo&gt;</font> &nbsp; <code>&lt;&gt;(
+      </code><br>
+<code>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;// </code><em><code>Test 7: hypothetical variant of Test 6</code><br>
+ </em><code>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;tinsert{\#1:DrivingSituation[participant-&gt;{\#2, \#3}:Entity],</code>
+<br>
+<span style="color:rgb(0,96,0)"><font face="monospace"><code>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</code></font><code>\#4:FailToStopAtTrafficSign[agent-&gt;\#2, follows-&gt; \#1]},&nbsp;</code></span>
+<br>
+<code>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;\#4[violatesRightOfWay-&gt;?x]</code><br>
+<code>&nbsp; &nbsp; &nbsp; &nbsp; ).</code>
+    <br>
+ 
+
+    
+</font></p>
+<p><font size="3">
+      The answer to this query is <em><font color="#0b5394">?x = \#3</font></em>.  
+    </font></p>
+    
+<p><font size="3">Let us unpack the above.
+    Here <code>&lt;&gt;(...)</code> signifies that the expression <em>...</em> is
+      a query to be executed hypothetically, i.e., any changes that it might do
+      would be rolled back.
+      The expression <code>tinsert{...}</code> is a <em>transactional
+      insert</em>. This means that inside is a set of facts that is to
+      be inserted <em>transactionally</em>, i.e., in case of a failure the partially
+      inserted facts should be uninserted. The next line is a query that is
+      isomorphic to the earlier query
+      <code>F1[violatesRightOfWay -&gt; ?x]</code>.
+      Hypothetical queries are allowed to use only transactional insert and
+      delete operators (Ergo also has non-transactional insert/delete, but this
+      is out of scope here).
+    </font></p>
+    
+<p><font size="3">The strange symbols <em><code>\#1</code></em>, <em><code>\#2</code></em>, etc., are the
+       aforementioned Skolem constants. When the compiler sees,
+       say <em><code>\#1</code></em>,   it invents a completely new symbol and the same
+       happens with <em><code>\#2</code></em>. If it sees the same Skolem symbol, say
+       <em><code>\#2</code></em>, twice withing the <em>same</em> query then it is replaced
+       with the same new constant. So, the repeated occurrences
+       of <em><code>\#1</code></em>, <em><code>\#2</code></em>, etc., refer to the same new constant
+       (but <em><code>\#1</code></em> and <em><code>\#2</code></em>, of course, are different new
+       constants). However, in <em>different</em> hypothetical
+       queries, the occurrences of <em><code>\#1</code></em> (<em><code>\#2</code></em>, <em><code>\#3</code></em>)
+       are replaced with <em>different</em> constants. Therefore, Skolem
+       constants can be reused in different queries without the fear of
+       clashes.
+       We can now see that our hypothetical query is isomorphic to Test 6
+       except that the reusable Skolem constant
+       <em><code>\#1</code></em> is used in place of <code>S7</code>;   
+       the Skolem constants <em><code>\#2</code></em> and <em><code>\#3</code></em> instead
+       of <code>P9</code> and <code>P10</code>, and <em><code>\#4</code></em> instead
+       of <code>F1</code>.         
+       This is, in fact, a more robust way to perform tests, but the use of the Skolems and hypothetical queries is far wider than just testing. In fact,
+       hypothetical questions are quite common in the real world.
+  </font></p>
+
+
+
+    <br>
+
+    <font color="#134f5c"><a name="sec-advanced-testing">
+    
+<h2><font color="#134f5c">
+      Elements of advanced testing</font></h2>
+    </a>
+</font>
+<p><font size="3">We have tested a number of rules separately and together, but are there
+    latent errors?
+    One source of such errors is violation of the typing constraints. Indeed,
+    we have specified types for the various classes (via the statements of the
+    form <code>Class</code><code>[| </code><code>prop =&gt; Type</code><code> |])</code>, but we have not taken advantage
+    of this information so far. Now, let us ask the question: <em>Are any of
+    the types violated by the existing test data?</em>
+    To test this hypothesis, we could ask the following query:
+  </font></p>
+   
+<p><font size="3"><font color="#783f04">ergo&gt;</font> &nbsp; <code>?C[|?P =&gt; ?T|], ?O:?C[?P =&gt; ?T], ?O[?P -&gt; ?V], \naf ?V:?T.</code>
+   </font></p>
+   
+<p><font size="3">That is, is there a class <em><code>?C</code></em> with a specified
+     property <em><code>?P</code></em> of some type <em><code>?T</code></em> and an object
+     <em><code>?O</code></em> in <em><code>?C</code></em> that inherited that type information such
+     that  some
+     <em><code>?P</code></em>'s value <em><code>?V</code></em> with respect to the object <em><code>?O</code></em> violates   
+     the type (i.e., <code>\naf ?V:?T</code>)? It turns out we do have a problem,
+     as the query reports these violations:
+   </font></p>
+   
+
+</div>
+<blockquote style="margin:0 0 0 40px;border:none;padding:0px">
+<div>
+<font size="3"><font color="#0b5394">?C = DrivingSituation </font>
+</font></div>
+<div>
+<font size="3"><font color="#0b5394">
+     ?P = rightOfWay </font>
+</font></div>
+<div>
+<font size="3"><font color="#0b5394">
+     ?T = DrivingEntity </font>
+</font></div>
+<div>
+<font size="3"><font color="#0b5394">
+     ?O = S4 </font>
+</font></div>
+<div>
+<font color="#0b5394" size="3">
+     ?V = P6&nbsp;</font></div>
+<div>
+<font size="3"><font color="#0b5394"><br>
+</font>
+</font></div>
+<div>
+<font size="3"><font color="#0b5394">
+     ?C = DrivingSituation </font>
+</font></div>
+<div>
+<font size="3"><font color="#0b5394">
+     ?P = rightOfWay </font>
+</font></div>
+<div>
+<font size="3"><font color="#0b5394">
+     ?T = DrivingEntity </font>
+</font></div>
+<div>
+<font size="3"><font color="#0b5394">
+     ?O = S6 </font>
+</font></div>
+<div>
+<font size="3"><font color="#0b5394">
+     ?V = P8</font>
+</font></div>
+</blockquote>
+<div>
+
+   
+<p><font size="3">Aha! <code>P6</code> and <code>P8</code> are supposed to be in the class
+    <code>DrivingEntity</code>
+    because Ergo must have inferred <code>S4[rightOfWay-&gt;P6]</code> and
+    <code>S6[rightOfWay-&gt;P8]</code>, and our KB says that
+    <code>DrivingSituation</code><code>[|</code><code>rightOfWay=&gt;DrivingEntity</code><code>|]</code>.
+    However, our KB says that these two objects are members
+    of the class <em>Pedestrian</em> and one cannot conclude from this that
+    they are driving entities.
+  </font></p>
+  
+<p><font size="3">Now, we can spot a number of problems in our little knowledge base.
+    First, apparently, we meant to state <code>Pedestrian::DrivingEntity</code>.
+    Or, maybe, we meant to have <code>TrafficEntity</code> as a common superclass
+    of <code>Pedestrian</code> and  <code>DrivingEntity</code> (and then the type of
+    <code>rightOfWay</code> would be <code>TrafficEntity</code> instead of
+    <code>DrivingEntity</code>).   
+    Second, looking at the uses of the properties <em>participant</em> and
+    <code>rightOfWay</code> we zero in on the rule <em><code>illegal_drive</code></em>.
+    (Ergo, but not Flora-2, does, in fact have a way to query the rules and
+    find those where such properties are used.)
+    Now, we see that <em><code>?E2</code></em> in that rule must be at least a <code>DrivingEntity</code> (as a value of
+    <code>rightOfWay</code>).
+    But two lines above that, we see a condition <code>{?E1,?E2} : Entity</code>,
+    which is too loose - we probably meant that at least <em><code>?E2</code></em> must be  
+    a driving entity.
+    And, indeed, we probably do want <em><code>?E1</code></em> and <em><code>?E2</code></em> to be
+    driving entities in that rule, for too many things can be members
+    of <code>Entity</code> (e.g., traffic signs). For instance, we don't want to
+    deduce a drive as illegal if we encounter a traffic sign and make a move
+    right after that: a traffic sign is not a driving entity and it 
+    cannot commit any acts by itself.
+    However, after tightening that rule (to require
+    <code>?E2:DrivingEntity</code> by uncommenting line 4 of the rule), Test 4_2
+    (which is constructed as a combination of Tests 1 and
+    4 -- see <a href="https://sites.google.com/a/coherentknowledge.com/tutorial-capturing-real-world-knowledge/right_of_way_tests.ergo?attredirects=0">right_of_way_tests.ergo</a>) will fail and one way to
+    fix it is to uncomment the line
+    <code>Pedestrian :: DrivingEntity</code>   in
+    <a href="https://sites.google.com/a/coherentknowledge.com/tutorial-capturing-real-world-knowledge/files-used-in-this-tutorial/right_of_way_KB.ergo?attredirects=0">right_of_way_KB.ergo</a>.
+  </font></p>
+
+  
+<p><font size="3">We should note that Ergo does provide a builtin library for type checking,
+    which lived in module <em><code>\typecheck</code></em>, so one does not have to figure
+    out all the different cases of type errors. For instance, 
+  </font></p>
+  
+<p><font size="3"><font color="#783f04">ergo&gt;</font> &nbsp; <code>Type[check(?[|?-&gt;?|],?Result)]@\typecheck.
+  </code></font></p>
+  
+<p><font size="3">will return
+  </font></p>
+
+  
+<p><font color="#0b5394" size="3">?Result = [(${S4[rightOfWay-&gt;P6]@main},
+     ${S4[rightOfWay=&gt;DrivingEntity]@main}), (${S6[rightOfWay-&gt;P8]@main},
+     ${S6[rightOfWay=&gt;DrivingEntity]@main})]
+   </font></p>
+   
+<p><font size="3">which is equivalent to the result returned by our type query above.
+     See the <a href="http://coherentknowledge.com/wp-content/uploads/2016/12/ergo-manual-20170505.pdf">Ergo Reasoner User's Manual</a> (section on Type Checking) for the
+     details of this library.
+  </font></p>
+
+   
+<p><font size="3">We conclude this section by mentioning one other relevant
+     feature of Ergo (this one is not available in Flora-2): <em>alerts</em>.
+     So far, if type constraints (or any other kind of constraints) get
+     violated, one does not get notified and the violations will go unnoticed
+     until the user explicitly runs a query to check the constraint (like we
+     did above).
+     In Ergo, however, one can designate a query as a <em>constraint</em> or an
+     <em>alert</em> (again, check
+     the <a href="http://coherentknowledge.com/wp-content/uploads/2016/12/ergo-manual-20170505.pdf">Ergo Reasoner User's Manual</a> for details) and the
+     constraint will be checked automatically. For instance, at the bottom of
+     <a href="https://sites.google.com/a/coherentknowledge.com/tutorial-capturing-real-world-knowledge/right_of_way_KB.ergo?attredirects=0">right_of_way_KB.ergo</a>, our earlier type-checking
+     query is specified as an alert. If you uncomment the last 5 lines of that
+     file, and load our example:
+   </font></p>
+   
+<p><font size="3"><font color="#783f04">ergo&gt;</font> &nbsp; <code>[right_of_way_KB, +right_of_way_tests]. &nbsp;// </code><em><code>load the example</code></em>
+  </font></p>
+  
+<p><font size="3">then the following alert will appear after loading:
+   </font></p>
+  
+<p><font color="#0b5394" size="3">*** Truth alerts raised after transaction add{ +(right_of_way_tests) }:
+     <br>
+ &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+	type_alert(S4,DrivingSituation,rightOfWay,P6,DrivingEntity)
+     <br>
+  &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+	type_alert(S4,DrivingSituation,rightOfWay,P6,DrivingEntity)
+     <br>
+  &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+	type_alert(S6,DrivingSituation,rightOfWay,P8,DrivingEntity)
+     <br>
+  &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+	type_alert(S6,DrivingSituation,rightOfWay,P8,DrivingEntity)
+     <br>
+    These alerts were activated on line 8 in file right_of_way_KB.ergo
+   </font></p>
+
+  <br>
+ 
+
+  <font color="#134f5c"><a name="sec-notes-on-organization">
+    
+<h2><font color="#134f5c">
+      Notes on knowledge base organization</font></h2>
+  </a>
+</font>
+<p><font size="3">The files associated with this tutorial are split into two:
+    the file
+    <a href="https://sites.google.com/a/coherentknowledge.com/tutorial-capturing-real-world-knowledge/right_of_way_KB.ergo?attredirects=0">right_of_way_KB.ergo</a> file, which contains
+    the knowledge base itself (i.e., the taxonomy of classes, the rules) and
+    <a href="https://sites.google.com/a/coherentknowledge.com/tutorial-capturing-real-world-knowledge/right_of_way_tests.ergo?attredirects=0">right_of_way_tests.ergo</a> - the file
+    that
+    contains the tests. Clearly, tests should not be mixed up with the KB, so
+    this division is understandable. But how does one load the KB and run the
+    tests? There are several ways. The simplest is to <em>load</em> the KB and
+    then  to <em>add</em> the tests: 
+  </font></p>
+
+  
+<p><font size="3"><font color="#783f04">ergo&gt;</font> <code>&nbsp;[right_of_way_KB]. // </code><em><code>load the KB itself</code></em><code>;
+    equivalently: load{right_of_way_KB}. </code> 
+      <br>
+<font color="#783f04">
+ 
+    ergo&gt;</font> &nbsp; <code>[+right_of_way_tests]. // </code><em><code>add the tests</code></em><code>  
+    equivalently: add{right_of_way_tests}.</code>  
+  </font></p>
+  
+<p><font size="3">The above can also be accomplished via a single command as follows:
+  </font></p>
+  
+<p><font size="3"><font color="#783f04">ergo&gt;</font> &nbsp;<code>[right_of_way_KB, +right_of_way_tests]. // </code><em><code>load the entire example in one command</code></em>
+  </font></p>
+
+  
+<p><font size="3">In Ergo, 
+    knowledge bases are divided in <em>modules</em>, where
+    each module
+    can be viewed as a separate encapsulated component. Modules can interact
+    with each other via querying, but otherwise they are independent and, most
+    importantly, do not interfere with each other in unpredictable ways.
+    In the above example, the file <font color="#134f5c">right_of_way_KB.ergo</font>
+    is <em>loaded</em> into the default module <em>main</em> (the extension can
+    be omitted in the loading and adding commands).
+    Only one file can be loaded into a module. If more need to be, the other
+    files must be <em>added</em>, which is what we do in the second statement.
+    (If two files are loaded into the same module, the second load
+    wipes out the existing contents of the module and loads the contents of the
+    second file into that module. This is a fast and convenient way to reuse an
+    existing module by replacing its contents.
+    Adding a file to a module does not wipe out the previous
+    contents but, as the name suggests, augments the old contents with
+    additional rules and facts.)
+    Generally, if several files must live in the same module, the file
+    containing the most rules should be loaded and the others added. This is
+    because loaded rules execute slightly faster.
+  </font></p>
+
+  
+<p><font size="3">The above example uses only one module, but complex KBs are normally
+    divided into several modules.
+    The default module <em>main</em> is usually used for the main
+    application - the one that
+    queries the various sub-KBs (the independent KB components)
+    and executes that
+    application's commands. These sub-KBs
+    are best kept in separate modules so they will stay out of
+    the way of each other and of
+    the main application. This prevents the different KBs and the
+    main application from unintended interference.
+    For instance, our example KB could be loaded into a module
+    called <em>CDHB</em> (California Driver's Handbook) and the test data with
+    the queries into the default module <em>main</em>: 
+  </font></p>
+  
+<p><font size="3"><font color="#783f04">ergo&gt;</font> &nbsp; <code>[right_of_way_KB_modular &gt;&gt; CDHB]. // </code><em><code>load the KB into the module CDHB</code></em><code>;
+</code>      <br>
+<font color="#783f04">
+ 
+    ergo&gt;</font> &nbsp; <code>[right_of_way_tests_modular]. &nbsp; &nbsp; &nbsp;// </code><em><code>load the
+      tests into the main module</code></em>  
+  </font></p>
+
+  
+<p><font size="3">Note that since these files are intended to be in different modules,
+    we can <em>load</em> them both into these modules without wiping out the
+    contents. (As noted, loaded rules
+    are slightly faster, our
+    tests contain data only (and queries), so adding
+    <em><font color="#134f5c">right_of_way_tests_modular.ergo</font></em> would have worked just as well.)
+  </font></p>
+  
+<p><font size="3">For this latter example, we are using the slightly modified files
+    <a href="https://sites.google.com/a/coherentknowledge.com/tutorial-capturing-real-world-knowledge/right_of_way_KB_modular.ergo?attredirects=0">right_of_way_KB_modular.ergo</a>
+    and
+    <a href="https://sites.google.com/a/coherentknowledge.com/tutorial-capturing-real-world-knowledge/right_of_way_tests_modular.ergo?attredirects=0">right_of_way_tests_modular.ergo</a>
+    for the following reason. First, since the KB and the tests are loaded into
+    different modules, the KB has no data to work on and needs to be told how
+    to get it. The simplest way is to import the module <em>main</em> that
+    contains the data into the KB's module <em>CDHB</em>. This is done with the
+    help of the <em><code>importmodule</code></em> directive
+    included in <font color="#134f5c">right_of_way_KB_modular.ergo</font> on line 8.
+    Second, the queries in the file <font color="#134f5c">right_of_way_tests_modular.ergo</font>
+    refer to properties, like <em><code>violatesRightOfWay</code></em> 
+    and to the class hierarchy, defined in module <em>CDHB</em> (in which the KB is
+    loaded). Since this is a different module from the one where the queries reside
+    (they are in <em>main</em>, the module of their host file), we need to add
+    <code>@CDHB</code> to the appropriate queries (e.g., <code>F1[violatesRightOfWay
+    -&gt; ?x]@CDHB</code>). These are the only essential differences
+    between <font color="#134f5c">right_of_way_tests_modular.ergo</font>
+    and <font color="#134f5c">right_of_way_tests.ergo</font>.
+    The other difference is that the former file also 
+    contains the loading command
+    <code>[right_of_way_KB_modular&gt;&gt;CDHB]</code> so that the entire example
+    could be run by simply typing this at the Ergo command prompt: 
+  </font></p>
+
+  
+<p><font size="3"><font color="#783f04">ergo&gt;</font> &nbsp;<code>[right_of_way_tests_modular]. // </code><em><code>load tests in main (and the KB in CDHB)</code></em></font>  
+</p>
+<p><br>
+</p>
+<p>&nbsp;</p>
+</div>

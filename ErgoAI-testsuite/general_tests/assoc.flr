@@ -1,0 +1,24 @@
+
+// composer does not handle the ^^ properly, so the result needs to be
+// reallanged in the parser in canonical_form. This tests that rearrangement.
+
+"http://abc"^^\iri : "http://cde"^^\iri [
+  moo->123
+].
+
+"http://abc"^^xsd#aaa : "http://cde"^^rif#bbb [
+  foo->bar
+].
+
+%tst1 :- ?X[moo->123], writeln(test1=?X)@\io.
+%tst2 :- ?X[foo->?], writeln(test2=?X)@\io.
+%tst3 :- ?X:?Y, ?Y\= \object, isnonvar{?X}, ?Y \= (?;?), writeln(test3=?X+?Y)@\io, \false.
+%tst3 :- \true.
+
+%pretest :- %tst1, %tst2, %tst3.
+
+%test :- tell(temp)@\plg,
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        told@\plg.

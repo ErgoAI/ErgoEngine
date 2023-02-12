@@ -1,0 +1,136 @@
+
+:- compiler_options{expert=on}.
+:- setsemantics{tabling=reactive}.
+
+
+:- importmodule{\typecheck}.
+:- symbol_context{h/2,h/3,salary/2,check/1}.
+
+?- insert{ o[f(a),g(b),h(a,b), h(a,a), h(a,a,a)],
+       cc[|h(a,d)|],
+	o[=>f(aaa)],
+	o:c,
+	cc::c,
+	c[|=>h(aaa,bbb)|],
+	c[|=>h(fff,bbb,ccc)|],
+	a:aaa,
+	b:bbb
+      }.
+
+a:c[b->e, foo->e].
+c[|b=>d|].
+
+q[foo->bar].
+q:qq.
+
+a[card->{1,2}, card2->1, card3->{}].
+c[|card {0..1} => \integer, card2 {2..*}=>\integer|], c[card3{1..1}=>\integer].
+// this should generate a type error! Wrong without subsumptive tabling!
+c[|card -> {1,2}|].
+
+John[salary(1989) -> 50000].
+James[salary("wrongyear") -> 50000].
+Bill[salary(1989,"bla") -> 50000].
+
+John:employee.
+employee[|salary(\integer)=>\integer|].
+
+?- insert{aaaaa[=>ppppp(aaaaa)], 11:aaaaa}.
+
+
+%test1 :- Type[check(?[?_M],?_Res)]@\typecheck,
+	flora_decode_oid_as_atom(?_Res,?Atm)@\plg(flrdecode),
+	write('Test1: ')@\plg,
+	writeln(?Atm)@\plg,
+	\false.
+%test1 :- \true.
+
+
+%test2 :- Type[check(?[=>?_M],?_Res)]@\typecheck,
+	flora_decode_oid_as_atom(?_Res,?Atm)@\plg(flrdecode),
+	write('Test2: ')@\plg,
+	writeln(?Atm)@\plg,
+	\false.
+%test2 :- \true.
+
+%test3 :- Type[check(?[|=>?_M|],?_Res)]@\typecheck,
+	flora_decode_oid_as_atom(?_Res,?Atm)@\plg(flrdecode),
+	write('Test3: ')@\plg,
+	writeln(?Atm)@\plg,
+	\false.
+%test3 :- \true.
+
+%test4 :- Type[check(?[?->?],?_Res)]@\typecheck,
+	flora_decode_oid_as_atom(?_Res,?_Atm)@\plg(flrdecode),
+	write('Test4: ')@\plg,
+	writeln(?_Atm)@\plg,
+	\false.
+%test4 :- \true.
+
+%test5 :- Type[check(?[?=>?],?_Res)]@\typecheck,
+	flora_decode_oid_as_atom(?_Res,?Atm)@\plg(flrdecode),
+	write('Test5: ')@\plg,
+	writeln(?Atm)@\plg,
+	\false.
+%test5 :- \true.
+
+%test6 :- Type[check(qq[?->?],?_Res)]@\typecheck,
+	flora_decode_oid_as_atom(?_Res,?_Atm)@\plg(flrdecode),
+	write('Test6: ')@\plg,
+	writeln(?_Atm)@\plg,
+	\false.
+%test6 :- \true.
+
+%test7 :- Cardinality[check(?_Obj[card=>?])]@\typecheck,
+	write('Test7: ')@\plg,
+	writeln(?_Obj)@\plg,
+	\false.
+%test7 :- \true.
+
+%test8 :- Cardinality[check(?_Obj[|card=>?|])]@\typecheck,
+	write('Test8: ')@\plg,
+	writeln(?_Obj)@\plg,
+	\false.
+%test8 :- \true.
+
+// here we have to reify the arg to check, since we are not
+// explicitly using @\typecheck
+%test9 :- Cardinality[check(${?_Obj[card2 {?_L..?_H}=>?]})],
+	write('Test9: ')@\plg,
+	writeln(?_Obj+?_L+?_H)@\plg,
+	\false.
+%test9 :- \true.
+
+%test10 :- Cardinality[check(?_Obj[card3 {?_L..?_H}=>?])]@\typecheck,
+	write('Test10: ')@\plg,
+	writeln(?_Obj+?_L+?_H)@\plg,
+	\false.
+%test10 :- \true.
+
+
+// we have to reify the arg to check, since we are not
+// explicitly using @\typecheck
+%test11 :- Cardinality[check(${?_Obj[card {?_L..?_H}=>?]})],
+	write('Test11: ')@\plg,
+	writeln(?_Obj+?_L+?_H)@\plg,
+	\false.
+%test11 :- \true.
+
+%test12 :- Type[check(?[?->?],?Result)]@\typecheck,
+	flora_decode_oid_as_atom(?Result,?Atm)@\plg(flrdecode),
+	writeln(test12 = ?Atm)@\plg.
+
+%test13 :- aaaaa[=>ppppp(11)], writeln(test13=OK)@\plg.
+
+%pretest :- %test1, %test2 \and %test3 \and %test4,
+	    %test5, %test6, %test7, %test8, %test9,
+	    %test10, %test11, %test12, %test13.
+
+%pretest :- writeln('\n')@\plg.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\prolog.

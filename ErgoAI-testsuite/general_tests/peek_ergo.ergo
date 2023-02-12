@@ -1,0 +1,45 @@
+
+q(1).
+q(2).
+r(3).
+r(4).
+
+p(?X,?YY) :-
+        isinteger{?X},
+        !,
+        q(?Y),
+        ?YY \is ?Y+?X.
+p(?XX,?Y) :-
+        isinteger{?Y},
+        !,
+        r(?X),
+        ?XX \is ?Y*?X.
+p(a,b).
+p(c,d).
+
+%p1(?X,?Y) :-
+        peek{p(?X,?Y)}.
+%p2(11,?Y) :-
+        peek{p(11,?Y)}.
+
+
+?- p(11,?),
+   p(22,?),
+   p(?,33),
+   p(?,44).
+
+%tst1 :- %p1(?X,?Y), writeln(tst1=?X+?Y)@\plg, \false.
+%tst1 :- !.
+%tst2 :- %p1(11,?Y), writeln(tst2=?Y)@\plg, \false.
+%tst2 :- !.
+%tst3 :- ?X > 90, %p1(?X,?Y), writeln(tst3=?X+?Y)@\plg, \false.
+%tst3 :- !.
+
+%pretest :- %tst1, %tst2, %tst3.
+
+%test :- tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.

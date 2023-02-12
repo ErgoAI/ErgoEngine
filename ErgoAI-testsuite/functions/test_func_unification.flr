@@ -1,0 +1,24 @@
+:- use_rule_structure_db.
+
+\udf p(?x,?y):=?z \if pp(?x,?y,?z).
+\udf f(?x,?y):=?z \if ff(?x,?y,?z).
+
+q(?a,?b):-p(?a,?b)=f(?a,?b).
+
+pp(c,d,e).
+ff(c,d,e).
+pp(g,d,t).
+ff(g,d,h).
+
+test1:- q(c,d),writeln('yes')@\plg,!.
+test1:- writeln('no')@\plg.
+test2:- q(g,d),writeln('yes')@\plg,!.
+test2:- writeln('no')@\plg.
+test3:- q(?x,?y),writeln(?x)@\plg,writeln(?y)@\plg.
+
+%test:-
+	tell(temp)@\plg,
+	test1,
+	test2,
+	test3,
+	told@\plg.

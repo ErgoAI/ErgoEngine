@@ -1,0 +1,1410 @@
+/* File:   fidji-cks.P
+**
+** Author(s): Miguel Calejo
+**
+** Contact:   mc@interprolog.com
+**
+** Copyright (C) Coherent Knowledge Systems, 2014-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+:- compiler_options([xpp_on]).
+#include "flora_terms.flh"
+
+%% modularing xj2 causes problems :- import createXJcomponent/2 from xj2.
+:- import variant_get_residual/2, get_calls/3,
+        get_returns_for_call/2, table_state/4, get_calls_for_table/2, 
+        log_forest/2, load_forest_log/1, print_incomplete_tables/0,
+        abolish_all_tables/0
+   from tables.
+:- import concat_atom/2 from string.
+:- import atom_to_term/2 from string.
+:- import append/3,member/2,memberchk/2 from basics.
+:- import get_scan_pars/1,scan/2,set_scan_pars/1 from stdscan.
+
+:- import negate_predicate/2 from flrwrapper.
+
+:- import ipObjectSpec/4, javaMessage/2, javaMessage/3, java/2,
+        create_counter/1, get_increment_counter/2,
+        buildTermModel/2, recoverTermModelArray/2, stringArraytoList/2 
+   from interprolog.
+:- import remove_lib_dir/1 from consult.
+
+%% Flora imports; notice that this file still includes constants
+%% defined in flora_terms.flh
+:- import fj_flora_query/5, fj_flora_query/2 from interprolog.
+:- import
+        flora_decode_goal_as_atom/2,
+        flora_decode_goal_as_atom_substitute_vars/2,
+        flora_decode_rule/4,
+        flora_decode_goal_as_list/2,
+        flora_decode_goal_as_list_substitute_vars/2,
+        flora_decode_goal_as_mainless_atom_substitute_vars/2 
+   from flrdecode.
+:- import flora_unwrap_negation/2 from flrnegation.
+:- import flrterm_vars/3 from flora_ground.
+:- import flora_concat_items/2 from flrporting.
+:- import
+        convert_to_head_literal/2,
+        convert_to_body_literal/2
+   from flrcanon.
+:- import
+        flora_string_command_line/4,
+        flora_good_command/1,
+        traced_call/4
+   from flrcallflora.
+:- import
+        flora_load_registry/7,
+        flora_user_load_registry/3
+   from flrregistry.
+:- import
+        flora_token_text/6,
+        flora_compile_filename_by_token/2
+   from flrlexer.
+:- import
+        flora_read_then_parse/3, util_read_parse_compile/11,
+        flora_end_of_input/1, merge_status_lists/3, 
+        reset_modules_for_file/1, flora_add_module_dyn/6,
+        flora_load_module_util/6, flora_get_textual_info/3,
+        flora_not_end_of_input/1
+   from flrutils.
+:- import
+        soft_reset_modules_for_file/1,
+        util_compile_ergotext_template_stdin/2,
+        flora_clear_xpp_options/0,
+        flora_set_xpp_options_for_compile/0,
+        check_xpp_process_status/3
+   from flrutils.
+:- import flora_nth_token/2 from flrcomposer.
+:- import
+        flora_set_answer_size/3,
+        flora_set_subgoal_size/3
+   from flrerrhandler.
+
+:- import
+        is_incremental_subgoal/1, incr_directly_depends/2,
+        get_incr_sccs/2, get_incr_sccs/1, 
+        get_incr_sccs_with_deps/3,get_incr_sccs_with_deps/2
+   from increval.
+:- import
+        get_calls/3, get_returns_for_call/2, table_state/4,
+        get_calls_for_table/2, log_forest/2, 
+        load_forest_log/1, print_incomplete_tables/0,
+        abolish_all_tables/0, get_residual_sccs/3
+   from tables.
+
+:- dynamic fjNLPparser/1.
+
+:- import flora_configuration/2 from flrregistry.
+
+
+:- import fj_preferred_source_path/2 from usermod.
+:- dynamic fj_preferred_source_path/2. %% Make sure it won't be missed
+
+fj_set_studio_mode :- assert(flora_configuration(uimode,studio)).
+
+
+%% NOT USED and NEITHER are flora_decode_goal_as_mainless_atom1/2/3/4
+%% In addition to removing @main suffixes, also removes reification
+%% and () and outmost ''
+flora_decode_goal_as_mainless_atom(Goal,Atom) :- 
+        flora_decode_goal_as_list_substitute_vars(Goal,AtomList), 
+        flora_decode_goal_as_mainless_atom3(AtomList,AtomList3),
+        flora_decode_goal_as_mainless_atom4(AtomList3,AtomList4),
+        flora_decode_goal_as_mainless_atom2(AtomList4,AtomList2),
+        flora_decode_goal_as_mainless_atom1(AtomList2,AtomList1),
+        flora_concat_items(AtomList1,Atom).
+/* sample: 
+atom - ${
+atom - (
+         atom - naf 
+       atom - 
+       atom - p
+       atom - (
+                atom - a
+              atom - )
+       atom - @
+       atom - main
+       atom - 
+       atom - )
+atom - }*/
+
+%% remove @main
+flora_decode_goal_as_mainless_atom2(['@','main','',''],[]) :- !.
+flora_decode_goal_as_mainless_atom2(['@','main',''],[]) :- !.
+flora_decode_goal_as_mainless_atom2([],[]) :- !.
+flora_decode_goal_as_mainless_atom2([A|L],[A|SL]) :-
+        flora_decode_goal_as_mainless_atom2(L,SL).
+
+%% remove reification
+%% flora_decode_goal_as_mainless_atom3(Original,L) :- append(['${','('|L],[')','}'],Original), !.
+flora_decode_goal_as_mainless_atom3(Original,L) :-
+        append(['${'|L],['}'],Original), !.
+flora_decode_goal_as_mainless_atom3(L,L).
+
+%% remove outer parenthesis
+flora_decode_goal_as_mainless_atom4(Original,L) :-
+        append(['('|L],[')'],Original),
+        !.
+flora_decode_goal_as_mainless_atom4(L,L).
+
+%% remove out quotes
+flora_decode_goal_as_mainless_atom1(Original,L) :-
+        append([''''|L],[''''],Original),
+        !.
+flora_decode_goal_as_mainless_atom1(L,L).
+
+/*
+   Extract matching rule/calling rule info from the last argument of the goal
+   Takes into account FLORA_DELAY_CHECKER and such.
+*/
+tracingInformation(Goal,Callingrule,MatchingRule) :-
+        flora_unwrap_negation(Goal,G), Goal \= G,
+        !,
+        tracingInformation_(G,Callingrule,MatchingRule).
+/*
+%% a better version below this rule
+tracingInformation_(Goal,CallingRule,MatchingRule) :- 
+        functor(Goal,',',2), arg(2,Goal,A2),
+        nonvar(A2), functor(A2,FLORA_DELAY_CHECKER,_), 
+        !,
+        arg(1,Goal,G), tracingInformation(G,CallingRule,MatchingRule).
+*/
+%% simplifying the above to this:
+tracingInformation_(Goal,CallingRule,MatchingRule) :- 
+        nonvar(Goal),
+        Goal = (G,A2),
+        nonvar(A2),
+        A2 = FLORA_DELAY_CHECKER(_,_),
+        !,
+        tracingInformation(G,CallingRule,MatchingRule).
+/*
+%% a better version below this rule
+tracingInformation_(Goal,CallingRule,MatchingRule) :- 
+        functor(Goal,F,N), F\==',', F\==':',
+        arg(N,Goal,FW), compound(FW), \+ is_list(FW),
+        !,
+        arg(2,FW,MatchingRule), arg(3,FW,CallingRule).
+*/
+%% simplifying the above to this:
+tracingInformation_(Goal,CallingRule,MatchingRule) :- 
+        nonvar(Goal),
+        functor(Goal,F,N), F\==',', F\==':',
+        arg(N,Goal,FW), nonvar(FW),
+        FW = FL_CONTEXT(_,MatchingRule,CallingRule),
+        !.
+
+tracingInformation(_Goal,_CallingRule,_MatchingRule).
+
+%% Variant that reexecutes the goal if it misses the trace context
+%% for matching rule
+tracingInformationMatch(Goal,Callingrule,MatchedRule) :- 
+        tracingInformation(Goal,Callingrule,MatchedRule), 
+        (nonvar(MatchedRule) -> true
+        ; convert_to_body_literal(Goal,BodyGoal),
+            catch((traced_call(BodyGoal,MatchedRule,_F,_M)),_,true)
+        %% traced_call is not guaranteed to return a matching rule,
+        %% so need this catch-all case - or else weird errors!
+        ; true
+        ).
+
+flora_clause(Tag,ID,H,B) :-
+        fj_flora_query("clause{@{?Tag} @!{?ID} ?H,?B}.",['?Tag'=Tag,'?H'=H,'?B'=B,'?ID'=ID]).
+flora_clause(Tag,ID,M,H,B) :-
+        fj_flora_query("clause{@{?Tag} @!{?ID[module->?M]} ?H,?B}.",['?Tag'=Tag,'?H'=H,'?B'=B,'?ID'=ID,'?M'=M]).
+flora_clause(H,B,ID) :-
+        fj_flora_query("clause{@!{?ID}?H,?B}.",['?H'=H,'?B'=B,'?ID'=ID],_Status,_WAMSTATE,_Ex).
+
+flora_fact(H,Module,Original) :- fj_flora_query("isbasefact{?H,?Original}, ?H ~ ?@?M.",['?H'=H,'?M'=Module,'?Original'=Original]).
+
+
+%% MK: Where is xjClassTree/1 used? It is bad because it assumes "main" module.
+%%
+%% xjClassTree(person) - ASSUMES main module
+%% calling - xjLazyFloraGoal(_h69517,null,person,'floraSubclassRelation(?Sub,?Super,?Root).',['?Sub' = _h69517,'?Super' = null,'?Root' = person])
+
+xjClassTree(Root) :-
+        atom(Root),
+        concat_atom(['Ergo class tree for ',Root],WindowTitle),  
+        concat_atom(['%floraSubclassRelation(?Sub,?Super,?Root)@',ERGO_STUDIO_MODULE,'.'],FG),
+        createXJcomponent(
+                          gt(
+                             'XJ$LAZY',
+                             [
+                              caption=WindowTitle,
+                              operation(terms(_GUIref,SelectedList),writeln(newSelection-SelectedList),selectionChanged), 
+                              root,
+                              myGUI(_Tree),
+                              width=500,height=400,hiddenroot,
+                              %% prologcached,
+                              lazytree( 
+                                        [
+                                         gt(_,[typename=class,color=blue,borderless,class='com.xsb.xj.XJLabel',readonly,root, opaque,
+                                               operation(term(Class,_),xjInstanceList(Class) ,menu('Show instances'))],_)                                       
+                                        ] 
+                                      )
+                             ],
+                             lazy( flora(FG, ['?Sub'=_NodeIDT,'?Super'=_ParentID,'?Root'=Root]),  
+                                   flora('?Term=?ID, ?Type=class.',['?ID'= _ID, '?Type'=_Type,'?Term'=_Term]), 
+                                   Root)
+                            ),TheGUI), javaMessage('com.xsb.xj.XJDesktop',testUndoGUI(TheGUI)).
+
+fjJustificationTree(Root,JustificationType) :-
+        flora_decode_goal_as_atom_substitute_vars(Root,RootAtom),
+        /*
+           MK: if \true, show extended justification. But \true seems buggy.
+               First, it does not seem to do anything in the studio,
+               and in programmatic explanations it causes infinite loops. Eg.,
+               ['~/Coherent/Demos/RegW/regwdemo'].
+               ${\(RegW prohibits the proposed transaction between ?_Bank and ?_Company for amount $?_Amount million\)@main}[why(full) -> ?Explanation]@\why.
+               loops.
+               Also, in ~/tmp/expl.ergo, query qu(?x),
+               it constructs a weird and justification.
+        */
+        ConsiderSucceeded = '\\false',
+        fjJustificationTree(RootAtom,Root,ConsiderSucceeded,JustificationType).
+
+/* fjJustificationTree(+RootAtom, +Root,
+                       +ConsiderSucceededSubGoalsInMissingCase (\true / \false),
+                       +Type)   
+    if Root is var, it is obtained from RootAtom.
+    Type is w)rong or m)issing; see fidjiutils.flr
+    For wrong answers, they must succeed;
+    otherwise the justification will be a bogus tree with one root node only
+*/
+fjJustificationTree(RootAtom,Root_,ConsiderSucceeded,JustificationType) :-
+        atom(RootAtom), 
+        (JustificationType==w, JT='Why ';JustificationType==m,JT='Why Not '),
+        (ConsiderSucceeded == '\\true', CSsuffix='(extended)'
+        ; ConsiderSucceeded == '\\false', CSsuffix=''
+        ),
+        !,
+        atom_codes(RootAtom,RootAtomL),
+        ( append(MainlessRoot,"@main.",RootAtomL) -> 
+            %% append(MainlessRoot,".",RootAtomTitleL), atom_codes(RootAtomTitle,RootAtomTitleL)
+            atom_codes(RootAtomTitle,MainlessRoot)
+        ;
+            (append(DotlessRoot,".",RootAtomL) -> atom_codes(RootAtomTitle,DotlessRoot); RootAtomTitle=RootAtom)
+        ),
+        %% reify:
+        %% append(DotLessList,".",RootAtomL), append([36,123|DotLessList],"}.",RootAtomL2), atom_codes(RootAtom2,RootAtomL2),
+        
+        concat_atom([JT ,CSsuffix,RootAtomTitle,' ?'],WindowTitle),  
+        %%WindowTitle = 'Justification',
+
+        (var(Root_) -> collect_flora_command_dgoal_and_vars(RootAtom,Root_,_Vars) ; true),
+        convert_to_body_literal(Root_,Root), 
+        %% writeln(RootAtom/Root),
+        %% Make sure we know the rule matching the top answer:
+        (JustificationType==w -> tracingInformationMatch(Root,_,_TopMatchingRule); true),
+        %% BTop = operation(term(T,_),browseTerm(T),menu('See term')),
+        BTop = operation(term(T,_),
+                         (arg(1,T,First),arg(2,First,PG),
+                             %% must explicitly use flrdecode: here or else XJ will bomb
+                             flrdecode:flora_decode_goal_as_atom_substitute_vars(PG,FloraAtom),
+                             %% must explicitly use string: or XJ will bomb
+                             string:concat_atom(['%browseTerm((',FloraAtom ,'))@',ERGO_STUDIO_MODULE,'.'],FQ),
+                             fj_flora_query(FQ,[])),
+                         menu('See node term as tree')),
+        SeePGop = operation(term(T,_),(arg(1,T,First),arg(2,First,PG), writeln(PG)),menu('See Prolog goal')),
+        SubJustifyOp =
+        operation(term(T,_),
+                  (arg(1,T,First),arg(2,First,G), arg(4,First,CS), arg(1,First,JT2), 
+                      flrdecode:flora_decode_goal_as_mainless_atom_substitute_vars(G,Gatom),
+                      %% must explicitly use string: or else XJ will bomb
+                      string:concat_atom([Gatom,'.'],Gatom2),
+                      fjJustificationTree(Gatom2,G,CS,JT2)),
+                  menu('Justify this node in a separate window')),
+        SubJustifyOpExtended =
+        operation(term(T,_),
+                  (arg(1,T,First),arg(2,First,G), arg(1,First,JT2), 
+                      flrdecode:flora_decode_goal_as_mainless_atom_substitute_vars(G,Gatom),
+                      %% must explicitly use string: or else XJ will bomb
+                      string:concat_atom([Gatom,'.'],Gatom2),
+                      fjJustificationTree(Gatom2,G,'\\true',JT2)),
+                  menu('Justify (extended) this node in a separate window')),
+        %% SeeFGop = operation(term(T,_),(arg(1,T,First),arg(2,First,PG), flora_decode_goal_as_mainless_atom(PG,Atom), writeln(Atom)),menu('See Flora goal')),
+        CopyFloraLiteralOp =
+        operation(term(T,_),
+                  (arg(1,T,First),arg(2,First,PG),
+                      flrdecode:flora_decode_goal_as_mainless_atom_substitute_vars(PG,Atom),
+                      %% must explicitly use string: or XJ will bomb
+                      string:concat_atom(['${',Atom,'}'],Atom1),
+                      java('com.xsb.xj.XJDesktop',setClipboardText(string(Atom1)))),
+                  menu('Copy Ergo literal corresponding to this')),
+        SubJustifyNegatedOp =
+        operation(term(T,_),
+                  (arg(1,T,First),arg(2,First,G), arg(4,First,CS), arg(1,First,JT2), 
+                      %% fj_flora_query('%negateLiteral(?G,?NG)@ERGO_STUDIO_MODULE.',['?G'=G,'?NG'=NG]), 
+                      negate_predicate(G,NG),
+                      convert_to_head_literal(NG,NGG),
+                      flrdecode:flora_decode_goal_as_mainless_atom_substitute_vars(NGG,NGatom),
+                      %% must explicitly use string: or XJ will bomb
+                      string:concat_atom([NGatom,'.'],NGatom2),
+                      fjJustificationTree(NGatom2,NGG,CS,JT2)),
+                  menu('Justify Inconsistency')),
+        concat_atom(['%mayGetModule(?G,?M)@',ERGO_STUDIO_MODULE,'.'],FG),
+        SeeCallingSource =
+        operation(term(Term,_Path),
+                  (
+                    %% functor(Term,RuleID,_),
+                    arg(1,Term,First),arg(2,First,PG), arg(5,First,RuleID),
+                    fj_flora_query(FG,['?G'=PG,'?M'=M]), 
+                    %% must explicitly use flrdecode: here or else XJ will bomb
+                    flrdecode:flora_decode_goal_as_atom(M,Module), %% Modules can be complex
+                    %% arg(1,Term,First),arg(2,First,PrologGoal), functor(PrologGoal,_,LastN), 
+                    %% arg(LastN,PrologGoal,[_,tracing(MatchingRule,CallingRule)]), 
+                    %% (nonvar(MatchingRule) -> RuleID = MatchingRule ; RuleID = CallingRule),
+                    %% writeln(ruleID-RuleID),
+                    showSourceRule(RuleID,Module)
+                  ),
+                  menu('See rule that uses this as condition')),
+        SeeMatchingSource = operation(term(Term,_Path), fjSeeMatchingSourceOperation(Term,Tree), menu('See rule that concluded this')),
+        _SeeMatchingOriginalText = operation(term(Term,_Path),
+                                             (arg(1,Term,First),arg(2,First,PG), 
+                                                 prologLiteralToMatchingSource(PG,RuleOrFactOrSystem,MatchingRule,Module),
+                                                 showOriginalRuleOrFactOrSystem(RuleOrFactOrSystem,Tree,MatchingRule,Module)),
+                                             menu('See source text of rule that concluded this')),
+        concat_atom(['%mayGetModule(?G,?M)@',ERGO_STUDIO_MODULE,'.'],FG2),
+        _SeeCallingOriginalText =
+        operation(term(Term,_Path),
+                  (arg(1,Term,First),arg(2,First,PG), arg(5,First,RuleID),
+                      fj_flora_query(FG2,['?G'=PG,'?M'=M]), 
+                      %% must explicitly use flrdecode: or else XJ will bomb
+                      flrdecode:flora_decode_goal_as_atom(M,Module), %% Modules can be complex
+                      showOriginalRule(RuleID,Module)),
+                  menu('See source text of rule that uses this as condition')),
+        ipFontSize(FONT_SIZE),
+        (fjFavoriteWnodeWidth(Width) -> W_NODE_PROPS = [large,autosize,width=Width] ; W_NODE_PROPS = [class='com.xsb.xj.XJLabel']),
+        fjJustificationColours(WrongC,WrongInconsistentC,WrongUndefined,MissingC,DefeatedC),
+        concat_atom(['%getDefeatedRule(?Node,?DefeatedID,?M)@',ERGO_STUDIO_MODULE,'.'],FG1),
+        concat_atom(['%justificationTreeFunction(?Child,?Parent,?JType(?Root,null,?ConsiderSucceeded,null,null,[]))@',ERGO_STUDIO_MODULE,'.'],FG4),
+        concat_atom(['%obtainTerm(?ID,?Type,?Term)@',ERGO_STUDIO_MODULE,'.'],FG3),
+        createXJcomponent(
+                          gt(
+                             'XJ$LAZY',
+                             [
+                              caption=WindowTitle,
+                              %% operation(terms(_GUIref,SelectedList),(write('Tree ID '), writeln(_GUIref), writeln(newSelection-SelectedList)),selectionChanged), 
+                              /* operation(terms(_GUIref,SelectedList), 
+                              (
+                                SelectedList = [T|_], arg(1,T,First),arg(2,First,PG), 
+                                flora_decode_goal_as_mainless_atom(PG,Atom), writeln(Atom), writeln('Prolog:'), writeln(PG),
+                                write('Node:'), writeln(T)
+                              ), 
+                              selectionChanged),
+                              */
+                            %% operation(terms(AAA,BBB),writeln(AAA/BBB),menu('TEST')),
+                            root,
+                             myGUI(Tree),
+                             width=500,height=400, %% hiddenroot,
+                             %% prologcached,
+                             %% dry, not yet working... make repeated nodes special
+                             lazytree(
+                                      [ %% these templates must be in sync with %pp(...)@ERGO_STUDIO_MODULE
+                                        gt(_dummy,[caption='Rule',invisible,typename=isa,color=rgb(88,164,12), class='com.xsb.xj.ValueRow', root, 
+                                                   BTop, readonly, operation(term(T,_),(arg(2,T,PG),writeln(PG)),menu('See this as Prolog goal (in Listener)'))
+                                                  ],[
+                                                     gt(_,[caption='Raw', invisible, opaque],_),
+                                                     gt(_,[caption='Object', color=rgb(88,164,12), class='com.xsb.xj.XJLabel'],[
+                                                                                                                                gt(_,[class='com.xsb.xj.XJButton',color=rgb(88,164,12),opaque],_)
+                                                                                                                               ])
+                                                    ]),                         
+                                        gt(_dummy,[typename=w,class='com.xsb.xj.ValueRow',invisible,root, 
+                                                   /*SeeMatchingOriginalText,*/ SeeMatchingSource, /*SeeCallingOriginalText,*/ SeeCallingSource, BTop, SeePGop,CopyFloraLiteralOp, SubJustifyOp  
+                                                   ],[
+                                                      gt(_,[caption='Raw', invisible, opaque],_),
+                                                      gt(_,[tip='TRUE', borderless,color=WrongC,font(_,_,FONT_SIZE)|W_NODE_PROPS],[])
+                                                     ]),
+                                        gt(_dummy,[typename=wc,class='com.xsb.xj.ValueRow',invisible,root, 
+                                                   /*SeeMatchingOriginalText,*/ SeeMatchingSource, /*SeeCallingOriginalText,*/ SeeCallingSource, BTop, SeePGop,/*SeeFGop,*/ CopyFloraLiteralOp, SubJustifyNegatedOp  
+                                                   ],[
+                                                      gt(_,[caption='Raw', invisible, opaque],_),
+                                                      %% gt(_,[class='com.xsb.xj.XJLabel',borderless,color=rgb(0,163,0),font(_,_,FONT_SIZE)],[])
+                                                      gt(_,[tip='INCONSISTENT: P & \\neg P are true\n',borderless,color=WrongInconsistentC,font(_,_,FONT_SIZE)|W_NODE_PROPS],[])
+                                                     ]),
+                                        gt(_dummy,[typename=wu,class='com.xsb.xj.ValueRow',invisible,root, 
+                                                   /*SeeMatchingOriginalText,*/ SeeMatchingSource, /*SeeCallingOriginalText,*/ SeeCallingSource, BTop, /* SeePGop,SeeFGop,*/ CopyFloraLiteralOp, SubJustifyOp  
+                                                   ],[
+                                                      gt(_,[caption='Raw', invisible, opaque],_),
+                                                      %% gt(_,[class='com.xsb.xj.XJLabel',borderless,color=rgb(0,163,0),font(_,_,FONT_SIZE)],[])
+                                                      gt(_,[tip='UNDEFINED',borderless,color=WrongUndefined,font(_,_,FONT_SIZE)|W_NODE_PROPS],[])
+                                                     ]),
+                                        gt(_dummy,[typename=d,class='com.xsb.xj.ValueRow',invisible,root, 
+                                                   %% SeePGop,SeeFGop,
+                                                   operation(term(Term,_Path),(
+                                                                               %% The following term decomposition is VERY dependent on the particular Ergo AT in use
+                                                                               %% (arg(1,Term,First),arg(5,First,DefeatedID), arg(2,First,PG), 
+                                                                               %% fj_flora_query('?G=?(?DG), %mayGetModule(?DG,?M)@ERGO_STUDIO_MODULE.',['?G'=PG,'?M'=M],_Status,_WAM,Ex), Ex == normal, 
+                                                                               arg(1,Term,First),
+                                                                               fj_flora_query(FG1,['?Node'=First,'?DefeatedID'=DefeatedID,'?M'=M]), 
+                                                                               %% must explicitly use flrdecode: or else XJ will bomb
+                                                                               flrdecode:flora_decode_goal_as_atom(M,Module), %% Modules can have complex names
+                                                                               showSourceRule(DefeatedID,Module)),
+                                                             menu('See defeated rule'))  
+                                                  ],[
+                                                     gt(_,[caption='Raw', invisible, opaque],_),
+                                                     gt(_,[class='com.xsb.xj.XJLabel',tip='DEFEATED', borderless,color=DefeatedC,font(_,_,FONT_SIZE)],[])
+                                                    ]),
+                                        gt(_dummy,[typename=m,class='com.xsb.xj.ValueRow',invisible,root, 
+                                                   SeeCallingSource, /*SeeCallingOriginalText,*/ BTop, /* SeePGop,SeeFGop,*/ CopyFloraLiteralOp, SubJustifyOp, SubJustifyOpExtended 
+                                                  /*,operation(term(T,_Path), (arg(1,T,First),arg(2,First,PG),convert_to_head_literal(PG,PG2),fjCallTree(PG2-[])), menu('See call subtree'))*/
+                                                  ],[
+                                                     gt(_,[caption='Raw', invisible, opaque],_),
+                                                     gt(_,[class='com.xsb.xj.XJLabel',tip='FALSE', borderless,color=MissingC,font(_,_,FONT_SIZE)],[])
+                                                    ])                                  
+                                      ]
+                                     )
+                            ],
+                          lazy( 
+                                flora(FG4, 
+                                      ['?Child'=_NodeIDT,'?Parent'=_ParentID,'?Root'=Root,'?JType'=JustificationType,'?ConsiderSucceeded'=ConsiderSucceeded]),  
+                                flora(FG3, ['?ID'= _ID, '?Type'=_Type,'?Term'=_Term]), 
+                                Root)
+                         ),
+          TheGUI), 
+          fjIpListenerWindow(LW),
+          javaMessage(LW,disableWhenBusyOrPaused(TheGUI)),
+          java('com.xsb.xj.XJDesktop',TheGUIW,testGUI(TheGUI,boolean(0))),
+          java(TheGUIW,setDefaultCloseOperation(int(1))), %% HIDE_ON_CLOSE; nothing to lose, justifications will not persist
+          (fjJustificationsOpenInTabs(true) ->
+              java('com.declarativa.fiji.TabsWindow'-justifiers,TabAction,makeTabActionFor(TheGUIW)),
+              java(LW,addWindowsMenuTo(TheGUIW,TabAction,boolean(1))),
+              java('com.declarativa.fiji.TabsWindow'-justifiers,addWindow(TheGUIW,TabAction,boolean(1))),
+              java('com.declarativa.fiji.TabsWindow'-justifiers,bringToFront(TheGUIW))
+          ; 
+              TabAction = null, 
+              java(LW,addWindowsMenuTo(TheGUIW,TabAction)),
+              java(TheGUIW,toFront)
+          ).
+
+fjFavoriteWnodeWidth(Width) :- 
+        fjIpListenerWindow(W), 
+        javaMessage(W,string(R),getPreference(string('com.coherentknowledge.fidji.wNodeWidth'))),
+        atom_to_term(R,Width).
+
+:- dynamic fjJustificationsOpenInTabs/1.
+fjJustificationsOpenInTabs(true).
+
+:- dynamic fjJustificationColours/5.
+%% fjJustificationColours(WrongC,WrongInconsistentC,WrongUndefined,MissingC,DefeatedC).
+fjJustificationColours(Normal,        %% green
+                       rgb(255,0,0),  %% red
+                       Undefined,     %% purple
+                       rgb(0,0,255),  %% blue
+                       rgb(145,16,46) %% brown
+                      ) :-
+        fjQueryAnswerColours(Normal,Undefined).
+
+
+/* fjSeeMatchingSourceOperation(Node,Tree) :- 
+arg(1,Node,First),arg(6,First,SR), SR \== null, !,
+xjNotifyUser(Tree,'Special case',SR). 
+fjSeeMatchingSourceOperation(Node,Tree) :- 
+        arg(1,Node,First),arg(2,First,PG),      
+        prologLiteralToMatchingSource(PG,RuleOrFactOrSystem,MatchingRule,Module),
+        showSourceRuleOrFactOrSystem(RuleOrFactOrSystem,Tree,MatchingRule,Module).
+*/
+
+fjSeeMatchingSourceOperation(Node,Tree) :- 
+        arg(1,Node,TheNode),
+        %% writeln(node-TheNode),
+        concat_atom(['%wNodeAnswerToMatchingSource(?Node,?RuleOrFactOrSystem,?MatchingRule,?Module)@',ERGO_STUDIO_MODULE,', p2h{?RorF,?RuleOrFactOrSystem}.'],FG),
+        fj_flora_query(FG,
+                       ['?Node'=TheNode,'?RorF'=RuleOrFactOrSystem,'?MatchingRule'=MatchingRule,'?Module'=Module]), 
+        %% writeln(RuleOrFactOrSystem-MatchingRule-Module),
+        showSourceRuleOrFactOrSystem(RuleOrFactOrSystem,Tree,MatchingRule,Module).
+
+%% like fjSeeMatchingSourceOperation/2, but used for testing
+fjSeeMatchingSourceOperation_(TheNode,Tree) :- 
+        concat_atom(['%wNodeAnswerToMatchingSource(?Node,?RuleOrFactOrSystem,?MatchingRule,?Module)@',ERGO_STUDIO_MODULE,', p2h{?RorF,?RuleOrFactOrSystem}.'],FG),
+        fj_flora_query(FG,
+                       ['?Node'=TheNode,'?RorF'=RuleOrFactOrSystem,'?MatchingRule'=MatchingRule,'?Module'=Module]), 
+        showSourceRuleOrFactOrSystem(RuleOrFactOrSystem,Tree,MatchingRule,Module).
+
+
+%% prologLiteralToMatchingSource(+PG,-RuleOrFactOrSystem,-MatchingRule,-Module)
+%% RuleOrFactOrSystem returns rule, fact(OriginalFact) or system (predicate)
+prologLiteralToMatchingSource(PG,RuleOrFactOrSystem,MatchingRule,Module) :-
+        tracingInformationMatch(PG,_,MatchingRule),
+        concat_atom(['%mayGetModule(?G,?M)@',ERGO_STUDIO_MODULE,', (\if isbasefact{?G,?GG} \\then p2h{?RorF,fact(?GG)} \else \if clause{?G,?} \\then ?RorF=rule \else ?RorF=system).'],FG),
+        fj_flora_query(FG,
+                       ['?G'=PG,'?M'=M,'?RorF'=RuleOrFactOrSystem]), 
+        flora_decode_goal_as_atom(M,Module). %% Modules can have complex names
+
+showMatchingRule(PrologGoal) :-
+        tracingInformation(PrologGoal,_,MatchingRule),
+        concat_atom(['%mayGetModule(?G,?M)@',ERGO_STUDIO_MODULE,'.'],FG),
+        fj_flora_query(FG,['?G'=PrologGoal,'?M'=M]),
+        flora_decode_goal_as_atom(M,Module),
+        showSourceRule(MatchingRule,Module).
+showCallingRule(PrologGoal) :-
+        tracingInformation(PrologGoal,CallingRule,_),
+        concat_atom(['%mayGetModule(?G,?M)@',ERGO_STUDIO_MODULE,'.'],FG),
+        fj_flora_query(FG,['?G'=PrologGoal,'?M'=M]), 
+        flora_decode_goal_as_atom(M,Module),
+        showSourceRule(CallingRule,Module).
+
+
+
+showOriginalRuleOrFactOrSystem(fact,Tree,_MatchingRule,Module)  :-
+        !, 
+        concat_atom(['This is a fact in module ', Module, ';\noriginal text is unavailable.'],Message), 
+        xjNotifyUser(Tree,'Node matches fact',Message).
+showOriginalRuleOrFactOrSystem(system,Tree,_MatchingRule,_Module)  :-
+        !, 
+        Message = 'This is a built-in predicate.',
+        xjNotifyUser(Tree,'Node matches system predicate',Message).
+showOriginalRuleOrFactOrSystem(rule,_Tree,MatchingRule,Module)  :- showOriginalRule(MatchingRule,Module).
+
+showOriginalRule(MatchingRule,Module) :- 
+        fj_rule_original_url(MatchingRule,Module,URL_), 
+        stripLeadingI(URL_,URL),
+        xjShowURL(URL).
+
+%% returns raw URL_ for the rule or common orgin; fails if neither URL defined
+fj_rule_original_url(MatchingRule,Module,URL_) :- 
+        fj_flora_query('\if (@!{?ID[url->?U,module->?M]}) \\then \\true \else defaultOrigin(?U)@?M.',
+                       ['?ID'=MatchingRule,'?M'=Module,'?U'=URL_]).
+
+stripLeadingI(ID,StrippedID) :- ( atom(ID), atom_codes(ID,[105,8/*i\b*/|Codes])) -> atom_codes(StrippedID,Codes) ; StrippedID=ID.
+
+%% showSourceRuleOrFactOrSystem(RuleOrFact,MatchingRule,Module)
+showSourceRuleOrFactOrSystem(inheritance,Tree,Comment,_Module)  :- !, 
+        concat_atom(['Matching rule is:\n', Comment],Message), 
+        xjNotifyUser(Tree,'Inheritance',Message).
+showSourceRuleOrFactOrSystem(bg_axiom,Tree,Comment,_Module)     :- !, 
+        concat_atom(['Matching rule is a background axiom:\n', Comment],Message), 
+        xjNotifyUser(Tree,'Background Axiom',Message).
+showSourceRuleOrFactOrSystem(fact(Original),Tree,_MatchingRule,Module) :- !, 
+        flora_decode_goal_as_atom(Original,OriginalAtom),
+        concat_atom(['This is a fact in module ',Module,': ',OriginalAtom],Message), 
+        xjNotifyUser(Tree,'Fact',Message).
+showSourceRuleOrFactOrSystem(system,Tree,_MatchingRule,_Module) :- !, 
+        Message = 'This is a built-in predicate.',
+        xjNotifyUser(Tree,'Node matches system predicate',Message).
+showSourceRuleOrFactOrSystem(rule,Tree,fj_bodyExpression,_Module) :- !,
+        Message = 'Please check this node''s children.',
+        xjNotifyUser(Tree,'Node matches intermediate expression',Message).
+showSourceRuleOrFactOrSystem(rule,_,MatchingRule,Module) :- showSourceRule(MatchingRule,Module).
+
+showSourceRule(RuleID,Module) :- showSourceRule(RuleID,Module,fail).
+
+showSourceRule(RuleID,Module,BeginOnly) :- 
+        (RuleID == null -> PieceType = fact ; PieceType = rule),
+        showSourceRule(PieceType,RuleID,Module,BeginOnly,fail).
+
+
+%% showSourceRule(rule/fact,RuleID or 'Fact atom',Module,SelectBeginOnly,OpenFileIfUnknownRule)
+%% BeginOnly==true does not select the whole range
+showSourceRule(_PieceType,RuleID,_Module,_BeginOnly,_):-
+        var(RuleID),
+        !,
+        xj_failError('Cannot visualize source rule').
+showSourceRule(rule,RuleID,Module,BeginOnly,_):- !,
+        ( flora_get_textual_info_(RuleID,Module,Info) -> 
+             Info =.. [_,_RuleNum,RuleFile,BegLn,BegCh,EndLn,EndCh],
+             Position = p(BegLn,BegCh,EndLn,EndCh),
+             showSourceRule2(Module,RuleFile,Position,BeginOnly,_LPE)           
+        ; ( 
+            %% no textual information available, probably a dynamic rule:
+            fj_flora_query('clause{@!{?ID[file->?F,module->?M]} ?Head,?Body}.',['?ID'=RuleID,'?F'=dynrule(_),'?M'=Module,'?Head'=Head,'?Body'=Body])
+          -> 
+            %% flora_decode_goal_as_atom(Clause,ClauseAtom), 
+            flora_decode_rule(Head,Body,HeadAtm,BodyAtm),
+            concat_atom(['Dynamic rule in ',Module,':\n',HeadAtm,':-\n  ',BodyAtm],Message),
+            xjNotifyUser('Dynamic rule',Message)
+          ;
+            print_flora_rule(RuleID,Module)
+          )
+        ).
+showSourceRule(_PieceType,Something,Module,BeginOnly,true):- 
+        flora_get_precise_file(Module,_F,FilePath),
+        !, 
+        showSourceRule2(Module,FilePath,null,BeginOnly,LPE), %% show the module file, even though we have no selection on it
+        concat_atom(['Please use textual search within this file:\n',Something],Message),
+        xjNotifyUser(LPE,'Cannot pinpoint source',Message),
+        java(LPE,showWideFindReplaceDialog), java(LPE,setSearchString(string(Something))).
+
+showSourceRule(_PieceType,_,_Module,_BeginOnly,_):- !, 
+        writeln(module-_Module),
+        xjNotifyUser('Nothing to show','No specific source fragment to show, possibly top goal...?').
+
+
+
+showSourceRule2(Module,RuleFile,Position,BeginOnly,LPE):-
+        fjIpListenerWindow(LW), 
+        (RuleFile=dynrule(RealFile) -> writeln('dynamic rule, showing file that inserted it...') ;  RealFile=RuleFile),
+        ( fj_preferred_source_path(RealFile,RealFile_) -> true ; RealFile=RealFile_),
+        (Position = p(BegLn,BegCh,EndLn,EndCh) -> buildTermModel(p(BegLn,BegCh,EndLn,EndCh),NM) ; NM=null), 
+        (BeginOnly -> B=1 ; B=0), ipObjectSpec(boolean,Boolean,[B],_),
+        javaMessage('com.declarativa.fiji.LogicProgramEditor',LPE,showEditor(string(RealFile_),NM,LW,Boolean)),
+        %% the editor may not have yet a preferred module, so we refresh it anyway:
+        java(LPE,maySetPreferredModule(string(Module))).
+
+print_flora_rule(RuleID,Module) :-
+        flora_clause(Tag,RuleID,Module,H,B), !, %% RuleID may be ambiguous, module should be made explicit here
+        write('Ergo rule tag:'), write(Tag), write(' ID:'), writeln(RuleID), write('Module:'), writeln(Module),
+        flora_decode_goal_as_mainless_atom_substitute_vars((H:-B),Atom),
+        writeln(Atom). 
+
+
+showComponentMatching(G) :-
+        flora_clause(_Tag,RuleID,Module,G,_B),
+        !,
+        showSourceRule(rule,RuleID,Module,true,true).
+showComponentMatching(G) :-
+        flora_fact(G,Module,Original),
+        !, 
+        flora_decode_goal_as_mainless_atom_substitute_vars(Original,FactAtom), showSourceRule(fact,FactAtom,Module,true,true).
+
+
+flora_get_textual_info_(RuleID,Module,Info):- 
+        fj_flora_query('clause{@!{?ID[file->?F,module->?M]} ?_Head,?_Body}.',['?ID'=RuleID,'?F'=F,'?M'=Module]),
+        /*
+        Search = (flora_load_registry(FilePath,Module,_ShortFN,_ModTime,_Mode,_Host,_LoadTime),
+        parse_filename(FilePath,_Dir,Base,Extension),
+        concat_atom([Base,'.',Extension],FF), F=FF),
+        fjCountSolutions(Search,Nfiles), 
+        Nfiles >=1,
+        !,
+        (Nfiles > 1 -> xj_failError('Ambiguous filename: %s',F); true), %% very unlikely
+        Search,  rebind what we need
+        */
+        (flora_get_precise_file(Module,F,FilePath)->true
+        ; xj_failError('Ambiguous filename: %s',F)
+        ),
+        flora_get_textual_info(RuleID,FilePath,/*Mode,*/PlainInfo),
+        PlainInfo =..[Functor,RuleNum,_,BegLn,BegCh,EndLn,EndCh],
+        Info =..[Functor,RuleNum,FilePath,BegLn,BegCh,EndLn,EndCh].
+
+%% succeeds only if one single file exists loaded with this short file name
+%% flora_get_precise_file(+Module,?F,-FilePath)
+flora_get_precise_file(Module,F,FilePath) :-
+        nonvar(F),
+        F = dynrule(ShortFN),
+        !,
+        flora_get_precise_file(Module,ShortFN,FilePath).
+flora_get_precise_file(Module,ShortFN,FilePath) :-
+        (nonvar(ShortFN) -> parse_filename(ShortFN,_,Base,Extension) ; true),
+        Search = ( 
+                   flora_load_registry(FilePath,Module,ShortFN,_ModTime,_Mode,_Host,_LoadTime) 
+                 ; 
+                   fjFileInMemory(FilePath, Module, included),
+                   parse_filename(FilePath,_Dir,Base_,Extension_), 
+                   Base_== Base, Extension_ = Extension,
+                   concat_atom([Base,'.',Extension],ShortFN)
+                 ),
+        fjCountSolutions(Search,Nfiles), 
+        Nfiles >=1,
+        !,
+        Nfiles = 1, %% very unlikely
+        Search.     %% rebind what we need
+
+
+flora_textualPositionToClause(Line,Char,FilePath,RuleID,Module,Head,Body) :-
+        fj_flora_query('clause{@!{?ID[file->?_F,module->?M]} ?Head,?Body}.',['?ID'=RuleID,'?M'=Module,'?Head'=Head,'?Body'=Body]),
+        flora_get_textual_info_(RuleID,Module,Info), Info =.. [_,_RuleNum,FilePath,BegLn,BegCh,EndLn,EndCh],
+        Line>=BegLn, EndLn>=Line, 
+        (Line == BegLn -> Char>=BegCh ; true),
+        (Line == EndLn -> EndCh>=Char ; true).
+
+%% flora_textualPositionToClausesAtom(+Line,+Char,+FilePath,-ClausesAtom) 
+flora_textualPositionToClausesAtom(Line,Char,FilePath,ClausesAtom) :-
+        setof(CA,
+              (_RuleID,_Module,Head,Body)^(flora_textualPositionToClause(Line,Char,FilePath,_RuleID,_Module,Head,Body), flora_decode_goal_as_mainless_atom_substitute_vars((Head:-Body),CA)),
+              Atoms),
+        flora_textualPositionToClausesAtom2(Atoms,NicerAtoms),
+        (NicerAtoms = [_|EvenNicer] -> true ; EvenNicer=[]),
+        concat_atom(EvenNicer,ClausesAtom).
+
+flora_textualPositionToClausesAtom2([A1|An],['\n',A1|NewAn]) :- !, flora_textualPositionToClausesAtom2(An,NewAn).
+flora_textualPositionToClausesAtom2([],[]).
+
+%% xjInstanceList(male).
+xjInstanceList(Class) :-
+        atom(Class),
+        concat_atom(['Instances for ',Class],WindowTitle),  
+        createXJcomponent(
+                          gt('XJ$LAZY',
+                             [
+                              root,caption=WindowTitle,myGUI(_List),
+                              operation(terms(GUIref,SelectedList),writeln(GUIref*SelectedList),menu('Write selected terms')),
+                              operation(terms(GUIref,SelectedList),writeln(newSelection-SelectedList),selectionChanged),
+                              /*
+                              operation(terms(_,_),(
+                                                    retractall(attribute_ext(A,B,C,D,E)), cache_invalidate(attribute_ext(_,_,_,_,_))
+                                                   %%javaMessage(List,Model,getModel),
+                                                   %%javaMessage(Model,invalidateAndRefresh),
+                                                   ),menu('Nuke list')), */
+                             %% prologcached,
+                             dragsource,
+                              operation(terms(DestRef,DestSelection),
+                                        (writeln(source(DT)-destination(DestRef,DestSelection)) /*,retractall(attribute_ext(A,B,C,D,E)), cache_invalidate(attribute_ext(_,_,_,_,_)) */),
+                                        dropped,
+                                        DT),
+                              lazylist(
+                                       gt(_,[ opaque,caption='Name', root,operation(term(Root,Path), writeln(Root-Path),menu('An operation'))],_)
+                                      )
+                             ],
+                             lazy(Instance,flora('?X:?Class.',['?Class'=Class,'?X'=Instance]),Class) )
+                         ,TheGUI), javaMessage('com.xsb.xj.XJDesktop',testUndoGUI(TheGUI)), writeln(created-TheGUI).
+
+
+collect_flora_command_goal_and_vars(FloraAtomGoal,Goal,Vars) :- %% ignores import directives in the goal
+        collect_flora_command_dgoal_and_vars(FloraAtomGoal,DGoal,Vars),
+        convert_to_head_literal(DGoal,Goal).
+
+fj_handle_import_directive(fllibshellans(Code,Vars),fllibshellans(Code,Vars)) :- !.
+fj_handle_import_directive(','(ImportCode,Code),ShellCode) :- 
+        ImportCode = import(_),
+        %% call(ImportCode),
+        fj_handle_import_directive(Code,ShellCode).
+
+collect_flora_command_dgoal_and_vars(FloraAtomGoal,DGoal,Vars):-
+        flora_string_command_line(FloraAtomGoal,Code,_Options,Status), flora_good_command(Status),
+        fj_handle_import_directive(Code,fllibshellans((_,DGoal),Vars)).
+
+fj_flora2prologTerm(FloraAtom,Term) :-
+        concat_atom(['(',FloraAtom,')=?fj____X.'],Q),
+        fj_flora_query(Q,['?fj____X'=Term],Status,WAM,Ex),
+        memberchk(success,Status), 
+        (Ex==normal->true
+        ; write('Bad exception converting Ergo term: '),
+            writeln(FloraAtom),
+            writeln(Ex),
+            fail
+        ), 
+        WAM =:=0.
+
+beautifyFloraSolutions([],[]).
+beautifyFloraSolutions([S1|Sn],[BS1|BSn]) :- S1=..[F,TV,Raw,RawVars|Args], beautifyFloraArgs(Args,BArgs), 
+BS1=..[F,TV,Raw,RawVars|BArgs], beautifyFloraSolutions(Sn,BSn).
+
+beautifyFloraArgs([],[]).
+%% avoid a case where unwanted quotes were placed... but simply atom(A1) would miss IRIs, handled in the third clause:
+beautifyFloraArgs([A1|An],[A1|BAn]) :- flora_decode_goal_as_list(A1,[_]), !,  beautifyFloraArgs(An,BAn). %% avoid a case where unwanted quotes were placed...
+beautifyFloraArgs([A1|An],[BA1|BAn]) :- 
+        flora_decode_goal_as_list_substitute_vars(A1,List1),
+        removeVarAtomQuotes(List1,List11), 
+        flora_concat_items(List11,BA1), beautifyFloraArgs(An,BAn).
+
+removeVarAtomQuotes(['''',VarAtom,''''|QL],[VarAtom|L]) :-
+        atom(VarAtom), atom_codes(VarAtom,[63|_Chars]),
+        !, %% ?
+        removeVarAtomQuotes(QL,L).
+removeVarAtomQuotes([],[]) :- !.
+removeVarAtomQuotes([T|QL],[T|L]) :- removeVarAtomQuotes(QL,L).
+
+removeLastQuote([39],[]).
+removeLastQuote([X|QL],[X|L]) :- removeLastQuote(QL,L).
+
+%% removeDuplicateAnswers(List,SoFar,NewList)
+removeDuplicateAnswers([],SoFar,SoFar).
+removeDuplicateAnswers([A1|An],SoFar,NewList) :- \+ \+ member(A1,SoFar), !, removeDuplicateAnswers(An,SoFar,NewList).
+removeDuplicateAnswers([A1|An],SoFar,NewList) :- append(SoFar,[A1],SoFar1), removeDuplicateAnswers(An,SoFar1,NewList).
+
+removeDuplicateAnswers(List,NewList) :- removeDuplicateAnswers(List,[],NewList).
+
+fj_error_with_file_line(Message,FilePath,LineNumber) :- 
+        atom(Message), atom_codes(Message,Codes),
+        get_scan_pars(Old), set_scan_pars([no_case,no_case_in_lit]),
+        scan(Codes,Tokens),
+        fj_error_with_file_line2(Tokens,FilePath,LineNumber),
+        set_scan_pars(Old).
+
+%% fj_error_with_file_line2(Tokens,FilePath,LineNumber) tries to extract file and line number
+%% This depends on particular message patterns as thrown from syslib/flrdelaysupport.P
+fj_error_with_file_line2([in,file, Base,'.',Extension, on,line,integer(LineAtom)|_],FilePath,LineNumber) :-
+        atom(Base), atom(Extension),
+        concat_atom([Base,'.',Extension],ShortFilename),
+        atom_to_term(LineAtom,LineNumber),
+        flora_get_precise_file(_Module,ShortFilename,FilePath).
+
+%% -1 imposes no restraint, whatever is in force continues
+fjFloraRestrain(-1) :- !.
+fjFloraRestrain(Restraint) :- 
+        flora_set_answer_size(Restraint,Restraint,abstract),
+        flora_set_subgoal_size(Restraint,Restraint,abstract).
+
+fjFloraUnrestrain :-
+        flora_set_answer_size(999999,999999,abort),
+        flora_set_subgoal_size(999999,999999,abort).
+
+floraResidualNode(Answer,Type,FloraAtom,Tip) :- 
+        prologResidualNode(Answer,Type,PrologAnswer,Tip),
+        flora_decode_goal_as_mainless_atom_substitute_vars(PrologAnswer,FloraAtom).
+
+
+
+%% checkFloraFile('/Users/mc/Dropbox/interprologsvn_unfuddle/interprologForJDK/fidjiExamples/floraDistribution/family_obj.flr',fail,Status) 
+%% checkFloraFile('/Users/mc/Dropbox/interprologsvn_unfuddle/interprologForJDK/fidjiExamples/floraDistribution/family_obj.flr',true,Status) 
+%% checkFloraFile('/Users/mc/Desktop/teste.flr',fail,Status).
+:- import xpp_process_file/3 from parse.
+
+/*
+    WithCompiler = true: use util_read_parse_compile - regilar ErgoFile
+    WithCompiler = fail: use util_compile_ergotext_template_stdin - process
+                         ErgoText template
+*/
+checkFloraFile(Filename,WithCompiler,Status) :-
+        parse_filename(Filename,CurrentDir,_,_),
+        %% Immitate flrutils: temporary push current dir onto library_directory
+        (CurrentDir == '.' ; CurrentDir == '' ; var(CurrentDir) -> true
+        ; add_lib_dir(push(CurrentDir))
+        ),
+        ( WithCompiler -> 
+            flora_set_xpp_options_for_compile,
+            seeing(OldStdin),
+            reset_modules_for_file(Filename), 
+            xpp_process_file(Filename,XPP_process,IOportFromProc),
+            see(IOportFromProc),
+            util_read_parse_compile(file,_Tokens,_RulesCode-_RulesCode2,
+                                    _SignCode1-_SignCode2,
+                                    _FactsCode-_FactsCode2,
+                                    _QueryCode-_QueryCode2,_ICode-_ICode2,
+                                    _MetaFacts-_MetaFacts2,_UDFPredsCode,
+                                    _TextualInfo,
+                                    Status1)
+        ;
+            soft_reset_modules_for_file(Filename),
+            flrutils:flora_set_xpp_options_for_read,
+            seeing(OldStdin),
+            xpp_process_file(Filename,XPP_process,IOportFromProc),
+            see(IOportFromProc),
+            util_compile_ergotext_template_stdin(_ParserTerm,Status1)
+        ), 
+        checkFloraFile2(Status1,WithCompiler,_RulesCode2-[],
+                        _SignCode2-[],_FactsCode2-[],_QueryCode2-[],
+                        _ICode2-[],_MetaFacts2-[],SSS),
+        check_xpp_process_status(Filename,XPP_process,close_on_error),
+        %% tell('lixo.txt'), writeln(SSS), told,
+        SSS = [_EOF|Status2],
+        processStatusList(Status2,Status),
+        seen,
+        flora_clear_xpp_options,
+        see(OldStdin),
+        %% remove the temporary library directory
+        (CurrentDir == '.' ; CurrentDir == '' -> true
+        ; remove_lib_dir(CurrentDir) -> true
+        ; true
+        ).
+
+%% checkFloraFile2(Status,fail,_,_,_,_,_,_,Status) :- flora_end_of_input(Status) , !.
+checkFloraFile2(Status1,WithCompiler,RulesCode1-RulesCoden,_SignCode1-_SignCoden,FactsCode1-FactsCoden, _QueryCode1-_QueryCoden,_ICode1-_ICoden, MetaFacts1-MetaFactsn,Status) :- flora_not_end_of_input(Status1), !,
+        (WithCompiler ->
+            util_read_parse_compile(file,_Tokens,RulesCode1-RulesCode2,_SignCode1-_SignCode2,FactsCode1-FactsCode2, _QueryCode1-_QueryCode2,_ICode1-_ICode2, MetaFacts1-MetaFacts2,_UDFPredsCode,_TextualInfo,Status2)
+        ; 
+            util_compile_ergotext_template_stdin(_ParserTerm,Status2)
+        ),
+        merge_status_lists(Status1,Status2,Status3),
+        checkFloraFile2(Status3,WithCompiler,RulesCode2-RulesCoden,_SignCode2-_SignCoden,FactsCode2-FactsCoden, _QueryCode2-_QueryCoden,_ICode2-_ICoden, MetaFacts2-MetaFactsn,Status).
+checkFloraFile2(Status,_WithCompiler,SC-SC,RulesCode-RulesCode,FactsCode-FactsCode, _QueryCode-_QueryCode,_ICode-_ICode, MetaFacts-MetaFacts,Status) :- !.
+/* checkFloraFile2(Status1,fail,_,_,_,_,_,_,Status) :- 
+flora_read_then_parse(_InputTokens,_ParserTerm,Status2),
+merge_status_lists(Status1,Status2,Status3),
+checkFloraFile2(Status3,fail,_,_,_,_,_,_,Status).*/
+
+
+
+%% see print_warnings(EWS), print_errors(EWS) in flrutils.P. Each Status element will be either of
+%% error(Message) MK: unlikely, error(I1,I2,M), error(I,M)
+%%  warning(I1,I2,M), warning(I,M), warning(HTK,BTK,(MH,MB)) for dependency
+%%  the new list will contain terms of the form:
+%%  notice(warning_or_error,M,p(FirstLine,FirstChar,LastLine,LastChar),null_or_p2)
+
+processStatusList([_eof_or_not_eof, error(_ErrNum),lexer(LexerL),composer(ComposerStatus),parser(ParserStatus),compiler(CompilerStatus),depend(DepStatus)], Status) :-
+        append(CompilerStatus,DepStatus,FullCompilerStatus),
+        processStatusList([error(_ErrNum),lexer(LexerL),composer(ComposerStatus),parser(ParserStatus),compiler(FullCompilerStatus)], Status),
+        !.
+processStatusList([error(_ErrNum),lexer(LexerL),composer(ComposerStatus),parser(ParserStatus)|CompilerStatusItem], Status) :-
+        %% (LexerL=[(_InputTokens,LexerStatus)] -> true ; LexerStatus=[]),
+        ( CompilerStatusItem = [compiler(CompilerStatus)] -> true
+        ; CompilerStatus = []
+        ), 
+        append(LexerL,ComposerStatus,Status1),
+        append(Status1,ParserStatus,Status2),
+        append(Status2,CompilerStatus,Status3),
+        processStatusList2(Status3,Status),
+        !.
+processStatusList([],[]). %% for noop
+
+processStatusList2([],[]).
+processStatusList2([(Tokens,[_eof,error(File,LexicalError)])|S],[notice(error,LexicalError,p(Line1,BCN1,ELN1,ECN1),p(Line2,BCN2,ELN2,ECN2),Filename)|NS]) :-  
+        append([FirstToken|_],[LastToken],Tokens), !,
+        flora_token_text(FirstToken,_TextStr1,Line1,BCN1,ELN1,ECN1), Filename=File,
+        flora_token_text(LastToken,_TextStr2,Line2,BCN2,ELN2,ECN2),
+        processStatusList2(S,NS).
+processStatusList2([(_Tokens,LexicalError)|S],NS) :- !,
+        processStatusList2([LexicalError|S],NS).
+processStatusList2([error(Message)|S], [notice(error,Message,null,null)|NS]) :- !,
+        processStatusList2(S,NS).
+processStatusList2([error(I,Message)|S], [notice(error,Message,null,null)|NS]) :- atom(I), !, %% to cover eof
+        processStatusList2(S,NS).
+processStatusList2([error(I,M)|S], [notice(error,M,P,null,Filename)|NS]) :- !,
+        (flora_compile_filename_by_token(I,Filename) -> true; Filename=null),
+        ((flora_nth_token(I,Tk),flora_token_text(Tk,_TextStr,Line,BCN,ELN,ECN)) -> P=p(Line,BCN,ELN,ECN) ; P=null), 
+        processStatusList2(S,NS).
+processStatusList2([error(I1,I2,M)|S], [notice(error,M,p(Line1,BCN1,ELN1,ECN1),p(Line2,BCN2,ELN2,ECN2),Filename)|NS]) :- !,
+        flora_nth_token(I1,Tk1), flora_token_text(Tk1,_TextStr1,Line1,BCN1,ELN1,ECN1), flora_compile_filename_by_token(I1,Filename), 
+        flora_nth_token(I2,Tk2), flora_token_text(Tk2,_TextStr2,Line2,BCN2,ELN2,ECN2),
+        processStatusList2(S,NS).
+processStatusList2([warning(Message)|S], [notice(warning,Message,null,null)|NS]) :- !,
+        processStatusList2(S,NS).       
+processStatusList2([warning(I,M)|S], [notice(warning,M,P1,null,Filename)|NS]) :- !,
+        ((flora_nth_token(I,Tk), flora_token_text(Tk,_TextStr,Line,BCN,ELN,ECN), flora_compile_filename_by_token(I,Filename)) -> P1=p(Line,BCN,ELN,ECN) ; P1=null,Filename=null),
+        processStatusList2(S,NS).
+processStatusList2([warning(I1,I2,(MH,MB))|S], [notice(warning,dependency(MH,MB),p(Line1,BCN1,ELN1,ECN1),p(Line2,BCN2,ELN2,ECN2),Filename)|NS]) :- !,
+        flora_nth_token(I1,Tk1), flora_token_text(Tk1,_TextStr1,Line1,BCN1,ELN1,ECN1), flora_compile_filename_by_token(I1,Filename), 
+        flora_nth_token(I2,Tk2), flora_token_text(Tk2,_TextStr2,Line2,BCN2,ELN2,ECN2),
+        processStatusList2(S,NS).
+processStatusList2([warning(I1,I2,M)|S], [notice(warning,M,p(Line1,BCN1,ELN1,ECN1),p(Line2,BCN2,ELN2,ECN2),Filename)|NS]) :- !,
+        flora_nth_token(I1,Tk1), flora_token_text(Tk1,_TextStr1,Line1,BCN1,ELN1,ECN1), flora_compile_filename_by_token(I1,Filename), 
+        flora_nth_token(I2,Tk2), flora_token_text(Tk2,_TextStr2,Line2,BCN2,ELN2,ECN2),
+        processStatusList2(S,NS).
+processStatusList2([eof|S],NS) :- !, processStatusList2(S,NS).
+processStatusList2([not_eof|S],NS) :- !, processStatusList2(S,NS).
+%% Next cases seem originated in Ergotext:
+processStatusList2([lexer(Status)|S],NS) :- !, append(Status,S,SS), processStatusList2(SS,NS).
+processStatusList2([composer(Status)|S],NS) :- !, append(Status,S,SS), processStatusList2(SS,NS).
+
+
+%% fjLoadOrAddFile(+File,+Module,+Operation,-FileStatus)
+%% Operation = load or add; FileStatus=failure or warnings or noop (existing generated code) or success; File must be a .flr file
+%% does not return notices to save operation time; fetch them later 
+fjLoadOrAddFile(File,Module,Operation,FileStatus_) :-
+        atom(File), 
+        ( Operation == '\load' -> retractall(fjLoadedOrAddedFileNotice(_,_,_,Module,_,_)) ; true),
+        retractall(fjLoadedOrAddedFileNotice(_,File,_,_,_,_)),
+        !,
+        (Operation=='\load' ->
+            flora_load_module_util(File,Module,
+                                   FL_SHELL_FICTITIOUS_FILENAME, %% (runtime)
+                                   list,
+                                   FileStatus,
+                                   RulesEtcStatus)
+        ; (Operation=='\add',
+              flora_add_module_dyn(File,Module,
+                                   FL_SHELL_FICTITIOUS_FILENAME, %% (runtime)
+                                   list,
+                                   FileStatus,
+                                   RulesEtcStatus))
+        ),
+        ( processStatusList(RulesEtcStatus,RulesEtcStatus2) ->true
+        ; writeln(processStatusList_failed-RulesEtcStatus),
+            fail
+        ),
+        fjRememberNotices(RulesEtcStatus2,File,Module,Operation),
+        ( FileStatus \== failure,
+              fjLoadedOrAddedFileNotice(_Type,File,_AbridgedFile,
+                                        Module,Operation,_Notice)
+        -> FileStatus_ = warnings
+        ;
+            FileStatus_=FileStatus
+        ).
+
+
+fjRememberNotices([],_File,_Module,_Operation) :- !.
+fjRememberNotices([Notice|RS],File,Module,Operation) :- 
+        arg(1,Notice,Type),
+        parse_filename(File,_Dir,FileBase,_Extension),
+        %% concat_atom([FileBase,'.',_Extension],AbridgedFile),
+        AbridgedFile = FileBase,
+        assertz(fjLoadedOrAddedFileNotice(Type,File,AbridgedFile,Module,Operation,Notice)), fjRememberNotices(RS,File,Module,Operation).
+
+
+fjIncludedFiles(File,StringArray) :- 
+        findall(F, fjIncludedFile(File,F),Files),
+        stringArraytoList(StringArray,Files).
+
+:- import FLORA_INCLUDE_PRJ_INFO/2 from usermod.
+%% Depends on constant FLORA_INCLUDE_PRJ_INFO;
+%% Exclude FL_SHELL_FICTITIOUS_FILENAME
+fjIncludedFile(F,Included) :-
+        FLORA_INCLUDE_PRJ_INFO(F,Included),
+        Included \== FL_SHELL_FICTITIOUS_FILENAME.
+
+
+%% fjFileInMemory(FilePath,Module,load/add/included,IncluderFile(null if none)) 
+%% We might return more of the  HostFile info too, using
+%% flora_load_registry(File,Module,_ShortFN,_ModTime,LoadAdd,_HostFN,_LoadTime)
+%% Excludes files from the Studio system module, 'fidji'
+fjFileInMemory(File, Module, LoadAdd, Hosting) :-
+        fjFileInMemory_(File, Module, LoadAdd, Hosting),
+        Module \== fidji.
+
+fjFileInMemory_(File, Module, LoadAdd, null) :-
+        flora_user_load_registry(File,Module,LoadAdd).
+fjFileInMemory_(Included, Module, included, Hosting) :-
+        fjIncludedFile(Hosting,Included),
+        flora_user_load_registry(Hosting,Module,_LoadAdd).
+
+fjFileInMemory(File, Module, LoadAdd) :-
+        fjFileInMemory(File, Module, LoadAdd, _).
+
+%% First two args of each relation define a directed graph edge, tacit nodes etc
+%% browseGraphFloraRelation('related(?P1,?P2,?Role).').
+browseGraphFloraRelation(FloraGoalAtom) :-
+        browseGraphFloraRelation(FloraGoalAtom,_GUI).
+
+browseGraphFloraRelation(FloraGoalAtom,GUI) :-
+        browseGraphFloraRelation(FloraGoalAtom,[],GUI).
+
+%% browseGraphFloraRelation(FloraGoalWithAtLeastTwoArgs,InitialNodes)
+%% The first two vars will define the graph relation
+browseGraphFloraRelation(FloraGoalAtom,InitialNodes,GUI) :-
+        collect_flora_command_goal_and_vars(FloraGoalAtom,_Goal,[V1=Arg1,V2=Arg2|Vars]),
+        browseGraphRelation(xjLazyFloraGoalGrounding(Arg1,Arg2,FloraGoalAtom,[V1=Arg1,V2=Arg2|Vars]),InitialNodes,GUI).
+browseGraphFloraRelation(FloraGoalAtom,InitialNodes,MaxItems,GUI) :-
+        writeln(ijij-FloraGoalAtom),
+        collect_flora_command_goal_and_vars(FloraGoalAtom,_Goal,[V1=Arg1,V2=Arg2|Vars]),
+        browseGraphRelation(xjLazyFloraGoalGrounding(Arg1,Arg2,FloraGoalAtom,[V1=Arg1,V2=Arg2|Vars]),InitialNodes,MaxItems,GUI).
+
+%% Experimental graph showing links between rules only - no facts
+fjCallsGraph:-
+        setof(Node,(ID2,ID,Type,SG,Tip)^fjCallsEdge(Node,ID2,ID,Type,SG,Tip),InitialNodes),
+        !,
+        xjGenericGraph(InitialNodes,fjCallsEdge(_,_,_,_,_,_),fjCallsNode(_,_,_,_),
+                       [labelsInNodes, cubicCurve],
+                       [rule=[
+                              operation(term(T,_P),(T = ruleAt(RuleID,Module), showSourceRule(RuleID,Module)),doubleclick),
+                              operation(term(T,_P),(T = ruleAt(RuleID,Module), showSourceRule(RuleID,Module)),menu('Show Rule'))
+                             ]],
+                       [call=[]],GraphUI, Window),
+        java(Window,setTitle(string('Rule Calls Graph Snapshot'))),
+        java(GraphUI,expandAll).
+
+fjCallsGraph :- xjNotifyUser('No Rule Calls','There are no rule calls to display.\nMake sure that rules have been called via a query.').
+
+fjCallsEdge(NodeID1,NodeID2,ID,call,null,Atom) :- 
+        NodeID1 = ruleAt(ID1,M1), NodeID2 = ruleAt(ID2,M2),
+        ID = call(NodeID1,SG,NodeID2),
+        concat_atom(['%clauseCalls(?ID1,?M1,?SG,?ID2,?M2)@',ERGO_STUDIO_MODULE,'.'],FG),
+        fj_flora_query(FG,['?ID1'=ID1,'?M1'=M1,'?ID2'=ID2,'?M2'=M2,'?SG'=SG],_Status,XWamState,Ex), 
+        XWamState=:=0, Ex==normal,
+        flora_decode_goal_as_mainless_atom_substitute_vars(SG,Atom).
+
+fjCallsNode(ruleAt(ID1,M1),rule,Atom,ID1/M1) :- 
+        fj_flora_query('clause{@!{?ID1[module->?M1]} ?H,?} .',['?ID1'=ID1,'?M1'=M1,'?H'=H],_Status,XWamState,Ex), 
+        XWamState=:=0, Ex==normal, !,
+        flora_decode_goal_as_mainless_atom_substitute_vars(H,Atom).
+
+
+fjFloraCallHierarchyNode(ID,literal,n(ID,Label)) :- ID =..[_,_,ID_,_Rule], flora_decode_goal_as_mainless_atom_substitute_vars(ID_,Label). 
+
+fjFloraCallHierarchy(TitlePrefix,TermWithoutDot,SourceWindow) :-
+        atom(TermWithoutDot),
+        concat_atom([TermWithoutDot,'.'],TermWithDot),
+        collect_flora_command_goal_and_vars(TermWithDot,Goal_,_Vars),
+        flora_decode_goal_as_mainless_atom_substitute_vars(Goal_,MAtom),
+        concat_atom([TitlePrefix, MAtom],WindowTitle),
+        %% Root=Goal,
+        %% flora_generalize_last(Goal_,Goal), %% turnaround the fact that flora_string_command_line binds the calling module in FL_CONTEXT to 'main'
+        Goal=Goal_,
+        convert_to_body_literal(Goal,Root),
+        concat_atom(['%floraliteralCalledRelation(?Child,?Parent,node(?Root,null(null)))@',ERGO_STUDIO_MODULE,'.'],FG1),
+        concat_atom(['%fjFloraGenericCallNode(?ID,?TheType,?Term)@',ERGO_STUDIO_MODULE,'.'],FG2),
+        fjFloraGenericCallTree(WindowTitle,SourceWindow,
+                               lazy( 
+                                     flora(
+                                           %% unknown module&rule for root: null(null)
+                                           FG1,
+                                           ['?Child'=_Child,'?Parent'=_Parent,'?Root'=Root]
+                                          ),  
+                                     flora(FG2,['?ID'=_,'?TheType'=_,'?Term'=_]), 
+                                     Root), fail,fail).
+
+fjFloraGenericCallTree(WindowTitle,SourceWindow,LazySpecification,WithHiddenRoot,AutoExpand) :-
+        (WithHiddenRoot -> ExtraProps = [hiddenroot] ; ExtraProps = []),
+        (AutoExpand -> append(ExtraProps,[expand],ExtraProps2) ; ExtraProps = ExtraProps2),
+        SeeCallingRuleOp =
+        operation(term(Term,_path),
+                  (
+                    arg(2,Term,RuleIDandM), 
+                    (RuleIDandM == null -> RuleID=null, Module_=null; arg(1,RuleIDandM,RuleID), arg(2,RuleIDandM,Module_)), 
+                    %% must explicitly use flrdecode: here or else XJ will bomb
+                    flrdecode:flora_decode_goal_as_atom(Module_,Module), showSourceRule(RuleID,Module)
+                  ),
+                  menu('See rule that uses this as condition')),
+        SeeMatchingRuleOp = operation(term(Term,_path),(arg(1,Term,G), showComponentMatching(G)),menu('See first rule that concludes this')),
+        _TestOp = operation(term(TT,_PP),writeln(TT),menu('Test')),
+        CommonNodeProps = [class='com.xsb.xj.XJLabel',renderAllNodes,opaque,borderless],
+        createXJcomponent(
+                          gt(
+                             'XJ$LAZY',
+                             [
+                              caption=WindowTitle,
+                              %% operation(terms(_GUIref,SelectedList),writeln(newSelection-SelectedList),selectionChanged), 
+                              root,
+                              myGUI(_Tree),
+                              width=500,height=400, 
+                              %% prologcached,
+                              lazytree( 
+                                        [
+                                         gt(_dummy,[typename=literal,invisible,root,SeeCallingRuleOp,SeeMatchingRuleOp],[
+                                                                                                                         gt(_,[caption='Raw goal', invisible, opaque],_),
+                                                                                                                         gt(_,[caption='Caller ID', invisible, opaque],_),
+                                                                                                                         gt(_,[tip='a literal',color=black|CommonNodeProps],_)
+                                                                                                                        ]
+                                           ),                                   
+                                         gt(_dummy,[typename=prolog,invisible,root,SeeCallingRuleOp],[ 
+                                                                                                       gt(_,[caption='Raw goal', invisible, opaque],_),
+                                                                                                       gt(_,[caption='Caller ID', invisible, opaque],_),
+                                                                                                       gt(_,[tip='a call to a Prolog module',color=rgb(102, 51, 0)|CommonNodeProps],_)
+                                                                                                     ]
+                                           ),                           
+                                         gt(_dummy,[typename=system,invisible,root,SeeCallingRuleOp],[ 
+                                                                                                       gt(_,[caption='Raw goal', invisible, opaque],_),
+                                                                                                       gt(_,[caption='Caller ID', invisible, opaque],_),
+                                                                                                       gt(_,[tip='a system primitive',color=gray|CommonNodeProps],_)
+                                                                                                     ]
+                                           )                                    
+                                        ] 
+                                      )
+                             |ExtraProps
+                             ],
+                             LazySpecification
+                            ),TheGUI), javaMessage('com.xsb.xj.XJDesktop',TheGUIW,testGUI(TheGUI)),
+        fjIpListenerWindow(LW),
+        javaMessage(LW,disableWhenBusy(TheGUI)), 
+        %% HIDE_ON_CLOSE; nothing to lose, will not persist
+        java(TheGUIW,setDefaultCloseOperation(int(1))),
+        TabAction = null, 
+        java(LW,addWindowsMenuTo(TheGUIW,TabAction)),
+        java(TheGUIW,toFront),
+        (nonvar(SourceWindow) -> javaMessage(TheGUIW,setLocationRelativeTo(SourceWindow)) ; true).
+
+fjFloraCallTree(TitlePrefix,TermWithoutDot,SourceWindow) :-
+        atom(TermWithoutDot),
+        concat_atom([TermWithoutDot,'.'],TermWithDot),
+        collect_flora_command_goal_and_vars(TermWithDot,Goal,_Vars),
+        flora_decode_goal_as_mainless_atom_substitute_vars(Goal,MAtom),
+        concat_atom([TitlePrefix, MAtom],WindowTitle),
+        convert_to_body_literal(Goal,Root),
+        concat_atom(['%floraliteralCallsRelation(?Child,?Parent,node(?Root,null(null)))@',ERGO_STUDIO_MODULE,'.'],FG1),
+        concat_atom(['%fjFloraGenericCallNode(?ID,?TheType,?Term)@',ERGO_STUDIO_MODULE,'.'],FG2),
+        fjFloraGenericCallTree(WindowTitle,SourceWindow,
+                               lazy( %% CHANGE HERE......
+                                     flora(
+                                           FG1, 
+                                           ['?Child'=_Child,'?Parent'=_Parent,'?Root'=Root]
+                                          ),  
+                                     flora(FG2,['?ID'=_,'?TheType'=_,'?Term'=_]), 
+                                     Root),fail,fail).
+
+%% fjFloraLocalCallTrees('Top Calls for ',main,?SourceWindow)@\plg.
+fjFloraLocalCallTrees(TitlePrefix,Module,SourceWindow) :-
+        concat_atom([TitlePrefix, Module],WindowTitle),
+        concat_atom(['%floraTopliteralCallsRelation(?Child,?Parent,?Module)@',ERGO_STUDIO_MODULE,'.'],FG1),
+        %% IF ERGO_STUDIO_MODULE2BS here then error on justificaation
+        %% IF ERGO_STUDIO_MODULE then hangs.
+        concat_atom(['%fjFloraGenericCallNode(?ID,?TheType,?Term)@',ERGO_STUDIO_MODULE,'.'],FG2),
+        fjFloraGenericCallTree(WindowTitle,SourceWindow,lazy( 
+                                                              flora(
+                                                                    FG1, 
+                                                                    ['?Child'=_Child,'?Parent'=_Parent,'?Module'=Module]
+                                                                   ),  
+                                                              flora(FG2,['?ID'=_,'?TheType'=_,'?Term'=_]), 
+                                                              Module),true,true).
+
+
+
+fjTermsFound(Terms,SearchedTerm,ListGUIint) :- fjTermsFound(Terms,SearchedTerm,true,ListGUIint).
+
+%% fjTermsFound(+TermsFound,+TermForTitle,+CreateWindow(true/fail),-ListGUI)  
+%%   TermsFound is a list of t(File,Module,RuleTag,PieceType,Id,Where)  
+fjTermsFound(Terms,SearchedTerm,CreateWindow,ListGUIint) :-
+        ipFontSize(FONT_SIZE),
+        fjTermFoundTemplate(TermFoundGT),
+        flora_decode_goal_as_atom(SearchedTerm,SearchedTermAtom),
+        concat_atom(['Occurrences of ',SearchedTermAtom],Title),
+        LGT = gt('.',
+                 [caption=Title, width=300, adjustToFirstRow, height=300, font(_,_,FONT_SIZE),
+                  root, %% operation(terms(_GUIref,SelectedList),writeln(newSelection-SelectedList),selectionChanged),
+                  list(TermFoundGT), sortable],  
+                 Terms), 
+        %% If performance becomes an issue, consider using InitiallyFlatTermModel, sending the terms after creating the list,
+        %% or a lazy list; see fjProcessQueryAtom3 for inspiration
+        createXJcomponent(LGT,ListGUI),
+        ipObjectSpec('InvisibleObject',ListGUI,[ListGUIint],_),
+        (CreateWindow -> 
+            javaMessage('com.xsb.xj.XJDesktop',GUIW,testGUI(ListGUI)),
+            fjIpListenerWindow(LW),
+            java(LW,addWindowsMenuTo(GUIW)) 
+        ; true
+        ).
+
+fjTermFoundTemplate(gt(_,[constant,root],[
+                                          gt(_File,[caption='File',opaque,height=HH,font(_,_,FONT_SIZE),DCop,MenuOp],_),
+                                          gt(_Module,[caption='Module',opaque,height=HH,font(_,_,FONT_SIZE),DCop,MenuOp],_),
+                                          gt(_RuleTag,[caption='Tag',opaque,height=HH,font(_,_,FONT_SIZE),DCop,MenuOp],_),
+                                          gt(_PieceType,[invisible,opaque],_),
+                                          gt(_Id,[caption='Id',opaque,height=HH,font(_,_,FONT_SIZE),DCop,MenuOp],_),
+                                          %%gt(_Id,[invisible,opaque],_),
+                                          gt(_Where,[caption='Where',opaque,DCop],_),
+                                          gt(_Found,[caption='Found',opaque,DCop],_)
+                                         ])
+                   ) :- 
+        ipFontSize(FONT_SIZE),
+        HH is FONT_SIZE +4,
+        MenuOp = operation(term(Term,_Path),Show,menu('See source')),
+        DCop = operation(term(Term,_Path),Show,doubleclick),
+        Show = (arg(2,Term,Module), arg(4,Term,PieceType), arg(5,Term,RuleID),
+                   showSourceRule(PieceType,RuleID,Module,fail,true) ).
+
+
+%%%%% NLP support 
+
+fjInitNLPparser :- 
+        retractall(fjNLPparser(_)), writeln('Initializing NLP parser...'), 
+        javaMessage('com.coherentknowledge.nlp.stanford.Parser',P,'Parser'),
+        writeln('... NLP parser ready'), 
+        assert(fjNLPparser(P)).
+
+fjParseSentence(Text,FilePath) :- fjParseSentence(Text,FilePath,fail).
+
+fjParseSentence(Text,FilePath,OpenEditor) :- atom(Text), atom(FilePath), !,
+        ((fjNLPparser(P) -> 
+          javaMessage(P,parseSentence(string(Text),string(FilePath)))),
+            (OpenEditor -> (
+                             fjIpListenerWindow(W),
+                             javaMessage('com.declarativa.fiji.LogicProgramEditor',_E,makeEditor(string(FilePath),W)) 
+                           ); true) 
+        ; writeln('You need to call fjInitNLPparser first'), fail).
+fjParseSentence(_Text,_FilePath) :- writeln('fjParseSentence(Text,FilePath) requires atom arguments'), fail.
+
+fjParseSentenceAndShow(Text,FilePath) :- fjParseSentence(Text,FilePath,true).
+
+
+%%%%% (smarter Why) explanations
+
+%% fjExplanationWindow(RootAtomWithDot, Root,
+%%                     +ConsiderSucceededSubGoalsInMissingCase (\true / \false),
+%%                     +Type(w or m))
+fjExplanationWindow(RootAtom,Root,ConsiderSucceeded,JustificationType) :-
+        atom(RootAtom), 
+        (JustificationType==w, JT='Why ';JustificationType==m,JT='Why no more '),
+        (ConsiderSucceeded == '\\true', CSsuffix=''
+        ; ConsiderSucceeded = '\\false', CSsuffix='(ignoring successes) '
+        ),
+        !,
+        atom_codes(RootAtom,RootAtomL),
+        ( append(MainlessRoot,"@main.",RootAtomL) -> 
+            %% append(MainlessRoot,".",RootAtomTitleL), atom_codes(RootAtomTitle,RootAtomTitleL)
+            atom_codes(RootAtomTitle,MainlessRoot)
+        ;
+            (append(DotlessRoot,".",RootAtomL) -> atom_codes(RootAtomTitle,DotlessRoot); RootAtomTitle=RootAtom)),
+        %% reify:
+        %% append(DotLessList,".",RootAtomL), append([36,123|DotLessList],"}.",RootAtomL2), atom_codes(RootAtom2,RootAtomL2),
+        
+        concat_atom(['Explanation of ',JT,CSsuffix,RootAtomTitle,' ?'],WindowTitle),  
+                                %WindowTitle = 'Justification',
+        (var(Root) -> collect_flora_command_dgoal_and_vars(RootAtom,Root,_Vars) ; true),
+        
+        ipFontSize(FONT_SIZE),
+        WHYOP = operation(term(AA,BB),fjExplanationMenuInput(ListGUI,AA,why),menu('Why')),
+        UnderstoodOP = operation(term(AA,BB),fjExplanationMenuInput(ListGUI,AA,understood),menu('Understood')),
+        DontKnowOP = operation(term(AA,BB),fjExplanationMenuInput(ListGUI,AA,dont_know),menu('Don''t know')),
+        concat_atom(['( %explanationItem(?List,?Order,?Node,?Answer), %nodeToLiteral(?Node,?_,?ErgoTerm), 
+                                %pp(?ErgoTerm,?PrettyTerm,?__Type) )@',ERGO_STUDIO_MODULE,', flora_decode_goal_as_mainless_atom_substitute_vars(?ErgoTerm,?ErgoTermAtom)@\plg.'],FG1),
+        createXJcomponent(
+                          gt(
+                             'XJ$LAZY',
+                             [
+                              caption=WindowTitle, myGUI(ListGUI), sorted(asc, 1), updatable /* because the combo fiddles with the tuple state */,
+                              lazylist(gt(_,[constant,root],[
+                                                             gt(_,[integer,readonly,caption='#'],[]),
+                                                             gt(_,[opaque,readonly,caption='Ergo literal',WHYOP,UnderstoodOP,DontKnowOP],_),
+                                                             gt(_,[opaque,invisible],_),
+                                                             gt(_,[borderless,readonly,font(_,_,FONT_SIZE),caption='My argument...',justify=left,WHYOP,UnderstoodOP,DontKnowOP],[]),
+                                                             gt(_,[
+                                                                   caption='...you?',myGUI(_FilterGUI),clickCountToEdit=0,comboBox('?',['?',why,understood,dont_know]),
+                                                                   %% operation(terms(TTT,Selection),threaded(fjExplanationComboboxInput(ListGUI,Selection)),selectionChanged),
+                                                                   operation(terms(_,Selection),fj_eg_handleSelectionChanged(ListGUI,Selection),selectionChanged),
+                                                                   root, tip='Do you understand this argument...\n do you want to know Why...\nor perhaps you don''t know for now?',font(_,_,FONT_SIZE)
+                                                                  ],[])
+                                                            ]) 
+                                      )
+                             ],
+                             lazy(fj_explanation_game(Order,ErgoTermAtom,RawNode,PrettyTerm,UserAnswer), flora(
+                                                                                                               FG1,
+                                                                                                               ['?List'=ListGUI,'?Node'=RawNode,'?ErgoTermAtom'=ErgoTermAtom,'?PrettyTerm'=PrettyTerm,'?Answer'=UserAnswer,'?Order'=Order]),
+                                  _Context)), 
+                          TheGUI),
+        ipObjectSpec('InvisibleObject',TheGUI,[ListGUIInt],_),
+        concat_atom(['%initializeExplanation(?ListGUIref,?Root,?CS,?JT,?Outcome)@',ERGO_STUDIO_MODULE,'.'],FG2),
+        fj_flora_query(FG2,
+                       ['?ListGUIref'=ListGUIInt,'?Root'=Root,'?CS'=ConsiderSucceeded,'?JT'=JustificationType,'?Outcome'=Outcome]),
+        javaMessage(TheGUI,invalidateAndRefresh), 
+        fjIpListenerWindow(LW),
+        javaMessage(LW,disableWhenBusyOrPaused(TheGUI)), 
+        javaMessage('com.xsb.xj.XJDesktop',_TheGUIW,testGUI(TheGUI)),
+        (Outcome=failed -> 
+            xjNotifyUser(ListGUI,'No explanations!','I have no arguments to present.') 
+        ; true
+        ).
+/*,
+javaMessage(LW,addWindowsMenuTo(TheGUIW)).
+*/
+
+%% dummy update predicate; the comboBox selectionChanged operation will do the actual update
+xj_update_fj_explanation_game(_,_,_,_,_,_Order,_Literal,_Node,_Textic,_UserAction).
+
+fj_eg_handleSelectionChanged(ListGUI,Selection) :- 
+        javaMessage(ListGUI,Array,getSelectedTerms), 
+        recoverTermModelArray(Array,Terms),
+        fj_eg_handleSelectionChanged2(Terms,ListGUI,Selection).
+
+fj_eg_handleSelectionChanged2([],_ListGUI,_Selection) :- !.
+fj_eg_handleSelectionChanged2([Tuple],ListGUI,[NewAnswer]) :- fjExplanationMenuInput(ListGUI,Tuple,NewAnswer).
+
+fjExplanationMenuInput(ListGUI,Tuple,NewAnswer) :- 
+        Tuple=..[_,Order,_,_Node,_,_],
+        %% writeln(ListGUI/Order/_Node/NewAnswer),
+        concat_atom(['%nextExplanation(?W,?Order,?Answer,?OutcomeH)@',ERGO_STUDIO_MODULE,', p2h{?Outcome,?OutcomeH}.'],FG),
+        fj_flora_query(FG,['?W'=ListGUI,'?Order'=Order,'?Answer'=NewAnswer,'?Outcome'=Outcome]),
+        %% ipObjectSpec('ArrayOfObject',EmptyArray,[[]],_), javaMessage(ListGUI,selectGUI(EmptyArray)), 
+        javaMessage(ListGUI,invalidateAndRefresh), 
+        (Outcome=failed -> 
+            xjNotifyUser(ListGUI,'No more explanations!','I have no more arguments to present.\nPlease review your answers.') 
+        ; 
+            Outcome=rule(ID-Module) ->
+            xjNotifyUser(ListGUI,
+                         'Ultimate Explanation','Let me show you the rule...'),
+            showSourceRule(ID,Module)
+        ; Outcome=fact(Fact-Module) -> 
+            %% probably not necessary to use flrdecode: here
+            flrdecode:flora_decode_goal_as_atom_substitute_vars(Fact,FactAtom),
+            concat_atom(['Explanation is a fact in ',Module,':\n',FactAtom],Message), 
+            xjNotifyUser(ListGUI,'Ultimate Explanation',Message)
+        ; true).
+fjExplanationComboboxInput(_ListGUI,_Node,_Answer) :- writeln('Failed').
+
+fjExplanationComboboxInput(ListGUI,[Answer]) :- 
+        javaMessage(ListGUI,SelectedArray,getSelectedTerms),
+        recoverTermModelArray(SelectedArray,[e(_Order,_NodeAtom,Node,_,_)]),
+        !,
+        writeln(Answer/ListGUI/Node).
+%% REUSE the ABOVE.
+fjExplanationComboboxInput(_ListGUI,_Answer) :- writeln('empty selection').
+
+fjCountSolutions(G,N) :- 
+   create_counter(C), 
+   ( G, get_increment_counter(C,_), fail
+   ; get_increment_counter(C,N)
+   ).
+
+
+fjIpListenerWindow(W) :-
+        catch(ipListenerWindow(W),_,W=null).

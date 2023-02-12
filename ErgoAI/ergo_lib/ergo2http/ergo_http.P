@@ -1,0 +1,153 @@
+/* File:      ergo2http/ergo_http.P -- Ergo-HTTP interface via curl
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2018-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+:- import load_page/5 from curl.
+:- import
+        select/3,
+        %%append/3,
+        %%member/2,
+        memberchk/2,
+        memberchk/2
+   from basics.
+:- import path_sysop/2 from file_io.
+:- import
+        flora_abort/2
+   from flrporting.
+:- import
+        flora_decode_oid_as_atom/2
+   from flrdecode.
+
+:- export
+        fixup_options/2,
+        web_access/4.
+
+
+web_access(Endpoint,Options,ReturnVal,Warnings) :-
+        fixup_options(Options,FixedOptions),
+        load_page(url(Endpoint), FixedOptions, _, ReturnVal, Warnings).
+
+fixup_options(Options,FixedOptions) :-
+        (select(secure=Secure,Options,Options1) ->
+            FixedOptions = [secure(Secure)|OptsTail],
+            check_secure_option(Secure)
+        ; FixedOptions = [secure(false)|OptsTail],
+            Options1 = Options
+        ),
+        (select(redirect=Redirect,Options1,Options2),
+            standardize_redirect_option(Redirect,StdRedirect)
+        ->
+            OptsTail = [redirect(StdRedirect)|OptsTail1]
+        ; OptsTail = [redirect(true)|OptsTail1],
+            Options2 = Options1
+        ),
+        (select(timeout=Tout,Options2,Options3), integer(Tout), Tout >= 0 ->
+            OptsTail1 = [timeout(Tout)|OptsTail2]
+        ; OptsTail2 = OptsTail1,
+            Options3 = Options2
+        ),
+        (select(useragent=Agent,Options3,Options4), atom(Agent)
+        ->
+            OptsTail2 = [user_agent(Tout)|OptsTail3]
+        ; OptsTail3 = OptsTail2,
+            Options4 = Options3
+        ),
+        %% header can be a string or a list of strings
+        (select(header=Header,Options4,Options5)
+        -> add_header(Header,OptsTail3,OptsTail4)
+        ; OptsTail4 = OptsTail3,
+            Options5 = Options4
+        ),
+        (select(auth=User/Passwd,Options5,Options6), atom(User), atom(Passwd)
+        ->
+            OptsTail4 = [auth(User,Passwd)|OptsTail5]
+        ; OptsTail5 = OptsTail4,
+            Options6 = Options5
+        ),
+        %% POST and PUT cannot occur together
+        (select(post=Data,Options6,Options7), atom(Data) -> %% POST
+            OptsTail5 = [post_data(Data)|OptsTail6],
+            (select(put=_,Options6,_) ->
+                flora_abort('<ergo2http> POST and PUT cannot both be used.',
+                            FLORA_ABORT_NOTRACE)
+            ; select(delete,Options6,_) ->
+                flora_abort('<ergo2http> POST and DELETE cannot both be used.',
+                            FLORA_ABORT_NOTRACE)
+            ; true
+            )
+        ; OptsTail6 = OptsTail5,
+            Options7 = Options6
+        ),
+        (select(put=Data,Options7,Options8), atom(Data) -> %% PUT
+            OptsTail6 = [put_data(Data)|OptsTail7],
+            (select(delete,Options7,_) ->
+                flora_abort('<ergo2http> PUT and DELETE cannot both be used.',
+                            FLORA_ABORT_NOTRACE)
+            ; true
+            )
+        ; OptsTail7 = OptsTail6,
+            Options8 = Options7
+        ),
+        (select(delete,Options8,Options9) -> %% DELETE
+            OptsTail7 = [delete|OptsTail8]
+        ; OptsTail8 = OptsTail7,
+            Options9 = Options8
+        ),
+        OptsTail8 = [], %% close the options list
+        check_spurious_options(Options9),
+        !.
+        
+
+standardize_redirect_option(Opt,StdOpt) :-
+        (memberchk(Opt,[true,'\\true',1]) -> StdOpt = true
+        ; memberchk(Opt,[false,fail,'\\false',0]) -> StdOpt = false
+        ).
+
+check_spurious_options([]) :- !.
+check_spurious_options(Options) :-
+        flora_decode_oid_as_atom(Options,OptionsAtom),
+        flora_abort(['<ergo2http> Spurious or duplicate options passed to HTTP request:\n\t', OptionsAtom],
+                    FLORA_ABORT_NOTRACE).
+
+check_secure_option(false) :- !.
+check_secure_option(File) :-
+        atom(File),
+        path_sysop(readable,File),
+        !.
+check_secure_option(File) :-
+        flora_abort(['<ergo2http> Certificate file `', File, ''' does not exist or is non-readable.'],
+                    FLORA_ABORT_NOTRACE).
+
+
+add_header([],Tail,Tail) :- !.
+add_header([H|RestHdr],DiffList,Tail) :-
+        DiffList = [header(H)|TailAux],
+        add_header(RestHdr,TailAux,Tail).
+add_header(H,[header(H)|Tail],Tail) :-
+        atom(H),
+        !.

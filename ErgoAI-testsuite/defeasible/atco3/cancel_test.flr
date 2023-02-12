@@ -1,0 +1,154 @@
+:- use_argumentation_theory{AT}.
+?- [atco3>>AT].
+
+t(a).
+t(b).
+@{L1} tt1(?X) :- t(?X).
+@{L2} tt2(?X) :- t(?X).
+@{L3} tt3(?X) :- t(?X).
+
+@{c1} \cancel(?,tt1(b)).
+@{c2} \cancel(L2).
+@{c3} \cancel(?,tt3(a)).
+?- insert{@{c4} \cancel(?,tt3(b))}.
+?- insert{@{c5} \cancel(c4)}.
+\overrides(c5,c4).
+/*
+  Expected results:
+      tt1(a), \naf tt1(b). // due to L1, c1
+      \naf tt2(?X)         // due to c2
+      \naf tt3(a)          // due to L3, c3
+      tt3(b)              // due to L3, c4, c5
+      
+*/
+%test1 :- write('test1: ')@\plg,
+	  tt1(?_X), tt3(?_Y), \naf tt2(?),
+	  (write(tt1=?_X), write(' '), writeln(tt3=?_Y))@\plg.
+
+device(printer).          abused(Bob,printer).       pardoned(printer,Bob).
+device(scanner).          abused(Bob,scanner).       pardoned(scanner,Bill).
+device(fax).              abused(Bill,scanner).
+                          abused(Bill,printer).
+                          abused(Mary,fax).
+person(Bob), person(Bill), person(Mary).
+@{id1}        authorized(?X,?Device) :- device(?Device), person(?X).
+@{id2(?Dev,?Person),dummy(?_f)}  \cancel(id1,authorized(?Person,?Dev)) :-
+	                              abused(?Person,?Dev).
+@{id3}        \cancel(id2(?Device,?Person)) :- pardoned(?Device,?Person).
+\overrides(id3,id2(?,?)).
+/*
+   Expected:
+      fax     = [Bill,Bob] notscanner = [Bob]
+      printer = [Bob,Mary] scanner    = [Bill,Mary]
+*/
+%test2 :-  write('test2: ')@\plg,
+	   ?Fax = setof{?X|authorized(?X,fax)},
+	   ?NotSc = setof{?X|person(?X), \naf authorized(?X,scanner)},
+	   ?Pr = setof{?X|authorized(?X,printer)},
+	   ?Sc = setof{?X|authorized(?X,scanner)},
+	   (write(fax=?Fax), write(' '),
+	    write(notscanner=?NotSc), write(' '),
+	    write(printer=?Pr), write(' '),
+	    writeln(scanner=?Sc))@\plg.
+
+
+All(foo), All(moo), All(roo).
+B[foo].
+B[roo].
+B[moo].    D[moo].
+@{r}  A[?Xtup] :- B[?Xtup].
+@{rc}  \cancel(r,A[?Xtup]) :- B[?Xtup]. 
+@{rco} \neg \cancel(r,A[?Xtup]) :- D[?Xtup].
+/*
+  Expected:
+      \naf A[foo], \naf A[roo]  // due to r,rc
+      A[moo]                  // due to r,rc,rco
+
+  Because, rco neutralizes rc for ?Xtup=moo
+*/
+
+%test3 :- write('test3: ')@\plg,
+	  ?All = setof{?X| All(?X), \naf A[?X]},
+	  ?All2 = setof{?X| A[?X]},
+	  (write(negA=?All), write(' '), writeln(pos=?All2))@\plg.
+
+
+
+// P1
+@{P1r1} A1.
+@{P1r2} \cancel(P1r1) :- A1.
+// Expected: A1 undefined, since assuming A1 is true
+// cancels the rule that asserts A1
+
+
+// P2
+@{P2r1} A2.
+@{P2r2} \cancel(P2r1).
+@{P2r3} \cancel(P2r2) :- A2.
+/*
+  Expected: A2 undefined. There are two ways to reason:
+  a) if A2 true, P2r2 cancels A2, so P2r3 never fires to cancel P2r2.
+  b) if A2 true, P2re fires and cancels P2r2. So A2 stays.
+  However, well-founded semantics is skeptical, so a) wins.
+*/
+
+?- Method[mustDefine(off,D3@ \@)]@\sys.
+
+// P3:
+B3, C3.
+@{P3r1}  A3 :- B3.
+@{P3rc}  \cancel(P3r1) :- C3.
+?- insert{@{P3crc} \cancel(P3rc) :- D3}.
+/*
+  Expected: A3 false.
+  P2crc never fires, so P3rc kills A3.
+*/
+
+
+// P4
+B4, C4, D4, E4.
+@{P4r1}   A4 :- B4.
+@{P4rc}   \cancel(P4r1) :- C4.
+@{P4crc}  \cancel(P4rc) :- D4.
+@{P4ccrc} \cancel(P4crc) :- E4.
+/*
+  Expected: A4 false.
+  Several ways to reason. For instance,
+  a) P4ccrc fires and kills P4crc. Then P4rc kils A4.
+  b) P4crc fires and kills P4rc. So, A4 stays.
+  c) ...
+  However, well-founded semantics is skeptical, so a) wins.
+*/
+%test4 :- write('test4: ')@\plg,
+	  undefined{A1}, undefined{A2}, \naf A3, \naf A4,
+	  writeln('A1=A2=u, A3=A4=f')@\plg.
+
+
+/***************** Test 5 ***********************/
+@{L11_t5} foo_t5(1).
+@{L12_t5} bar_t5.
+origin_t5(L11_t5,site1).
+origin_t5(L12_t5,site1).
+
+@{L21_t5} \cancel(?,foo_t5(?)).  
+@{L22_t5} foo_t5(2).
+origin_t5(L21_t5,site2).
+origin_t5(L22_t5,site2).
+
+\overrides(?lab1,?lab2) :- origin_t5(?lab1,site1), origin_t5(?lab2,site2).
+
+// here foo_t5(2) should be defeated, but foo_t5(1) should stand.
+%test5 :- write('test5: ')@\plg,
+	 ?L = collectset{?X | foo_t5(?X)},
+	 writeln(?L)@\plg.
+
+
+%pretest :- %test1, %test2, %test3, %test4, %test5.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	//\abolishtables,
+	%pretest,
+	told@\plg.

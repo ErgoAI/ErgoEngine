@@ -1,0 +1,132 @@
+/* File:      flrprefixdef.P
+**
+** Author(s): Hui Wan
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_datatype_symbols.flh"
+#include "flora_exceptions.flh"
+
+
+:- import
+	flora_shell_prefixdef/3,
+	flora_coder_prefixdef/2
+   from flrregistry.
+
+:- import
+        flora_match_substring/5,
+        flora_get_substring/4,
+        flora_concat_atoms/2
+   from flrporting.
+:- import is_flprefixdef/4 from flrcompiler.
+
+:- export
+	flora_runtime_uriprefix_expansion/3,
+	flora_compiletime_uriprefix_expansion/2,
+	flora_clear_compiletime_uriprefixes/0,
+	flora_clear_runtime_uriprefixes/0,
+	flora_clear_runtime_uriprefixes/1,
+	set_prefixes_for_compile/1,
+        flora_split_iri/4,
+        copy_prefixdefs/2,
+	FLLIBPREFIXPRIMITIVE/3,
+	FLLIBPREFIXDEF/3,
+	FLLIBPREFIXDEF/2.
+
+
+FLLIBPREFIXDEF(Mod,Prefix,Expansion) :-
+	retractall(flora_shell_prefixdef(Mod,Prefix,_)),
+	flora_concat_atoms([FL_IRI_TYPE_PREFIX,Expansion],RealExpansion),
+	assert(flora_shell_prefixdef(Mod,Prefix,RealExpansion)).
+FLLIBPREFIXDEF(Prefix,Expansion) :-
+	retractall(flora_coder_prefixdef(Prefix,_)),
+	flora_concat_atoms([FL_IRI_TYPE_PREFIX,Expansion],RealExpansion),
+	assert(flora_coder_prefixdef(Prefix,RealExpansion)).
+
+set_prefixes_for_compile([]) :- !.
+set_prefixes_for_compile([Pref=Expansion|Rest]) :-
+	!,
+	FLLIBPREFIXDEF(Pref,Expansion),
+	set_prefixes_for_compile(Rest).
+set_prefixes_for_compile([FlPrefixdef|Rest]) :-
+	is_flprefixdef(FlPrefixdef,Pref,_,Expansion),
+	FLLIBPREFIXDEF(Pref,Expansion),
+	set_prefixes_for_compile(Rest).
+
+FLLIBPREFIXPRIMITIVE(Prefix,Def,Mod) :-
+	(flora_shell_prefixdef(Mod,Prefix,Def)
+	;
+	    standard_definitions(Prefix,Def)
+	).
+
+%% copies prefix definitions from module FromMod to ToMod.
+copy_prefixdefs(FromMod,ToMod) :-
+        flora_shell_prefixdef(FromMod,Prefix,Def),
+        \+standard_definitions(Prefix,_),
+	retractall(flora_shell_prefixdef(ToMod,Prefix,_)),
+	assert(flora_shell_prefixdef(ToMod,Prefix,Def)),
+        fail.
+copy_prefixdefs(_FromMod,_ToMod).
+
+
+flora_clear_compiletime_uriprefixes :- retractall(flora_coder_prefixdef(_,_)).
+flora_clear_runtime_uriprefixes :- retractall(flora_shell_prefixdef(_,_,_)).
+flora_clear_runtime_uriprefixes(Mod) :- retractall(flora_shell_prefixdef(Mod,_,_)).
+
+
+
+%% Note: all of these iris have the i\b prefix, as required by the iri data type
+standard_definitions(xsd,'i\bhttp://www.w3.org/2001/XMLSchema#').
+standard_definitions(rdf,'i\bhttp://www.w3.org/1999/02/22-rdf-syntax-ns#').
+standard_definitions(rdfs,'i\bhttp://www.w3.org/2000/01/rdf-schema#').
+standard_definitions(owl,'i\bhttp://www.w3.org/2002/07/owl#').
+standard_definitions(rif,'i\bhttp://www.w3.org/2007/rif#').
+standard_definitions(swrlb,'i\bhttp://www.w3.org/2003/11/swrlb#').
+standard_definitions(dc,'i\bhttp://purl.org/dc/elements/1.1/').
+
+
+flora_runtime_uriprefix_expansion(Mod,Prefix,Def) :-
+	nonvar(Mod),
+	flora_shell_prefixdef(Mod,Prefix,Def),
+	!.
+flora_runtime_uriprefix_expansion(Mod,Prefix,Def) :-
+	var(Mod),
+	flora_shell_prefixdef(Mod,Prefix,Def).
+flora_runtime_uriprefix_expansion(_Mod,Prefix,Def) :-
+	standard_definitions(Prefix,Def).
+
+flora_compiletime_uriprefix_expansion(Prefix,Def) :-
+	flora_coder_prefixdef(Prefix,Def),
+	!.
+flora_compiletime_uriprefix_expansion(Prefix,Def) :-
+	standard_definitions(Prefix,Def).
+
+flora_split_iri(FullName,Prefix,LocalName,Mod) :-
+        atom(FullName),
+        FLLIBPREFIXPRIMITIVE(Prefix,Def,Mod),
+        flora_match_substring(Def,FullName,forward,0,End),
+        flora_get_substring(FullName,End,-1,LocalName).

@@ -1,0 +1,24 @@
+
+
+//tom.father.father[wife->mary]. // path expression is illegal in rule head now
+?X[wife->mary] :- tom[father->?Y],?Y[father->?X].
+tom[father->john].
+john[father->smith].
+tom[wife->rose] :- smith[wife->mary].
+//tom.wife.father[wife->joan]. // path expression is illegal in rule head now
+?X[wife->joan] :- tom[wife->?Y],?Y[father->?X].
+rose[father->carter].
+
+%pretest :- ?X[?Y->?Z],
+	write(?X)@\io, write(' ')@\io, write(?Y)@\io,
+	write(' ')@\io, writeln(?Z)@\io, \false.
+%pretest :- \true.
+
+%test :- tell(temp)@\plg(), 
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.
+
+

@@ -1,0 +1,31 @@
+?- [justifier_ex>>examples].
+
+foo(?X) :- ?G = ${?X \is 1+?_P}, trivialJustification(?G)@examples, ?G.
+
+goo(?X) :- ?G = ${?X \is 1+5}, trivialJustification2(?G), ?G.
+?- insert{trivialJustification2(${?_R \is ?_E})}.
+
+hoo(?X) :- ?G = ${?X \is ?_S-11}, trivialJustification(?G), ?G.
+
+trivialJustification(${?_R \is 21-?_F}).
+
+%tst1 :- write('test1: ')@\plg,
+	 foo(?X),
+	 writeln(?X)@\plg.
+%tst2 :- write('test2: ')@\plg,
+	 goo(?X),
+	 writeln(?X)@\plg.
+%tst3 :- write('test3: ')@\plg,
+	 hoo(?X),
+	 writeln(?X)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3.
+
+%test :- tell(temp)@\plg, 
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.
+
+

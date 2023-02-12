@@ -1,0 +1,25 @@
+/* This module should be loaded using: [mod1 >> mod1].
+** It is used in conjunction with module mod2.flr.
+*/
+
+
+:- compiler_options{expert=on}.
+
+?- [mod2 >> mod2].
+
+department[faculty=>professor, coursesOffered=>string].
+professor[teaches(string,number)=>string].
+
+?X:department[coursesOffered->?C] :-
+	?X.faculty[teaches(?_S,?_Y)->?C].
+
+?X:department[coursesOffered->?C] :-
+	?X.faculty[teaches(?_S,?_Y)->?C] @ mod2.
+
+cse:department[faculty->smith].
+smith:professor.
+smith[teaches(fall,1998)->cse220].
+smith[teaches(spring,1999)->cse310].
+smith[teaches(spring,1999)->cse530].
+
+?- ?D:department[coursesOffered -> ?C].

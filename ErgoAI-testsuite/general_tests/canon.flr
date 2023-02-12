@@ -1,0 +1,86 @@
+:- use_argumentation_theory{ogcle}.
+?- [ogclpe>>ogcle] .
+:- iriprefix{ex='http://vulcan.com/2008/flora#'}.
+:- prolog{ex#irrefutablebodylit/2}.
+:- prolog{ex#refutablebodylit/2}.
+
+//new justification meta-rules
+ja(?ID(?H),t) :-
+	?H,
+	jr(?ID(?H),t).
+
+ja(?ID(?H),f) :-
+	jr(?ID(?H),f),
+	!!,
+	\naf exists(*)^?H.
+
+jr(?ID(?H),t) :-
+	candr(?ID(?H),t),
+	\naf defeatedr(?ID(?H)).
+
+jr(?ID(?H),f) :-
+	candr(?ID(?H),f).
+
+jr(?ID(?H),f) :- defeatedr(?ID(?H)).
+
+candr(?ID(?H0),t) :-
+	instRule(?ID(?H),?_T,?H0,?B),
+	clause{?H,?B},
+	?B.
+
+candr(?ID(?H0),f) :-
+	instRule(?ID(?H),?_T,?H0,?B),
+	clause{?H,?B},
+	candrbodyFalse(?ID(?H0),?B).
+
+candrbodyFalse(?_ID(?_H0),?L) :-
+	?L != (?,?),
+	!,
+	//\naf ?L.
+	\naf exists(*)^?L.
+
+candrbodyFalse(?ID(?H),?B) :-
+	?B = (?,?),
+	!,
+	comma_to_list(?B,?Blist)@\plg(basics),
+	/*
+	  Problem: we cannot get binding from under this \naf.
+	  For that we need constructive negation.
+	*/
+	candrlistFalse(?ID(?H),?Blist).
+
+candrlistFalse(?_ID(?_H),[?L]) :- ?L != (?,?), !, \naf exists(*)^?L.
+
+candrlistFalse(?ID(?H),[?L | ?Lits]) :-
+	?L,
+	candrlistFalse(?ID(?H),?Lits).
+
+defeatedr(?ID(?H0)) :-
+	instRule(?ID(?H0),?T,?H,?_B),
+	\isnonvar(?T),
+	status(?T,?H)[howDefeated->?_Reason]@ogcle.
+
+instRule(?ID(?H0),?T,?H,?B) :-
+	clause{@{?T} @!{?ID} ?H,?B},
+	?H0 ~ ?H.
+
+
+:- prolog{pppp/2}.
+%p(b).
+pppp(1,2).
+
+// the point of these tests is to see if they produce an error. They should not.
+%tst1 :- (?X= ${%p(a)}, ?Y=main, ?X@?Y ; \true), writeln('tst1: ok')@\plg.
+%tst2 :- (?p(?k) ; \true), writeln('tst2: ok')@\plg.
+%tst3 :- (?X= ${pppp(a,b)}, ?Y=main, ?X@?Y ; \true), writeln('tst3: ok')@\plg.
+
+%pretest :- %tst1, %tst2, %tst3.
+
+%test :- 
+	tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	!,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.

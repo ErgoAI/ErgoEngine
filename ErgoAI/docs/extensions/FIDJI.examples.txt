@@ -1,0 +1,214 @@
+?W = null,
+?GT = gt(title,[class = 'com.xsb.xj.containers.LabelValueColumn',updatable],[
+   gt(abc, [caption = 'field1',atom,optional],[]),
+   gt(123, [caption = 'field2',integer],[]),
+   gt(3.14,[caption = 'field3',float],[])
+  ])@\plgall,
+editGtGetResult(?W,?GT,?Result)@\plg.
+
+ipListenerWindow(?W)@\plg,
+?W=null,
+?GT = gt(MyTitle,[class = 'com.xsb.xj.containers.LabelValueColumn',updatable],[
+   gt(abc, [caption = 'field1',atom,optional],[]),
+   gt(123, [caption = 'field2',integer],[]),
+   gt(3.14,[caption = 'field3',float],[])
+  ])@\plgall,
+editGtGetResult(?W,?GT,?Result)@\plg.
+
+ipListenerWindow(?W)@\plg,
+?W=null,
+?GT = gt(MyTitle,[class = 'com.xsb.xj.containers.LabelValueColumn',updatable],[
+                  gt(a,[caption = 'field1',atom,optional],[]),
+                  gt(_,[caption = 'field2',
+                        comboBox('Second',['First','Second']),optional],[]),
+                  gt(0,[caption = 'field3',integer],[]),
+                  gt(3.1400,[caption = 'field4',float],[]),
+                  gt('   ',[caption = '',string,readonly],[])
+                ])@\plgall,
+editGtGetResult(?W,?GT,?Result)@\plg.
+
+ipListenerWindow(?W), 
+?W=null,
+?GT = gt(title,[class = 'com.xsb.xj.containers.LabelValueColumn',updatable],[
+   gt(',',[caption = 'field1',atom,readonly],[gt(bb,[atom],[]),gt(cc,[atom,readonly],[])]),
+   gt(0,[caption = 'field2',integer],[]),
+   gt(3.14,[caption = 'field3',float],[])
+  ])@\plgall,
+editGtGetResult(?W,?GT,?Result)@\plg.
+
+(ipListenerWindow(W) ; W = null),
+GT = gt(title,
+        [class = 'com.xsb.xj.containers.LabelValueColumn',updatable],
+        [gt(a, [caption = 'An atom',atom,optional],[]),
+         gt(_,
+            [caption = 'A dropdown',comboBox('Second',['','First','Second']),optional],
+            []),
+         gt(0,[caption = 'Some integer',integer],[]),
+         gt(3.1400,[caption = 'Some float',float],[]),   
+         %% CHECKBOX
+         gt('',
+            [string,readonly],
+            [gt(0,[caption = 'Checkbox',class='com.xsb.xj.XJCheckBox',tip='1 or 0'],[])]
+            ) ,
+          gt(0,[caption = '  ',class='com.xsb.xj.XJCheckBox',tip='1 or 0'],
+               [gt(test,[string],[])])
+        ]),
+        editGtGetResult(null,GT,Result).
+/*
+%% NO-OP
+gt(noop,[invisible,nonpersistent],[])
+
+invisible makes it hidden (absent from the Swing component tree); nonpersistent (which can also be used for visible nodes) removes the node from the Prolog term generated from the GUI. So in...
+
+ipListenerWindow(W),  
+GT = gt(title,[class = 'com.xsb.xj.containers.LabelValueColumn',updatable],[    
+  gt(a,[caption = 'An atom',atom,optional],[
+    gt(bb,[atom,readonly],[]), gt(noop,[invisible,nonpersistent],[]), gt(cc,[atom],[])]),    
+  gt(0,[caption = 'Some integer',integer],[]),    
+  gt(3.14,[caption = 'Some float',float],[])   ]), 
+editGtGetResult(W,GT,Result).
+
+... you get Result = title(a(bb,cc),0,3.1400) , omiting the noop node
+*/
+
+(ipListenerWindow(_W) ; _W = null),
+findall(_Module,flrregistry:flora_user_module_registry(_Module),_ModuleList),
+!,
+_GT = gt('Treatment of calls with no axioms',
+        [class = 'com.xsb.xj.containers.LabelValueColumn',
+         label_anchor = west,
+         updatable],
+        [
+          gt('   ', [atom,readonly,nonpersistent],[]),  %% spacer
+          gt('',
+             [caption='If unsupported call:  ',atom,readonly,nonpersistent],
+             [
+               gt(_,
+                  [comboBox(error,[error,ignore]),
+                   tip = 'Action when calling a predicate/frame that has no rule of fact to support it'
+                  ],[]),
+               gt('      Module:  ',[atom,readonly,nonpersistent],[]),
+               gt(_,
+                  [comboBox('all modules',['all modules'|_ModuleList]),
+                   tip = 'Apply setting to which modules?'
+                  ],[])
+             ]),
+          gt('   ', [atom,readonly,nonpersistent],[]),  %% spacer
+          gt('',
+             [caption='Do not issue errors for:    ',atom,readonly,nonpersistent],
+             [
+               gt(_,
+                  [atom, optional,
+                   typicalSize =  32,
+                   tip = 'Patterns for which errors are not to be issued',
+                   emptyTip='E.g.,   (?(?)@foo,  ?[bar->?]@\@,  ?(?)@?,  ?:class@foo)'
+                  ],[])
+             ]),
+          gt('   ', [atom,readonly,nonpersistent],[])  %% spacer
+        ]),
+        editGtGetResult(_W,_GT,_Result),
+        _Result =.. [_,Action,Module,Pattern].
+
+(ipListenerWindow(_W) ; _W = null),
+!,
+_GT = gt('Runtime parameters: fill only what you want to change',
+        [class = 'com.xsb.xj.containers.LabelValueColumn',
+         label_anchor = west,
+         updatable],
+        [gt('   ', [atom,readonly,nonpersistent],[]),  %% spacer
+         gt('',[caption='Timer:  ', atom,readonly],
+               [
+                gt('Max time= ',[atom,readonly,nonpersistent],[]),
+                gt(_,[integer, optional,
+                      emptyTip='no change',
+                      tip='Limit on the time allowed to run'],[]),
+                gt('   Action= ',[atom,readonly,nonpersistent],[]),
+                gt(pause,
+                   [comboBox(pause,[pause,ignore,abort,fail,'']),
+                    editable,
+                    emptyTip='no change',
+                    tip = 'Action to take when time limit is reached'
+                   ],[]),
+                gt('    Interval= ',[atom,readonly,nonpersistent],[]),
+                gt(_,[integer, optional,
+                      emptyTip='no change',
+                      tip='Periodic interrupts at the given interval'],[]),
+                gt('   Action= ',[atom,readonly,nonpersistent],[]),
+                gt(pause,
+                   [comboBox(pause,[pause,ignore,abort,fail,'']),
+                    editable,
+                    emptyTip='no change',
+                    tip='Action to take at each periodic interrupt'
+                   ],[])
+               ]),
+         gt('   ',[atom,readonly,nonpersistent],[]), %% a spacer
+         gt('',[caption='Goal term sizes:  ',atom,readonly],
+               [gt('Max for plain terms= ', [atom,readonly,nonpersistent], []),
+                gt(_,[integer, optional,
+                      emptyTip='no change',
+                      tip='Max size for terms other than lists'],[]),
+                gt('    Max for lists= ', [atom,readonly,nonpersistent],[]),
+                gt(_,[integer, optional,
+                      emptyTip='no change',
+                      tip='Max size for lists'],[]),
+                gt('    Action= ',[atom,readonly,nonpersistent],[]),
+                gt(pause,
+                   [comboBox(pause,[pause,ignore,abort,fail,'']),
+                    editable, optional,
+                    emptyTip='no change',
+                    tip = 'Action to take when a max size is reached'
+                   ],[])
+                ]),
+         gt('   ',[atom,readonly,nonpersistent],[]), %% a spacer
+         gt('',[caption='Answer term sizes:   ',atom,readonly],
+               [gt('Max for plain terms= ', [atom,readonly,nonpersistent], []),
+                gt(_,[integer, optional,
+                      emptyTip='no change',
+                      tip='Max size for terms other than lists'],[]),
+                gt('    Max for lists= ', [atom,readonly,nonpersistent],[]),
+                gt(_,[integer, optional,
+                      emptyTip='no change',
+                      tip='Max size for lists'],[]),
+                gt('   Action= ',[atom,readonly,nonpersistent],[]),
+                gt(pause,
+                   [comboBox(pause,[pause,ignore,abort,fail,'']),
+                    editable, optional,
+                    emptyTip='no change',
+                    tip = 'Action to take when a max size is reached'
+                   ],[])
+                ]),
+         gt('   ',[atom,readonly,nonpersistent],[]), %% a spacer
+         gt('',[caption='Memory limit:  ', atom,readonly],
+               [gt(_,[integer, optional,
+                      emptyTip='no change',
+                      tip='Limit on main memory for the Ergo process (GB)'],
+                      []),
+                gt(' GB',[atom,readonly,nonpersistent],[]),
+                gt('     Action= ',[atom,readonly,nonpersistent],[]),
+                gt(_,
+                   [comboBox(pause,[pause,abort,fail,ignore]),
+                    emptyTip='no change',
+                    tip = 'Action to take when memory limit is reached'
+                   ],[])
+               ]),
+         gt('   ',[atom,readonly,nonpersistent],[]), %% a spacer
+         gt(_,[caption='Unification type:  ',
+               comboBox('no change',[fast,pedantic]),
+               emptyTip='no change',  %% has no effect for combo currently
+               tip='Fast unification: no occurs check; correct unification: with occurs check, but much slower'],
+                 []),
+         gt('   ',[atom,readonly,nonpersistent],[]) %% a spacer
+        ]),
+        editGtGetResult(_W,_GT,_Result),
+        _Result =.. [_WinTitle,
+                     _TimerTerm,_GoalsizeTerm,_AnswersizeTerm,
+                     _MemoryTerm,UnificationTerm],
+        _TimerTerm =.. [_,Time_Max,Time_MaxAction,
+                        Time_Interval,TimeIntervalAction],
+        _GoalsizeTerm =.. [_,GS_TermSize,GS_ListSize,GS_Action],
+        _AnswersizeTerm =.. [_,AS_TermSize,AS_ListSize,AS_Action],
+        _MemoryTerm =.. [_,MemLimit,Mem_Action].
+
+
+How to write something into the listener's input (like generating a query):
+ipListenerWindow(W), java(W,I,getInputPane), java(I,setText(string('I wanna be a query.'))).

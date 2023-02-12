@@ -1,0 +1,691 @@
+\chapter[SGML and XML Parser for \FLSYSTEM]
+{SGML and XML Import for \FLSYSTEM\\
+  {\Large by Rohan Shirwaikar and Michael Kifer}}
+
+This chapter documents the \FLSYSTEM package that provides XML
+and XPath
+parsing capabilities. The main predicates support parsing
+SGML, XML, and HTML documents, and create \FLSYSTEM objects in the user
+specified module.
+Other predicates evaluate XPath queries
+on XML documents and create \FLSYSTEM objects in user specified
+modules. The predicates make use of the {\bf sgml} and {\bf xpath}
+packages of XSB.
+
+
+
+\section{Introduction}\label{sec-xml-intro}
+
+This package supports parsing SGML, XML, and HTML documents,
+converting them to sets of \FLSYSTEM objects stored in user-specified
+\FLSYSTEM modules. The SGML interface
+provides facilities to parse input in the form of files,
+URLs and strings (Prolog atoms).  
+
+For example, the following XML snippet
+
+\begin{verbatim}
+<greeting id='1'>
+<first ssn=111'>
+John
+</first>
+</greeting>
+\end{verbatim}
+
+will be converted into the following \FLSYSTEM objects:
+
+\begin{verbatim}
+obj1[ greeting -> obj2]
+obj2[ attribute(id) -> '1']
+obj2[ first -> obj3]
+obj3[ attribute(ssn) -> '111']
+obj3[ \text -> 'John']
+\end{verbatim}
+
+To load the {\tt XML} package, just call any of the API calls
+at the \FLSYSTEM prompt.
+
+The following calls are provided by the package.  They
+take SGML, XML, HTML, or XHTML documents and create the corresponding
+\FLSYSTEM objects as specified in Section~\ref{xml-to-flora}.
+
+\begin{description}
+\item[{\tt ?InDoc[load\_sgml(?Module) -> ?Warn]}@\bs{}xml]~~\\
+  Import XML data as \FLSYSTEM objects.
+\item[{\tt ?InDoc[load\_xml(?Module) -> ?Warn]}@\bs{}xml]~~\\
+  Import SGML data as \FLSYSTEM objects.
+\item[{\tt ?InDoc[load\_html(?Module) -> ?Warn]}@\bs{}xml]~~\\
+  Import HTML data as \FLSYSTEM objects.
+\item[{\tt ?InDoc[load\_xhtml(?Module) -> ?Warn]}@\bs{}xml]~~\\
+  Import XHTML as \FLSYSTEM objects.
+\end{description}
+%%
+The arguments to these predicates have the following meaning:
+
+{\tt ?InDoc} is an input SGML, XML, HTML, or XHTML document.
+It must have one of these forms: {\tt url({\textnormal{'\emph{url}'}})},
+{\tt file(\textnormal{'\emph{file name}'})} or {\tt
+  string(\textnormal{'\emph{document as a string}}')}.  If \texttt{?InDoc}
+is just a plain Prolog atom (\FLSYSTEM symbol) then \texttt{file(?Source)}
+is assumed.  
+{\tt ?Module} is the name of the \FLSYSTEM module where the objects created
+by the above calls  should be placed; it must be bound.
+{\tt ?Warn} gets bound to a list of warnings, if any are generated, or to
+an empty list; it is an output variable.
+
+  
+\section{Import Modes for XML in Ergo}
+
+XML can be imported into \FLSYSTEM in several different ways, which can be
+specified via the \texttt{set\_mode(...)@\bs{}xml}  primitive. These modes
+control two aspects of the import:
+%% 
+\begin{itemize}
+\item  white space handling, and
+\item  navigation links that may be added to the imported data.
+\end{itemize}
+%% 
+
+\subsection{White Space Handling}
+
+The XML standard requires that white space (blanks, tabs, newlines, etc.)
+must be preserved by XML parsers. However, in the applications
+where \FLSYSTEM is used, XML typically is viewed as a format for data in
+which white space is immaterial. For that reason, by default, the
+\FLSYSTEM's XML parser operates in the \emph{data mode} in which every
+string is trimmed on both sides to remove the white space. In addition, the
+empty strings \texttt{''} are ignored.    
+This implies that, for example, there will be no \texttt{\bs{}text}
+attribute to represent a situation like this:
+%% 
+\begin{verbatim}
+<doc>
+    <spaceonly>   </spaceonly>
+</doc>
+\end{verbatim}
+%% 
+and the only data created to represent the above document will be 
+%% 
+\begin{verbatim}
+obj1[doc->obj2]@bar
+obj2[spaceonly->obj3]@bar
+\end{verbatim}
+%% 
+(plus some additional navigational data about order, siblings, parents,
+etc.).
+This means that, if capturing certain white space is needed, it should be
+encoded explicitly in some way, e.g., 
+%% 
+\begin{verbatim}
+<spaceonly>___</spaceonly>
+\end{verbatim}
+%% 
+instead of three spaces.
+
+Alternatively, one can request to change the XML parsing mode
+to \emph{raw}:
+%% 
+\begin{verbatim}
+   ?- set_mode(raw)@\xml.
+\end{verbatim}
+%% 
+In this case, the parser will switch to the pedantic way XML parsers are
+supposed to interpret XML and all white space will be
+preserved. However, beware what you wish because even for the above tiny
+example the representation will end up not pretty because every little bit
+of white space will be there (even the one that comes from line breaks):
+%% 
+\begin{verbatim}
+obj1[doc->obj2]@bar
+obj2[\text->obj3]@bar
+obj2[\text->obj6]@bar
+obj2[spaceonly->obj4]@bar
+obj3[\string->'
+  ']@bar
+obj4[\text->obj5]@bar
+obj5[\string->'   ']@bar
+obj6[\string->'
+']@bar
+\end{verbatim}
+%% 
+It is more than likely an \FLSYSTEM user will not want objects like
+\texttt{obj3} and \texttt{obj6}.  
+
+Finally, if the \emph{raw} mode is not what is desired, one can always
+switch back to the data mode: 
+%% 
+\begin{verbatim}
+   ?- set_mode(data)@\xml.
+\end{verbatim}
+%% 
+
+\subsection{Requesting Navigation Links}
+
+This aspect can be changed via the calls
+%% 
+\begin{verbatim}
+   ?- set_mode(nonavlinks)@\xml.  // the default
+   ?- set_mode(navlinks)@\xml.
+\end{verbatim}
+%% 
+where \texttt{nonavlinks} is the default.
+
+The \texttt{nonavlinks} method uses a slightly simpler translation from XML
+to \FLSYSTEM objects and no extra navigation links are provided.
+This mode is used when the imported XML document has known tructure
+and is viewed simply as
+set of data to be ingested (e.g., payroll data).
+
+In the \texttt{navlinks} mode, the representation is slightly more complex
+but, most importantly, that imported data includes additional information 
+that provides parent/child/sibling links among XML objects as well as the
+ordering information, which allows one to reconstruct the original XML
+document.  This mode is used when the structure
+of the input XML has high variability or may even be arbitrary. This
+arises, for instance, when one needs to transform arbitrary XML import or
+to extract certain information from unknown structures.
+The exact representation of this navigational information is described in 
+subsequent sections.
+
+
+%%\section{Summary of the Predicates}
+%%
+%%\begin{longtable}[l]{lp{6cm}}
+%%{\tt ?Doc[load\_xml(?Module)->?Warn]}@\bs{}xml&import XML data as \FLSYSTEM objects\\
+%%{\tt ?Doc[load\_sgml(?Module)->?Warn]}@\bs{}xml&import SGML data as \FLSYSTEM objects\\
+%%{\tt ?Doc[load\_html(?Module)->?Warn]}@\bs{}xml&import HTML data as \FLSYSTEM objects\\
+%%{\tt ?Doc[load\_xhtml(?Module)->?Warn]}@\bs{}xml&import XHTML as \FLSYSTEM objects\\
+%%\end{longtable}
+
+
+\section{Mapping XML to \FLSYSTEM Objects}\label{xml-to-flora}
+
+This mapping is based on an XML-to-\FLORA object correspondence developed
+by Guizhen Yang.
+It specifies how an XML parser can construct the
+corresponding F-logic objects after parsing an input XML document.
+The basic ideas are as follows:
+\begin{itemize}
+\item XML elements, attribute values,
+  and text strings are modeled as objects in F-logic.
+
+\item XML elements are reachable from parent objects
+  via F-logic frame attributes of the same
+  name as the XML element name.
+
+\item XML element attributes are also modeled as F-logic  frame attributes
+    but their name is
+    \texttt{attribute(\textnormal{\emph{XML attribute name}})}.
+\end{itemize}
+
+This mapping does not address 
+comments or processing instructions---they are simply ignored.
+However, this mapping does address the issue of mixed
+text/element content in which plain text and subelements are interspersed.
+This mapping also assumes that XML entities are
+resolved by the XML parser.
+
+
+
+\subsection{Invention of Object Ids for XML Elements}
+
+According to the XML specification 1.0, an XML element can be identified
+by an oid that is unique across the document. The import mechanism invents
+such an oid automatically.
+Sitting on top of the XML root element, there is an additional root
+object which just functions as the access point to the entire object
+hierarchy corresponding to the XML document.
+The oids of leaf nodes, which have no outgoing arcs and carry
+plain text only, are just the string values themselves.
+
+For example, the following XML document
+
+%%
+\begin{verbatim}
+<?xml version="1.0"?>
+<person ssn="111-22-3333">
+  <name first="John" 
+        last="Smith"/>
+</person>
+\end{verbatim}
+%%
+is represented via the following F-logic objects:
+%%
+\begin{verbatim}
+    obj1[person -> obj2].
+    obj2[attribute(ssn) -> '111-22-3333', name -> obj3].
+    obj3[attribute(first) -> John, attribute(last) -> Smith].
+\end{verbatim}
+%%
+Here \texttt{obj1}  is the root object, \texttt{obj2} is the object
+corresponding to the \texttt{person} element, and \texttt{obj3} is the
+object that represents the \texttt{name} element. The strings
+\texttt{'111-22-3333'}, \texttt{John}, and \texttt{Smith} are oids that
+stand for themselves.       
+
+
+\subsection{Text and Mixed Element Content}
+
+The content of an XML element may consist of plain text, or
+subelements interspersed with plain text as in
+%%
+\begin{verbatim}
+  <greeting>Hi! My name is <first>John</first><last>Smith</last>.</greeting> 
+\end{verbatim}
+%%
+How text is actually handled in the translation to F-logic depends on the
+mode of import: \texttt{nonavlinks} or \texttt{navlinks}. The former is
+simpler because it discards all the information about the order of the text
+nodes with respect to subelements and other text nodes.
+%% 
+\begin{itemize}
+\item  \textbf{In the} \texttt{nonavlinks} \textbf{mode}:\\
+  Each text segment is modeled as a value of the attribute
+  \texttt{\bs{}text} of the parent element-object of that text
+  segment.\footnote{
+    Of course, XML does not allow such names for tags and attributes, and this
+    is the whole point: adding such an invented name to the F-logic
+    translation  will not clash with other
+    tag names that might be used in the XML documents.
+    }
+  Thus, for the above XML fragment, the translation would be
+  %% 
+\begin{verbatim}
+   obj1[greeting -> obj2].
+   obj2[\text -> {'Hi! My name is ', '.'},
+        first -> obj3,
+        last  -> obj4
+   ].
+   obj3[\text -> John].
+   obj4[\text -> Smith].
+\end{verbatim}
+  %% 
+\item \textbf{In the} \texttt{navlinks} \textbf{mode}:\\
+  Here the order of the text and subelement nodes must be preserved and so
+  each text node is modeled as if it were a value of a special attribute
+  \texttt{\bs{}string} in an empty XML element named \bs{}text, e.g., 
+  %% 
+\begin{verbatim}
+   <\text \string="John"/>  
+\end{verbatim}
+  %% 
+  As a consequence, a separate F-logic object is created to represent each
+  text segment. (Compare this to the translation in the \texttt{nonavlinks}
+  mode, which does not create separate objects for text nodes.) 
+  Thus, for the aforesaid \texttt{greetings} element the translation will be 
+\begin{verbatim}
+   obj1[greeting -> obj2].
+   obj2[\text -> {obj3, obj8},
+        first -> obj4,
+        last  -> obj6
+   ].
+   obj3[\string -> 'Hi! My name is '].
+   obj4[\text -> obj5].
+   obj5[\string -> John].
+   obj6[\text -> obj7].
+   obj7[\string -> Smith].
+   obj8[\string -> '.'].
+\end{verbatim}
+  How exactly the aforesaid order is preserved in the \texttt{navlinks} 
+  mode is explained later.
+\end{itemize}
+%% 
+
+\subsection{Translation of XML Attributes}
+
+An XML attribute, \emph{attr},  in an element is translated as an attribute
+by the name \texttt{attribute}(\emph{attr}) attached to the object that
+corresponds to that element.  
+
+XML element attributes of type IDREFS are multivalued, in the sense
+that their value is a string consisting of one or more oids separated
+by whitespaces. Therefore, the value of such an attribute is a set.
+The value of an XML IDREFS
+attribute is represented as a list.
+
+For example, the following XML segment:
+%%
+\begin{verbatim}
+   <paper id="yk00" references="klw95 ckw91">
+     <title>paper title</title>
+   </paper>
+\end{verbatim}
+%%
+will generate the following F-logic atoms, assuming that the
+{\tt reference}  attribute is of type IDREFS:
+%%
+\begin{verbatim}
+   obj1[paper -> obj2]
+   obj2[title -> obj4]
+   obj2[attribute(id) -> yk00]
+   obj2[attribute(references) -> 'klw95 ckw91'
+   obj4[\text -> obj5]      // here we assume that the navlinks mode was used
+   obj5[\string -> 'paper title']
+\end{verbatim}
+%%
+
+However: if the document has an associated DTD \emph{and} the attribute
+\texttt{references} were specified there as \texttt{IDREFS} as in
+%% 
+\begin{verbatim}
+    <!ATTLIST paper references IDREFS #IMPLIED> 
+\end{verbatim}
+%% 
+then that attribute is translated as
+%% 
+\begin{verbatim}
+   obj2[attribute(references)->[klw95,ckw91]] 
+\end{verbatim}
+%% 
+i.e., the value becomes a list.
+
+With this, we are done describing the \texttt{nonavlinks} mode. The
+remaining subsections in the current section apply to the
+\texttt{navlinks} mode only.  
+
+
+\subsection{Ordering}
+
+This section applies to the \texttt{navlinks} mode only. 
+
+XML is order-sensitive and the order in which elements and text appear is
+significant, in general. The order of the attributes within the same
+element tag is \emph{not} significant, however. 
+
+While the \texttt{nonavlinks} mode is sufficient for most data-intensive
+uses of XML in \FLSYSTEM, more complex tasks may require the knowledge of
+how items are ordered within XML documents. 
+Specifying a total order among the elements and text
+in an XML document suffices for that purpose, if this order agrees with the
+local order within each element's content.
+
+Consider the following XML document
+%%
+\begin{verbatim}
+<?xml version="1.0"?>
+<person ssn="111-22-3333">
+  <name>
+    <first>John</first> 
+    <last>Smith</last>
+  </name>
+  <email>jsmith@abc.com</email>
+</person>
+\end{verbatim}
+%%
+It can be represented by the
+tree in Figure \ref{fig-total-order}
+in which the parenthesized integers 
+show the total order assigned to the F-logic objects.
+
+\begin{figure}[bht]
+\begin{verbatim}
+                    obj0 (0)
+                    |
+                    | person
+                    |
+        id /----  obj1 (1)
+          /         ^
+         /         / \
+111-22-3333  name /   \ email
+                 /     \
+          (2) obj2     obj7 (7)
+               / \        \ 
+        first /   \last    \ \text
+             /     \        \
+      (3) obj3     obj5 (5)  obj8 (8)
+            |      |          \
+      \text |      | \text     \  \string
+            |      |            \
+      (4) obj4     obj6 (6)    'jsmith@abc.com'
+            |      |
+    \string |      | \string
+            |      |
+           John  Smith
+\end{verbatim}
+  \caption{Total ordering of the F-logic objects arising from XML ordering}
+  \label{fig-total-order}
+  \end{figure}
+
+The ordering information that exists in XML documents is captured in F-logic
+via a special attribute called
+{\tt \bs{}order}, which tells position within the total ordering for each
+element and text node. It is for that purpose that text segments are
+modeled in the \texttt{navlinks} mode as element-style objects (each
+segment having its own oid) and not simply as attributes, as is the case
+with the simpler \texttt{nonavlinks} mode. 
+
+%%\begin{verbatim}
+%%<bibliography>
+%%<paper id="sb97">
+%%  <author>
+%%    <first>John</first>
+%%    <last>Smith</last>
+%%  </author>
+%%  <author>
+%%    <first>David</first>
+%%    <last>Brown</last>
+%%  </author>                                  (Example 3)
+%%</paper>
+%%
+%%<paper id="s91">
+%%  <author>
+%%    <first>John</first>
+%%    <last>Smith</last>
+%%  </author>
+%%</paper>
+%%</bibliography>
+%%\end{verbatim}
+
+
+\subsection{Additional Attributes and Methods in the
+  \texttt{navlinks} Mode }
+
+Since the \texttt{navlinks} mode is intended for applications that need to
+navigate from children to parents, to siblings, and more, the importer
+adds the following additional attributes and methods to the F-logic objects 
+into which XML elements and text are mapped.
+
+\begin{enumerate}
+\item {\tt \bs{}in\_arc} \\
+For each node, {\tt \bs{}in\_arc}  returns the unordered set of labels of the
+arcs pointing to this node, i.e., this node's in-arcs. Roughly,
+{\tt \bs{}in\_arc}  is defined as follows:
+  %%
+  \begin{verbatim}
+     ?O[\in_arc -> ?InArc] :- ?[?InArc -> ?O].
+  \end{verbatim}
+  %%
+Note that for a node representing a text segment, the value of
+its {\tt \bs{}in\_arc}  attribute is {\tt \bs{}text}. 
+
+\item {\tt \bs{}parent} \\
+For each node, {\tt \bs{}parent}  returns the oid of the parent node.
+
+\item {\tt \bs{}leftsibling} \\
+For each node, {\tt \bs{}leftsibling}  returns the oid of the node appearing
+immediately before the current node. This attribute is not defined
+for the nodes without a left sibling.
+
+\item {\tt \bs{}rightsibling} \\
+For each node, {\tt \bs{}rightsibling}  returns the oid of the node appearing
+immediately after the current node. This attribute is not defined
+for the nodes without a right sibling.
+
+\item {\tt \bs{}childcount} \\
+For each element node, {\tt \bs{}childcount}  returns the number of the immediate
+children of that element,
+which includes subelements and text segments.
+
+\item {\tt \bs{}childlist} \\
+For each element node, {\tt \bs{}childlist}  returns a list of the
+oids of the immediate children (subelements and text segments)
+of that element.
+
+\item {\tt \bs{}child(N)} \\
+For each node, {\tt \bs{}child(N)} returns the {\tt N}-th child, where {\tt 0
+  $\leq$ N < \bs{}childcount}.
+Note: the first child is the 0-th child.
+
+
+\item {\tt \bs{}in\_child\_arc(N)} \\
+For each node, {\tt \bs{}in\_child\_arc(N)}  returns the in-arcs of the {\tt N}-th child, where {\tt 0
+  $\leq$ N < \bs{}childcount}.
+This attribute is defined as follows:
+%%
+\begin{verbatim}
+ ?O[\in_child_arc(?N)->?InArc] :- ?O[\child(?N)->?[\in_arc->?InArc]].
+\end{verbatim}
+%%
+\end{enumerate}
+
+\section{Inspection Predicates}
+
+This section applies both to the \texttt{nonavlinks} mode and the
+\texttt{navlinks} mode.  
+
+It is sometimes hard to see which objects have actually been created to
+represent an XML document or an element. This is especially true in case of
+\texttt{navlinks} mode, which includes a host of special navigational
+attributes. 
+The purpose of inspection predicates is to provide a simple way to view the
+objects, and they also filter the navigational attributes out.
+Consider the document \texttt{foo.xml} below: 
+%% 
+\begin{verbatim}
+   <mydoc id='1'><first ssn='111'>John</first></mydoc>
+\end{verbatim}
+%% 
+Even for such a simple document, the query
+%% 
+\begin{verbatim}
+   ?- 'foo.xml'[load_xml(bar) -> ?W]@\xml.    // load foo.xml into module bar
+   ?- ?_X[?_Y->?_Z]@bar, ?Z = ${?_X[?_Y->?_Z]}.  // get all facts
+\end{verbatim}
+%% 
+that asks for all the facts---stored and derived---will yield 56 results in
+the \texttt{navlinks} mode,
+which is overwhelming to inspect visually. However, the core facts that
+describe these objects are only 8, and they can be obtained by asking the
+query
+%% 
+\begin{verbatim}
+   ?- bar[show->?P]@\xml.
+\end{verbatim}
+%% 
+One furthermore might want to see the representation of individual 
+elements (e.g., element named \texttt{first}):
+%% 
+\begin{verbatim}
+   ?- bar[show(first)->?P]@\xml.
+\end{verbatim}
+%% 
+and this is much more manageable:
+%% 
+\begin{verbatim}
+   ?P = ${obj4[\text->obj5]@bar}
+   ?P = ${obj4[attribute(ssn)->'111']@bar}
+\end{verbatim}
+%% 
+or of elements that have particular attributes (\texttt{ssh} in this
+example): 
+%% 
+\begin{verbatim}
+   ?- bar[show(attribute(ssn))->?P]@\xml.
+\end{verbatim}
+%% 
+which yields the same result as above (because the element \texttt{first}
+has the attribute \texttt{ssn}).  
+
+
+\section{XPath Support}
+
+The XPath support is based on the XSB {\tt xpath} package, which must be
+configured as explained in the XSB manual. This package, in turn, relies on
+the XML parser called {\tt libxml2}. It comes with most Linux
+distributions and is also available for Windows, MacOS, and other
+Unix-based systems from {\tt http://xmlsoft.org}. 
+Note that both the library itself and the {\tt .h} files of that
+library must be installed.
+
+\textbf{Note}: XPath support does not currently work under Windows 64 bit
+due to the fact that we could not produce a working
+\texttt{libxml2.lib} file (\texttt{xmlsoft.org} provides
+\texttt{linxml2.dll} for Windows 64, but not \texttt{libxml2.lib}).     
+
+The following predicates are provided. They select parts of the input
+document using the provided XPath expression and create \FLSYSTEM objects as
+specified in Section~\ref{xml-to-flora}. These predicates handle XML, SGML,
+HTML, and XHTML, respectively.
+
+%%
+\begin{longtable}[l]{lp{6cm}}
+{\tt ?InDoc[xpath\_xml(?XPathExp,?NS,?Mod)->?Warn]}&apply XPath expression to an XML
+  document and import the result\\
+%%{\tt ?InDoc[xpath\_sgml(?XPathExp,?NS,?Mod)->?Warn]}&apply XPath expression
+%% to SGML and import the result\\
+%%{\tt ?InDoc[xpath\_html(?XPathExp,?NS,?Mod)->?Warn]}&apply XPath expression
+%% to HTML and import the result\\
+{\tt ?InDoc[xpath\_xhtml(?XPathExp,?NS,?Mod)->?Warn]}&apply XPath expression
+   to XHTML and import the result
+  \end{longtable}
+  %%
+The arguments have the following meaning:
+
+{\tt InDoc} specifies the input document; this parameter has the same
+format as in Section~\ref{sec-xml-intro}. {\tt ?XPath} is an XPath expression
+specified as a Prolog atom. \texttt{?Module} is the module where the resulting
+\FLSYSTEM objects should be placed. {\tt ?Module} must be bound. \texttt{?Warn}
+gets bound to a list of warnings, if any are generated during the
+processing---or to an empty list, if none.
+
+{\tt ?NamespacePrefList} is a string that has the form of a
+space separated list of items of the form {\tt
+  \emph{prefix} = \emph{namespaceURL}}. This allows one to use namespace
+prefixes in the \texttt{?XPath} parameter.
+For example if the XPath expression is {\tt '/x:html/x:head/x:meta'}
+where {\tt x} 
+stands for {\tt 'http://www.w3.org/1999/xhtml'}, then this
+prefix would have to be
+defined in {\tt ?NamespacePrefList}:
+
+%%
+\begin{alltt}	
+    url('http://w3.org')[xpath_xhtml('/x:html/x:head/x:meta',
+                                     'x=http://www.w3.org/1999/xhtml',
+                                     foomodule)
+                         -> ?Warnings]@\bs{}xml.
+\end{alltt}
+%%
+
+\section{Low-level Predicates}
+
+This section describes low-level predicates in the XML package. These
+predicates parse the input documents into Prolog terms that then must be
+further traversed recursively in order to get the desired information.
+%% 
+\begin{itemize}
+\item
+  \texttt{parse\_structure(?InDoc,?InType,?Warnings,?ParsedDoc)@\bs{}xml}
+  --- take the document \texttt{?InDoc} or type \texttt{?InType}
+  (\texttt{xml}, \texttt{xhtml},  \texttt{html},  \texttt{sgml}) and parse
+  it as a Prolog term (will not be imported 
+  into any module as an object).
+\item
+  \texttt{apply\_xpath(?InDoc,?InType,?XPathExp,?NamespacePrefList,?Warnings,?ParsedDoc)@\bs{}xml}
+  --- like the above, but first applies the XPath expression
+  \texttt{?XPathExp} to \texttt{?InDoc}. The \texttt{?InType} parameter
+  must be bound to \texttt{xml} or \texttt{xhtml}.      
+\end{itemize}
+%% 
+The output, \texttt{?ParsedDoc},  is a Prolog term that represents the
+parse of the input XML document in case of \texttt{parse\_structure} and the
+result of application of \texttt{?XPathExp} to the input document in case
+of \texttt{apply\_xpath}. The format of that parse is described in the 
+\emph{XSB Manual, Volume 2: Interfaces and Packages}, in the chapter on
+\emph{SGML/XML/HTML Parsers and XPath}.  
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "flora-packages"
+%%% End: 

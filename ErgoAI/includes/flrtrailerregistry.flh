@@ -1,0 +1,88 @@
+/************************************************************************
+  file: includes/flrtrailerregistry.flh
+
+  Author(s): Michael Kifer
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+
+  This file is automatically included by the FLORA-2 compiler.
+************************************************************************/
+
+/**************** Deal with trailer registry ***************************/
+
+
+#if !defined(FLORA_TERMS_FLH)
+#define FLORA_TERMS_FLH
+#include "flora_terms.flh"
+:-(import(from(/(flora_load_library,1),flrlibman))).
+#endif
+
+:-(import(from(/(flora_trailer_registry,2),flrregistry))).
+
+?-(retractall(flora_trailer_registry(FLORA_THIS_MODULE_NAME,_))).
+
+/* All preprocessor constants below are defined dynamically in flrutils.P
+   by include_xpp_control_variables/1 in flrutils.P */
+#ifdef EQUALITYnone
+?-(assert(flora_trailer_registry(FLORA_THIS_MODULE_NAME,FL_EQUALITY(NONE)))).
+#endif
+#ifdef EQUALITYbasic
+?-(assert(flora_trailer_registry(FLORA_THIS_MODULE_NAME,FL_EQUALITY(BASIC)))).
+#endif
+#ifdef EQUALITYflogic
+?-(assert(flora_trailer_registry(FLORA_THIS_MODULE_NAME,FL_EQUALITY(FLOGIC)))).
+#endif
+#ifdef INHERITANCEnone
+?-(assert(flora_trailer_registry(FLORA_THIS_MODULE_NAME,FL_INHERITANCE(NONE)))).
+#endif
+#ifdef INHERITANCEflogic
+?-(assert(flora_trailer_registry(FLORA_THIS_MODULE_NAME,FL_INHERITANCE(FLOGIC)))).
+#endif
+#ifdef INHERITANCEmonotonic
+?-(assert(flora_trailer_registry(FLORA_THIS_MODULE_NAME,FL_INHERITANCE(MONOTONIC)))).
+#endif
+
+/* TABLINGsubsumptive, TABLINGvariant, etc., are created dynamically
+   in flrutils.P by include_xpp_control_variables/1 */
+#ifdef TABLINGsubsumptive
+?-(assert(flora_trailer_registry(FLORA_THIS_MODULE_NAME,FL_TABLING(FL_SUBSUMPTIVE)))).
+#endif
+#ifdef TABLINGvariant
+?-(assert(flora_trailer_registry(FLORA_THIS_MODULE_NAME,FL_TABLING(FL_VARIANT)))).
+#endif
+
+/* TABLINGreactive, TABLINGpassive, etc., are created dynamically
+   in flrutils.P by include_xpp_control_variables/1 */
+#ifdef TABLINGreactive
+?-(assert(flora_trailer_registry(FLORA_THIS_MODULE_NAME,FL_TABLING(FL_INCREMENTAL)))).
+#endif
+#ifdef TABLINGpassive
+?-(assert(flora_trailer_registry(FLORA_THIS_MODULE_NAME,FL_TABLING(FL_NONINCREMENTAL)))).
+#endif
+
+#mode save
+#mode nostring "\!#'"
+#ifdef CUSTOMTRAILER
+?-(assert(flora_trailer_registry(FLORA_THIS_MODULE_NAME,FL_CUSTOM('CUSTOMTRAILER')))).
+#endif
+#mode restore
+
+#ifdef CUSTOMnone
+?-(assert(flora_trailer_registry(FLORA_THIS_MODULE_NAME,FL_CUSTOM(NONE)))).
+#endif
+
+

@@ -1,0 +1,146 @@
+/*
+Do not forget to set PATH. Something like this:
+  Linux, sh/bash:
+    export PATH=$PATH:$HOME/progs/minizinc/MiniZincIDE-2.2.3-bundle-linux/bin
+  Windows:
+    set PATH=%PATH%;"C:\progs\minizinc\MiniZincIDE-2.2.3-bundle-linux\bin"
+*/
+
+:- symbol_context{jobs/?, money/?}.
+
+?- feedback{off}.  // do not show var bindings
+
+?- [minizinc>>mzn].
+
+// For optimization problems, the number of solutions must always be 1
+// or else it will return also non-optimal solutions.
+
+// Australia
+?- nl@\plg, writeln('Example: Australia')@\io,
+   (solve('minizinc/australia.mzn',[],[],?,4,au(wa,nt,sa,q,nsw,v,t),?Result,?Exceptions)@mzn,
+       writeln(?Result)@\io,
+       \false
+   ;
+       \true
+   ).
+
+// Australia2
+?- nl@\plg, writeln('Example: Australia2')@\io,
+   (solve('minizinc/australia2.mzn',[],[Color = '{ red, yellow, blue }'],?,3,
+          au2(+'W. Australia'=wa, +'N. Territory'=nt, +'S. Australia'=sa, +'Queensland'=q, +'New S. Wales'=nsw, +Victoria=v, +Tasmania=t),
+          au2(?S1=?C1,?S2=?C2,?S3=?C3,?S4=?C4,?S5=?C5,?S6=?C6,?S7=?C7),
+          ?Exceptions)@mzn,
+       writeln(au_colors(?S1=?C1,?S2=?C2,?S3=?C3,?S4=?C4,?S5=?C5,?S6=?C6,?S7=?C7))@\io,
+       \false
+   ;
+       \true
+   ).
+
+// bake.mzn
+// This example also illustrates the use of solve_flex, which is delayed because
+// the in-parameters butter and cocoa are not ground.
+?- nl@\plg, writeln('Example: Baking cookies')@\io,
+   (solve_flex('minizinc/bake.mzn',['minizinc/bake.dzn'],[butter=?Butter,cocoa=?Cocoa],?,1,bake(str(price)=price,str(bananaCakes)=b,str(cocoaCakes)=c),?Result,?Exceptions)@mzn,
+       ?Butter = 1500,
+       ?Cocoa=800,
+       writeln(?Result)@\io,
+       \false
+   ;
+       \true
+   ).
+
+// Stable Marriage: as an example, using non-default 'chuffed' solver
+// bundled with Minizinc.
+// The chuffed solver is not nearly as powerful as gecode (default);
+// it cannot do optimization, for example.
+// This example also illustrates the use of solve_flex, which is delayed because
+// the in-parameter rank=MenRanking is not ground.
+?- nl@\plg, writeln('Example: Stable marriage')@\io,
+   (solve_flex('minizinc/marriage.mzn',['minizinc/marriage.dzn'],[rankMen=?MenRanking],chuffed,4,marriage(wife=husband),?Result,?Exceptions)@mzn,
+       ?MenRanking = '[|5,1,2,4,3,|4,1,3,2,5,|5,3,2,4,1,|1,5,4,3,2,|4,3,2,1,5|]',
+       writeln(?Result)@\io,
+       \false
+   ;
+       \true
+   ).
+
+// prod-planning.mzn
+?- nl@\plg, writeln('Example: Product planning')@\io,
+   (solve('minizinc/prod-planning.mzn',['minizinc/prod-planning.dzn','minizinc/prod-planning2.dzn'],[profit=[400,550]],?,1,plan(+profit=maxprofit,Products=produce,Resources=used),?Result,?Exceptions)@mzn,
+       writeln(?Result)@\io,
+       \false
+   ;
+       \true
+   ).
+
+// N queens
+?- nl@\plg, writeln('Example: N Queens')@\io,
+   (solve('minizinc/queens.mzn',[],[n=13],?,3,board(q),?Result,?Exceptions)@mzn,
+       writeln(?Result)@\io,
+       \false
+   ;
+       \true
+   ).
+
+// SEND+MORE+MONEY: as an example, using non-default 'chuffed' solver
+// bundled with Minizinc.
+// The chuffed solver is not nearly as powerful as gecode (default);
+// it cannot do optimization, for example.
+?- nl@\plg, writeln('Example: Sendmoney')@\io,
+   (solve('minizinc/sendmoney.mzn',[],[],chuffed,3,money(+send = [S,E,N,D],+more = [M,O,R,E], +money = [M,O,N,E,Y]),?Result,?Exceptions)@mzn,
+       writeln(?Result)@\io,
+       \false
+   ;
+       \true
+   ).
+
+// Knapsack
+?- nl@\plg, writeln('Example: Knapsack')@\io,
+   (solve('minizinc/knapsack.mzn',['minizinc/knapsack.dzn'],[capacity=200,weights=[90,72,43,40,33], ITEM=anon_enum(5)],?,1,sack(+ 'total weight' = total_weight,+'total profit' = total_profit, +knapsack = knapsack),?Result,?Exceptions)@mzn,
+       writeln(?Result)@\io,
+       \false
+   ;
+       \true
+   ).
+
+// Social golfers
+?- nl@\plg, writeln('Example: Golfers')@\io,
+   (solve('minizinc/golfer.mzn',[],[weeks=4,groups=4,size=3],?,3,golfer(str(groups) = GROUP,str(weeks) = WEEK, str(schedule) = Sched),?Result,?Exceptions)@mzn,
+       writeln(?Result)@\io,
+       \false
+   ;
+       \true
+   ).
+
+// Job shop
+?- nl@\plg, writeln('Example: Job shop')@\io,
+   (solve('minizinc/jobshop.mzn',['minizinc/jobshop.dzn'],[JOB=anon_enum(5),TASK=anon_enum(5)],?,1,jobs(+total_duration=end,+jobs = JOB,+tasks = TASK, +schedule = s),?Result,?Exceptions)@mzn,
+       writeln(?Result)@\io,
+       \false
+   ;
+       \true
+   ).
+
+// Repayment of loan in installments.
+// Gecode can't solve this due to floats - use osicbc
+?- nl@\plg, writeln('Example: Loan repayment')@\io,
+   (solve('minizinc/loan.mzn',[],[I=0.04,P=1000,R=260.0],osicbc,1,loan(+borrowed=P,+interest=I*100.0,+repayments = R,+remainder = B4),?Result,?Exceptions)@mzn,
+       writeln(?Result)@\io,
+       \false
+   ;
+       \true
+   ).
+
+
+// Simple game theory problem.
+// Gecode can't solve this due to floats - use osicbc
+?- nl@\plg, writeln('Example: Game theory problem, uses linear programming')@\io,
+   (solve('minizinc/game.mzn',[],[n=3,A = '[|0.0,1.0,-2.0,|-3.0,0.0,4.0,|5.0,-6.0,0.0|]'],osicbc,1,game(+X=X,+w=w),?Result,?Exceptions)@mzn,
+       writeln(?Result)@\io,
+       \false
+   ;
+       \true
+   ).
+        
+
+?- feedback{on}.  // show var bindings

@@ -1,0 +1,166 @@
+/************************************************************************
+  File: includes/flrtrailer.flh
+  Author(s): Michael Kifer
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+
+  This file is automatically included by the FLORA-2 compiler.
+**************************************************************************/
+
+%% Loadable trailer includes headers and other stuff that includes
+%% various macro definitions. When a trailer is included directly then
+%% macro definitions would be included prior to the trailer. In this
+%% case LOADABLETRAILER will be undefined and flrheader.flh and
+%% friends won't be included.
+
+:-(compiler_options([spec_off])).
+
+#mode standard Prolog
+
+#ifdef LOADABLETRAILER
+
+#include "flrheader.flh"
+#include "flora_porting.flh"
+
+/*
+   flrutils.P also includes FLHEADER2 at the end of the trailer.
+   This is needed in order to always have static definitions for
+   tabling available. Otherwise, XSB dumps core when dynamic
+   ?- table definitions are executed.
+   For instance, if we execute:
+       semantics{tabling(subsumptive)}.
+*/
+#define TABLING_CONNECTIVE  ?-
+
+#include "flora_tabling_methods.flh"
+
+/* note: inside flrtable.flh there are checks for FLORA_NONTABLED_DATA_MODULE
+   that exclude tabling non-signature molecules
+*/
+#ifndef FLORA_NONTABLED_MODULE
+#include "flrtable.flh"
+#endif
+
+/* if normal tabled module, then table hilog */
+#if !defined(FLORA_NONTABLED_DATA_MODULE) && !defined(FLORA_NONTABLED_MODULE)
+#include "flrhilogtable.flh"
+#endif
+
+#include "flrtable_always.flh"
+
+#include "flrdyndeclare.flh"
+
+#include "flrauxtables.flh"
+
+
+#include "flrtrailerregistry.flh"
+
+%% include list of tabled predicates
+#mode save
+#mode nocomment "%"
+#if defined(FLORA_FLT_FILENAME)
+#include FLORA_FLT_FILENAME
+#endif
+#mode restore
+
+%% END of LOADABLETRAILER
+#endif
+
+%% Common part to all trailers
+#include "flrcommon.flh"
+
+%% Common part of the trailer with nonmon inheritance
+#ifdef INHERITANCEflogic
+#include "flrcommon_inh.flh"
+#endif
+
+
+%% No equality
+#ifdef EQUALITYnone
+#include "flrnoeqltrailer_common.flh"
+
+#ifdef INHERITANCEflogic
+#include "flrnoeqltrailer_inh.flh"
+#endif
+
+#ifdef INHERITANCEmonotonic
+#include "flrtrailer_mono_inh.flh"
+#include "flrnoeqltrailer.flh"
+#endif
+
+#ifdef INHERITANCEnone
+#include "flrnoeqltrailer.flh"
+#endif
+
+#include "flrprednoeql.flh"
+#endif
+
+
+%% Basic equality
+#ifdef EQUALITYbasic
+#include "flreqltrailer_common.flh"
+
+#ifdef INHERITANCEflogic
+#include "flreqltrailer_inh.flh"
+#endif
+
+#ifdef INHERITANCEmonotonic
+#include "flrtrailer_mono_inh.flh"
+#include "flreqltrailer.flh"
+#endif
+
+#ifdef INHERITANCEnone
+#include "flreqltrailer.flh"
+#endif
+
+#include "flrpredeql.flh"
+#endif
+
+
+%% F-logic equality - DEPRECATED 
+#ifdef EQUALITYflogic
+
+#ifdef INHERITANCEflogic
+#include "flreqltrailer_inh.flh"
+#endif
+
+#ifdef INHERITANCEmonotonic
+#include "flrtrailer_mono_inh.flh"
+#include "flreqltrailer.flh"
+#endif
+
+#ifdef INHERITANCEnone
+#include "flreqltrailer.flh"
+#endif
+
+#include "flrscalareql.flh"
+#include "flrpredeql.flh"
+#endif
+
+
+%% Custom trailer file
+#ifdef CUSTOMTRAILER
+#mode save
+#mode nostring "\""
+#include "CUSTOMTRAILER"
+#mode restore
+#endif
+
+
+#ifdef CUSTOMnone
+#endif
+

@@ -1,0 +1,101 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+\"urn:uuid:1b10a063-6426-4240-a347-580e549bc225"[silk#strict] .
+\"urn:uuid:1b10a063-6426-4240-a347-580e549bc225"[dc#documentation->"the first element of a sequence starts when the sequence starts"] .
+@!{\"urn:uuid:1b10a063-6426-4240-a347-580e549bc225"} when(starts, starts)(?s, ?first) :- sequence(?s, [?first | ?_]) and durative(event)(?s) .
+\"urn:uuid:51c154a0-0910-478c-8fda-f7cb6ef4ce4e"[silk#strict] .
+\"urn:uuid:51c154a0-0910-478c-8fda-f7cb6ef4ce4e"[dc#documentation->"a sequence ends when its last element ends"] .
+@!{\"urn:uuid:51c154a0-0910-478c-8fda-f7cb6ef4ce4e"} when(ends, ends)(?s, ?last) :- sequence(?s, ?list) and durative(event)(?s) and silkb#listLast(?last, ?list) .
+// looks like a mistake: mixed up arguments
+//@!{\"urn:uuid:51c154a0-0910-478c-8fda-f7cb6ef4ce4e"} when(ends, ends)(?s, ?last) :- sequence(?s, ?list) and durative(event)(?s) and silkb#listLast(?list, ?last) .
+\"urn:uuid:7b3dc88f-0af8-41f1-87f3-40c4dba1ec48"[silk#strict] .
+\"urn:uuid:7b3dc88f-0af8-41f1-87f3-40c4dba1ec48"[dc#documentation->"the parts of a sequence occur during the sequence"] .
+@!{\"urn:uuid:7b3dc88f-0af8-41f1-87f3-40c4dba1ec48"} occurs(during)(?y, ?x) :- sequence(?x, ?list) and %silkb#listMember(?list, ?y)@builtin .
+\"urn:uuid:cbb10a96-1cd5-40d6-aee0-d89dcf2a4b5c"[dc#documentation->"cell cycles are the concatenation of interphase followed by M phase"] .
+concatenation(cell(cycle), [interphase, phase(M)]) .
+\"urn:uuid:24ab906a-bd99-47bc-ba82-fcc437407bf3"[dc#documentation->"interphase is the 1st & 2nd growth phases around a synthesis phase"] .
+concatenation(interphase, [phase(G1), phase(S), phase(G2)]) .
+\"urn:uuid:3323e021-87e0-4d5c-9b26-405001ae8ebf"[dc#documentation->"the mitotic phase is mitosis followed by cytokinesis"] .
+concatenation(phase(M), [mitosis, cytokinesis]) .
+\"urn:uuid:3fefde57-eaba-4958-8530-fa550296f914"[dc#documentation->"the mitotic phase occurs only during the cell cycle"] .
+exclusively(part(of))(phase(M), cell(cycle)) .
+\"urn:uuid:81782e3f-e637-4a27-8069-f6b6a1e3ba76"[dc#documentation->"the phase of interphase occur only during interphase"] .
+exclusively(part(of))(phase(G1), interphase) .
+exclusively(part(of))(phase(S), interphase) .
+exclusively(part(of))(phase(G2), interphase) .
+\"urn:uuid:73abfe47-1d60-4559-a572-71d9d06f2190"[dc#documentation->"mitosis occurs only during the mitotic phase of the cell cycle"] .
+exclusively(part(of))(mitosis, phase(M)) .
+\"urn:uuid:9e55ad2c-e211-4cbc-8736-fcf7366c54fc"[silk#derivedFrom->\"urn:uuid:40e58b6c-31c8-42e0-98fb-cde45dbc6724"] .
+\"urn:uuid:9e55ad2c-e211-4cbc-8736-fcf7366c54fc"[silk#derivedUsing->LloydToporTransform] .
+\"urn:uuid:9e55ad2c-e211-4cbc-8736-fcf7366c54fc"[dc#documentation->"a concatentation is a durative event covered by non-overlapping events"] .
+signature(concatenation, [durative(event), list(event)]) .
+\"urn:uuid:eccd8217-9632-478f-a77c-f8ad99fe8235"[silk#derivedFrom->\"urn:uuid:40e58b6c-31c8-42e0-98fb-cde45dbc6724"] .
+\"urn:uuid:eccd8217-9632-478f-a77c-f8ad99fe8235"[silk#derivedUsing->LloydToporTransform] .
+\"urn:uuid:eccd8217-9632-478f-a77c-f8ad99fe8235"[dc#documentation->"a concatentation is a durative event covered by non-overlapping events"] .
+more(specific)(concatenation, sequence) .
+\"urn:uuid:f559d6a9-9c6c-4a0a-8782-eab503d33344"[dc#documentation->"parts of concatenations are immediately followed by their successor"] .
+@!{\"urn:uuid:f559d6a9-9c6c-4a0a-8782-eab503d33344"} immediately(follows)(in(?c))(?y, ?x) :- concatenation(?c, ?list) and silkb#listAdjacent(?x, ?y, ?list) .
+\"urn:uuid:a01d5bc3-bf96-4e98-a643-7cf28762391d"[dc#documentation->"immediately follows in is a special case of follows in"] .
+@!{\"urn:uuid:a01d5bc3-bf96-4e98-a643-7cf28762391d"} more(specific)(immediately(follows)(in(?x)), follows(in(?x))) :- binary(relation)(follows(in(?x))) .
+\"urn:uuid:fff4b3de-caa0-4bf6-a4ff-79f2dad98bae"[dc#documentation->"events follow events in durative events"] .
+@!{\"urn:uuid:fff4b3de-caa0-4bf6-a4ff-79f2dad98bae"} signature(follows(in(?x)), [event, event]) :- durative(event)(?x) .
+\"urn:uuid:8de7205a-50e1-4aba-8e52-c5feb13f650a"[dc#documentation->"'follows in' is a strict partial order within a process"] .
+@!{\"urn:uuid:8de7205a-50e1-4aba-8e52-c5feb13f650a"} strict(partial(order))(follows(in(?x))) :- binary(relation)(follows(in(?x))) .
+\"urn:uuid:ee2f4959-edf7-43b4-94b3-41ffc1935d86"[dc#documentation->"specializing by 'immediately' implies anti-transitive"] .
+@!{\"urn:uuid:ee2f4959-edf7-43b4-94b3-41ffc1935d86"} antitransitive(immediately(?follows)(?in)) :- binary(relation)(immediately(?follows)(?in)) .
+\"urn:uuid:95b6b659-154f-4a35-928c-63f1c16ff638"[dc#documentation->"an event that follows another event in a process is part of the process"] .
+@!{\"urn:uuid:95b6b659-154f-4a35-928c-63f1c16ff638"} immediate(part(of))(?event, ?process) :- follows(in(?process))(?_, ?event) .
+\"urn:uuid:b2d17d1d-6948-4463-a9c2-480f228422a9"[dc#documentation->"an event that precedes another event in a process is part of the process"] .
+@!{\"urn:uuid:b2d17d1d-6948-4463-a9c2-480f228422a9"} immediate(part(of))(?event, ?process) :- follows(in(?process))(?event, ?_) .
+\"urn:uuid:688182a6-7c72-4b11-894c-5c0ccd937d1d"[silk#derivedFrom->\"urn:uuid:f5f4675f-f76f-4e00-b67c-a6ba2019f080"] .
+\"urn:uuid:688182a6-7c72-4b11-894c-5c0ccd937d1d"[silk#derivedUsing->LloydToporTransform] .
+\"urn:uuid:688182a6-7c72-4b11-894c-5c0ccd937d1d"[dc#documentation->"immediate follows in is an intransitive special case of follows in"] .
+more(specific)(immediate(part(of)), part(of)) .
+\"urn:uuid:54acafed-18eb-481d-9970-870be549cf65"[silk#derivedFrom->\"urn:uuid:f5f4675f-f76f-4e00-b67c-a6ba2019f080"] .
+\"urn:uuid:54acafed-18eb-481d-9970-870be549cf65"[silk#derivedUsing->LloydToporTransform] .
+\"urn:uuid:54acafed-18eb-481d-9970-870be549cf65"[dc#documentation->"immediate follows in is an intransitive special case of follows in"] .
+antitransitive(immediate(part(of))) .
+\"urn:uuid:378bbc54-6ab2-457b-88e8-1b80fbf46390"[silk#derivedFrom->\"urn:uuid:cf306d22-fc7f-458e-94bd-2e92ff67888a"] .
+\"urn:uuid:378bbc54-6ab2-457b-88e8-1b80fbf46390"[silk#derivedUsing->LloydToporTransform] .
+\"urn:uuid:378bbc54-6ab2-457b-88e8-1b80fbf46390"[dc#documentation->"part of forms a strict partial order"] .
+strict(partial(order))(part(of)) .
+\"urn:uuid:9e6c69a5-87dd-466b-9f68-98842fefdaa5"[silk#derivedFrom->\"urn:uuid:cf306d22-fc7f-458e-94bd-2e92ff67888a"] .
+\"urn:uuid:9e6c69a5-87dd-466b-9f68-98842fefdaa5"[silk#derivedUsing->LloydToporTransform] .
+\"urn:uuid:9e6c69a5-87dd-466b-9f68-98842fefdaa5"[dc#documentation->"part of forms a strict partial order"] .
+inverse(part(of), has(part)) .
+\"urn:uuid:5e672b4b-446d-43a5-b993-4ee9569fd2f7"[dc#documentation->"processes are durative events"] .
+more(specific)(process, durative(event)) .
+\"urn:uuid:532b8027-8f46-49f8-9c10-fba4aea8561d"[dc#documentation->"durative events are events that are durative"] .
+intersection(durative(event), [durative, event]) .
+\"urn:uuid:bf36e093-1628-40f0-a38f-83857c2d60f0"[dc#documentation->"durative and instantaneous are disjoint"] .
+disjoint(durative, instantaneous) .
+\"urn:uuid:ae29c7fd-6f3b-47cf-94b3-3cd6939157bc"[dc#documentation->"instantaneous events are events that are instantaneous"] .
+intersection(instantaneous(event), [instantaneous, event]) .
+\"urn:uuid:e70ccbfb-8166-49ee-a51c-3ac9ed877609"[dc#documentation->"the beginning of a durative event is an instantaneous event"] .
+more(specific)(beginning, instantaneous(event)) .
+\"urn:uuid:1b0c069d-4ef4-442e-a09b-3710333aa6ae"[dc#documentation->"the end of a durative event is an instantaneous event"] .
+more(specific)(end, instantaneous(event)) .
+\"urn:uuid:1ef3f5f5-6b50-45e5-84a9-04aca5a41fca"[silk#derivedFrom->\"urn:uuid:68e5a9a5-4587-41ab-8a19-7dacc1ca70c6"] .
+\"urn:uuid:1ef3f5f5-6b50-45e5-84a9-04aca5a41fca"[silk#derivedUsing->OmniRuleTransform] .
+\"urn:uuid:1ef3f5f5-6b50-45e5-84a9-04aca5a41fca"[silk#strict] .
+\"urn:uuid:1ef3f5f5-6b50-45e5-84a9-04aca5a41fca"[dc#documentation->"durative events begin at their beginning"] .
+signature(begins, [beginning, durative(event)]) .
+\"urn:uuid:b9067cde-08a4-4269-a47b-32087245a867"[silk#derivedFrom->\"urn:uuid:ce11f1ef-37aa-45ca-b443-f7eea09d1aca"] .
+\"urn:uuid:b9067cde-08a4-4269-a47b-32087245a867"[silk#derivedUsing->OmniRuleTransform] .
+\"urn:uuid:b9067cde-08a4-4269-a47b-32087245a867"[silk#strict] .
+\"urn:uuid:b9067cde-08a4-4269-a47b-32087245a867"[dc#documentation->"durative events end  at their end"] .
+signature(ends, [ending, durative(event)]) .
+\"urn:uuid:c79fc588-ca76-4dc7-9b5f-46435cad0b14"[silk#derivedFrom->\"urn:uuid:11cd73d4-7610-4291-8df1-c3060206d4f5"] .
+\"urn:uuid:c79fc588-ca76-4dc7-9b5f-46435cad0b14"[silk#derivedUsing->OmniRuleTransform] .
+\"urn:uuid:c79fc588-ca76-4dc7-9b5f-46435cad0b14"[silk#strict] .
+\"urn:uuid:c79fc588-ca76-4dc7-9b5f-46435cad0b14"[dc#documentation->"the beginning of an event is before its ending"] .
+@!{\"urn:uuid:c79fc588-ca76-4dc7-9b5f-46435cad0b14"} before(?x, ?y) :- begins(?x, ?event) and ends(?y, ?event) .
+\"urn:uuid:6282d992-a351-4d9c-bdf3-7eaca4336916"[dc#documentation->"events are situations, not states"] .
+disjoint(union)(situation, [event, state]) .
+\"urn:uuid:ee40f0e0-dc7a-45a0-8d7c-2043daa35829"[dc#documentation->"events are either durative or instantaneous"] .
+partition(event, [durative, instantaneous]) .
+silkb#listAdjacent(?x, ?y, [?x, ?y | ?_]) .
+@!{\"urn:uuid:a76965df-08d2-4c9d-98cc-97938c09c99f"} silkb#listAdjacent(?x, ?y, [?_ | ?l]) :- silkb#listAdjacent(?x, ?y, ?l) .
+silkb#listLast(?x, [?x]) .
+@!{\"urn:uuid:2811e7ee-6a1d-4a63-b66f-90e1ec96e8bf"} silkb#listLast(?x, [?_ | ?list]) :- silkb#listLast(?x, ?list) .
+silkb#listFirst(?x, [?x | ?_]) .

@@ -1,0 +1,56 @@
+/*
+  This script invokes the FLORA-2 XPath parser on all the files in the 
+  XSB/examples/xpath/files/ subdirectory and on some remote URLs.
+
+  Invoke as demo{'xpath/sgmltest'} or load directly from this directory.
+*/
+
+?- 
+	%xpathdir(?XpathDir),
+	flora_slash(?Slash)@\prolog(flrporting),
+	nl@\prolog,
+        set_mode(debug)@\xml,
+
+	fmt_write_string(?TestPath, '%s', f1(?XpathDir))@\io,
+	(flora_file_op(chdir, xpath)@\prolog(flrporting), !; \true),
+	
+	\unless path_sysop(isdir, 'actualoutput')@\prolog(file_io) \do
+	path_sysop(mkdir, 'actualoutput')@\prolog(file_io),
+
+	fmt_write_string(?OutFile1, 'actualoutput%sgreeting.ok', f1(?Slash))@\io,
+	?OutFile1[tell]@\io,
+	string('<greeting>Hi! My name is
+	<first>John</first>
+	<last>Smith</last>.</greeting>')[xpath_sgml('/greeting','',greeting) -> ?]@\xml,
+	told@\io,
+
+        fmt_write_string(?TestFile2, '%s%sexamples.xml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile2, 'actualoutput%sexample1.ok', f1(?Slash))@\io,
+	?OutFile2[tell]@\io,
+        ?TestFile2[xpath_xml('/examples/example[@filename=''parse2.c'']','',example1) -> ?]@\xml,
+	told@\io,
+
+	fmt_write_string(?OutFile3, 'actualoutput%sexample2.ok', f1(?Slash))@\io,
+	?OutFile3[tell]@\io,
+       	file(?TestFile2)[xpath_xml('/examples/example[3]','',example2) -> ?]@\xml,
+	told@\io,
+
+	fmt_write_string(?OutFile4, 'actualoutput%sw3.ok', f1(?Slash))@\io,
+	?OutFile4[tell]@\io,
+       	url('http://w3.org')[xpath_xml('/x:html/x:head/x:meta','x=http://www.w3.org/1999/xhtml',w3) -> ?]@\xml,
+	told@\io,
+
+	nl@\prolog,
+	nl@\prolog,
+	writeln('***** Output is redirected to *.ok files in actualoutput directory')@\io,
+	writeln('***** Compare them with *.ok files in expectedoutput directory')@\io,
+	writeln('***** Note: The outputs will differ in their choice of anonymous OIDs')@\io,
+	nl@\prolog.
+
+%xpathdir(?XpathDir) :-
+        xsb_configuration(install_dir, ?PackDir)@\prolog(xsb_configuration),
+        slash(?Slash)@\prolog(machine),
+        fmt_write_string(?XpathDir, '%s%sexamples%sxpath%sfiles',
+			 f4(?PackDir, ?Slash, ?Slash, ?Slash))@\io.
+
+

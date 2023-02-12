@@ -1,0 +1,69 @@
+/* File:      ergo_explain_utils.P
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2018-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+:- compiler_options([xpp_on]).
+
+#include "standard.h"
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+:- import check_variant/1 from tables.
+:- import flora_generalize_context/2 from flrtrim.
+:- export
+        ergo_ignore_repeated_subgoals/1,
+        ergo_remember_subgoal/1,
+        ergo_check_subgoal/1,
+        ergo_clear_seen_subgoals/0.
+
+:- dynamic ignore_repeated_subgoals/1.
+:- dynamic ergo_explain_seen_subgoals/1.
+:- index(ergo_explain_seen_subgoals/1,trie).
+
+
+ergo_remember_subgoal(Sg) :-
+        ignore_repeated_subgoals(on),
+        !,
+        flora_generalize_context(Sg,SgGen),
+        assert(ergo_explain_seen_subgoals(SgGen)).
+ergo_remember_subgoal(_).
+
+ergo_check_subgoal(Sg)    :-
+        ignore_repeated_subgoals(on),
+        flora_generalize_context(Sg,SgGen),
+        check_variant(ergo_explain_seen_subgoals(SgGen)).
+
+ergo_clear_seen_subgoals  :- retractall(ergo_explain_seen_subgoals(_)).
+
+ergo_ignore_repeated_subgoals(on) :-
+        assert(ignore_repeated_subgoals(on)).
+ergo_ignore_repeated_subgoals(off) :-
+        retractall(ignore_repeated_subgoals(_)).
+
+%%%%%% pred below not used
+:- dynamic justificationTree_cache/1.
+:- index(justificationTree_cache/1,trie).
+
+:- export
+        check_justification_cache/1,
+        insert_justification_cache/1.
+
+check_justification_cache(X) :- justificationTree_cache(X).
+insert_justification_cache(X) :- assert(justificationTree_cache(X)).

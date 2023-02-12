@@ -1,0 +1,26 @@
+   template(headbody,   // headbody is reserved context                  (T1)
+            \(?X is not only a ?Y, but also a (salaried) ?Z\),
+            (?X:{?Y,?Z})).
+   template(rule,       // rule is not a reserved context keyword        (T2)
+            \(If ?P has ?Thing and paid for it then s/he likes it\),
+            (?P[likes->?Thing] :- ?P[{has,paidfor}->?Thing])).
+   template(headbody,  // reserved context, used for documentation       (T3)
+            \(?X cares for ?Y\), ?X[caresfor->?Y]).
+   template(headbody,      // reserved context                           (T4)
+            \(?X has ?Y\), ?X[has->?Y]).
+   template(query,     // not reserved, used for documentation           (T5)
+            \(insert rule: if ?X has more than 5M then he is rich\),
+            (?- insertrule{?X:rich :- ?X[networth->?W], ?W>5000000})).
+   template(insdel,    // reserved for insert{...}/delete{...}           (T6)
+            \(?X is an ?Y\), ?X:?Y).
+   template(dynrule,   // reserved                                       (T7)
+            \(?someone with at least 5M is rich\),
+            (?someone:rich :- ?someone[networth->?W], ?W>5000000)).
+   template(rule, \(Here is a rule with Id=?I & Tag=?T: If it rains, it pours\),
+             (@!{?I[tag->?_P]} @{?T} pours(?X) :- rains(?X))).
+
+   template(body,\(Is ?X true?\), ?X).
+   template(body,\(?X greater than ?Y\), ?X>?Y).
+
+   template(head,\(test for symbol context\), p(b)).
+

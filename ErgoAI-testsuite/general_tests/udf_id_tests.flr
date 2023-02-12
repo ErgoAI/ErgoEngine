@@ -1,0 +1,64 @@
+@!{bbbbbb[ppp->kkk]}  bbbb(?X) :-  qqq(?X,?).
+@!{hhhhhh[ppp->kkk]}  bbbb(?X) :-  qqq(?X,?).
+
+@!{aaaaa1[ppp->kkk]} \udf aaa(?X) :=  qqq(?X,?).
+@!{aaaaa2[ppp->kkk]} \udf aaa(?X) := ?Y \if qqq(?X,?Y).
+@!{cccccc[ppp->kkk]} \udf ccc(?X) := ?Y \if qqq(?X,?Y).
+
+\udf sss(?X) :=  qqq(?X,?).
+\udf rrr(?X) :=  qqq(?X,?).
+\udf ddd(?X) := ?Y \if qqq(?X,?Y).
+\udf eee(?X) := ?Y \if qqq(?X,?Y).
+
+
+?- (
+        clause{@!{?_I[?_P->?_T]} ?_H,?_B},
+        (?_I[show->?_IA], ?_P[show->?_PA], ?_T[show->?_TA],
+         ?_H[show->?_HA], ?_B[show->?_BA])@\show,
+         writeln(test1 = ?_IA+?_PA+?_TA+?_HA+?_BA)@\plg,
+        \false
+    ; \true
+   ).
+
+?- (
+        clause{?_H,?_B},
+        (?_H[show->?_HA], ?_B[show->?_BA])@\show,
+         writeln(test2 = ?_HA+?_BA)@\plg,
+        \false
+    ; \true
+   ).
+
+?- (
+        @!{?_I[?_P->?_T]},
+        (?_I[show->?_IA], ?_P[show->?_PA], ?_T[show->?_TA])@\show,
+         writeln(test3 = ?_IA+?_PA+?_TA)@\plg,
+        \false
+    ; \true
+   ).
+
+?- (
+        clause{@!{?_I[?_P->?_T]} (ddd(?) := ?),?_B},
+        (?_I[show->?_IA], ?_P[show->?_PA], ?_T[show->?_TA],
+         ?_B[show->?_BA])@\show,
+         writeln(test4 = ?_IA+?_PA+?_TA+?_BA)@\plg,
+        \false
+    ; \true
+   ).
+
+?- (
+        clause{@!{?_I[?_P->?_T]} (ddd(eee(?)) := ?),?_B},
+        (?_I[show->?_IA], ?_P[show->?_PA], ?_T[show->?_TA],
+         ?_B[show->?_BA])@\show,
+         writeln(test5 = ?_IA+?_PA+?_TA+?_BA)@\plg,
+        \false
+    ; \true
+   ).
+
+?- (
+        clause{@!{?_I[?_P->kkk,type->udf]} (?_udf(?) := ?),?_B},
+        (?_I[show->?_IA], ?_P[show->?_PA], ?_udf[show->?_udfA],
+         ?_B[show->?_BA])@\show,
+         writeln(test6 = ?_IA+?_PA+?_udfA+?_BA)@\plg,
+        \false
+    ; \true
+   ).

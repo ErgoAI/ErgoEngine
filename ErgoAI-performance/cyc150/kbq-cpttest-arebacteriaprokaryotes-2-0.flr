@@ -1,0 +1,65 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-AreBacteriaProkaryotes-2 (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genls(MoneraKingdom, ProkaryoticCell)).
+istAsserted(UniversalVocabularyMt, genls(Bacterium, MoneraKingdom)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeWithGranularityDimFn(Now, TimePoint))).
+//REMOVED TITLE('KBQ  : $CPTTest-AreBacteriaProkaryotes-2 0').
+%pretest :- genls(Bacterium, ProkaryoticCell), %write_results('SUCCESS  : $CPTTest-AreBacteriaProkaryotes-2 0').
+
+// Debugging
+proof(11311, 0) :- genls(Bacterium, ProkaryoticCell).
+
+proof(11311, 1000) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(11311, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(11311, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(11311, 2002) :- admittedArgument(SecondFn(21, MinuteFn(48, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(11311, 2003) :- admittedArgument(SecondFn(21, MinuteFn(48, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(11311, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeWithGranularityDimFn(Now, TimePoint)), UniversalVocabularyMt).
+proof(11311, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeWithGranularityDimFn(Now, TimePoint)), BaseKB).
+proof(11311, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeWithGranularityDimFn(Now, TimePoint)), MtSpace(CytologicalProcessesQueryMt, MtTimeWithGranularityDimFn(Now, TimePoint))).
+proof(11311, 2007) :- genls(Bacterium, ProkaryoticCell). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

@@ -1,0 +1,92 @@
+
+\subsection{Fast Loading Vast Amounts of Data}
+
+When one needs to load vast amounts of data (hundreds of thousands to
+millions of facts), running them through the regular \FLSYSTEM compiler can
+take too long because that compiler is built to recognize the rich syntax
+of \FLSYSTEM. In contrast, large data sets invariably have very simple
+structure and it would be a waste to run a complex compiler to import all
+that data. To this end, \FLSYSTEM provides special primitives to load,
+query, and destroy such vast amounts of data provided the input has very
+regular structure: Prolog (not HiLog)
+terms with no infix, prefix, or postfix operators.
+It can contain \FLSYSTEM preprocessor commands (Section~\ref{sec-gpp})
+and comments, but the comments must be either enclosed between \texttt{/*
+  ... */} or be one-line comments beginning with a \texttt{\%} ({\it
+  i.e.}, Prolog style, not \FLSYSTEM style).   
+
+For instance, the following input would work
+%% 
+\begin{verbatim}
+   foo(1,bar(abc,cde),q2).
+   foo(2,bar(ab,ce),q3).
+   bar(23,foo(123,[a,b,c]),"q33").
+\end{verbatim}
+%% 
+but the following will cause errors and loading will be aborted:
+%% 
+\begin{verbatim}
+   foo(2,bar(ab,ce),q3).  %% ok
+   foo(1+2,abc).          %% nope: + is an infix operator
+   bar(2,foo(123,"q33").  %% nope: parentheses missing
+   pqr(1,?f(2,g(3))).     %% nope: ?f(2,...) is a HiLog term
+   pqr(1,ff(2,${g(3)})).  %% nope: reification (${g(3)}) isn't allowed
+\end{verbatim}
+%% 
+The fast-loaded facts are placed in a special storage container that is not
+accessible to regular queries: these facts are to be queried via a special
+primitive. The primitives for fast-loading and working with these storage
+containers are as follows:
+%% 
+\begin{itemize}
+\item  \texttt{fastload\{{\it FileName\/},{\it Storage\/}\}} --- fast load
+  \emph{Filename} into storage container \emph{Storage}. \emph{Filename}
+  must have the extension \texttt{.P} and
+  \emph{Storage} must be an alphanumeric string.
+  Executing multiple \texttt{fastload} commands for the same storage name
+  will add all facts up from the files involved.
+  Duplicates are \emph{not} eliminated.
+  \\
+  Example: \texttt{?- fastload\{myfile,mystorage\}}. 
+\item \texttt{fastquery\{{\it Storage\/},{\it Query\/}\}} --- query    
+  the information stored in the storage container \emph{Storage}.
+  \emph{Query} must be a HiLog term. Other forms are also allowed, but
+  they will return nothing, as they will not match the input of the form
+  described above. Variables in the query term are allowed.
+  Note also that even though the input consists of Prolog terms, they are
+  converted to HiLog so HiLog terms can be used to query the information
+  stored in these containers.
+  \\
+  Examples:\\
+  \hspace*{5mm}\texttt{?- fastquery\{mystorage,?X\}}. \\
+  \hspace*{5mm}\texttt{?- fastquery\{mystorage,?Y(p,q)\}}. \\
+  \hspace*{5mm}\texttt{?- fastquery\{mystorage,r(p,q)\}}.
+\item \texttt{fasterase\{{\it Storage\/}\}} --- erase all the information
+  in the given storage container.   
+  \\
+  Example: \texttt{?- fasterase\{mystorage\}}. 
+\end{itemize}
+%% 
+
+\paragraph{Notes:}
+%% 
+\begin{itemize}
+\item  The \texttt{fastload} command should not occur in the body of any
+  rule that has a tabled head-literal---directly or indirectly (via other
+  rules). The most straightforward way to call \texttt{fastload} is via a
+  top-level query, as in the above examples. 
+\item The intended use of \texttt{fastload} is that the data will be loaded
+  early in the process, before any kind of significant queries are
+  computed. It is not an error to call \texttt{fastload} \emph{after} such
+  queries, but then the tables associated with those
+  queries will be abolished. The result will be that, if the same or related
+  queries are asked again, they will be recomputed from scratch,
+  resulting in some delay. 
+\end{itemize}
+%% 
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

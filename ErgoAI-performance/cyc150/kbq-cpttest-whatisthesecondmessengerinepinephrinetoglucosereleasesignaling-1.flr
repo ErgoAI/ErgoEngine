@@ -1,0 +1,117 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhatIsTheSecondMessengerInEpinephrineToGlucoseReleaseSignaling (query 1)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_Biology_Chapter_11.2C_Self_Quiz_Question_10
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlPreds('functionCorrespondingPredicate-Canonical', functionCorrespondingPredicate)).
+istAsserted(UniversalVocabularyMt, genlPreds('functionCorrespondingPredicate-Canonical', functionCorrespondsToPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, 'functionCorrespondingPredicate-Canonical'(CytosolicReleaseOfChemicalObjectTypeFn, objectTypeReleasedInCytoplasmDuring, 2)).
+istAsserted(BaseKB, termOfUnit(CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate), CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genls(CyclicNucleotide, Nucleotide)).
+istAsserted(UniversalVocabularyMt, genls(CyclicAdenosineMonophosphate, CyclicNucleotide)).
+
+// Implicit Background Rules
+forwardSentence(?PRED(?ARG, ?TOU)) :- naf impPred(?PRED), removalSentence(functionCorrespondingPredicate(?FUNC, ?PRED, 2)), removalSentence(termOfUnit(?TOU, ?FUNC(?ARG))).
+forwardSentence(?PRED(?ARG, ?TOU)) :- naf impPred(?PRED), removalSentence(functionCorrespondsToPredicate(?FUNC, ?PRED, 2)), removalSentence(termOfUnit(?TOU, ?FUNC(?ARG))).
+
+// Explicit Background Facts
+istAsserted(MolecularBiologyMt, pathStageFacilitatesCellularResponseType('GlycogenBreakdown-CellularSignalingScript', CyclicAMPProduction, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate))).
+istAsserted(MolecularBiologyMt, transductionPathTypeOfSignalProcessType(CellularSignalToResponseProcessTypeFn(IntercellularMediumReleaseOfChemicalObjectTypeFn(EpinephrineMolecule, OrganismPartTypeFn(HomoSapiens, Bloodstream)), CytosolicReleaseOfChemicalObjectTypeFn(Glucose1PhosphateMolecule)), 'GlycogenBreakdown-CellularSignalingScript')).
+
+// Explicit Background Rules
+backwardSentence(chemicalObjectsOfTypeAreSecondMessengersInSignalProcess(?PROCESS, ?OBJ_TYPE)) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(chemicalObjectsOfTypeAreSecondMessengersInSignalProcess), transductionPathTypeOfSignalProcessType(?SIGNALING_PROCESS_TYPE, ?TRANSDUCTION_TYPE), pathStageFacilitatesCellularResponseType(?TRANSDUCTION_TYPE, ?XSTAGE_TYPE, ?RESPONSE_TYPE), objectTypeReleasedInCytoplasmDuring(?OBJ_TYPE, ?RESPONSE_TYPE), genls(?OBJ_TYPE, Nucleotide), isa(?PROCESS, ?SIGNALING_PROCESS_TYPE).
+backwardSentence(not(genls(?OBJ_TYPE, Nucleotide))) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(genls), transductionPathTypeOfSignalProcessType(?SIGNALING_PROCESS_TYPE, ?TRANSDUCTION_TYPE), pathStageFacilitatesCellularResponseType(?TRANSDUCTION_TYPE, ?XSTAGE_TYPE, ?RESPONSE_TYPE), objectTypeReleasedInCytoplasmDuring(?OBJ_TYPE, ?RESPONSE_TYPE), isa(?PROCESS, ?SIGNALING_PROCESS_TYPE), not(chemicalObjectsOfTypeAreSecondMessengersInSignalProcess(?PROCESS, ?OBJ_TYPE)).
+backwardSentence(not(objectTypeReleasedInCytoplasmDuring(?OBJ_TYPE, ?RESPONSE_TYPE))) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(objectTypeReleasedInCytoplasmDuring), transductionPathTypeOfSignalProcessType(?SIGNALING_PROCESS_TYPE, ?TRANSDUCTION_TYPE), pathStageFacilitatesCellularResponseType(?TRANSDUCTION_TYPE, ?XSTAGE_TYPE, ?RESPONSE_TYPE), genls(?OBJ_TYPE, Nucleotide), isa(?PROCESS, ?SIGNALING_PROCESS_TYPE), not(chemicalObjectsOfTypeAreSecondMessengersInSignalProcess(?PROCESS, ?OBJ_TYPE)).
+backwardSentence(not(isa(?PROCESS, ?SIGNALING_PROCESS_TYPE))) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(isa), transductionPathTypeOfSignalProcessType(?SIGNALING_PROCESS_TYPE, ?TRANSDUCTION_TYPE), pathStageFacilitatesCellularResponseType(?TRANSDUCTION_TYPE, ?XSTAGE_TYPE, ?RESPONSE_TYPE), objectTypeReleasedInCytoplasmDuring(?OBJ_TYPE, ?RESPONSE_TYPE), not(chemicalObjectsOfTypeAreSecondMessengersInSignalProcess(?PROCESS, ?OBJ_TYPE)), genls(?OBJ_TYPE, Nucleotide).
+backwardSentence(not(transductionPathTypeOfSignalProcessType(?SIGNALING_PROCESS_TYPE, ?TRANSDUCTION_TYPE))) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(transductionPathTypeOfSignalProcessType), pathStageFacilitatesCellularResponseType(?TRANSDUCTION_TYPE, ?XSTAGE_TYPE, ?RESPONSE_TYPE), objectTypeReleasedInCytoplasmDuring(?OBJ_TYPE, ?RESPONSE_TYPE), genls(?OBJ_TYPE, Nucleotide), isa(?PROCESS, ?SIGNALING_PROCESS_TYPE), not(chemicalObjectsOfTypeAreSecondMessengersInSignalProcess(?PROCESS, ?OBJ_TYPE)).
+backwardSentence(not(pathStageFacilitatesCellularResponseType(?TRANSDUCTION_TYPE, ?XSTAGE_TYPE, ?RESPONSE_TYPE))) :- mtVisible(MolecularBiologyMt), naf backchainForbidden(pathStageFacilitatesCellularResponseType), transductionPathTypeOfSignalProcessType(?SIGNALING_PROCESS_TYPE, ?TRANSDUCTION_TYPE), objectTypeReleasedInCytoplasmDuring(?OBJ_TYPE, ?RESPONSE_TYPE), genls(?OBJ_TYPE, Nucleotide), isa(?PROCESS, ?SIGNALING_PROCESS_TYPE), not(chemicalObjectsOfTypeAreSecondMessengersInSignalProcess(?PROCESS, ?OBJ_TYPE)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259701', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259701', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-CellularSignalToResponseProcessTypeFnIntercellularMediumReleaseOfChemicalObjectTypeFnEpinephrineMoleculeOrganismPartTypeFnHomoSapiensBloodstreamCytosolicReleaseOfChemicalObjectTypeFnGlucose1PhosphateMolecule-259702', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259701', MtTimeDimFn(Now)), isa('HYP-CellularSignalToResponseProcessTypeFnIntercellularMediumReleaseOfChemicalObjectTypeFnEpinephrineMoleculeOrganismPartTypeFnHomoSapiensBloodstreamCytosolicReleaseOfChemicalObjectTypeFnGlucose1PhosphateMolecule-259702', CellularSignalToResponseProcessTypeFn(IntercellularMediumReleaseOfChemicalObjectTypeFn(EpinephrineMolecule, OrganismPartTypeFn(HomoSapiens, Bloodstream)), CytosolicReleaseOfChemicalObjectTypeFn(Glucose1PhosphateMolecule)))).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259713', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259713', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-CellularSignalToResponseProcessTypeFnIntercellularMediumReleaseOfChemicalObjectTypeFnEpinephrineMoleculeOrganismPartTypeFnHomoSapiensBloodstreamCytosolicReleaseOfChemicalObjectTypeFnGlucose1PhosphateMolecule-259714', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259713', MtTimeDimFn(Now)), isa('HYP-CellularSignalToResponseProcessTypeFnIntercellularMediumReleaseOfChemicalObjectTypeFnEpinephrineMoleculeOrganismPartTypeFnHomoSapiensBloodstreamCytosolicReleaseOfChemicalObjectTypeFnGlucose1PhosphateMolecule-259714', CellularSignalToResponseProcessTypeFn(IntercellularMediumReleaseOfChemicalObjectTypeFn(EpinephrineMolecule, OrganismPartTypeFn(HomoSapiens, Bloodstream)), CytosolicReleaseOfChemicalObjectTypeFn(Glucose1PhosphateMolecule)))).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259713')).
+//REMOVED TITLE('KBQ  : $CPTTest-WhatIsTheSecondMessengerInEpinephrineToGlucoseReleaseSignaling 1').
+%pretest :- chemicalObjectsOfTypeAreSecondMessengersInSignalProcess('HYP-CellularSignalToResponseProcessTypeFnIntercellularMediumReleaseOfChemicalObjectTypeFnEpinephrineMoleculeOrganismPartTypeFnHomoSapiensBloodstreamCytosolicReleaseOfChemicalObjectTypeFnGlucose1PhosphateMolecule-259714', ?WHAT_TYPE), %write_results('SUCCESS  : $CPTTest-WhatIsTheSecondMessengerInEpinephrineToGlucoseReleaseSignaling 1').
+
+// Debugging
+proof(2667, 0) :- transductionPathTypeOfSignalProcessType(CellularSignalToResponseProcessTypeFn(IntercellularMediumReleaseOfChemicalObjectTypeFn(EpinephrineMolecule, OrganismPartTypeFn(HomoSapiens, Bloodstream)), CytosolicReleaseOfChemicalObjectTypeFn(Glucose1PhosphateMolecule)), 'GlycogenBreakdown-CellularSignalingScript').
+proof(2667, 1) :- transductionPathTypeOfSignalProcessType(CellularSignalToResponseProcessTypeFn(IntercellularMediumReleaseOfChemicalObjectTypeFn(EpinephrineMolecule, OrganismPartTypeFn(HomoSapiens, Bloodstream)), CytosolicReleaseOfChemicalObjectTypeFn(Glucose1PhosphateMolecule)), 'GlycogenBreakdown-CellularSignalingScript').
+proof(2667, 2) :- isa('HYP-CellularSignalToResponseProcessTypeFnIntercellularMediumReleaseOfChemicalObjectTypeFnEpinephrineMoleculeOrganismPartTypeFnHomoSapiensBloodstreamCytosolicReleaseOfChemicalObjectTypeFnGlucose1PhosphateMolecule-259714', CellularSignalToResponseProcessTypeFn(IntercellularMediumReleaseOfChemicalObjectTypeFn(EpinephrineMolecule, OrganismPartTypeFn(HomoSapiens, Bloodstream)), CytosolicReleaseOfChemicalObjectTypeFn(Glucose1PhosphateMolecule))).
+proof(2667, 3) :- pathStageFacilitatesCellularResponseType('GlycogenBreakdown-CellularSignalingScript', CyclicAMPProduction, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)).
+proof(2667, 4) :- pathStageFacilitatesCellularResponseType('GlycogenBreakdown-CellularSignalingScript', CyclicAMPProduction, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)).
+proof(2667, 5) :- objectTypeReleasedInCytoplasmDuring(CyclicAdenosineMonophosphate, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)).
+proof(2667, 6) :- objectTypeReleasedInCytoplasmDuring(CyclicAdenosineMonophosphate, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)).
+proof(2667, 7) :- genls(CyclicAdenosineMonophosphate, Nucleotide).
+proof(2667, 8) :- genls(CyclicAdenosineMonophosphate, Nucleotide).
+proof(2667, 9) :- genls(CyclicAdenosineMonophosphate, Nucleotide), objectTypeReleasedInCytoplasmDuring(CyclicAdenosineMonophosphate, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)).
+proof(2667, 10) :- genls(CyclicAdenosineMonophosphate, Nucleotide), objectTypeReleasedInCytoplasmDuring(CyclicAdenosineMonophosphate, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)).
+proof(2667, 11) :- genls(CyclicAdenosineMonophosphate, Nucleotide), objectTypeReleasedInCytoplasmDuring(CyclicAdenosineMonophosphate, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)), pathStageFacilitatesCellularResponseType('GlycogenBreakdown-CellularSignalingScript', CyclicAMPProduction, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)).
+proof(2667, 12) :- isa('HYP-CellularSignalToResponseProcessTypeFnIntercellularMediumReleaseOfChemicalObjectTypeFnEpinephrineMoleculeOrganismPartTypeFnHomoSapiensBloodstreamCytosolicReleaseOfChemicalObjectTypeFnGlucose1PhosphateMolecule-259714', CellularSignalToResponseProcessTypeFn(IntercellularMediumReleaseOfChemicalObjectTypeFn(EpinephrineMolecule, OrganismPartTypeFn(HomoSapiens, Bloodstream)), CytosolicReleaseOfChemicalObjectTypeFn(Glucose1PhosphateMolecule))), genls(CyclicAdenosineMonophosphate, Nucleotide), objectTypeReleasedInCytoplasmDuring(CyclicAdenosineMonophosphate, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)), pathStageFacilitatesCellularResponseType('GlycogenBreakdown-CellularSignalingScript', CyclicAMPProduction, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)).
+proof(2667, 13) :- genls(CyclicAdenosineMonophosphate, Nucleotide), isa('HYP-CellularSignalToResponseProcessTypeFnIntercellularMediumReleaseOfChemicalObjectTypeFnEpinephrineMoleculeOrganismPartTypeFnHomoSapiensBloodstreamCytosolicReleaseOfChemicalObjectTypeFnGlucose1PhosphateMolecule-259714', CellularSignalToResponseProcessTypeFn(IntercellularMediumReleaseOfChemicalObjectTypeFn(EpinephrineMolecule, OrganismPartTypeFn(HomoSapiens, Bloodstream)), CytosolicReleaseOfChemicalObjectTypeFn(Glucose1PhosphateMolecule))), objectTypeReleasedInCytoplasmDuring(CyclicAdenosineMonophosphate, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)), pathStageFacilitatesCellularResponseType('GlycogenBreakdown-CellularSignalingScript', CyclicAMPProduction, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)).
+proof(2667, 14) :- genls(CyclicAdenosineMonophosphate, Nucleotide), isa('HYP-CellularSignalToResponseProcessTypeFnIntercellularMediumReleaseOfChemicalObjectTypeFnEpinephrineMoleculeOrganismPartTypeFnHomoSapiensBloodstreamCytosolicReleaseOfChemicalObjectTypeFnGlucose1PhosphateMolecule-259714', CellularSignalToResponseProcessTypeFn(IntercellularMediumReleaseOfChemicalObjectTypeFn(EpinephrineMolecule, OrganismPartTypeFn(HomoSapiens, Bloodstream)), CytosolicReleaseOfChemicalObjectTypeFn(Glucose1PhosphateMolecule))), objectTypeReleasedInCytoplasmDuring(CyclicAdenosineMonophosphate, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)), pathStageFacilitatesCellularResponseType('GlycogenBreakdown-CellularSignalingScript', CyclicAMPProduction, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)), transductionPathTypeOfSignalProcessType(CellularSignalToResponseProcessTypeFn(IntercellularMediumReleaseOfChemicalObjectTypeFn(EpinephrineMolecule, OrganismPartTypeFn(HomoSapiens, Bloodstream)), CytosolicReleaseOfChemicalObjectTypeFn(Glucose1PhosphateMolecule)), 'GlycogenBreakdown-CellularSignalingScript').
+proof(2667, 15) :- chemicalObjectsOfTypeAreSecondMessengersInSignalProcess('HYP-CellularSignalToResponseProcessTypeFnIntercellularMediumReleaseOfChemicalObjectTypeFnEpinephrineMoleculeOrganismPartTypeFnHomoSapiensBloodstreamCytosolicReleaseOfChemicalObjectTypeFnGlucose1PhosphateMolecule-259714', CyclicAdenosineMonophosphate).
+
+proof(2667, 1000) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(2667, 1001) :- objectTypeReleasedInCytoplasmDuring(CyclicAdenosineMonophosphate, CytosolicReleaseOfChemicalObjectTypeFn(CyclicAdenosineMonophosphate)).
+
+proof(2667, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-259713', 1, genlMt).
+proof(2667, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-259713', 2, genlMt).
+proof(2667, 2002) :- admittedArgument(SecondFn(47, MinuteFn(11, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(2667, 2003) :- admittedArgument(SecondFn(47, MinuteFn(11, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(2667, 2004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259713'), UniversalVocabularyMt).
+proof(2667, 2005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259713'), BaseKB).
+proof(2667, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259713'), MolecularBiologyMt).
+proof(2667, 2007) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259713'), MtSpace('Hypothesis-HypotheticalContext-259713', MtTimeDimFn(Now))).
+proof(2667, 2008) :- genlPreds('functionCorrespondingPredicate-Canonical', functionCorrespondsToPredicate).
+proof(2667, 2009) :- genlPreds('functionCorrespondingPredicate-Canonical', functionCorrespondingPredicate).
+proof(2667, 2010) :- genls(CyclicAdenosineMonophosphate, Nucleotide).
+proof(2667, 2011) :- isa('HYP-CellularSignalToResponseProcessTypeFnIntercellularMediumReleaseOfChemicalObjectTypeFnEpinephrineMoleculeOrganismPartTypeFnHomoSapiensBloodstreamCytosolicReleaseOfChemicalObjectTypeFnGlucose1PhosphateMolecule-259714', CellularSignalToResponseProcessTypeFn(IntercellularMediumReleaseOfChemicalObjectTypeFn(EpinephrineMolecule, OrganismPartTypeFn(HomoSapiens, Bloodstream)), CytosolicReleaseOfChemicalObjectTypeFn(Glucose1PhosphateMolecule))). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

@@ -1,0 +1,72 @@
+#include "standard.h"
+
+:- use_argumentation_theory.
+
+q({1,2}).
+r(1).
+
+p(?X) :- q(?X).
+\neg p(?X) :- r(?X).
+
+a[b->?X] :- q(?X).
+\neg a[b->?X] :- r(?X).
+
+\opposes(pp(?_X),rr(?_X)).
+
+@{tag}   pp(?X) :- q(?X).
+@{shmag} rr(?X) :- r(?X).
+
+
+
+
+%tst1 :- writeln(STDWARN,test1='2 sets of single alerts')@\plg,
+         insert{q(3),r(3)}.
+
+%tst2 :- nl(STDWARN)@\plg, writeln(STDWARN,test2='2 sets of 2 alerts each')@\plg,
+         insert{q({6,7}),r({6,7})}.
+
+%tst3 :- nl(STDWARN)@\plg, writeln(STDWARN,test3='no alerts')@\plg,
+         insert{q({8,9}),r(10)}.
+
+%tst4 :- nl(STDWARN)@\plg, writeln(STDWARN,test4='1 set of 2 alerts')@\plg,
+         insert{q({11,12,13}),r({11,13,14})}.
+
+%tst5 :- nl(STDWARN)@\plg, writeln(STDWARN,test5='2 sets of alerts, 2 each; 2nd set is a defeasible conflict')@\plg,
+         insert{q({21,22,23}),r({2,23,24})}.
+
+%tst6 :- nl(STDWARN)@\plg, writeln(STDWARN,test6='trying an alert with a callback: p(?)')@\plg,
+         insert{q({24,27,28}),r({27,28,29})}.
+
+%tst7 :- nl(STDWARN)@\plg, writeln(STDWARN,test7='retracted callback, reinstated the pp(?) alert')@\plg,
+         insert{q({29,30,31}),r({30,31,32})}, delete{r(29)}.
+
+%tst8 :-  nl(STDWARN)@\plg, writeln(STDWARN,test8='testing transactional updates with a pp(?)-alert')@\plg,
+          tinsert{q({55,56,57}),r({56,57,59})}.
+%tst9 :- nl(STDWARN)@\plg, p({56,57}), r({56,57,59}), writeln(STDWARN,test9=ok)@\plg.
+
+callback_p(?Alerts,?File, ?Mod) :-
+        fmt_write(STDWARN,'\nCallback: In file %s, module %s: ', arg(?File,?Mod))@\io,
+        writeln(STDWARN,?Alerts)@\io.
+callback_frame(?Alerts,?File, ?Mod) :-
+        fmt_write(STDWARN,'\nTruth callback: In file %s, module %s: ', arg(?File,?Mod))@\io,
+        writeln(STDWARN,?Alerts)@\io.
+
+?- +alert{conflict,p(?)}, +alert{conflict,?[?->?]}.
+?- %tst1.
+?- %tst2.
+?- %tst3.
+?- -alert{conflict,p(?)}.
+?- %tst4.
+?- +alert{conflict,pp(?)}.
+?- +alert{truth,pp(?)}.
+?- %tst5.
+?- +alert{conflict,p(?),callback_p(?,\@F, \@)},
+        -alert{conflict,pp(?)}, -alert{conflict,?[?->?]},
+        +alert{truth,?[?->?],callback_frame(?,\@F, \@)}.
+?- %tst6.
+// retracting callback
+?- -alert{conflict,p(?)}, +alert{conflict,pp(?)}.
+?- %tst7.
+?- %tst8.
+?- %tst9.
+

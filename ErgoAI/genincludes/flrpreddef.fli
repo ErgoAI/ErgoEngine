@@ -1,0 +1,1098 @@
+/*******************************************************************************
+  file: genincludes/flrpreddef.fli - A template for generating the include file
+  				     for checking undefinedness.
+  				     It is included by flrutils.P at the END of
+				     every compiled FLORA-2 file
+  Author(s): Chang Zhao
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+*******************************************************************************/
+
+#include "flora_wspredicates.flh"
+#include "flora_exceptions.flh"
+#include "flora_porting.flh"
+
+
+:- import reverse/2 from basics.
+:- import flora_abort/1 from flrporting.
+
+:- import flora_bind_to_export_registry/3 from flrexport.
+
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_MODULE_NAME'.
+
+
+%% Note: debugging is wrapped with FLORA_THIS_WORKSPACE, so no name clashes
+debugging :- flora_debug_module_registry('FLORA_THIS_MODULE_NAME').
+
+#include "flrpreddef_neg.inc"
+
+FLBodyPREFIX(WRAP_ISA)(X,Y,_Context) :- 
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_ISA)(X,Y,_Context)),
+	FLUndefinedPREFIX(WRAP_SUB)(X,Y,_Context),
+	flora_error_undefined(WRAP_ISA(X,Y,_Context)).
+
+FLBodyPREFIX(WRAP_ISA)(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :- 
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_ISA)(_,Y,_)),
+	WRAP_ISA(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	    
+FLBodyPREFIX(WRAP_SUB)(X,Y,_Context) :- 
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_SUB)(X,Y,_Context)),
+	FLUndefinedPREFIX(WRAP_SUB)(X,Y,_Context),
+	flora_error_undefined(WRAP_SUB(X,Y,_Context)).
+
+FLBodyPREFIX(WRAP_SUB)(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :- 
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_SUB)(_,Y,_)),
+	WRAP_SUB(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+FLBodyPREFIX(WRAP_METH)(X,Y,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_METH)(X,Y,_Context)),
+	FLUndefinedPREFIX(WRAP_METH)(X,Y,_Context),
+	FLUndefinedPREFIX(WRAP_IMETH)(X,Y,_Context),
+	FLUndefinedPREFIX(WRAP_BOOLSIG)(X,Y,_Context),
+	FLUndefinedPREFIX(WRAP_IBOOLSIG)(X,Y,_Context),
+	flora_error_undefined(WRAP_METH(X,Y,_Context)).
+
+FLBodyPREFIX(WRAP_METH)(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_METH)(_,Y,_)),
+	WRAP_METH(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+FLBodyPREFIX(WRAP_IMETH)(X,Y,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_IMETH)(X,Y,_Context)),
+	FLUndefinedPREFIX(WRAP_IMETH)(X,Y,_Context),
+	FLUndefinedPREFIX(WRAP_IBOOLSIG)(X,Y,_Context),
+	flora_error_undefined(WRAP_IMETH(X,Y,_Context)).
+
+FLBodyPREFIX(WRAP_IMETH)(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_METH)(_,Y,_)),
+	WRAP_IMETH(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+FLBodyPREFIX(WRAP_BOOLSIG)(X,Y,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_BOOLSIG)(X,Y,_Context)),
+	FLUndefinedPREFIX(WRAP_BOOLSIG)(X,Y,_Context),
+	FLUndefinedPREFIX(WRAP_IBOOLSIG)(X,Y,_Context),
+	flora_error_undefined(WRAP_BOOLSIG(X,Y,_Context)).
+
+FLBodyPREFIX(WRAP_BOOLSIG)(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_METH)(_,Y,_)),
+	WRAP_BOOLSIG(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+FLBodyPREFIX(WRAP_IBOOLSIG)(X,Y,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_IBOOLSIG)(X,Y,_Context)),
+	FLUndefinedPREFIX(WRAP_IBOOLSIG)(X,Y,_Context),
+	flora_error_undefined(WRAP_IBOOLSIG(X,Y,_Context)).
+
+FLBodyPREFIX(WRAP_IBOOLSIG)(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_METH)(_,Y,_)),
+	WRAP_IBOOLSIG(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+FLBodyPREFIX(WRAP_TRANSIG)(X,Y,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TRANSIG)(X,Y,_Context)),
+	FLUndefinedPREFIX(WRAP_TRANSIG)(X,Y,_Context),
+	FLUndefinedPREFIX(WRAP_ITRANSIG)(X,Y,_Context),
+	flora_error_undefined(WRAP_TRANSIG(X,Y,_Context)).
+
+FLBodyPREFIX(WRAP_TRANSIG)(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TRAN)(_,Y,_)),
+	WRAP_TRANSIG(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+FLBodyPREFIX(WRAP_ITRANSIG)(X,Y,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_ITRANSIG)(X,Y,_Context)),
+	FLUndefinedPREFIX(WRAP_ITRANSIG)(X,Y,_Context),
+	flora_error_undefined(WRAP_ITRANSIG(X,Y,_Context)).
+
+FLBodyPREFIX(WRAP_ITRANSIG)(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TRAN)(_,Y,_)),
+	WRAP_ITRANSIG(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+FLBodyPREFIX(WRAP_MVD)(X,Y,Z,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_MVD)(X,Y,Z,_Context)),
+	FLUndefinedPREFIX(WRAP_MVD)(X,Y,Z,_Context),
+	FLUndefinedPREFIX(WRAP_IMVD)(X,Y,Z,_Context),
+	FLUndefinedPREFIX(WRAP_MVDDEF)(X,Y,_Context),
+	FLUndefinedPREFIX(WRAP_IMVDDEF)(X,Y,_Context),
+	FLUndefinedPREFIX(WRAP_MVDSIG)(X,Y,Z,_Context),
+	FLUndefinedPREFIX(WRAP_IMVDSIG)(X,Y,Z,_Context),
+	flora_error_undefined(WRAP_MVD(X,Y,Z,_Context)).
+
+FLBodyPREFIX(WRAP_MVD)(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_MVD)(_,Y,_,_)),
+	WRAP_MVD(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	    
+FLBodyPREFIX(WRAP_IMVD)(X,Y,Z,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_IMVD)(X,Y,Z,_Context)),
+	FLUndefinedPREFIX(WRAP_IMVD)(X,Y,Z,_Context),
+	FLUndefinedPREFIX(WRAP_IMVDDEF)(X,Y,_Context),
+	FLUndefinedPREFIX(WRAP_IMVDSIG)(X,Y,Z,_Context),
+	flora_error_undefined(WRAP_IMVD(X,Y,Z,_Context)).
+
+
+FLBodyPREFIX(WRAP_IMVD)(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_MVD)(_,Y,_,_)),
+	WRAP_IMVD(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	    
+FLBodyPREFIX(WRAP_MVDDEF)(X,Y,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_MVDDEF)(X,Y,_Context)),
+	FLUndefinedPREFIX(WRAP_MVDDEF)(X,Y,_Context),
+	FLUndefinedPREFIX(WRAP_IMVDDEF)(X,Y,_Context),
+	FLUndefinedPREFIX(WRAP_MVD)(X,Y,Z,_Context),
+	FLUndefinedPREFIX(WRAP_IMVD)(X,Y,Z,_Context),
+	FLUndefinedPREFIX(WRAP_MVDSIG)(X,Y,Z,_Context),
+	FLUndefinedPREFIX(WRAP_IMVDSIG)(X,Y,Z,_Context),
+	flora_error_undefined(WRAP_MVDDEF(X,Y,_Context)).
+
+FLBodyPREFIX(WRAP_MVDDEF)(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_MVD)(_,Y,_,_)),
+	WRAP_MVDDEF(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	    
+FLBodyPREFIX(WRAP_IMVDDEF)(X,Y,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_IMVDDEF)(X,Y,_Context)),
+	FLUndefinedPREFIX(WRAP_IMVDDEF)(X,Y,_Context),
+	FLUndefinedPREFIX(WRAP_IMVD)(X,Y,Z,_Context),
+	FLUndefinedPREFIX(WRAP_IMVDSIG)(X,Y,Z,_Context),
+	flora_error_undefined(WRAP_IMVDDEF(X,Y,_Context)).
+
+FLBodyPREFIX(WRAP_IMVDDEF)(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_MVD)(_,Y,_,_)),
+	WRAP_IMVDDEF(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	    
+FLBodyPREFIX(WRAP_MVDSIG)(X,Y,Z,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_MVDSIG)(X,Y,Z,_Context)),
+	FLUndefinedPREFIX(WRAP_MVDSIG)(X,Y,Z,_Context),
+	FLUndefinedPREFIX(WRAP_IMVDSIG)(X,Y,Z,_Context),
+	flora_error_undefined(WRAP_MVDSIG(X,Y,Z,_Context)).
+
+FLBodyPREFIX(WRAP_MVDSIG)(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_MVD)(_,Y,_,_)),
+	WRAP_MVDSIG(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+/*
+    WRAP_MVDCONDERIVED represents cardinality constraints: Explicit (from
+    WRAP_MVDCONDEF) and implicit (from WRAP_MVDSIG)
+*/
+WRAP_MVDCONDERIVED(W,X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	WRAP_MVDCONDEF(W,X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+WRAP_MVDCONDERIVED(W,X,0,FL_STAR,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	FLBodyPREFIX(WRAP_MVDSIG)(W,X,_Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+/*
+    WRAP_MVDCON answers queries about boundaries of the cardinality constraints
+*/
+FLBodyPREFIX(WRAP_MVDCON)(W,X,Y,Z,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_MVDCON)(W,X,Y,Z,_Context)),
+	FLUndefinedPREFIX(WRAP_MVDCONDEF)(W,X,Y,Z,_Context),
+	FLUndefinedPREFIX(WRAP_IMVDCONDEF)(W,X,Y,Z,_Context),
+	flora_error_undefined(WRAP_MVDCONDEF(W,X,Y,Z,_Context)).
+
+FLBodyPREFIX(WRAP_MVDCON)(W,X,Y,Z,_Context) :-
+	setof(Y1,Z1^WRAP_MVDCONDERIVED(W,X,Y1,Z1,_Context),SetOfY1),
+	setof(Z2,Y2^WRAP_MVDCONDERIVED(W,X,Y2,Z2,_Context),SetOfZ2),
+	reverse(SetOfY1,[Y|_]),
+	SetOfZ2=[Z|_].
+	    
+FLBodyPREFIX(WRAP_MVDSIGDEF)(X,Y,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_MVDSIGDEF)(X,Y,_Context)),
+	FLUndefinedPREFIX(WRAP_MVDSIGDEF)(X,Y,_Context),
+	FLUndefinedPREFIX(WRAP_IMVDSIGDEF)(X,Y,_Context),
+	flora_error_undefined(WRAP_MVDSIGDEF(X,Y,_Context)).
+
+FLBodyPREFIX(WRAP_MVDSIGDEF)(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_MVD)(_,Y,_,_)),
+	WRAP_MVDSIGDEF(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	    
+FLBodyPREFIX(WRAP_IMVDSIG)(X,Y,Z,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_IMVDSIG)(X,Y,Z,_Context)),
+	FLUndefinedPREFIX(WRAP_IMVDSIG)(X,Y,Z,_Context),
+	flora_error_undefined(WRAP_IMVDSIG(X,Y,Z,_Context)).
+
+FLBodyPREFIX(WRAP_IMVDSIG)(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_MVD)(_,Y,_,_)),
+	WRAP_IMVDSIG(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+WRAP_IMVDCONDERIVED(W,X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	WRAP_IMVDCONDEF(W,X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+WRAP_IMVDCONDERIVED(W,X,0,FL_STAR,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	FLBodyPREFIX(WRAP_IMVDSIG)(W,X,_Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+FLBodyPREFIX(WRAP_IMVDCON)(W,X,Y,Z,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_IMVDCON)(W,X,Y,Z,_Context)),
+	FLUndefinedPREFIX(WRAP_IMVDCONDEF)(W,X,Y,Z,_Context),
+	flora_error_undefined(WRAP_IMVDCONDEF(W,X,Y,Z,_Context)).
+
+FLBodyPREFIX(WRAP_IMVDCON)(W,X,Y,Z,_Context) :-
+	setof(Y1,Z1^WRAP_IMVDCONDERIVED(W,X,Y1,Z1,_Context),SetOfY1),
+	setof(Z2,Y2^WRAP_IMVDCONDERIVED(W,X,Y2,Z2,_Context),SetOfZ2),
+	reverse(SetOfY1,[Y|_]),
+	SetOfZ2=[Z|_].
+
+FLBodyPREFIX(WRAP_IMVDSIGDEF)(X,Y,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_IMVDSIGDEF)(X,Y,_Context)),
+	FLUndefinedPREFIX(WRAP_IMVDSIGDEF)(X,Y,_Context),
+	flora_error_undefined(WRAP_IMVDSIGDEF(X,Y,_Context)).
+
+FLBodyPREFIX(WRAP_IMVDSIGDEF)(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_MVD)(_,Y,_,_)),
+	WRAP_IMVDSIGDEF(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+FLBodyPREFIX(WRAP_MVDINC)(X,Y,Z,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_MVDINC)(X,Y,Z,_Context)),
+	FLUndefinedPREFIX(WRAP_MVD)(X,Y,Z,_Context),
+	FLUndefinedPREFIX(WRAP_IMVD)(X,Y,Z,_Context),
+	flora_error_undefined(WRAP_MVD(X,Y,Z,_Context)).
+
+FLBodyPREFIX(WRAP_MVDINC)(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_MVD)(_,Y,_,_)),
+	WRAP_MVDINC(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	    
+FLBodyPREFIX(WRAP_IMVDINC)(X,Y,Z,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_IMVDINC)(X,Y,Z,_Context)),
+	FLUndefinedPREFIX(WRAP_IMVD)(X,Y,Z,_Context),
+	flora_error_undefined(WRAP_IMVD(X,Y,Z,_Context)).
+
+FLBodyPREFIX(WRAP_IMVDINC)(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_MVD)(_,Y,_,_)),
+	WRAP_IMVDINC(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	    
+FLBodyPREFIX(WRAP_MVDTOLIST)(X,Y,Z,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_MVDTOLIST)(X,Y,Z,_Context)),
+	FLUndefinedPREFIX(WRAP_MVD)(X,Y,Z,_Context),
+	FLUndefinedPREFIX(WRAP_IMVD)(X,Y,Z,_Context),
+	flora_error_undefined(WRAP_MVD(X,Y,Z,_Context)).
+
+FLBodyPREFIX(WRAP_MVDTOLIST)(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_MVD)(_,Y,_,_)),
+	WRAP_MVDTOLIST(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	    
+FLBodyPREFIX(WRAP_IMVDTOLIST)(X,Y,Z,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_IMVDTOLIST)(X,Y,Z,_Context)),
+	FLUndefinedPREFIX(WRAP_IMVD)(X,Y,Z,_Context),
+	flora_error_undefined(WRAP_IMVD(X,Y,Z,_Context)).
+
+FLBodyPREFIX(WRAP_IMVDTOLIST)(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_MVD)(_,Y,_,_)),
+	WRAP_IMVDTOLIST(X,Y,Z,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	    
+FLBodyPREFIX(WRAP_TRAN)(X,Y,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TRAN)(X,Y,_Context)),
+	FLUndefinedPREFIX(WRAP_TRAN)(X,Y,_Context),
+	flora_error_undefined(WRAP_TRAN(X,Y,_Context)).
+
+FLBodyPREFIX(WRAP_TRAN)(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TRAN)(_,Y,_)),
+	WRAP_TRAN(X,Y,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	    
+%% For exists (a[]) it doesn't make sense to check for definedness
+FLBodyPREFIX(WRAP_EXISTS)(X,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	WRAP_EXISTS(X,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	    
+%% If FLDefinedPREFIX(WRAP_SUB)(X,Y,_Context) suceeds, then the call fails and
+%% flora_error_undefined, which follows this call, won't be caled.
+%% If FLDefinedPREFIX(WRAP_SUB) fails, then the second clause of
+%% FLUndefinedPREFIX(WRAP_ISA) suceeds and the call succeeds. In this case,
+%% flora_error_undefined is called.
+
+FLUndefinedPREFIX(WRAP_SUB)(X,Y,_Context) :- FLDefinedPREFIX(WRAP_SUB)(X,Y,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_SUB)(X,Y,_Context) :- 
+        nonvar(Y),
+        Y = (C1,C2),
+        !,
+        (FLUndefinedPREFIX(WRAP_SUB)(X,C1,_Context);FLUndefinedPREFIX(WRAP_SUB)(X,C2,_Context)).
+FLUndefinedPREFIX(WRAP_SUB)(X,Y,_Context) :- 
+        nonvar(Y),
+        Y = (C1;C2),
+        !,
+        (FLUndefinedPREFIX(WRAP_SUB)(X,C1,_Context);FLUndefinedPREFIX(WRAP_SUB)(X,C2,_Context)).
+FLUndefinedPREFIX(WRAP_SUB)(X,Y,_Context) :- 
+        nonvar(Y),
+        Y = (C1-C2),
+        !,
+        (FLUndefinedPREFIX(WRAP_SUB)(X,C1,_Context);FLUndefinedPREFIX(WRAP_SUB)(X,C2,_Context)).
+FLUndefinedPREFIX(WRAP_SUB)(X,Y,_Context).
+
+FLUndefinedPREFIX(WRAP_METH)(X,Y,_Context) :- FLDefinedPREFIX(WRAP_METH)(X,Y,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_METH)(X,Y,_Context).
+
+FLUndefinedPREFIX(WRAP_IMETH)(X,Y,_Context) :- FLDefinedPREFIX(WRAP_IMETH)(X,Y,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_IMETH)(X,Y,_Context).
+
+FLUndefinedPREFIX(WRAP_BOOLSIG)(X,Y,_Context) :- FLDefinedPREFIX(WRAP_BOOLSIG)(X,Y,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_BOOLSIG)(X,Y,_Context).
+
+FLUndefinedPREFIX(WRAP_IBOOLSIG)(X,Y,_Context) :- FLDefinedPREFIX(WRAP_IBOOLSIG)(X,Y,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_IBOOLSIG)(X,Y,_Context).
+
+FLUndefinedPREFIX(WRAP_TRANSIG)(X,Y,_Context) :- FLDefinedPREFIX(WRAP_TRANSIG)(X,Y,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TRANSIG)(X,Y,_Context).
+
+FLUndefinedPREFIX(WRAP_ITRANSIG)(X,Y,_Context) :- FLDefinedPREFIX(WRAP_ITRANSIG)(X,Y,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_ITRANSIG)(X,Y,_Context).
+
+FLUndefinedPREFIX(WRAP_MVD)(X,Y,Z,_Context) :- FLDefinedPREFIX(WRAP_MVD)(X,Y,Z,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_MVD)(X,Y,Z,_Context).
+
+FLUndefinedPREFIX(WRAP_IMVD)(X,Y,Z,_Context) :- FLDefinedPREFIX(WRAP_IMVD)(X,Y,Z,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_IMVD)(X,Y,Z,_Context).
+
+FLUndefinedPREFIX(WRAP_MVDSIG)(X,Y,Z,_Context) :- FLDefinedPREFIX(WRAP_MVDSIG)(X,Y,Z,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_MVDSIG)(X,Y,Z,_Context).
+
+FLUndefinedPREFIX(WRAP_MVDCONDEF)(W,X,Y,Z,_Context) :- FLDefinedPREFIX(WRAP_MVDCONDEF)(W,X,Y,Z,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_MVDCONDEF)(W,X,Y,Z,_Context).
+
+FLUndefinedPREFIX(WRAP_MVDSIGDEF)(X,Y,_Context) :- FLDefinedPREFIX(WRAP_MVDSIGDEF)(X,Y,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_MVDSIGDEF)(X,Y,_Context).
+
+FLUndefinedPREFIX(WRAP_IMVDSIG)(X,Y,Z,_Context) :- FLDefinedPREFIX(WRAP_IMVDSIG)(X,Y,Z,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_IMVDSIG)(X,Y,Z,_Context).
+
+FLUndefinedPREFIX(WRAP_IMVDCONDEF)(W,X,Y,Z,_Context) :- FLDefinedPREFIX(WRAP_IMVDCONDEF)(W,X,Y,Z,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_IMVDCONDEF)(W,X,Y,Z,_Context).
+
+FLUndefinedPREFIX(WRAP_IMVDSIGDEF)(X,Y,_Context) :- FLDefinedPREFIX(WRAP_IMVDSIGDEF)(X,Y,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_IMVDSIGDEF)(X,Y,_Context).
+
+FLUndefinedPREFIX(WRAP_MVDDEF)(X,Y,_Context) :- FLDefinedPREFIX(WRAP_MVDDEF)(X,Y,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_MVDDEF)(X,Y,_Context).
+
+FLUndefinedPREFIX(WRAP_IMVDDEF)(X,Y,_Context) :- FLDefinedPREFIX(WRAP_IMVDDEF)(X,Y,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_IMVDDEF)(X,Y,_Context).
+
+FLUndefinedPREFIX(WRAP_TRAN)(X,Y,_Context) :- FLDefinedPREFIX(WRAP_TRAN)(X,Y,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TRAN)(X,Y,_Context).
+
+/*
+   The following statements are expanded into something like
+   FLORA_THIS_WORKSPACE(defined_sub)(_h1535,_h1536,_h1537) :-
+        flora_db_find_base(FLORA_THIS_FLD_STORAGE,FLORA_THIS_WORKSPACE(sub)(_h1535,_h1536,_h1537)).
+
+   So, if a call (say, to sub/3) is undefined then FLDefinedPREFIX(...)
+		fails and FLUndefinedPREFIX(...) succeeds.
+   If a call (say to sub/3) is defined then FLUndefinedPREFIX(...) fails.
+*/
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_SUB)/3,WRAP_SUB,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_METH)/3,WRAP_METH,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_IMETH)/3,WRAP_IMETH,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_BOOLSIG)/3,WRAP_BOOLSIG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_IBOOLSIG)/3,WRAP_IBOOLSIG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TRANSIG)/3,WRAP_TRANSIG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_ITRANSIG)/3,WRAP_ITRANSIG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_MVD)/4,WRAP_MVD,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_IMVD)/4,WRAP_IMVD,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_MVDSIG)/4,WRAP_MVDSIG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_MVDCONDEF)/5,WRAP_MVDCONDEF,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_MVDSIGDEF)/3,WRAP_MVDSIGDEF,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_IMVDSIG)/4,WRAP_IMVDSIG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_IMVDCONDEF)/5,WRAP_IMVDCONDEF,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_IMVDSIGDEF)/3,WRAP_IMVDSIGDEF,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_MVDDEF)/3,WRAP_MVDDEF,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_IMVDDEF)/3,WRAP_IMVDDEF,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TRAN)/3,WRAP_TRAN,fld)).
+
+/*
+    Undefinedness checking for nontabled HiLog
+*/
+
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_)),
+	WRAP_NONTABLED_HILOG(X01,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,_Context)),
+	FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,_Context),
+	flora_error_undefined(WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,_Context)).
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+/* Definitions for FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)  */
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,_Context) :- FLDefinedPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_NONTABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+
+
+/* Connect to the trie that keeps track of the defined predicates */
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/2,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/3,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/4,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/5,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/6,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/7,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/8,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/9,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/10,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/11,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/12,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/13,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/14,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/15,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/16,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/17,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/18,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/19,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/20,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/21,WRAP_NONTABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_NONTABLED_HILOG)/22,WRAP_NONTABLED_HILOG,fld)).
+
+/*
+    Undefinedness checking for tabled HiLog
+*/
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_)),
+	WRAP_TABLED_HILOG(X01,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,_Context) :-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+	
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,_Context)
+	:-
+	debugging,
+        \+ FLORA_IGNORE_UNDEFCHECK(FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,_Context)),
+	FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,_Context),
+	flora_error_undefined(WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,_Context)).
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,FL_CONTEXT(_CallerMod,_Id1,_Id2)) :-
+    	flora_query_permitted_during_pause,
+	flora_bind_to_export_registry(_CallerMod,'FLORA_THIS_MODULE_NAME',FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_)),
+	WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,FL_CONTEXT(_CallerMod,_Id1,_Id2)).
+
+
+
+/* Definitions of FLUndefinedPREFIX(WRAP_TABLED_HILOG)  */
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,_Context) :- FLDefinedPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,_Context), !, fail.
+FLUndefinedPREFIX(WRAP_TABLED_HILOG)(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_Context).
+
+
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/2,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/3,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/4,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/5,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/6,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/7,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/8,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/9,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/10,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/11,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/12,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/13,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/14,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/15,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/16,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/17,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/18,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/19,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/20,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/21,WRAP_TABLED_HILOG,fld)).
+:- WRAP_STORAGE(rule(FLDefinedPREFIX(WRAP_TABLED_HILOG)/22,WRAP_TABLED_HILOG,fld)).
+
+
+

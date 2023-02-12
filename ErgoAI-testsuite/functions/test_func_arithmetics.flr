@@ -1,0 +1,28 @@
+\udf ?x+?y:=?z \if isnumber{?x}, isnumber{?y}, ?z \is ?x+?y, isnumber{?z}.
+\udf plus2(?x):=?y \if isnumber{?x}, ?y=?x+2, isnumber{?y}.
+\udf inc(?x):=?y \if isnumber{?x}, ?y=?x+1, isnumber{?y}.
+\udf inc1(?z)(?x):=?y \if ?y \is ?x+?z+1, isnumber{?y}.
+
+p(5).
+p(7).
+p(11).
+p(14).
+
+q(2).
+q(4).
+q(5).
+
+%test1 :-
+	inc(4) = ?r1, isnumber{?r1},
+	writeln(?r1)@\io,
+	inc(plus2(7)) = ?r2, isnumber{?r2},
+	writeln(?r2)@\io, \false.
+%test1 :- \true.
+
+%test2 :- write('test2 = ')@\plg, q(?y), p(inc1(?y)(plus2(7))), writeln(?y)@\plg, \false.
+%test2 :- \true.
+
+%test :-
+	tell(temp)@\plg,
+	%test1,
+	told@\plg.

@@ -1,0 +1,166 @@
+/* File:      jsonlib.P
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2016 - 2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- compiler_options([xpp_on]).
+
+#include "standard.h"
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+:- dynamic json_option/2.
+
+/*
+** Used for conversion of json terms to facts.
+** Different roots are then used as identifiers
+** to distinguish between facts coming from different documents.
+*/
+:- dynamic ergo_json_root/2.
+:- index(ergo_json_root/2,trie).
+
+:- import memberchk/2 from basics.
+:- import
+        set_json_option/1,
+        get_json_file/3,
+        get_json_string/3
+   from parson_xsb.
+
+:- import flora_locate_file_basic/2 from flrutils.
+
+:- import P2H_PREDICATE/4 from prolog2hilog.
+
+:- import flora_abort/2 from flrporting.
+
+:- ensure_loaded(json).  %% from xsb
+
+
+:- export
+        ergo_parse_json/2,
+        ergo_parse_json/3,
+        ergo_get_option/2,
+        ergo_set_options/1,
+        ergo_set_option/1.
+
+:- export
+        ergo_json_root/2,
+        ergo_insert_json_root/2,
+        ergo_forget_json_roots/1.
+
+
+%% 3-arg version
+%% deal with pretty(...)
+ergo_parse_json(Source,SelectionPathexp,Parsed) :-
+        nonvar(Parsed),
+        Parsed = WRAP_HILOG(pretty,PrettyParsed),
+        !,
+        ergo_get_option(flora_mode,FlOpt),
+        ergo_set_option(flora_mode=true),
+        parse_json_prolog(Source,SelectionPathexp,pretty(PrettyParsedProlog)),
+        ergo_set_option(flora_mode=FlOpt),
+        P2H_CONVERSION(PrettyParsedProlog,PrettyParsed).
+ergo_parse_json(Source,SelectionPathexp,Parsed) :-
+        ergo_get_option(flora_mode,FlOpt),
+        ergo_set_option(flora_mode=true),
+        parse_json_prolog(Source,SelectionPathexp,ParsedProlog),
+        ergo_set_option(flora_mode=FlOpt),
+        P2H_CONVERSION(ParsedProlog,Parsed).
+
+%% 2-arg version: no selection
+ergo_parse_json(Source,Parsed) :- ergo_parse_json(Source,'',Parsed).
+
+
+%% get from stdin - must be first; source is a var
+%% Test: see('simple.json'), jsonlib:ergo_parse_json(_,X).
+parse_json_prolog(Source,SelectionPathexp,Parsed) :-
+        var(Source),
+        atom(SelectionPathexp),
+        !,
+        get_json_file('',Parsed,SelectionPathexp).
+%% get from string
+parse_json_prolog(string(String),SelectionPathexp,Parsed) :-
+        atom(String),
+        atom(SelectionPathexp),
+        !,
+        get_json_string(String,Parsed,SelectionPathexp).
+%% get from Web
+parse_json_prolog(url(WebDoc),SelectionPathexp,Parsed) :-
+        atom(WebDoc),
+        atom(SelectionPathexp),
+        !,
+        flora_locate_file_basic(url(WebDoc),WebDocCached),
+        get_json_file(WebDocCached,Parsed,SelectionPathexp).
+%% get from file
+parse_json_prolog(file(Filename),SelectionPathexp,Parsed) :-
+        !,
+        parse_json_prolog(Filename,SelectionPathexp,Parsed).
+parse_json_prolog(Filename,SelectionPathexp,Parsed) :-
+        atom(Filename),
+        atom(SelectionPathexp),
+        !,
+        get_json_file(Filename,Parsed,SelectionPathexp).
+%% error
+parse_json_prolog(Source,SelectionPathexp,_) :-
+        (\+ atom(SelectionPathexp) ->
+            flora_abort(['<JSON parser> invalid selector, ',SelectionPathexp],
+                         FLORA_ABORT_NOTRACE)
+        ; flora_abort(['JSON parser: invalid source specification, ',Source],
+                      FLORA_ABORT_NOTRACE)
+        ).
+        
+
+ergo_set_options([]) :- !.
+ergo_set_options([H|T]) :-
+        ergo_set_option(H),
+        ergo_set_options(T).
+
+ergo_set_option(Opt) :-
+        standard_option(Opt,StOpt),
+        StOpt = (Name=Val),
+        retractall(json_option(Name,_)),
+        assert(json_option(Name,Val)),
+        (parson_option(Name) -> set_json_option(StOpt)
+        ; true
+        ).
+
+parson_option(duplicate_keys).
+parson_option(flora_mode).
+
+jsonlib_option(X) :- parson_option(X), !.
+jsonlib_option(recursive_export).
+
+standard_option(Opt=Val,StOpt=StVal) :-
+        ground(Opt=Val),
+        jsonlib_option(Opt),
+        StOpt = Opt,
+        (memberchk(Val,[on,yes,true,1]) -> StVal = true
+        ; memberchk(Val,[off,no,false,fail,0]) -> StVal = false
+        ),
+        !.
+standard_option(Opt,_) :-
+        flora_abort(['JSON parser: invalid option, ',Opt], FLORA_ABORT_NOTRACE).
+
+ergo_get_option(Name,Val) :-
+        json_option(Name,Val),
+        !.
+ergo_get_option(_Name,false).
+
+ergo_insert_json_root(Mod,Oid) :- asserta(ergo_json_root(Mod,Oid)).
+ergo_forget_json_roots(Mod) :- retractall(ergo_json_root(Mod,_)).

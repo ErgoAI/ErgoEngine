@@ -1,0 +1,278 @@
+/*
+  This script invokes the FLORA-2 XML/SWML/HTML parser on all the files in the 
+  XSB/examples/sgml/files/ subdirectory and on some remote URLs.
+
+  Invoke as demo{'sgml/sgmltest'} or load directly from this directory.
+*/
+
+?- %xmltest.
+
+%xmltest :- 
+	%sgmldir(?SgmlDir),
+
+	flora_slash(?Slash)@\prolog(flrporting),
+	nl@\prolog,
+        set_mode(debug)@\xml,
+
+	fmt_write_string(?TestPath, '%s', f1(?SgmlDir))@\io,
+	(flora_file_op(chdir, sgml)@\prolog(flrporting), !; \true),
+
+	\unless path_sysop(isdir, 'actualoutput')@\prolog(file_io)
+        \do path_sysop(mkdir, 'actualoutput')@\prolog(file_io),
+
+	fmt_write_string(?TestFile1,'%s%samp.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile1, 'actualoutput%samp.ok', f1(?Slash))@\io,
+	?OutFile1[tell]@\io,
+        ?TestFile1[load_sgml(amp) -> ?]@\xml,
+	told@\io,
+
+	fmt_write_string(?TestFile2,'%s%satt.xml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile2, 'actualoutput%satt.ok', f1(?Slash))@\io,
+	?OutFile2[tell]@\io,
+        ?TestFile2[load_xml(att) -> ?]@\xml,
+	told@\io,
+
+        fmt_write_string(?TestFile3,'%s%sbar.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile3, 'actualoutput%sbar.ok', f1(?Slash))@\io,
+	?OutFile3[tell]@\io,
+        ?TestFile3[load_sgml(bar) -> ?]@\xml,
+	told@\io,
+
+        fmt_write_string(?TestFile4,'%s%sbat.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile4, 'actualoutput%sbat.ok', f1(?Slash))@\io,
+	?OutFile4[tell]@\io,
+        catch{
+                ?TestFile4[load_sgml(bat) -> ?]@\xml,
+	        error(?X), %error_handler( error(?X))},
+	told@\io,
+
+        fmt_write_string(?TestFile5, '%s%scdata.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile5, 'actualoutput%scdata.ok', f1(?Slash))@\io,
+	?OutFile5[tell]@\io,
+        ?TestFile5[load_sgml(cdata) -> ?]@\xml,
+	told@\io,
+
+	fmt_write_string(?TestFile6, '%s%scent-utf8.xml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile6, 'actualoutput%scent-utf8.ok', f1(?Slash))@\io,
+	?OutFile6[tell]@\io,
+        ?TestFile6[load_xml(centutf8) -> ?]@\xml,
+	told@\io,
+
+	fmt_write_string(?TestFile7, '%s%sce.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile7, 'actualoutput%sce.ok', f1(?Slash))@\io,
+	?OutFile7[tell]@\io,
+        ?TestFile7[load_sgml(ce) -> ?]@\xml,
+	told@\io,
+
+	fmt_write_string(?TestFile8,'%s%scmt.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile8, 'actualoutput%scmt.ok', f1(?Slash))@\io,
+	?OutFile8[tell]@\io,
+        ?TestFile8[load_sgml(cmt) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile9, '%s%sconref2.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile9, 'actualoutput%sconref2.ok', f1(?Slash))@\io,
+	?OutFile9[tell]@\io,
+        ?TestFile9[load_sgml(conref2) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile10, '%s%sconref.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile10, 'actualoutput%sconref.ok', f1(?Slash))@\io,
+	?OutFile10[tell]@\io,
+        ?TestFile10[load_sgml(conref) -> ?]@\xml,
+	told@\io,
+	
+      	fmt_write_string(?TestFile11,'%s%scrlf.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile11, 'actualoutput%scrlf.ok', f1(?Slash))@\io,
+	?OutFile11[tell]@\io,
+        ?TestFile11[load_sgml(crlf) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile12, '%s%sdefent.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile12, 'actualoutput%sdefent.ok', f1(?Slash))@\io,
+	?OutFile12[tell]@\io,
+        ?TestFile12[load_sgml(defent) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile13, '%s%sentent.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile13, 'actualoutput%sentent.ok', f1(?Slash))@\io,
+	?OutFile13[tell]@\io,
+        ?TestFile13[load_sgml(entent) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile14, '%s%sestag.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile14, 'actualoutput%sestag.ok', f1(?Slash))@\io,
+	?OutFile14[tell]@\io,
+        ?TestFile14[load_sgml(estag) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile15, '%s%sfoo.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile15, 'actualoutput%sfoo.ok',f1(?Slash))@\io,
+	?OutFile15[tell]@\io,
+        ?TestFile15[load_sgml(foo) -> ?]@\xml,
+	told@\io,
+
+
+      	fmt_write_string(?TestFile16, '%s%si.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile16, 'actualoutput%si.ok',f1(?Slash))@\io,
+	?OutFile16[tell]@\io,
+        ?TestFile16[load_sgml(i) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile17, '%s%smapbug.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile17, 'actualoutput%smapbug.ok',f1(?Slash))@\io,
+	?OutFile17[tell]@\io,
+        ?TestFile17[load_sgml(mapbug) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile18, '%s%sment.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile18, 'actualoutput%sment.ok',f1(?Slash))@\io,
+	?OutFile18[tell]@\io,
+        ?TestFile18[load_sgml(ment) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile19, '%s%sminus2.xml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile19, 'actualoutput%sminus2.ok',f1(?Slash))@\io,
+	?OutFile19[tell]@\io,
+        ?TestFile19[load_xml(minus2) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile20, '%s%snetc.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile20, 'actualoutput%snetc.ok',f1(?Slash))@\io,
+	?OutFile20[tell]@\io,
+        ?TestFile20[load_sgml(netc) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile21, '%s%sng.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile21, 'actualoutput%sng.ok',f1(?Slash))@\io,
+	?OutFile21[tell]@\io,
+        ?TestFile21[load_sgml(ng) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile22, '%s%snoent.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile22, 'actualoutput%snoent.ok',f1(?Slash))@\io,
+	?OutFile22[tell]@\io,
+        ?TestFile22[load_sgml(noent) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile23, '%s%snot.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile23, 'actualoutput%snot.ok',f1(?Slash))@\io,
+	?OutFile23[tell]@\io,
+        ?TestFile23[load_sgml(not) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile24, '%s%soma.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile24, 'actualoutput%soma.ok',f1(?Slash))@\io,
+	?OutFile24[tell]@\io,
+        ?TestFile24[load_sgml(oma) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile25, '%s%somit1.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile25, 'actualoutput%somit1.ok',f1(?Slash))@\io,
+	?OutFile25[tell]@\io,
+        ?TestFile25[load_sgml(omit1) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile26, '%s%sper.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile26, 'actualoutput%sper.ok',f1(?Slash))@\io,
+	?OutFile26[tell]@\io,
+        ?TestFile26[load_sgml(per) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile27, '%s%srcdata.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile27, 'actualoutput%srcdata.ok',f1(?Slash))@\io,
+	?OutFile27[tell]@\io,
+        ?TestFile27[load_sgml(rcdata) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile28, '%s%srdefent.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile28, 'actualoutput%srdefent.ok',f1(?Slash))@\io,
+	?OutFile28[tell]@\io,
+        ?TestFile28[load_sgml(rdefent) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile29, '%s%srsre.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile29, 'actualoutput%srsre.ok',f1(?Slash))@\io,
+	?OutFile29[tell]@\io,
+        ?TestFile29[load_sgml(rsre) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile30, '%s%ssdata.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile30, 'actualoutput%ssdata.ok',f1(?Slash))@\io,
+	?OutFile30[tell]@\io,
+        ?TestFile30[load_sgml(sdata) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile31, '%s%sshortval.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile31, 'actualoutput%sshortval.ok',f1(?Slash))@\io,
+	?OutFile31[tell]@\io,
+        ?TestFile31[load_sgml(shortval) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile32, '%s%ssr2.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile32, 'actualoutput%ssr2.ok',f1(?Slash))@\io,
+	?OutFile32[tell]@\io,
+        ?TestFile32[load_sgml(sr2) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile33, '%s%ssr.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile33, 'actualoutput%ssr.ok',f1(?Slash))@\io,
+	?OutFile33[tell]@\io,
+        ?TestFile33[load_sgml(sr) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile34, '%s%sugh.sgml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile34, 'actualoutput%sugh.ok',f1(?Slash))@\io,
+	?OutFile34[tell]@\io,
+        ?TestFile34[load_sgml(ugh) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile35, '%s%sutf8-cent.xml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile35, 'actualoutput%sutf8-cent.ok',f1(?Slash))@\io,
+	?OutFile35[tell]@\io,
+        ?TestFile35[load_xml(utf8cent) -> ?]@\xml,
+	told@\io,
+
+      	fmt_write_string(?TestFile36, '%s%sutf8.xml',f2(?TestPath,?Slash))@\io,
+	fmt_write_string(?OutFile36, 'actualoutput%sutf8.ok',f1(?Slash))@\io,
+	?OutFile36[tell]@\io,
+        ?TestFile36[load_xml(utf8) -> ?]@\xml,
+	told@\io,
+
+	fmt_write_string(?OutFile37, 'actualoutput%sutf8string.ok',f1(?Slash))@\io,
+	?OutFile37[tell]@\io,
+	string('<utf8><name>DÃ¼rst</name><name
+	name="DÃ¼rst"/></utf8>')[load_xml(utf81)->?]@\xml,
+	told@\io,
+
+	fmt_write_string(?OutFile38, 'actualoutput%stestdoc.ok',f1(?Slash))@\io,
+	?OutFile38[tell]@\io,
+        string('<testdoc id="t7-20020923"
+	resp="MSM"><names>From EspaÃ±ola -- a â~@~Xtestâ~@~Y for
+	you.</names><nums>From EspaÃ±ola -- a â~@~Xtestâ~@~Y for
+	you.</nums><names>From EspaÃ±ola -- a â~@~Xtestâ~@~Y for
+	you.</names><nums>From EspaÃ±ola -- a â~@~Xtestâ~@~Y for
+	you.</nums></testdoc>')[load_sgml(testdoc)->?]@\xml,
+	told@\io,
+     
+	fmt_write_string(?OutFile39, 'actualoutput%sw3.ok',f1(?Slash))@\io,
+	?OutFile39[tell]@\io,
+        url('http://w3.org')[load_xml(w3)->?]@\xml,
+	told@\io,
+
+	nl@\prolog,
+	nl@\prolog,
+	writeln('***** Output is redirected to *.ok files in actualoutput directory')@\io,
+	writeln('***** Compare them with *.ok files in expectedoutput directory')@\io,
+	writeln('***** Note: The outputs will differ in their choice of anonymous OIDs')@\io,
+	nl@\prolog.
+	
+
+%sgmldir(?SgmlDir) :-
+        xsb_configuration(install_dir, ?PackDir)@\prolog(xsb_configuration),
+        flora_slash(?Slash)@\prolog(flrporting),
+        fmt_write_string(?SgmlDir, '%s%sexamples%ssgml%sfiles',
+			 f(?PackDir, ?Slash, ?Slash, ?Slash))@\io.
+
+%error_handler( ?X):-  writeln( ?X)@\io.
+

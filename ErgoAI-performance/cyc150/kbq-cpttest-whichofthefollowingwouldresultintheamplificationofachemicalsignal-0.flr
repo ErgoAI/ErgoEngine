@@ -1,0 +1,92 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhichOfTheFollowingWouldResultInTheAmplificationOfAChemicalSignal (query 0)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28derived_from.29_Biology_Chapter_11_Self-Quiz.2C_Question_7
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, transitiveViaArg('causes-SitTypeSitType', genls, 2)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(BiologyMt, 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), SignalTransductionInGlycogenBreakdown)).
+istAsserted(UniversalVocabularyMt, genls(SignalTransductionInGlycogenBreakdown, PhosphorylationCascade)).
+istAsserted(UniversalVocabularyMt, genls(PhosphorylationCascade, SignalTransductionCascade)).
+
+// Implicit Background Rules
+forwardSentence(relationAllExists('causes-SitSit', ?CAUSE, ?EFFECTTYPE)) :- removalSentence('causes-SitTypeSitType'(?CAUSE, ?EFFECTTYPE)).
+forwardSentence(relationAllExists('causes-SitSit', ?COL1, ?COL2)) :- removalSentence(assertedSentence('causes-SitTypeSitType'(?COL1, ?COL2))), removalSentence('causes-SitTypeSitType'(?COL1, ?COL2)).
+forwardSentence('causes-SitTypeSitType'(?X, ?Y)) :- removalSentence(assertedSentence(relationAllExists('causes-SitSit', ?X, ?Y))), removalSentence(relationAllExists('causes-SitSit', ?X, ?Y)).
+forwardSentence('causes-SitTypeSitType'(?CAUSE, ?EFFECT)) :- removalSentence('causes-SubSitTypeSubSitType'(?XSUPER, ?CAUSE, ?EFFECT)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-WhichOfTheFollowingWouldResultInTheAmplificationOfAChemicalSignal 0').
+%pretest :- 'causes-SitTypeSitType'(TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), SignalTransductionCascade), %write_results('SUCCESS  : $CPTTest-WhichOfTheFollowingWouldResultInTheAmplificationOfAChemicalSignal 0').
+
+// Debugging
+proof(9354, 0) :- 'causes-SitTypeSitType'(TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), SignalTransductionCascade).
+
+proof(9354, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(9354, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(9354, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(9354, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(9354, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(9354, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(9354, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(9354, 1007) :- 'causes-SitTypeSitType'(TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), SignalTransductionInGlycogenBreakdown).
+proof(9354, 1008) :- relationAllExists('causes-SitSit', TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), SignalTransductionInGlycogenBreakdown).
+
+proof(9354, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(9354, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(9354, 2002) :- admittedArgument(SecondFn(36, MinuteFn(22, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(9354, 2003) :- admittedArgument(SecondFn(36, MinuteFn(22, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(9354, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(9354, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(9354, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiologyMt).
+proof(9354, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), ReasoningToCausesFromObservationsMt).
+proof(9354, 2008) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(9354, 2009) :- 'causes-SitTypeSitType'(TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), SignalTransductionCascade). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

@@ -1,0 +1,90 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-DuringWhichOfTheFollowingDoesDNAReplicate (query 0)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28derived_from.29_Princeton_APR_Ch._7_quiz.2C_question_6_.28p._111.29
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(firstProperSubEventTypes, properSubEventTypes)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, genlPreds(iterativeSubEventTypesTotality, startTogetherInSituationType)).
+istAsserted(BiologyMt, firstProperSubEventTypes(SPhase, TotalityOfSubEventsOfTypeFn(InterphaseOfEukaryoticCellCycle, 'Replication-DNA'))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(BiologyMt, iterativeSubEventTypesTotality(SPhase, 'Replication-DNA', TotalityOfSubEventsOfTypeFn(InterphaseOfEukaryoticCellCycle, 'Replication-DNA'))).
+
+// Implicit Background Rules
+forwardSentence(relationAllExists(firstSubEvents, ?COL1, ?COL2)) :- removalSentence(assertedSentence(firstProperSubEventTypes(?COL1, ?COL2))), removalSentence(firstProperSubEventTypes(?COL1, ?COL2)).
+forwardSentence(firstProperSubEventTypes(?X, ?Y)) :- removalSentence(assertedSentence(relationAllExists(firstSubEvents, ?X, ?Y))), removalSentence(relationAllExists(firstSubEvents, ?X, ?Y)).
+forwardSentence(relationAllExists(properSubEvents, ?WHOLE_TYPE, ?PART_TYPE)) :- removalSentence(properSubEventTypes(?WHOLE_TYPE, ?PART_TYPE)).
+forwardSentence(relationAllExists(properSubEvents, ?COL1, ?COL2)) :- removalSentence(assertedSentence(properSubEventTypes(?COL1, ?COL2))), removalSentence(properSubEventTypes(?COL1, ?COL2)).
+forwardSentence(properSubEventTypes(?COL1, ?COL2)) :- removalSentence(assertedSentence(relationAllExists(properSubEvents, ?COL1, ?COL2))), removalSentence(relationAllExists(properSubEvents, ?COL1, ?COL2)).
+forwardSentence(firstProperSubEventTypes(?SIT, ?SUB_SIT_1)) :- removalSentence(startTogetherInSituationType(?SIT, ?SUB_SIT_1, ?SUB_SIT_2)), removalSentence(firstProperSubEventTypes(?SIT, ?SUB_SIT_2)).
+
+// Explicit Background Facts
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-DuringWhichOfTheFollowingDoesDNAReplicate 0').
+%pretest :- properSubEventTypes(SPhase, 'Replication-DNA'), %write_results('SUCCESS  : $CPTTest-DuringWhichOfTheFollowingDoesDNAReplicate 0').
+
+// Debugging
+proof(2505, 0) :- properSubEventTypes(SPhase, 'Replication-DNA').
+
+proof(2505, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(2505, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(2505, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(2505, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(2505, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(2505, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(2505, 1006) :- firstProperSubEventTypes(SPhase, TotalityOfSubEventsOfTypeFn(InterphaseOfEukaryoticCellCycle, 'Replication-DNA')).
+proof(2505, 1007) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(2505, 1008) :- firstProperSubEventTypes(SPhase, 'Replication-DNA').
+proof(2505, 1009) :- relationAllExists(properSubEvents, SPhase, 'Replication-DNA').
+proof(2505, 1010) :- relationAllExists(firstSubEvents, SPhase, 'Replication-DNA').
+proof(2505, 1011) :- properSubEventTypes(SPhase, 'Replication-DNA').
+
+proof(2505, 2000) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(2505, 2001) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(2505, 2002) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiologyMt).
+proof(2505, 2003) :- genlPreds(firstProperSubEventTypes, properSubEventTypes).
+proof(2505, 2004) :- genlPreds(iterativeSubEventTypesTotality, startTogetherInSituationType). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

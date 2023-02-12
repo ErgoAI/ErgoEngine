@@ -1,0 +1,48 @@
+:- use_argumentation_theory{AT}.
+?- [atco>>AT].
+
+
+/*
+  Note: ?X != ?Y will not work because the query
+  ?- \opposes(price(bread,1),?O).
+  won't return anything without explicit grounding of ?X and ?Y.
+*/
+\opposes(price(bread,?X),price(bread,?Y)) :-
+	value(?X),
+	value(?Y),
+	?X != ?Y.
+
+@{an,a} price(bread,1).
+@{bn,b} price(bread,2).
+@{c,cn} price(bread,3).
+
+value(1).
+value(2).
+value(3).
+value(4).
+
+\overrides(a,c).
+\overrides(b,c).
+
+/* Desired conclusions: \naf price(bread,1), \naf price(bread,2), price(bread,3).
+   Intuitive justification:  price(bread,1) and price(bread,2)
+   have unresolved conflict. price(bread,3) is both refuted and rebutted
+   by price(bread,1) and price(bread,2). The latter is true, since neither
+   price(bread,1) nor price(bread,2) is compromised: to be compromised they
+   must be refuted, but they are not. So, price(bread,1) is also defeated.
+
+*/
+
+%tst1 :- false{price(bread,1)}, false{price(bread,2)}, false{price(bread,3)},
+	 writeln(tst1=ok)@\plg.
+
+
+%pretest :- %tst1.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	\abolishtables,
+	%pretest,
+	told@\plg.

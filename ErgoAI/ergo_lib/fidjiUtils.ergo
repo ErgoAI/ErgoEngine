@@ -1,0 +1,1986 @@
+/* File:   fidjiUtils.ergo
+**
+** Author(s): Miguel Calejo
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2014-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+/* This file effectively exports the following predicates:
+* to fidji-cks.P
+	%browseTerm(?Atom)
+	%clauseCalls(?ID1,?M1,?SG,?ID2,?M2)
+	%explanationItem(?List,?Order,?Node,?Answer)
+	%fjFloraGenericCallNode(?ID,?TheType,?Term)
+	%floraliteralCalledRelation(?Child,?Parent,node(?Root,null(null)))
+	%floraliteralCallsRelation(?Child,?Parent,node(?Root,null(null)))
+	%floraSubclassRelation(?Sub,?Super,?Root)
+	%floraTopliteralCallsRelation(?Child,?Parent,?Module)
+	%getDefeatedRule(?Node,?DefeatedID,?M)
+	%initializeExplanation(?ListGUIref,?Root,?CS,?JT,?Outcome)
+	%justificationTreeFunction(?Child,?Parent,?Root) - to fidji-cks
+	justificationTreeFunction(?Child,?Parent,?Root) - to ergo_explain
+	%mayGetModule(?G,?M)
+	%nextExplanation(?W,?Order,?Answer,?OutcomeH)
+	%nodeToLiteral(?Node,?_,?ErgoTerm)
+	%obtainTerm(?ID,?Type,?Term)
+	%pp(?ErgoTerm,?PrettyTerm,?__Type)
+	%wNodeAnswerToMatchingSource(?Node,?RuleOrFactOrSystem,?MatchingRule,?Module)
+* to FloraProgramEditor.java
+	%buildHilogTree(?T,?HT)
+	%buildHilogTree(?T,?HT,?ExpandHeads,?MaxDepth,?Depth)
+	%showDefinitionFor(?G)
+* to FinderWindow.java
+	%f_forGUI(+Term,+Heads,+Facts,+Remaining,-ListGUIInt)
+*/
+
+/*
+:- verbatim{':-(import(from(/(tracingInformation,3),usermod(''fidji-cks'')))).'}.
+:- verbatim{':-(import(from(/(flora_get_precise_file,3),usermod(''fidji-cks'')))).'}.
+:- verbatim{':-(import(from(/(prologLiteralToMatchingSource,4),usermod(''fidji-cks'')))).'}.
+*/
+
+
+:- compiler_options{production=on}.
+
+:- verbatim{':-(ensure_loaded(''fidji-cks'')).'}.
+:- verbatim{':-(import(from(/(ipListenerWindow,1),usermod))).'}.
+
+#include "flora_terms.flh"
+
+:- suppress_rule_signatures.
+
+:- ignore_depchk{
+                  %mayGetModule(?,?),
+                  %nodeToLiteral(?,?,?),
+                  %nodeToLiteral(?,?,?,?,?,?)
+                }.
+
+:- symbol_context{d/5,fact/1,m/1,hilog/1,
+                   prlg isAggregate(?,?,?,?,?),
+                   %nodeToLiteral(?,?,?,?,?,?)@?,
+                   %buildHilogTree(?,?,?,?,?)@?
+                 }.
+:- symbol_context{
+                   fact/1, d/5, m/1, hilog/1,
+                   m/0, m/6, w/0, w/6,
+                   null/0, null/1,
+                   rule/0, rule/1
+                 }. 
+:- symbol_context{
+                   prlg literalCalls(?,?,?), 
+                   prlg literalCalls(?,?,?,?), 
+                   prlg literalCalls(?,?,?,?,?)
+                 }.
+:- symbol_context{
+                   dr/0, dr/1,
+                   prlg my_overrides(?,?,?,?,?),
+                   prlg my_overrides(?,?,?),
+                   prlg my_opposes(?,?,?,?,?),
+                   prlg my_opposes(?,?,?),
+                   prlg my_cancel(?,?),
+                   prlg my_cancel(?,?,?),
+                   'overrides'(?,?)@?, 'overrides'(?,?,?,?)@?,
+                   opposes(?,?)@?, opposes(?,?,?,?)@?,
+                   %justificationTreeFunction(?,?,?)@?,
+                   cancel(?,?)@?, cancel(?)@?, 
+                   %fs(?,?,?)@?, %fs(?,?,?,?)@?, %fs(?,?,?,?,?,?,?)@?
+                 }.	
+:- symbol_context {%clauseCalls/5,%clauseCalls/6}.
+:- symbol_context{
+                   %find(?,?)@?, %find(?,?,?,?,?)@?,
+                   %f(?)@?, %f(?,?)@?, %f(?,?,?)@?
+                 }.
+:- symbol_context{prlg subgoalIn(?,?), prlg subgoalIn(?,?,?)}.
+
+:- table{
+           //justificationTreeRelation_internal/3,
+           //justificationTreeFunction/3,
+          // minor speedup
+          sys_trivial_justification/3
+        }.
+:- prolog{
+           // various comments indicate that tabling this is important
+           // for termination.
+           justificationTreeRelation_internal/3,
+          // must be tabled or too many repeated justifications - major speedup
+           // but if any of the above two is tabled then cannot do explanations 
+           // for hypothetical updates: gets the error
+           // "non-transactional rule-head justificationTree*(...) depends on an update"
+           justificationTreeFunction/3,
+           
+           subgoalIn/2,
+           subgoalIn/3,
+           isAggregate/4,
+           isAggregate/5,
+           isSimpleSubgoal/1,
+           justifiableGoal/1,
+           negateLiteral/2,
+           literalCalls/3,
+           literalCalls/4,
+           literalCalls/5,
+           mayBindFirstMatchingID/2,
+           mayBindMatchingID/2,
+           executeBody/1,  // may depend on update - cannot be tabled
+           subgoalOf/4,    // may depend on update - cannot be tabled
+           justificationTreeRelation/3,
+           justificationMetrics/5,
+           justificationMetrics2/3,
+           notKnownCorrect/2,
+           childOfDefeated/3,
+           hack_check_bgaxioms/4,
+           bodyUsesUserProgram/3,
+           aBodyWsubgoal/3,
+           aBodyMsubgoal/4,
+           fjdefeatedr/3,
+           isa_goal_reason/4,
+           consistencyAndUndefinednessCheck/3,
+           wNodeAnswerToMatchingSource2/5,
+           mayGetLocalModuleVar/3,
+           checkNonAtoms/2,
+           defaultT/4,
+           decodeVars/2,
+           notCommentedYet/2,
+           myvariant/2,
+           mySubsumes/2,
+           findAtom/4,
+           my_isbasefact/2,
+           my_overrides/5,
+           my_overrides/3,
+           my_opposes/5,
+           my_opposes/3,
+           my_cancel/2,
+           my_cancel/3,
+           my_dr_atom/3,
+           findSubTerm2/3,
+           bestDSDcause/3,
+           refinedJustificationMetrics/5,
+           updateExplanationItem/4,
+           nextExplanationWhy/3,
+           nextExplanationUnderstood/3,
+           nextExplanation2/3,
+           nextExplanationDontKnow/3,
+           isDeleteLiteral/1,
+           isTransDeleteLiteral/1,
+           isDeleteLiteral_aux/1,
+           isTransDeleteLiteral_aux/1,
+           tp/4,
+           tb/4,
+           pp2/3,
+           pp3/3,
+           fjw/3,
+           fmj/3,
+           fmj2/6,
+           jtr2m/5,
+           jtr2w/6,
+           noPath/1,
+           my_once/1  // cannot be tabled
+         }.
+
+?- Method[mustDefine(off,${\trivialJustification(?,?)@?})]@\sys.
+?- Method[mustDefine(off,${\opaqueJustification(?,?)@?})]@\sys.
+
+
+ensure_loaded :- !.
+
+// export to fidji-cks.P
+%justificationTreeFunction(?X,?Y,?Z) :- justificationTreeFunction(?X,?Y,?Z).
+
+/*** Class browser; ASSUMES main module. WHY? ***/ 
+// How to avoid transitive closure in Flora...??
+// MK(Miguel): Why does it use the 'main' module? 
+//             Used in fidji-cks.P once in xjClassTree/1.
+//             But xjClassTree/1 seems unused
+%floraSubclassRelation(?SC,null,?SC) :- !, ?SC = ?SC.
+%floraSubclassRelation(?SC,?C,?_Context) :-
+        ?SC::?C@FLORA_DEFAULT_WORKSPACE,
+        isatomic{?SC},
+        isatomic{?C}.
+
+
+/** top-down justifications:
+           justificationTreeRelation(-Child,+Parent,+Root)
+    Root: can be null for the top of the tree or a variable.
+          For more complex forms, wee below.
+          This parameter is **probably** unused.
+    Parent, Child: see below.
+
+    Two basic cases:
+         w --  "Why", justifying true answer
+         m --  "Why not" - justifying \naf, i.e., a "missing" answer.
+         d --  "Why defeated" - justifying why an answer was defeated
+    Use \trivialJustification(m_or_w,?Goal) in the program module
+    to simplify justifications.
+    More declarations possible, see
+     http://bwiki.coherentknowledge.com/index.php?title=Fidji_FAQ#Justifications
+
+    The 3 arguments have the form
+	?Type(?Term,?OptionalAppearance,?ConsiderSucceeded,
+              ?CallingRuleID,?SpecialReason,?Path)
+     or
+        d(DefeatMethod(tag,Term),DefeatMethod,ConsiderSucceeded,CallingRuleID,
+          null,Path)
+    o ?Type is one of w,m
+    o ?Term is either a goal call (for m nodes) or a goal answer (for w and d)
+    o The ?OptionalAppearance argument is either null (for most nodes)
+      or something else if the justifier deems that additional info
+      needs to be provided in justifications.
+      There is such a case for jtr2w(aggregate,...,?Child) where 
+      ?Child = w(?G,?AggVar,...). If, say 100 = sum{?AggVar|Query(?AggVar)},
+      and 100 is obtained from separate Query(?AggVar) results, like 30,30,40,
+      then the instances of the agg var ?AggVar will be passed to the justifier.
+    o ***MK: ?ConsiderSucceeded = \true does not seem to do anything useful!!
+             Even for the below example.
+      The ?ConsiderSucceeded argument (\true or \false) specifies
+      whether supporting subgoals with 1 or more answers are viewed as
+      justifications for m(Goal,....) for explaining failure. For instance,
+
+            abc :- b(?X), c(?X).
+            b(1) :- \true.  // maybe b(2) is missing
+            c(2) :- \true.  // maybe c(1) is missing
+
+            ?- ?Parent = m(${abc},null,\true,null,null,[]),
+               justificationTreeFunction(?Child,?Parent,?)@\fidji.
+
+            ?Parent = m(${abc@main},null,\true,null,null,[])
+            ?Child = m(${b(?_h5726)@main},null,\true,4,null,
+                       [m - ${b('$VAR'(0)@\prolog)@main}])
+
+            ?Parent = m(${abc@main},null,\true,null,null,[])
+            ?Child = m(${c(?_h5789)@main},null,\true,4,null,
+                       [m - ${c('$VAR'(0)@\prolog)@main}])
+
+            If ?ConsiderSucceeded==\false (as in the Studio), you get zero
+            support and the explanation for the failure of abc is just abc.
+
+    o ?CallingRuleID is the id of the rule calling the current node 
+    o ?SpecialReason is a term with a "special" justification - something
+      beyond the plain rule/fact chaining, e.g. use of inheritance
+      or background axioms; null otherwise
+    o ?Path is a list of copies of ancestor goals, grounded by a var-numbering.
+      It is used for loop checking - to prevent infinite justification paths.
+*/
+
+/** This is the relation "almost" for XJ.
+    Assumes expanded top-down from parent to children.
+    This first layer computes the path from the root,
+    a list of NodeType-GroundLiteral (grounded with numbervars),
+    in the last arg of both Child and Parent, to detect (and prune)
+    repeated subtree root nodes
+*/	
+/*
+  MK(Miguel):  This Type = r is BOGUS. It can never succeed with Type = r since
+               you then compare it with n. And ?Type is never used elsewhere
+               in this predicate, so much of the code in this pred is bogus.
+               Please clean up.
+*/
+justificationTreeRelation(?Child,?Parent,?Root) :-
+	justificationTreeRelation_internal(?Child,?Parent,?Root),
+	?Child=..[hilog(?JTC),?GC,?,?,?,?,?PathC],
+        ( ?Parent == null -->> ?Type = n
+         ;
+          ?Parent =.. [hilog(?),?,?,?,?,?,?PathP],
+          // keep space between \+ and \+. Otherwise it is not recognized
+          // as two \+'s!
+          // Has been fixed now in the lexer!
+          ( \+ \+ (
+                    numbervars(?GC,0,?,[attvar(bind)@\prolog])@\prolog(num_vars),
+                    \+ memberchk(?JTC-?GC,?PathP)@\prolog(basics)
+                  )
+            -->>
+            ?Type = n 
+           ;
+            ?Type = r
+          ),
+          copy_term(?GC,?GCcopy)@\prolog,
+          numbervars(?GCcopy,0,?,[attvar(bind)@\prolog])@\prolog(num_vars),
+          ?PathC = [?JTC-?GCcopy|?PathP]
+	),
+        // to change appearance of repeated nodes propagate this...
+	?Type = n.
+
+/** This is THE function (parent node-->child node set) for the lazy definition
+    of the XJ tree, so we're able to remove duplicate children (siblings),
+    without being impacted by parent bindings that could introduce duplicates.
+
+    justificationTreeFunction(-Child,+Parent,+Root)
+
+    The Root parameter is **probably** unused.
+
+    ### Detailed explanations of these arguments appear in the header preceding
+    ### justificationTreeRelation/3 above.
+
+    Example (after loading demo/family_rel.flr into main): 
+           ?G = ${brother(bernhard,karl)@main},
+           ?Parent = w(?G,null,\true,null,null,[]),
+           justificationTreeFunction(?Child,?Parent,?)@\fidji.
+       You get 3 solutions:
+           karl is male
+               ?Child = w(${%male(karl)@main},null,\true,16,null,
+                          [w - ${%male(karl)@main}])
+           karl's father is hermann
+               ?Child = w(${parent(bernhard,hermann)@main},null,\true,16,null,
+                          [w - ${parent(bernhard,hermann)@main}])
+           bernhard's father is hermann
+               ?Child = w(${parent(karl,hermann)@main},null,\true,16,null,
+                          [w - ${parent(karl,hermann)@main}])
+
+    Change ?Parent=w(...) to ?Parent=m(...) for missing solution justification 
+*/
+// using this cache makes explanations wrong
+/*
+justificationTreeFunction(?Child,?Parent,?Root) :- 
+        check_justification_cache(justificationTreeFunction(?Child,?Parent,?Root)@\plg)@\plg(ergo_explain_utils).
+*/
+justificationTreeFunction(?Child,?Parent,?Root) :- 
+        //\+ check_justification_cache(justificationTreeFunction(?Child,?Parent,?Root)@\plg)@\plg(ergo_explain_utils),
+	?L=bagof{?CC|
+                  // It appears that CallerId in ?Parent is crucial for
+                  // justificationTreeRelation/3 to return all answers.
+                  // Reified ?Parent won't work because it has variables in
+                  // the hidden CallerId arguments of the context.
+                  // If is strange that a var in CallerId does not work.
+                  // See ~/tmp/just.flr
+                  justificationTreeRelation(?Node,?Parent,?Root),
+                  %nodeToTypeAtom(?Node,?Type,?Atom),
+                  ?CC = ?Type(?Atom)(?Node)
+                },
+        (using_sorted_explanations@\why -->>
+          ?TypeAtoms= setof{?TA|
+                             member(?Type(?Atom)(?),?L)@\prolog(basics),
+                             ?TA = ?Type(?Atom)
+                           }
+        ;  ?TypeAtoms= bagof{?TA|
+                              member(?Type(?Atom)(?),?L)@\prolog(basics),
+                              ?TA = ?Type(?Atom)
+                            }
+        ),
+	(
+          member(?TypeAtom,?TypeAtoms),
+          memberchk(?TypeAtom(?Child),?L)
+        )@\prolog(basics),
+        //insert_justification_cache(justificationTreeFunction(?Child,?Parent,?Root)@\plg)@\plg(ergo_explain_utils),
+        \true.
+        
+
+// to be used as hash function, not for UI display
+%nodeToTypeAtom(?Node,?Type,?A) :-
+        // Consider the "true" atom, not the pretty printed or optional
+        // atom shown in the UI
+	?Node = ?Type(?Term,?_OptionalAppearance,?_ConsiderSucceeded,?_RuleID,?_special_reason, ?_path),
+	flora_decode_goal_as_mainless_atom(?Term,?A)@\prolog(flrdecode).
+
+// The "real" relation for visualization
+// Notice that children C of a m node P may bind P (if P had solutions)
+// justificationTreeRelation_internal(-Child,+Parent,+Root)
+justificationTreeRelation_internal(?Child,null,?Root) :-
+        !,
+        ?Root=?Child.
+// why-case
+justificationTreeRelation_internal(?Child, w(?ParentG,?_OptionalAppearance,?ConsiderSucceeded,?CallerID,?_special_reason,?_path), ?_Context) :-
+        !,
+	%mayGetModule(?ParentG,?M),
+        // ignore bindings in the context/tracing arg FL_CONTEXT
+	flora_generalize_last(?ParentG,?Call)@\prolog(flrtrim),
+	term_hash(?Call,10000,?Hash1)@\prolog(machine),
+	// flora_decode_goal_as_mainless_atom(?ParentG,?ParentAtom)@\prolog(flrdecode), 
+	// cannot use the atom as a "hash" of the relevant bindings because
+        // unbound variables may get different _names after matching a clause
+	fjw(?ParentG,?ConsiderSucceeded,j(?Type,?Info)),
+	// flora_decode_goal_as_mainless_atom(?ParentG,?ParentAtom)@\prolog(flrdecode), 
+	term_hash(?Call,10000,?Hash2)@\prolog(machine),
+        ?Hash2 == ?Hash1,
+	hack_check_bgaxioms(?Type,?M,?ConsiderSucceeded,?Info),
+	// pick some justification which does NOT bind our parent, because
+	// we don't want different "OR" branches appearing in the same "AND"
+	!,
+	jtr2w(?Type,?Info,?M,?ConsiderSucceeded,?CallerID,?Child).
+// whynot-case
+justificationTreeRelation_internal(?Child, m(?ParentG,?_OptionalAppearance,?ConsiderSucceeded,?CallerID,?_special_reason,?_path), ?_Context) :-
+        !,
+	(
+          (
+            %mayGetModule(?ParentG,?M),
+            fmj(?ParentG,?ConsiderSucceeded,j(?Type,?Info)),
+            jtr2m(?Type,?Info,?M,?ConsiderSucceeded,?Child)
+          )
+         ;
+          (
+            /*
+                MK(Miguel):
+                The head of this rule is
+                    justificationTreeRelation_internal(?Child, m(?ParentG,.....
+                and you are justifying it with
+                   ?Child = w(?ParentG,null,?ConsiderSucceeded,?CallerID,null,?__path)
+                But this makes no sense! The request is to justify
+                why ?ParentG is false and you are explaining it by saying
+                that this is because it is true!
+                Am I missing something? 
+            */
+            ?ConsiderSucceeded == \true, 
+            ?ParentG,
+            ?Child = w(?ParentG,null,?ConsiderSucceeded,?CallerID,null,?__path)
+          )
+        ).
+
+/*
+    MK changed the two rules below and doubled them. Before that there was a
+    bug:
+    @{ccc} m3.
+    @{ddd} m4.
+    \opposes(m3,m4). // rebutted
+
+    If you ask to justify whynot m3, you get 
+       d(rebuttedBy(ddd,${m4@main}),rebuttedBy,\true,22,null,[d - rebuttedBy(ddd,${m4@main})])
+
+    and the child of that is
+       w(${m4@main},null,\true,null,null,[w - ${m4@main}, d - rebuttedBy(ddd,${m4@main})])
+
+    But this is WRONG. m4 is false and w(m4... makes no sense.
+    As a result, the justifier always shows the nodes below rebuttedBy
+    and disqualified as true, while they are usually false.
+    So, now we use eithere w or m, depending on whether ?Defeater is
+    true or false.
+*/
+justificationTreeRelation_internal(m(?Defeater,null,?_ConsiderSucceeded,null,null,?),
+                                    d(?ParentG,?_DefeatMethod,?_ConsiderSucceeded,?,?,?),
+                                    ?_Context) :-
+	childOfDefeated(?ParentG,?_Reason,?Defeater),
+        \naf ?Defeater,
+        \+undefined{?Defeater},
+        !.
+justificationTreeRelation_internal(w(?Defeater,null,?_ConsiderSucceeded,null,null,?),
+                                    d(?ParentG,?_DefeatMethod,?_ConsiderSucceeded,?,?,?),
+                                    ?_Context) :-
+	childOfDefeated(?ParentG,?_Reason,?Defeater),
+        ?Defeater,
+        !.
+
+/* If we prefer to omit the top node of the refutation:
+justificationTreeRelation_internal(?Child,
+                            d(?ParentG,?_DefeatMethod,
+                              ?ConsiderSucceeded,?_CallerID,?),
+                            ?_Context) :-
+	?ParentG = ?_R(?_RA,?Defeater),
+	%mayGetModule(?Defeater,?M),
+	fjw(?Defeater,?ConsiderSucceeded,j(?Type,?Info)),
+	jtr2w(?Type,?Info,?M,?ConsiderSucceeded,null,?Child).
+*/
+
+// hack_check_bgaxioms(?Type,?Module,?Info) rejects justifications
+//     where a bgaxiom does not pull any program rules or facts
+hack_check_bgaxioms(bg_axiom,?M,?CS,?(?Body)) :-
+        !,
+        bodyUsesUserProgram(?M,?CS,?Body).
+hack_check_bgaxioms(?,?,?,?) :- \true.
+
+bodyUsesUserProgram(?M,?CS,?Body) :-  
+	aBodyWsubgoal(?Body,?M,?BG),
+        fjw(?BG,?CS,j(?Type,?)),
+        ?Type \== bg_axiom,
+        !.
+
+// This depends on the argumentation theory being used
+// childOfDefeated(+ ?ParentReason, - ?ParentLabel, - ?DefeaterChild)
+childOfDefeated( ?_Reason(?_AddlReason,
+                           (?_DefeatedTag,?_Defeated),
+                           (?_DefeaterTag,?_Defeater)),
+                 ?_Reason, ?_Defeater).
+childOfDefeated( ?_Reason(?_Tag,?_Defeater), ?_Reason, ?_Defeater).
+childOfDefeated( ?_Reason(?_Defeater), ?_Reason,  ?_Defeater).
+
+// This should be AT-independent... as long as the ?CompleteReason
+// brings out all we need to chase the defeater...
+fjdefeatedr(?Tag,?H,?CompleteReason) :- 
+	/*nonvar(?Tag), */ ?H ~ ?_HH@?M,
+	flora_defeasible_module_registry(?M,?AT)@\prolog(flrregistry),
+	status(?Tag,?H)[howDefeated->?Reason] @ ?AT, 
+	\if (
+              ?Reason == disqualified,
+              status(?Tag,?H)[howDisqualified->defeatCycle(?DefeaterTag,
+                                                            ?Defeater,
+                                                            ?DefeatedTag,
+                                                            ?Defeated)]
+        )@?AT
+        \then (
+           ?CompleteReason = ?Reason(refutationCycle,
+                                      (?DefeatedTag,?Defeated),
+                                      (?DefeaterTag,?Defeater)
+                                    )
+	) \else ?CompleteReason = ?Reason.
+
+%getDefeatedRule(?Node,?DefeatedID,?M) :- 
+	?Node = d(?G,?_DefeatMethod,?_ConsiderSucceeded,?DefeatedID,?,?),
+	childOfDefeated(?G,?,?DG),
+        %mayGetModule(?DG,?M).
+
+/* does not work: the Java side calls this more than once per visualization
+%notRepeated(?Parent,?TreeID) :- 
+	\+ \+ (
+		numbervars(?Parent,0,?,[attvar(bind)@\prolog])@\prolog(num_vars), 
+		\if appearedAsParent(?Parent,?TreeID) then \false
+                \else insert{appearedAsParent(?Parent,?TreeID)} 
+		).
+*/
+
+// apearedAsParent(?NodeID,?TreeID)
+// apearedAsChild(?NodeID,?TreeID)
+
+// negateLiteral(?G,?NG)  
+/*
+  MK(Miguel): Unused? (only used in a commented out subgoal in fidji-cks.P
+*/
+negateLiteral(${\neg ?_G@?_M}, ${?_G@?_M}) :- !.
+negateLiteral(${?_G@?_M}, ${\neg ?_G@?_M}) :- \true.
+	
+// Using flora_decode_module_name instead of meta-unification. Much faster
+%mayGetModule(?G,?M) :- flora_decode_module_name(?G,?M)@\prolog(flrwrapper).
+//%mayGetModule(?G,?M) :- ?G ~ \naf ?GG, !, %mayGetModule(?GG,?M). 
+//%mayGetModule(?G,?M) :- ?G ~ %?_H@?M, !. 
+//%mayGetModule(?G,?M) :- ?G ~ ?_H@?M, !. 
+// assume main, won't hurt for aggregates...
+// \true in the body body to make sure the cuts work as in Prolog
+%mayGetModule(?_,FLORA_DEFAULT_WORKSPACE) :- \true.
+
+mayGetLocalModuleVar(?G,?_M,?LM) :- ?G ~ %?_H@?LM, !. 
+mayGetLocalModuleVar(?G,?_M,?LM) :- ?G ~ ?_H@?LM, !. 
+mayGetLocalModuleVar(?_,?M,?LM) :- ?M = ?LM. 
+
+// jtr2w(?Type,?Info,?Module,?ConsiderSucceeded,?Child)
+// naf naf.. limited 
+jtr2w(naf,j(?MType,?MJ),?_M,?_ConsiderSucceeded,?_CallerID,m(?MG,null,?_ConsiderSucceeded,?ID,null,?_path)) :-
+        !, 
+	?MType \== naf,
+        ?MJ = ?ID(?MG).
+// Let's not show 'true' nodes under facts:
+// jtr2w(fact,?_Info,?_M,?ConsiderSucceeded,?CallerID,w(true,null,?ConsiderSucceeded,?CallerID)) :- !.
+jtr2w(aggregate,?_Type(?Query,?Solutions),?_M,?ConsiderSucceeded,?CallerID,?Child) :-
+        !,
+	?Special_reason = 'aggregate expression',
+	(
+            ?Child = w(?G,?AggVar,?ConsiderSucceeded,?CallerID,?Special_reason,?_path), 
+            member(?AggVar-?G,?Solutions)@\prolog(basics)
+	;
+            ?Solutions==[], /* consider m only for strict failures */ 
+            ?Child = m(?Query,null,?ConsiderSucceeded,?CallerID,?Special_reason,?_path)
+	).
+jtr2w(rule,?_ID(?Body),?M,?_ConsiderSucceeded,?_CallerID,w(?BG,null,?_ConsiderSucceeded,?_ID,null,?_path)) :-
+        !,
+	aBodyWsubgoal(?Body,?M,?BG). 
+// for the rule id to be the child's, either the tracing arg gives it...
+// or we need to rematch the clause there ;-)
+jtr2w(bg_axiom,?_Comment(?Body),?M,?_ConsiderSucceeded,?_CallerID,w(?BG,null,?_ConsiderSucceeded,?_CallerID,?_Comment,?_path)) :-
+        !,
+	aBodyWsubgoal(?Body,?M,?BG). 
+jtr2w(inheritance,[?SuperFrame,?ISAGoal],?M,?_ConsiderSucceeded,?_CallerID,w(?G,null,?_ConsiderSucceeded,?_CallerID,?Special_reason,?_path)) :-
+        !,
+	(?G = ?SuperFrame, ?Special_reason='inherited from superclass'
+        ; isa_goal_reason(?ISAGoal,?M,?G, ?Special_reason)
+        ).
+jtr2w(defeated,?_ID(?Reason),?_M,?_ConsiderSucceeded,?_CallerID,d(?Reason,?DefeatMethod,?_ConsiderSucceeded,?_ID,null,?_path)) :-
+        !, 
+	childOfDefeated(?Reason,?DefeatMethod,?_Defeater). 
+
+// ?ISA is a is-a goal that succeeded
+// isa_goal_reason(?ISA,?Module,?G,?SpecialReason)
+//isa_goal_reason(?ISA,?_M,?G,null) :-
+//       \+ \+ (isbasefact{?ISA} ; clause{?ISA,?} ), !, ?G = ?ISA.
+//isa_goal_reason(?ISA,?M,?G,?Comment) :-
+//       \bgaxiom(?ISA,?Body,?Comment)@\prolog, aBodyWsubgoal(?Body,?M,?G).
+// bgaxioms will come into play later
+isa_goal_reason(?ISA,?_M,?G,null) :- ?ISA = ?G.
+
+// jtr2m(?Type,?Info,?Module,?ConsiderSucceeded,?Child)
+jtr2m(uncovered,?_Info,?_M,?_ConsiderSucceeded,?_Child) :-
+        !,
+        \false. // too trivial to display 
+jtr2m(?Type,?_ID(?_BG),?_M,?_ConsiderSucceeded,m(?_BG,null,?_ConsiderSucceeded,?_ID,null,?_path)) :- 
+	(?Type == subgoal ; ?Type = bgaxiom),
+        !. 
+jtr2m(aggregate,?_Type(?Query,?Solutions),?_M,?ConsiderSucceeded,?Child) :-
+        !,
+	?Special_reason = 'aggregate expression',
+	(
+          ?Child = w(?G,?TheVar,?ConsiderSucceeded,null,?Special_reason,?_path),
+          member(?TheVar-?G,?Solutions)@\prolog(basics)
+	;
+          ?Child = m(?Query,null,?ConsiderSucceeded,null,?Special_reason,?_path)
+	).
+jtr2m(defeated,?_ID(?Reason),?_M,?_ConsiderSucceeded,d(?Reason,?DefeatMethod,?_ConsiderSucceeded,?_ID,null,?_path)) :-
+        !, 
+	childOfDefeated(?Reason,?DefeatMethod,?_Defeater). 
+jtr2m(naf,j(fact,?_ID(?_X)),?_M,?_ConsiderSucceeded,w(?_X,null,?_ConsiderSucceeded,?_ID,null,?_path)) :- !. // naf may be \+ too
+jtr2m(naf,j(rule,?_ID(?X)),?M,?_ConsiderSucceeded,w(?BG,null,?_ConsiderSucceeded,?_ID,null,?_path)) :- 
+	aBodyWsubgoal(?X,?M,?BG).
+
+// fjw(?H,?ConsiderSucceeded,?J) : Given a precomputed and successful
+//              (but possibly wrong) ?H, returns one or more justifications: 
+// 	j(naf,?J) or j(fact,null) or j(rule,?ID(?Body))
+//      or j(inheritance,?ReasonsList)... . Fails for nonuser predicates.
+// fjw(?H, ?ConsiderSucceeded, ?J) :- PRINTLN(fjw(?H, ?ConsiderSucceeded, ?J))@\io, \false.
+/*
+   MK: Problematic case:
+           p:k :- aaa.
+           ?- why{\naf p:k}. // does not show aaa as a subgoal
+       Similarly, if aaa is true then the above explanation does not show
+       aaa as a subgoal.
+*/
+fjw(?H, ?ConsiderSucceeded, ?J) :-
+        (//?H ~ \naf ?NH@?M -->> ?FullNH = ?NH@?M
+          isnafform{?H,?NH} -->> ?FullNH = ?NH
+        //; ?H ~ \+ ?NH@?M -->> ?FullNH = ?NH@?M
+        //; ?H ~ \+ ?NH, ?FullNH = ?NH
+        ; ?H = ${\+ ?NH} -->> ?FullNH = ?NH
+        ),
+        (%mayGetModule(?FullNH,?M)  -->> ?M \= ERGO_STUDIO_MODULE
+        ; \true
+        ),
+        !, 
+        // DANGEROUS: \neg ?Var can give an error if, eg, this instantiates
+        // to \neg\naf foo. Therefore, we catch the error and fail, if
+        // \neg is not applicable.
+	\if catch{\neg ?FullNH,?,\false}
+	\then (
+           fjw(${\neg ?FullNH},?ConsiderSucceeded,?J) 
+	) \else (
+           ?H, // fjw justification makes sense only for success of \neg NH! 
+           fmj(?NH,?ConsiderSucceeded,?JJ),
+           ?J=j(naf,?JJ)
+        ).
+// Handling of <> still very shaky, likely to break for non trivial call chains;
+// tested only for updates at the same level of the hypothetic operator
+// e.g. ..., <> (....,insert,....)
+// Proper solution probaly requires keeping <> annotations in the call chain,
+// but it may not be enough
+fjw(?H, ?ConsiderSucceeded, ?J) :-
+        ?H =.. [hypothetical(?Type), ?G],
+        !,
+        (?Type== '<>' -->> <> fjw(?G,?ConsiderSucceeded,?J)
+        ; ?Type = '~<>' -->> <> fmj(?G,?ConsiderSucceeded,?J)
+        ; \true
+        ).
+fjw(?H, ?_ConsiderSucceeded, j(aggregate,?Type(?Query,?Solutions))) :-
+        isAggregate(?H,?Type,?Query,?Solutions),
+        !.
+// fj_bodyExpression is used as a CallerId for bodies of aggregate finctions.
+// It indicates that that node is intermediate and should be skipped
+// in explanations.
+fjw(?G, ?_ConsiderSucceeded, j(rule,fj_bodyExpression(?G))) :-
+        ?G=..[?F|?_],
+        (?F=logic(and) ; ?F=logic(or)),
+        !.
+fjw(?H,?_ConsiderSucceeded,j(fact,null)) :- isbasefact{?H}.
+
+//?G ~ ${\if ?C \then ?T \else ?E},
+fjw(?G, ?ConsiderSucceeded, ?J) :-
+        ?G =.. [control(ifthenelse),?,?C,?T,?E],
+        (?C ~ \naf ?NC -->> \true
+        ; ?NC ~ \naf ?C
+        ),
+        fjw(((?C,?T); (?NC, ?E)),?ConsiderSucceeded,?J),
+        !.
+
+//?G ~ ${\if ?C \then ?T},
+fjw(?G, ?ConsiderSucceeded, ?J) :-
+        ?G =.. [control(ifthen),?,?C,?T],
+        (?C ~ \naf ?NC -->> \true
+        ; ?NC ~ \naf ?C
+        ),
+        fjw(((?C,?T); ?NC),?ConsiderSucceeded,?J),
+        !.
+
+// non-defeated literal
+fjw(?G,?_ConsiderSucceeded,j(rule,?ID(?B))) :-
+        %mayGetModule(?G,?M), 
+        // Use the matching info, if bound.
+        // Note: ?ID may still be unbound even after the below call.
+	tracingInformation(?G,?,?ID)@\prolog,
+        // calling clause{...} is important: ?ID may still be unbound after
+        // previous statement.
+	clause{@{?Tag} @!{?ID} ?G,?B},
+        /* 
+           MK: Before calling executeBody, execute the body for real,
+           without meta-programming. This will ensure that if ?B 
+           has delayed preds, like \is/2, they will be delayed
+           and no "uninstantiated" error will occur.
+           This will add troubles to justifying non-backtrackable updates,
+           but we have troubles with them already anyway.
+        */
+        ?B,
+        executeBody(?B),
+        \+ fjdefeatedr(?Tag,?G,?_),
+        \naf \opaqueJustification(w,?G)@?M.
+// defeated/undefined literal
+fjw(?G,?_ConsiderSucceeded,j(defeated,?_ID(?Reason))) :-
+        %mayGetModule(?G,?M), 
+        undefined{?G},
+	clause{@{?Tag} ?G,?_B},
+        fjdefeatedr(?Tag,?G,?Reason),
+        \naf \opaqueJustification(w,?G)@?M.
+
+fjw(?G,?_ConsiderSucceeded,j(bg_axiom,?Comment(?B))) :-
+        %mayGetModule(?G,?M), 
+	\bgaxiom(?G,?B,?Comment)@\prolog,
+        /* 
+           MK: Before calling executeBody, execute the body for real,
+           without meta-programming. This will ensure that if ?B 
+           has delayed preds, like \is/2, they will be delayed
+           and no "uninstantiated" error will occur.
+           This will add troubles to justifying non-backtrackable updates,
+           but we have troubles with them already anyway.
+        */
+        ?B,
+        executeBody(?B),
+        \naf \opaqueJustification(w,?G)@?M.
+
+fjw(?G, ?_ConsiderSucceeded, j(inheritance,?Reasons)) :-
+	%mayGetModule(?G,?M), // \inheritance fails for head literals
+	convert_to_body_literal(?G,?BG)@\prolog(flrcanon), 
+	\inheritance(?BG,?Reasons),
+        \naf \opaqueJustification(w,?G)@?M.
+
+// wNodeAnswerToMatchingSource(+?Node,?RuleFactOrSystem,-?MatchingRule,-?Module)
+// RuleFactOrSystem returns rule, fact(OriginalFact) or system (predicate)
+// or bg_axiom or inheritance
+// ?MatchingRule will return the rule id or a bg axiom or inheritance comment
+%wNodeAnswerToMatchingSource(?Node,?RuleOrFactOrSystem,?MatchingRule,?Module) :-
+	?Node=..[?,?G,?,?CS,?,?,?], %mayGetModule(?G,?Module), 
+	\if fjw(?G,?CS,j(?Type,?Info))
+        \then wNodeAnswerToMatchingSource2(?Type,?Info,?G,?RuleOrFactOrSystem,?MatchingRule)
+	\else ?RuleOrFactOrSystem = system.
+
+wNodeAnswerToMatchingSource2(naf,?_Info, ?, system,?_ID) :- !.
+wNodeAnswerToMatchingSource2(rule,?_ID(?), ?, rule,?_ID) :- !.
+wNodeAnswerToMatchingSource2(fact,?, ?G, fact(?GGG),?) :-
+        !, 
+	( (?G ~ \naf ?GG@?M ; ?G ~ \+ ?GG@?M ) -->> ?H = ${\neg ?GG@?M}
+        ;
+            ?H = ?G
+        ), 
+	isbasefact{?H,?GGG}.
+wNodeAnswerToMatchingSource2(bg_axiom,?_Comment(?),?_G,bg_axiom,?_Comment) :- !.
+wNodeAnswerToMatchingSource2(inheritance,?_Info,?_G,inheritance,'inheritance') :- !.
+
+// This BINDS ?G
+my_once(?G) :- [?G|?] = bagof{?GG|?G = ?GG,?GG}.
+
+// my_once2(?G) :- ?G, !.  -- bad for tabled predicates...
+// my_once2(?G) :- table_once(?G)@\prolog(aggregs).  -- requires non-incremental tables, MK email Dec 19 2014 <---- MK(Miguel):  you can use flora_table_once(?G)@\prolog(flrtables).
+
+
+// fmj(?H, ?ConsiderSucceeded, ?J): We'll use m instead of f: we care about missing solutions!
+// Justification is 
+//	j(naf,?J_for_w) or j(defeated,?ID(?Reason)) or j(subgoal,?ID(?Bi)) or j(uncovered,null(?H))
+// If ?ConsiderSucceeded, subgoals with solutions are considered in the justification, otherwise only failing subgoals
+// These preds give just one level of justification; a tabling/lemma mechanism should be used on top
+// Let's table only the missing case:
+fmj(?H,?ConsiderSucceeded,j(naf,?J)) :-
+        ( ?H ~ \naf ?NH ;  ?H ~ \+ ?NH),
+        !, 
+	\naf exist(*)^?H, // justif. makes sense only for failed naf!
+	fjw(?NH, ?ConsiderSucceeded, ?J).
+fmj(?H, ?ConsiderSucceeded, ?J) :-
+        ?H =.. [hypothetical(?Type), ?G],
+        !,
+        (?Type== '<>' -->> <> fmj(?G,?ConsiderSucceeded,?J)
+        ;  ?Type = '~<>' -->> <> fjw(?G,?ConsiderSucceeded,?J)
+        ; \true
+        ).
+fmj(?H,?_ConsiderSucceeded,j(aggregate,?Type(?Query,?Solutions))) :-
+        isAggregate(?H,?Type,?Query,?Solutions),
+        !.
+// fj_bodyExpression is used as a CallerId for bodies of aggregate finctions.
+// It indicates that that node is intermediate and should be skipped
+// in explanations.
+fmj(?G, ?ConsiderSucceeded, j(subgoal,fj_bodyExpression(?Bi))) :-
+        ?G=..[?F|?_],
+        (?F=logic(and);?F=logic(or)),
+        !, 
+        // FLORA_DEFAULT_WORKSPACE? This module is ultimately used in
+        // subgoalOf/4 and then in sys_trivial_justification/3.
+        // The module for (..,..) and (..;..) does not matter in this context.
+	aBodyMsubgoal(?G,FLORA_DEFAULT_WORKSPACE,?ConsiderSucceeded,?Bi).
+
+//?G ~ ${\if ?C \then ?T \else ?E},
+fmj(?G, ?ConsiderSucceeded, ?J) :-
+        ?G =.. [control(ifthenelse),?,?C,?T,?E],
+        !,
+        (?C ~ \naf ?NC -->> \true
+        ; ?NC ~ \naf ?C
+        ),
+        fmj(((?C,?T); (?NC, ?E)),?ConsiderSucceeded,?J).
+
+//?G ~ ${\if ?C \then ?T},
+fmj(?G, ?ConsiderSucceeded, ?J) :-
+        ?G =.. [control(ifthen),?,?C,?T],
+        !,
+        (?C ~ \naf ?NC -->> \true
+        ; ?NC ~ \naf ?C
+        ),
+        fmj(((?C,?T); ?NC),?ConsiderSucceeded,?J).
+
+fmj(?H,?ConsiderSucceeded,?J) :- 
+	%mayGetModule(?H,?M), 
+	clause{@{?Tag} @!{?ID} ?H,?B},
+        fmj2(?Tag,?ID,?H,?B,?ConsiderSucceeded,?J),
+        \naf \opaqueJustification(m,?H)@?M.
+fmj(?G,?ConsiderSucceeded,j(bg_axiom,?_Comment(?Bi))) :-
+        %mayGetModule(?G,?M), 
+	\bgaxiom(?G,?B,?_Comment)@\prolog,
+        /* MK:
+           Had trouble with aBodyMsubgoal/4 terminating when querying standard
+           data types, but a change somewhere solved this. Still nervous.
+           Maybe was solved by tabling justificationTreeRelation_internal.
+           (NOT: justificationTreeRelation_internal is not tabled any more)
+        */
+        aBodyMsubgoal(?B,?M,?ConsiderSucceeded,?Bi),
+        \naf \opaqueJustification(w,?G)@?M.
+fmj(?_H,?_ConsiderSucceeded,j(uncovered,null(?_H))) :- \true. // trivial case
+
+fmj2(?Tag,?_ID,?G,?_B,?_ConsiderSucceeded,j(defeated,?_ID(?Reason))) :- 
+	fjdefeatedr(?Tag,?G,?Reason).
+fmj2(?_Tag,?_CallerID,?G,?B,?ConsiderSucceeded,j(subgoal,?_CallerID(?Bi))) :- 
+	(?G ~ ${%?_H@?M} ; ?G ~${?_H@?M}),
+        !,
+	aBodyMsubgoal(?B,?M,?ConsiderSucceeded,?Bi).
+
+// aBodyWsubgoal: returns a subgoal from a frozen goal expression;
+// does not instantiate it
+aBodyWsubgoal(?Body,?M,?BG):-
+	subgoalOf(?Body,w,?M,?BG).
+	
+// aBodyMsubgoal: executes and thus instantiates just enough
+// to return a subgoal call 
+aBodyMsubgoal(?Body,?M,?ConsiderSucceeded,?Bi):-
+        /*
+           MK: Had troubles with terminating this without the groundedness test,
+           but now is ok, after justificationTreeRelation_internal was tabled.
+           (not tabled any more!)
+        */
+        //isground{?Body},
+	subgoalOf(?Body,m(?ConsiderSucceeded),?M,?Bi).
+	
+// subgoalOf(+Expression,+Mode,+Module,-Subgoal)
+// Mode: 
+// - w : only successful disjunction branches, binds "enough" to construct
+//       one single proof
+// - m(?ConsiderSucceeded) : binds, may or not include successes
+subgoalOf((?A,?B),w,?M,?Subgoal) :-
+        !,
+        my_once((?A,?B)), 
+	// we can't rely only on bindings obtained during previous execution
+        // after clause{...} : we need bindings inside aggregates 
+	( subgoalOf(?A,w,?M,?Subgoal); subgoalOf(?B,w,?M,?Subgoal) ).
+subgoalOf((?A;?B),w,?M,?Subgoal) :-
+        !, 
+	( \+ \+ ?A, !, subgoalOf(?A,w,?M,?Subgoal)
+        ; \+ \+ ?B, subgoalOf(?B,w,?M,?Subgoal)
+        ).
+subgoalOf(?G,w,?M,?G) :-
+        ( ?G ~ \naf ?NG ;  ?G ~ \+ ?NG),
+        !,
+        justifiableGoal(?NG),
+        \+ sys_trivial_justification(?NG,m,?M).
+subgoalOf(?G,w,?M,?G) :-
+        justifiableGoal(?G),
+        \+ sys_trivial_justification(?G,w,?M).
+
+subgoalOf((?A,?B),m(?FO),?M,?Subgoal) :-
+        !, 
+	(
+          subgoalOf(?A,m(?FO),?M,?Subgoal)
+        ;
+        /*
+           MK: changed ?A to \+(\+?A) and then back.
+               Reason for 1st change: MK thought that we don't want
+                       a binding in justifying a \naf.
+                       Especially not a binding to a skolem.
+               Test:  Demos/Tutorials/overview-and-debugging-iclp/third_1.ergo
+                      In justifying query2(Fred), we don't want to justify
+                      the blue \naf exists eat(Fred,?A) by binding ?A to
+                      a Skolem. The \+\+ trick undoes the binding.
+               Reason for reverting the change: in that eample, the only worm
+                      is \#X2(Sam), and justifying
+                      (\naf (worm(?A), eat(Fred,?A))) with
+                      false(eat(Fred,\#X2(Sam))) is wholy appropriate.
+
+          //\+(\+?A),  <--- NO good
+
+           If we did the above \+(\+?A), then something like this:
+               ?R = setof{?P|something false}, ?E \in ?R
+           would not have ?R bound to [], so the falsehood of this
+           won't be correctly justified.
+        */
+          // MK: ?A can have delayed literals that are not properly bound.
+          // We bite a bullet in this case and pretend that the subgoal
+          // is false.
+          catch{(?A,!!),?,?Error = yes},
+          ?Error \== yes,
+          subgoalOf(?B,m(?FO),?M,?Subgoal)
+        ;
+          /*
+             This case happens when case 1, subgoalOf(?A,m(?FO),?M,?Subgoal),
+             fails due to an error in executing ?A. So, we try the opposite
+             order in the hope that ?B will bind more vars in ?A and ?A will
+             be able to execute with no errors.
+          */
+          catch{(?A,!!),?,?Error = true},
+          ?Error == true,
+          catch{(?B,!!),?,\true},
+          subgoalOf(?A,m(?FO),?M,?Subgoal)
+        ).
+subgoalOf((?A;?B),m(?FO),?M,?Subgoal) :-
+        !, 
+	(subgoalOf(?A,m(?FO),?M,?Subgoal) ; subgoalOf(?B,m(?FO),?M,?Subgoal)).
+subgoalOf(?G,m(\true),?M,?G) :-
+        ( ?G ~ \naf ?NG ;  ?G ~ \+ ?NG),
+        !, 
+        justifiableGoal(?G),
+	\+ sys_trivial_justification(?NG,w,?M).
+subgoalOf(?G,m(\false),?M,?G) :-
+        ( ?G ~ \naf ?NG ;  ?G ~ \+ ?NG),
+        !, 
+        justifiableGoal(?NG),
+	\naf exists(*)^?G,
+        \+ sys_trivial_justification(?NG,w,?M).
+subgoalOf(?G,m(\true),?M,?G) :-
+        !,
+        justifiableGoal(?G),
+        \+ sys_trivial_justification(?G,m,?M).
+subgoalOf(?G,m(?_FO),?_M,?G) :-
+        is_delayed_literal(?G)@\prolog(flrdelaysupport),
+        !,
+        catch{\+ ?G,?,\false}.
+subgoalOf(?G,m(\false),?M,?G) :-
+        justifiableGoal(?G),
+        // Note: \naf exists(*)^?G may give an error if ?G has an update op.
+        // We then catch the error and wrap the call in a ~<> hypothetical
+        catch{\naf exists(*)^?G,?, ~<>?G@?},
+        \+ sys_trivial_justification(?G,m,?M).
+
+subgoalIn(?G,?SG) :- subgoalIn(?G,transparentNAF,?SG).
+
+isDeleteLiteral(?G) :-
+        iscompound{?G},
+        functor(?G,?Fun,?A)@\prolog,
+        isDeleteLiteral_aux(?Fun),
+        (?A==2 ; ?A==3),
+        !.
+isTransDeleteLiteral(?G) :-
+        compound(?G),
+        functor(?G,?Fun,?A)@\prolog,
+        isTransDeleteLiteral_aux(?Fun),
+        (?A==2 ; ?A==3),
+        !.
+
+isDeleteLiteral_aux(FLLIBDELETE) :- !.
+isDeleteLiteral_aux(FLLIBDELETEALL) :- !.
+isDeleteLiteral_aux(FLLIBERASE) :- !.
+isDeleteLiteral_aux(FLLIBERASEALL) :- !.
+isTransDeleteLiteral_aux(FLLIBBTDELETE) :- !.
+isTransDeleteLiteral_aux(FLLIBBTDELETEALL) :- !.
+isTransDeleteLiteral_aux(FLLIBBTERASE) :- !.
+isTransDeleteLiteral_aux(FLLIBBTERASEALL) :- !.
+
+justifiableGoal(?G) :-
+        isDeleteLiteral(?G),
+        !,
+        flora_decode_goal_as_mainless_atom(?G,?GA)@\prolog(flrdecode),
+        //sysabort(['This query invokes a delete{...} operation for which justification is not supported: ', ?GA])@\sys.
+        xj_failError('This query invokes a delete{...} operation for which justification is not supported: %s', ?GA)@\prolog.
+/*
+// We PARAPHRASE sub_compound in ergo_explain.ergo now, NOT ignoring it.
+justifiableGoal(${sub_compound(?,?,?,?)@\prolog(flrauxil)}) :-
+        !,
+        \false.
+justifiableGoal(${sub_compound_eq(?,?,?,?,?)@\prolog(flrauxil)}) :-
+        !,
+        \false.
+*/
+justifiableGoal(${flora_put_attr(?,?,?)@\prolog(flrwhen)}) :-
+        !,
+        \false.
+
+justifiableGoal(?) :- !.
+
+/*
+  This is used for static calls analysis:
+  TODO: when this is done, augment subgoalOf above with same coverage
+  subgoalIn(+GoalExpression,+TransparentNAF(transparentNAF,opaqueNAF),-SubGoal)
+        TransparentNAF meant for literals, expressions are NAF-transparent
+*/
+subgoalIn(?Var,?,?) :- isvar{?Var}, !, \fail.
+// ?ITE ~ (\if ?C \then ?T \else ?E),
+subgoalIn(?ITE,?NAFmode,?Subgoal) :-
+        ?ITE =.. [control(ifthenelse),?,?C,?T,?E],
+        !,
+	( subgoalIn(?C,?NAFmode,?Subgoal)
+        ; subgoalIn(?T,?NAFmode,?Subgoal)
+        ; subgoalIn(?E,?NAFmode,?Subgoal)
+        ).
+// ?IT ~ (\if ?C \then ?T),
+subgoalIn(?IT,?NAFmode,?Subgoal) :-
+        ?IT =.. [control(ifthen),?,?C,?T],
+        !,
+	( subgoalIn(?C,?NAFmode,?Subgoal) ; subgoalIn(?T,?NAFmode,?Subgoal) ).
+
+subgoalIn((?A,?B),?NAFmode,?Subgoal) :-
+        !, 
+	( subgoalIn(?A,?NAFmode,?Subgoal) ; subgoalIn(?B,?NAFmode,?Subgoal)).
+subgoalIn((?A;?B),?NAFmode,?Subgoal) :-
+        !, 
+	( subgoalIn(?A,?NAFmode,?Subgoal) ; subgoalIn(?B,?NAFmode,?Subgoal)).
+subgoalIn(?Naf,transparentNAF,?Subgoal) :-
+        ( ?Naf ~ \naf ?G ;  ?Naf ~ \+ ?G),
+        !,
+	subgoalIn(?G,transparentNAF,?Subgoal).
+subgoalIn(?Naf,opaqueNAF,?Subgoal) :-
+        ( ?Naf ~ \naf ?G ;  ?Naf ~ \+ ?G),
+        !,
+	(isSimpleSubgoal(?G) -->> ?Subgoal=?Naf
+        ; subgoalIn(?G,opaqueNAF,?Subgoal)
+        ).
+// some overlap with isAggregate
+// May return some fllibexecute_delayed_calls(...) subgoals,
+// hopefully ignored elsewhere
+subgoalIn(?Aggregate,?NAFmode,?Subgoal) :-
+        (
+          ?Aggregate =.. [aggregate(?_Type),?_Var,?_groupV,?_uniq,?Query,?_res]
+        ),
+        !,
+	subgoalIn(?Query,?NAFmode,?Subgoal).
+
+
+subgoalIn(?_G,?NAFmode,?_G) :-
+        (?NAFmode = transparentNAF
+        ;
+           ?NAFmode = opaqueNAF
+        ).
+
+isSimpleSubgoal(?G) :- isvar{?G}, !.
+isSimpleSubgoal(?Naf) :-
+        (?Naf ~ \naf ?G ;  ?Naf ~ \+ ?G),
+        !,
+        isSimpleSubgoal(?G).
+isSimpleSubgoal(?G) :-
+        is_flora_callable_literal(?G)@\prolog(flrwrapper),
+        !.
+
+// sys_trivial_justification(?Goal,?Type,?Module)
+// More system predicates may go here
+sys_trivial_justification(${\true},?,?) :- !.
+sys_trivial_justification(${? = ?},?,? ) :- !. // assuming no equality theory
+sys_trivial_justification(${? \= ?},?,? ) :- !. 
+sys_trivial_justification(${!},?,? ) :- !. 
+//sys_trivial_justification(${? != ?},?,? ) :- !. 
+//sys_trivial_justification(${? \is ?},?,? ) :- !. 
+sys_trivial_justification(?G,?,?M) :-
+        // don't show trivial equality justifications
+        ?G ~ (?X :=: ?Y @ ?M),
+        //(isbasefact{?Y:=:?X@?M} ; ?X == ?Y),
+        ?X == ?Y,
+        !.
+sys_trivial_justification(${flora_put_attr(?,?,?)@\prolog(flrwhen)},?,?) :- !.
+sys_trivial_justification(?G,?Type,?M) :-
+        // user-supplied trivial justifications
+        \trivialJustification(?Type,?G)@?M.
+
+// Execute goal bodies keeping their matching ids
+executeBody((?A,?B)) :-
+        !, 
+	executeBody(?A), executeBody(?B).
+executeBody((?A;?B)) :-
+        !, 
+	(executeBody(?A) ; executeBody(?B)).
+executeBody(?G) :-
+        traced_call(?G,?MatchingID,?_F,?_M)@\prolog(flrcallflora),
+	mayBindMatchingID(?G,?MatchingID).
+
+// mayBindMatchingID(?G,?ID).
+mayBindMatchingID(?G,?MatchingID) :-
+        ?G=..[?H|?],
+        (?H=hilog(?,?);?H=negation(neg)),
+        !, 
+	(functor(?G,?,?N), arg(?N,?G,?FW),arg(2,?FW,?MatchingID))@\prolog.
+mayBindMatchingID(?_G,?_ID) :- \true. // cuts in Flora....
+
+// Assumes ?G will not be bound further by executing it
+mayBindFirstMatchingID(?G,?MatchingID) :- 
+	my_once(traced_call(?G,?MatchingID,?_F,?_M)@\prolog(flrcallflora)),
+	// how I miss cuts...
+	mayBindMatchingID(?G,?MatchingID).
+	 
+/* Unused:
+:- prolog{isAggregate(?,?,?)}.
+isAggregate(?BG,?Type,?Query) :-
+	isAggregate(\false,?BG,?Type,?Query,?_Solutions).
+*/
+
+isAggregate(?BG,?Type,?Query,?Solutions):-
+	isAggregate(\true,  /* MK: \false causes loop! */
+                     ?BG,?Type,?Query,?Solutions).
+	
+// if we later need the linking vars, beware there may be a bug - 
+// they seemed unbound from other clause bodies, but I may be wrong!
+isAggregate(?Compute,?BG,?Type,?Query,?Solutions) :-
+        (
+          ?BG =..[aggregate(?Type),?AggVar,?_grouping,?_uniqvar,?Query,?_result]
+        ),
+        !,
+	( ?Compute -->> findall(?AggVar-?Query,?Query,?Solutions)@\prolog
+        ; \true
+        ).
+isAggregate(?Compute,?BG,?Type,?Query,?Solutions) :-
+	?BG =..[logic(and),?AG,?_goal], 
+        (
+          ?AG =..[aggregate(?Type),?AggVar,?_grouping,?_uniqvar,?Query,?_result]
+        ),
+	(?Compute -->> findall(?AggVar-?Query,?Query,?Solutions)@\prolog
+        ; \true
+        ).
+
+// Experiment with clause calls only; facts ommited
+%clauseCalls(?ID1,?M1,?Subgoal1,?ID2,?M2) :- 
+	%clauseCalls(?ID1,?M1,\@,?Subgoal1,?ID2,?M2).
+	
+%clauseCalls(?ID1,?M1,?ExcludedModule,?Subgoal1,?ID2,?M2) :- 
+	isloaded{?M1}, ?M1 \== ?ExcludedModule, 
+	clause{@!{?ID1[module->?M1]} ?,?B} , 
+	subgoalIn(?B,?Subgoal1), 
+	clause{@!{?ID2[module->?M2]} ?Subgoal1,?}.
+
+
+/* Example:
+     ?Searcher =
+        (?S=dr(?), ${%fs(?_AnyTermOrAtom,?S,?Where,?_What,opaqueNAF,
+                         subsumes, ?Found)@\fidji}),
+        %f(?S,?Where,?Searcher)@\fidji.
+*/
+/*
+   %f(?SourcePiece,?Where,?Searcher)
+         ?Searcher is a goal involving one or more calls to %fs/7 below
+         ?SourcePiece and ?Where must occur in ?Searcher, and are expected
+             to be used as (possibly constrained) args to %fs/7
+   	 See comments of same for structure of these and other arguments 
+         Displays the set of source code pieces determined by the ?Searcher goal
+*/
+%f(?SourcePiece,?Where,?Searcher) :- 
+        ( isvar{?Searcher} -->>
+               WARNOUTLN('Term finder: the Searcher argument must be bound')@\prolog,
+               \fail
+        ;  \true
+        ),
+	ipListenerWindow(?LW)@\prolog,
+	java('com.coherentknowledge.fidji.FloraProgramEditor',
+             boolean(1), doAfterFloraDeemedFullyLoaded(?LW))@\prologall, 
+	%find(?SourcePiece,?Where,?Searcher,?Results), 
+	flora_decode_goal_as_atom_substitute_vars(?Searcher,?SearcherDescription)@\prolog(flrdecode),
+	fjTermsFound(?Results,?SearcherDescription,?)@\prologall.
+
+// Simpler variant of previous: loses some detail information in the
+// list display, other than that is similar
+
+%f(?SourcePiece,?Searcher) :- %f(?SourcePiece,?_Where,?Searcher).
+
+// Simpler variant of previous: Atom/Term Finder, displays source
+// pieces assuming opaqueNAF, subsumes
+%f(?X) :- 
+        (isvar{?X} -->>
+                WARNOUTLN('Term finder: the search term must be bound')@\prolog,
+                \fail
+        ;  \true
+        ),
+	ipListenerWindow(?LW)@\prolog,
+	java('com.coherentknowledge.fidji.FloraProgramEditor', boolean(1), doAfterFloraDeemedFullyLoaded(?LW))@\prologall, 
+	%find(?X,?Results), 
+	flora_decode_goal_as_atom_substitute_vars(?X,?XDescription)@\prolog(flrdecode),
+	fjTermsFound(?Results,?XDescription,?)@\prologall.
+
+// %f_forGUI(+Term,+Heads,+Facts,+Remaining,-ListGUIInt)
+%f_forGUI(?Term,?Heads,?Facts,?Remaining,?ListGUIint) :-
+	// error check
+	ipListenerWindow(?LW)@\prolog,
+	java('com.coherentknowledge.fidji.FloraProgramEditor', boolean(1), doAfterFloraDeemedFullyLoaded(?LW))@\prologall, 
+	// ?Where: rule(head) or fact or (rule(body) or rule(tag) or dr(?) )
+	(?Heads == true -->> ?F1 = (?Where = rule(head)) ; ?F1 = \false),
+	(?Facts == true -->> ?F2 = (?F1;?Where = fact) ; ?F2 = ?F1),
+        (?Remaining == true -->>
+           ?F3 = (?F2;?Where = rule(body) ; ?Where = rule(tag) ; ?Where = dr(?))
+        ; ?F3 = ?F2
+        ),
+	?Searcher =
+             ${(%fs(?Term,?SourcePiece,?Where,?_What,opaqueNAF,subsumes,?Found),
+               ?F3 @ \@ )},
+	// For now, all things searched:
+	//?Searcher=${%fs(?Term,?SourcePiece,?Where,?_What,opaqueNAF,subsumes)},
+	%find(?Found,?SourcePiece,?Where,?Searcher,?Results),
+	//error if failure...
+	fjTermsFound(?Results,'Dummy',fail,?ListGUIint)@\prologall.
+
+%find(?X,?Results):-
+	%find(?Found,?SourcePiece,?Where,${%fs(?X,?SourcePiece,?Where,?_What,opaqueNAF, subsumes,?Found)},?Results).
+
+%find(?SourcePiece,?Where,?Searcher,?Results) :-
+	%find(?_Found,?SourcePiece,?Where,?Searcher,?Results).
+	
+// TODO: check that ?Found,?SourcePiece,?Where occur within ?Searcher ??
+%find(?Found,?SourcePiece,?Where,?Searcher,?Results) :-
+	?Results = setof{?R | 
+		?R=t(?F,?M,?Tag,?PieceType,?ID,?Where_ ,?Found_), 
+		?Searcher, 
+		?SourcePiece = ?PieceType(?ID(?M)),
+		flora_decode_goal_as_mainless_atom_substitute_vars(?Found,?Found_)@\prolog(flrdecode),
+                /*
+		( isvar{?X} -->> ?Found=''
+                ;
+                    flora_decode_goal_as_mainless_atom_substitute_vars(?X,?Found)@\prolog(flrdecode)
+                ),
+                */
+		( (?PieceType = dr ; ?PieceType = fact) -->>
+                    ?Tag='',
+                    %locateFile(?M,?F)
+                ;
+                    clause{@{?Tag} @!{?ID[module->?M,file->?F]} ?,?}
+                ),
+		( isvar{?Where} -->> ?Where_ = ?PieceType
+                ; ?Where = ?Where_
+                )
+	}.
+	
+%locateFile(?M,?F) :- flora_get_precise_file(?M,?F,?_FilePath)@\prolog, !.
+%locateFile(?_M,'ambiguous file') :- \true.
+
+
+/* %fs(?X,?SourcePiece,?Where,?What,?NAFtransparency,?Mode,?Xfound)
+   ?X: can be a (sub)term, or a (reified) atom, which can be \neg'ed ;
+        for \naf'ed atoms use opaqueNAF
+   ?SourcePiece: rule(?RuleID(?Module)) or fact(FactAtomLiteral(Module))
+        or dr(MetaAtom(Module))
+   ?Where: rule(head/body/tag) or fact or dr(opposes/overrides/cancel)
+	dr: defeasible reasoning declarations
+   ?What: (atom/subterm); rather than 'what', this is more of an origin
+        within a program piece: rule sub component / component subterm
+	So for example a whole rule tag will be 'atom', a reified goal
+        inside it will be 'subterm'
+   ?NAFtransparency: transparentNAF/opaqueNAF transparency means that
+        naf chains don't matter, only the positive literal matches
+   ?Mode: unify or subsumes (?X subsumes textual item in rule)
+   ?Xfound: will be unified with ?X, or to whatever subterm ?X subsumes
+*/
+%fs(?X,?CallerIDAndModule,?Where,atom,?NAFtransparency,?Mode,?XX) :-
+        //isnonvar{?X}, 
+	//(?X ~ ${ %?A@?M} ; ?X ~ ${ ?A@?M }),
+	(?Mode = unify;?Mode = subsumes),
+	(?Mode == unify -->> ?XX = ?X ; \true),
+	findAtom(?XX,?CallerIDAndModule,?Where,?NAFtransparency),
+	(?Mode == subsumes -->> mySubsumes(?X,?XX) ; \true). 
+%fs(?X,?CallerIDAndModule,?Where,subterm,?NAFtransparency,?Mode,?XX) :-
+	(?Mode = unify ; ?Mode = subsumes),
+	findAtom(?A,?CallerIDAndModule,?Where,?NAFtransparency), 
+	(?Mode == unify -->> ?XX = ?X ; \true),
+	%findSubTerm(?XX,?A, top),
+	(?Mode == subsumes -->> mySubsumes(?X,?XX) ; \true).
+
+ // simplified versions:
+%fs(?X,?SourcePiece,?Where) :-
+ 	%fs(?X,?SourcePiece,?Where,?_What,opaqueNAF, subsumes,?).
+
+%fs(?X,?SourcePiece,?Where,?Mode) :-
+ 	%fs(?X,?SourcePiece,?Where,?_What,opaqueNAF,?Mode,?).
+
+
+findAtom(?A,?ThingIDAndModule,?Where,?NAFtransparency) :- 
+	?Where = rule(head),
+        literalCalls(?A,?CallerIDAndModule,?NAFtransparency,?),
+        ?ThingIDAndModule = rule(?CallerIDAndModule); 
+	?Where = rule(body),
+        literalCalls(?,?CallerIDAndModule,?NAFtransparency,?A),
+        ?ThingIDAndModule = rule(?CallerIDAndModule); 
+	?Where = fact,
+        my_isbasefact(?M,?A),
+        flora_decode_goal_as_mainless_atom_substitute_vars(?A,?Fact)@\prolog(flrdecode),
+        ?ThingIDAndModule = fact(?Fact(?M)).
+findAtom(?A,rule(?ID(?M)),rule(tag),?_NAFtransparency) :- 
+	clause{ @@{?DS} @{?Tag} @!{?ID[module->?M]} ?_H,?_B},
+	?M \== \@, // no Studio clauses...
+	(?A = ?Tag ; ?A = ?ID ; ?A = ?DS).
+findAtom(?Atom,dr(?AtomLiteral(?M)),dr(?Type),?_NAFtransparency) :- 
+	my_dr_atom(?M,?Type,?Atom),
+        flora_decode_goal_as_mainless_atom_substitute_vars(?Atom,?AtomLiteral)@\prolog(flrdecode).
+	
+
+// %findSubTerm(?SubTermToFind,?Term,top/down)
+// We may need a dialect to deal with variables (e.g. accepting them or not)
+%findSubTerm(?SubTerm,?Term, down) :- isnonvar{?Term}, ?Term=?SubTerm.
+%findSubTerm(?SubTerm,?List,?) :-
+        islist{?List},
+        !,
+        ?List = [?T1|?Tn],
+        (%findSubTerm(?SubTerm,?T1,down) ; %findSubTerm(?SubTerm,?Tn,down)). 
+%findSubTerm(?SubTerm,?Term,?) :-
+        isnonvar{?Term},
+        ?Term =..[?Header|?Children], findSubTerm2(?SubTerm,?Header,?Children).
+
+findSubTerm2(?SubTerm,hilog(?Head,?Module),?Children) :-
+        !,
+	(%findSubTerm(?SubTerm,?Head,down) ; %findSubTerm(?SubTerm,?Children,down) ; %findSubTerm(?SubTerm,?Module,down)).
+findSubTerm2(?SubTerm,flogic(?Head,?Module),?Children) :-
+        !,
+	(%findSubTerm(?SubTerm,?Head,down) ; %findSubTerm(?SubTerm,?Children,down) ; %findSubTerm(?SubTerm,?Module,down)).
+findSubTerm2(?SubTerm,'%hilog'(?Head,?Module),?Children) :-
+        !,
+	(%findSubTerm(?SubTerm,?Head,down) ; %findSubTerm(?SubTerm,?Children,down) ; %findSubTerm(?SubTerm,?Module,down)).
+findSubTerm2(?SubTerm,hilog(?Head),?Children) :-
+        !,
+	(%findSubTerm(?SubTerm,?Head,down) ; %findSubTerm(?SubTerm,?Children,down)).
+findSubTerm2(?SubTerm,negation(?),?Children) :-
+        !,
+	%findSubTerm(?SubTerm,?Children,down).
+findSubTerm2(?SubTerm,?Header,?Children) :-
+        isatomic{?Header},
+	(?SubTerm = ?Header ; %findSubTerm(?SubTerm,?Children,down)).
+
+// my_dr_atom(?M,?Type,?Atom).
+my_dr_atom(?M,opposes,?Atom) :- 
+	my_opposes(?M,?R1,?Atom1,?R2,?Atom2),
+        ?Atom = ${opposes(?R1,?Atom1,?R2,?Atom2)@?M} 
+	; 
+	my_opposes(?M,?R1,?Atom1),
+        ?Atom = ${opposes(?R1,?Atom1)@?M}.
+my_dr_atom(?M,overrides,?Atom) :- 
+	my_overrides(?M,?R1,?Atom1,?R2,?Atom2),
+        ?Atom = ${'overrides'(?R1,?Atom1,?R2,?Atom2)@?M} 
+	; 
+	my_overrides(?M,?R1,?Atom1), ?Atom = ${overrides(?R1,?Atom1)@?M}.
+my_dr_atom(?M,cancel,?Atom) :- 
+	my_cancel(?M,?R1,?Atom1), ?Atom = ${cancel(?R1,?Atom1)@?M} 
+	; 
+	my_cancel(?M,?R1), ?Atom = ${cancel(?R1)@?M}.
+	
+my_overrides(?M,?R1,?R2) :- isloaded{?M}, 
+	flora_modularize_atom('\\overrides',?M,?Prefixed)@\prolog(flrwrapper),
+        ?G=..[?Prefixed,?R1,?R2,?_Context],
+        ?G.
+my_overrides(?M,?R1,?Atom1,?R2,?Atom2) :- isloaded{?M}, 
+	flora_modularize_atom('\\overrides',?M,?Prefixed)@\prolog(flrwrapper),
+        ?G=..[?Prefixed,?R1,?Atom1,?R2,?Atom2,?_Context],
+        ?G.
+	
+my_opposes(?M,?A1,?A2) :- isloaded{?M}, 
+	flora_modularize_atom('\\opposes',?M,?Prefixed)@\prolog(flrwrapper),
+        ?G=..[?Prefixed,?A1,?A2,?_Context],
+        ?G.
+my_opposes(?M,?R1,?Atom1,?R2,?Atom2) :- isloaded{?M}, 
+	flora_modularize_atom('\\opposes',?M,?Prefixed)@\prolog(flrwrapper),
+        ?G=..[?Prefixed,?R1,?Atom1,?R2,?Atom2,?_Context],
+        ?G.
+
+my_cancel(?M,?R,?A) :- isloaded{?M}, 
+	flora_modularize_atom('\\cancel',?M,?Prefixed)@\prolog(flrwrapper),
+        ?G=..[?Prefixed,?R,?A,?_Context],
+        ?G.
+my_cancel(?M,?R) :- isloaded{?M}, 
+	flora_modularize_atom('\\cancel',?M,?Prefixed)@\prolog(flrwrapper),
+        ?G=..[?Prefixed,?R,?_Context],
+        ?G.
+
+my_isbasefact(?M,?Atom) :- 
+	(isvar{?Atom} -->> ?Head=?Atom
+        ; convert_to_head_literal(?Atom,?Head)@\prolog(flrcanon)
+        ),
+	isloaded{?M}, ?M \== \@,
+	flora_fdb_storage_name(?M,?S)@\prolog(flrwrapper), 
+	storage_find_fact(?S,?Head)@\prolog(storage).
+	
+literalCalls(?Parent,?CallerIDAndModule,?Child) :-
+        literalCalls(?Parent,?CallerIDAndModule,transparentNAF,?Child).
+
+literalCalls(?Parent,?CallerIDAndModule,?NAFtransparency,?Child) :- 
+	literalCalls(?Parent,\@,?CallerIDAndModule,?NAFtransparency,?Child).
+
+literalCalls(?Parent,?ExcludedModule,?CallerID(?M1),?NAFtransparency,?Child) :-
+	clause{@!{?CallerID[module->?M1]} ?Parent,?B} , 
+	?M1 \== ?ExcludedModule, 
+	subgoalIn(?B,?NAFtransparency,?Child_), ?Child ~ ?Child_.
+
+// %floraliteralCalledRelation(?Called, ?Caller, ?Root)
+%floraliteralCalledRelation(node(?_L,?_CallerID),null,node(?_L,?_CallerID)) :-
+        !.
+%floraliteralCalledRelation(node(?Caller,?CallerID),node(?Called,?),?_Context) :- 
+	literalCalls(?Caller,?CallerID,?Called). 
+
+// %floraliteralCallsRelation(?Called, ?Caller, ?Root)
+%floraliteralCallsRelation(node(?_L,?_CallerID),null,node(?_L,?_CallerID)) :- !.
+%floraliteralCallsRelation(node(?Called,?CallerID),node(?Caller,?),?_Context) :-
+	literalCalls(?Caller,?CallerID,?Called). 
+
+// Local call tree for a module
+%floraTopliteralCallsRelation(node(${dummy@?_Module},null),null,?_Module) :- !.
+%floraTopliteralCallsRelation(node(?Caller,null),node(${dummy@?Module},?),?Module) :-
+        !,
+	literalCalls(?Caller,?(?Module),?_Called),
+        \+ literalCalls(?,?(?Module),?Caller).
+%floraTopliteralCallsRelation(node(?Called,?CallerID),node(?Caller,?),?Module) :- 
+	literalCalls(?Caller,?ID(?Module),?Called), ?CallerID = ?ID(?Module).
+
+// Tabling doesn't improve the second rule (dummy nodes),
+// so we save a few tables here:
+//     tabledLiteralCalls(?Caller,?CallerID,?Called) :-
+//                           literalCalls(?Caller,?CallerID,?Called).
+
+
+// %fjFloraGenericCallNode(?ID,?TheType,?Term)
+%fjFloraGenericCallNode(node(?G,?CallerID),?Type,?Term) :- 
+	(?G =.. [?Header|?] -->>  %fjFloraGenericCallNodeType(?Header,?Type)
+        ; ?Type = system
+        ),
+	flora_decode_goal_as_mainless_atom_substitute_vars(?G,?Label)@\prolog(flrdecode),
+	// flora_decode_goal_as_mainless_atom(?G,?Label)@\prolog(flrdecode),
+	?Term =.. [n,?G,?CallerID,?Label].
+
+/* The following might instead use
+        flora_decode_predicate(?Call,prolog,_,?,?,?,?)@\prolog(flrwrapper) and 
+   flora_is_modularized_prolog(?Call,?Module,?PredName)@\prolog(flrwrapper)
+*/
+%fjFloraGenericCallNodeType(prologlit(?_Module),prolog) :- !.
+%fjFloraGenericCallNodeType(?H,system) :- isatomic{?H}, !.
+%fjFloraGenericCallNodeType(?,literal) :- \true.
+	
+// Used by the XJ tree node specification
+// ?Type is w(ie, why?, correct)/wc(why? with conflict)/m/d,
+// ?Term is an atom to present in the tree
+%obtainTerm(?ID,?Type,?Term) :- 
+	%nodeToLiteral(?ID,?Type,?Term2),
+	%pp(?Term2,?PrettyTerm,?__Type), ?Term=..[node,?ID,?PrettyTerm]. 
+
+// ?Type is w/wc/m/d, ?Term is the node literal:
+//      subgoal, answer or defeated literal (???)
+// %nodeToLiteral(+,-,-)
+%nodeToLiteral(?ID,?TheType,?Term) :- 
+	?ID = ?Type(?Term1,?OptionalAppearance,?_ConsiderSucceeded,?_RuleID,?_Special_reason,?_path), 
+	consistencyAndUndefinednessCheck(?Term1,?Type,?TheType),
+	(?OptionalAppearance == null -->> ?Term = ?Term1
+        ; ?Term = ?OptionalAppearance
+        ).
+
+
+consistencyAndUndefinednessCheck(?G,w,?TheType) :-
+        catch{undefined{?G},?,Error = yes},
+        // MK: we should really have something other than wu if Error=yes
+        (Error == yes -->> ?TheType = wu
+        ; ?TheType = wu
+        ),
+        !.
+// MK: if undefined then both w and m are undefined!! - changed.
+//     Do we need TheType mu here or wu will work for m as well?
+consistencyAndUndefinednessCheck(?G,m,?TheType) :-
+        catch{undefined{?G},?,Error = yes},
+        // MK: we should really have something other than wu if Error=yes
+        (Error == yes -->> ?TheType = wu
+        ; ?TheType = wu
+        ),
+        !.
+consistencyAndUndefinednessCheck(?G,w,?TheType) :-
+        !,
+        \if catch{\neg ?G,?,\fail}
+        \then ?TheType = wc
+        \else ?TheType = w.
+consistencyAndUndefinednessCheck(?_G,?_Type,?_Type) :- \true.
+
+/* 
+   More complete variant trying to return the rule id or related info;
+   if not available (e.g. aggregate, disjunction, ...) 
+   leaves the last args unbound 
+   Ex (load RegW demo): 
+       ?R = w(${prohibited(by(RegW))(proposed(transaction)(by('Pacific Bank'))(with('Maui Sunset'))(of(amount(23)))(having(id(1101))))},null,\true,null,null,[]), 
+       justification(?P,?C,?R)@\fidji,
+       %nodeToLiteral(?P,w,?Term,?RuleFactOrSystem,?MatchRule,?_Module)@\fidji.
+   Ex (load demo{family_rel}):
+       ?G = ${brother(bernhard,karl)@main},
+       ?Parent = w(?G,null,\true,null,null,[]),
+       justification(?Parent,?Child,?)@\fidji.
+*/
+%nodeToLiteral(?ID,?Type,?Term,?RuleOrFactOrSystem,?MatchingRule,?Module) :- 
+	?ID = ?Type(?Term1,?OptionalAppearance,?_ConsiderSucceeded,?_RuleID,?_Special_reason,?_path), 
+	(?OptionalAppearance == null -->> ?Term = ?Term1
+        ; ?Term = ?OptionalAppearance
+        ),
+	%nodeToLiteral2(?Type,?Term1,?RuleOrFactOrSystem,?MatchingRule,?Module).
+
+%nodeToLiteral2(w,?Term,?RuleOrFactOrSystem,?MatchingRule,?Module) :-
+        !,
+	catch{prologLiteralToMatchingSource(?Term,?RuleOrFactOrSystem,?MatchingRule,?Module)@\prolog, ?, \true}.
+/* 
+   %nodeToLiteral2(m,?Term,matching_predicate,?MatchingPredicate,?Module) :-
+        !,
+	?Term ~ ?@?Module, ?MatchingPredicate = ...?
+*/
+	
+
+// DCGs; the following declaration also must be in each file with grammar rules:
+:- op{1700,xfx,'-->'}. 
+
+// %pp(?Answer,?Atom,?NodeType)
+
+// %pp(${?SomeNoun(?Rest)@?M},
+// ${'Some clear phrase here, or maybe something more graphical'@?M},np) :- !.
+/* Textual prettyprinting:
+%pp(${(?O:?C)@?M},${?P@?M},isa):-
+        !, 
+	flora_decode_goal_as_mainless_atom(?O,?OO)@\prolog(flrdecode),
+        flora_decode_goal_as_mainless_atom(?C,?CC)@\prolog(flrdecode), 
+	fmt_write_string(?P,'%s is a %s',args(?OO,?CC))@\io.
+*/
+// structural prettyprinting;
+// this code must be in sync with the gt specifications in fidji.P:
+/*
+%pp(${(?O:?C)@?_M},?Pretty,isa):-
+        !, 
+	flora_decode_goal_as_mainless_atom(?O,?PrettyO)@\prolog(flrdecode),
+        flora_decode_goal_as_mainless_atom(?C,?PrettyC)@\prolog(flrdecode),
+	?Pretty =..[?PrettyO, ?PrettyC].
+*/
+// %pp(?X,?Pretty,plain) :-
+//      atomic(?X)@\prolog,
+//      !,
+//      // hack for Flora bug Aug 10
+//      flora_decode_goal_as_mainless_atom(?X,?Pretty)@\prolog(flrdecode).
+%pp(?X,?Pretty,plain /* this will be used later to type graphically */) :- 
+	%mayGetModule(?X,?M),
+        convert_to_body_literal(?X,?BL)@\prolog(flrcanon),
+        !,
+	// actual pretty-printing
+        flora_decode_via_textgen(?BL,
+                                  [ergo_textit_show(?,?,?,?M)@\prolog(ergo_textit),
+                                    ergotext_textgen_show(?,?,?M)@\prolog(ergo_textit)],
+                                  ?Pretty
+                                )@\prolog(flrparser).
+		
+
+pp2(?Vars,?Template,?Pretty) :-
+        // TODO: should fail if some element of ?Vars shares vars with another
+	decodeVars(?Vars,?Vars2), ?Args =.. [hilog(args)|?Vars2], 
+	(?Vars2 == [] -->> ?Pretty = ?Template
+        // circumvent XSB oddity
+        ; fmt_write_string(?Pretty,?Template,?Args)@\io
+        ).
+
+decodeVars([],[]).
+decodeVars([?V|?Vars],[?PVar|?PVars]) :-
+        flora_decode_goal_as_mainless_atom_substitute_vars(?V,?PVar)@\prolog(flrdecode),
+        decodeVars(?Vars,?PVars).
+	
+// %pp(?X,?Y,plain) :- ?X ~ ?Y. 
+
+pp3(?X,?M,?Pretty) :-
+        tp(?X,?M,?T1,[]),
+        checkNonAtoms(?T1,?T),
+        concat_atom(?T,?Pretty)@\prolog(string).
+
+
+
+// t(?NonTerminal,?Tokens1,?TokensN)@\fidji.  our "phrase"/text predicate
+
+tp(?X,?_M,?T1,?Tn) :- isvar{?X}, !, ?T1 = ['?'|?Tn].
+tp(flora(?G),?_M,?T1,?Tn) :- !, ?G, ?T1=?Tn. // Flora trapdoor
+tp(\true,?_M,?T1,?Tn) :- !, ?T1=?Tn.
+tp([],?_M,?T1,?Tn) :- !, ?T1=?Tn.
+tp([?X],?_M,[?X|?_Tn],?_Tn) :- isatom{?X}, !.
+tp(?L,?_M,?T1,?Tn) :-
+        islist{?L},  // if only one atom...check for spaces?
+        !,
+	atom_codes(?X,?L)@\prolog, ?T1 = [?X|?Tn].
+tp(hilog(?X),?M,?T1,?Tn) :- !, tp(?X,?M,?T1,?Tn).
+/*
+tp(?X,?M,?T1,?Tn) :-    // --> OBSOLETE with ErgoText
+        mayGetLocalModuleVar(?X,?M,?LM),
+        (?XX-->?Body)@?LM,
+        ?X~?XX,
+        tb(?Body,?LM,?T1,?Tn). 
+tp(?X,?M,?T1,?Tn) :-    // --> OBSOLETE with ErgoText
+        mayGetLocalModuleVar(?X,?M,?LM),
+        \naf exists(*)^(((?XX --> ?_B)@?LM, ?X~?XX)),
+        defaultT(?X,?LM,?T1,?Tn).
+*/
+
+tb(?G,?M,?T1,?Tn) :-
+        isnonvar{?G},
+        ?G = (?X,?Y),
+        !,
+        tb(?X,?M,?T1,?T2),
+        tb(?Y,?M,?T2,?Tn).
+// missing here: cut, if then else, negation
+tb(?B,?M,?T1,?Tn) :- tp(?B,?M,?T1,?Tn).
+
+
+/*
+  /// OBSOLETE with ErgoText?
+  These or similar DCG rules might replace the below clauses for defaultT...:
+    ?Head(?Subterm) --> ?Head, " ", ?Subterm.
+    ?Head(?A,?B) --> ?A, " ", ?Head, " ", ?B.
+    (?G --> ?HG, " ", ?SG ) :-
+           ?G ~ ${?Head(?Subterm)@?M}, ?HG = ?Head@?M, ?SG = ?Subterm@?M.
+    (?G --> ?AG, " ", ?HG, " ", ?BG ) :-
+           ?G ~ ${?Head(?A,?B)@?M}, ?HG = ?Head@?M, ?AG = ?A@?M, ?BG = ?B@?M.
+    (?X --> [?X] ):- atom(?X)@\prolog.
+*/
+
+defaultT(?G,?M,?T1,?Tn) :-
+        ?G =.. [hilog(?Head),?Subterm],
+        !,
+        tp(?Head,?M,?T1,[' '|?T2]),
+        tp(?Subterm,?M,?T2,?Tn).
+defaultT(?G,?M,?T1,?Tn) :-
+        ?G =.. [hilog(?Head),?A,?B],
+        !, 
+	tp(?A,?M,?T1,?T2a), ?T2a=[' '|?T2],
+	tp(?Head,?M,?T2,[' '|?T3]),
+        tp(?B,?M,?T3,?Tn).
+defaultT(?G,?_M,?T1,?Tn) :-
+        ?G =.. [hilog(?Head,?MH),?Subterm],
+        !,
+        tp(?Head,?MH,?T1,[' '|?T2]),
+        tp(?Subterm,?MH,?T2,?Tn).
+defaultT(?G,?_M,?T1,?Tn) :-
+        ?G =.. [hilog(?Head,?MH),?A,?B],
+        !,
+        tp(?A,?MH,?T1,[' '|?T2]),
+        tp(?Head,?MH,?T2,[' '|?T3]),
+        tp(?B,?MH,?T3,?Tn).
+defaultT(?X,?_M,?T1,?Tn) :- isatomic{?X}, !, ?T1 = [?X|?Tn].
+defaultT(?X,?_M,?T1,?Tn) :- ?T1 = ['??'(?X)|?Tn].	
+
+checkNonAtoms([?A|?A1],[?A|?An]) :- isatomic{?A}, !, checkNonAtoms(?A1,?An).
+checkNonAtoms([?X|?A1],[?A|?An]) :-
+        !,
+        flora_decode_goal_as_mainless_atom(?X,?A)@\prolog(flrdecode),
+        checkNonAtoms(?A1,?An).
+checkNonAtoms([],[]).
+
+
+
+
+// HiLog editor tooltips
+
+%buildHilogTree(?T,?HT) :- %buildHilogTree(?T,?HT,\false,0,?).
+/*
+%buildHilogTree(?T,?HT) :- %buildHilogTree(?T,?HT,\true,0,?).
+
+%buildHilogTree(?T,?HT,?ExpandHeads,?MaxDepth,?Depth)
+  ?ExpandHeads is \true or \false; ?MaxDepth refers to how complex
+  nonexpanded subterms can be 
+*/
+%buildHilogTree(?T,?NodeAtom,?,?_MD,0) :-
+        (isvar{?T} ; isatomic{?T}),
+        !, 
+	flora_decode_goal_as_atom_substitute_vars(?T,?NodeAtom)@\prolog(flrdecode).
+%buildHilogTree(?T,?HT,?EH,?MD,?D) :- ?T = (?A,?B), !, 
+	%buildHilogTrees([?A,?B],?HTs,?EH,?MD,?MaxDepth),
+	?D \is ?MaxDepth+1,
+        ?HT=..[','|?HTs].
+%buildHilogTree(?T,?HT,?EH,?MD,?D) :- 
+	(?T=..[hilog(?Head)|?Children], ?Head_=?Head
+        ; ?T=..['%hilog'(?Head,?Module)|?Children], ?Head_=?Head@?Module
+        ), 
+	!,
+	%buildHilogTrees(?Children,?HTs,?EH,?MD,?MaxDepth), 
+	?D \is ?MaxDepth+1,
+	(?D>?MD  -->>
+		flora_decode_goal_as_atom_substitute_vars(?Head_,?NodeAtom_)@\prolog(flrdecode),
+		(isvar{?Module} -->> ?NodeAtom_=?NodeAtom
+                ; concat_atom(['%',?NodeAtom_],?NodeAtom)@\prolog(string)
+                ),
+		\if (?EH, isnonvar{?Head}, \+ isatomic{?Head} ) \then (
+			%buildHilogTree(?Head,?ExpandedHead,?EH,?MD,?_D),
+			?HeadSub =.. [hilog('Hilog Head:'),?ExpandedHead],
+			?HT =..[hilog(?NodeAtom),?HeadSub|?HTs]
+		) \else (
+			?HT=..[hilog(?NodeAtom)|?HTs]
+		)
+	 ; flora_decode_goal_as_atom_substitute_vars(?T,?HT)@\prolog(flrdecode)
+         ).
+	
+%buildHilogTree(?T,?NodeAtom,?_EH,?_MD,1) :-
+        flora_decode_goal_as_atom_substitute_vars(?T,?NodeAtom)@\prolog(flrdecode).
+
+%buildHilogTrees([],[],?_EH,?_MD,0).
+%buildHilogTrees([?C1|?Cn],[?HT1|?HTn],?EH,?MD,?D) :- 
+	%buildHilogTree(?C1,?HT1,?EH,?MD,?D1),
+        %buildHilogTrees(?Cn,?HTn,?EH,?MD,?Dn),
+	(?D1>?Dn -->> ?D = ?D1 ; ?D = ?Dn).
+
+// display tree structure, including HiLog heads
+%browseTerm(?T) :-
+        %buildHilogTree(?T,?HT,\true,0,?),
+        browseTerm(?HT)@\prologall.
+
+
+// MK(Miguel): What's the purpose of justification vs. justificationTreeFunction??
+/** This is the explicit graph relation... beware of its computational cost ! 
+  Should be called with empty ( [] ) or var path 
+  Nodes (parent,child,root defining the whole computation) can be either of
+      w(Answer,OptionalAspect_or_null,ConsiderSucceeded,RuleIDofFather,SpecialReason,Path)
+      m(Subgoal,OptionalAspect_or_null,ConsiderSucceeded,RuleIDofFather,SpecialReason,Path)
+      d(?DefeatMethod(tag,goal),DefeatMethod,ConsiderSucceeded,CallerID,null,path)
+  Example:
+     ?G = ${prohibited(by(RegW))(proposed(transaction)(by('Pacific Bank'))(with('Maui Sunset'))(of(amount(23)))(having(id(1101))))},
+     ?R = w(?G,null,\true,null,null,[]), 
+     justification(?R,?C,?R)@\fidji,
+     ?C=..[?,?CX,?,?,?,?],
+     %pp(?CX,?PrettyC,?Type)@\fidji.
+*/
+justification(?Parent,?Child,?Root) :-
+        justification_(?Parent,?Child,?Root),
+        noPath(?Child),
+        noPath(?Parent).
+
+noPath(?Node) :-
+        (?Node == null ; ?Node =.. [hilog(?_JTC),?,?,?,?,?,[]]),
+        !.
+
+// Above == hack to avoid spurious duplicate answers; this is the actual graph:
+justification_(?Parent,?Child,?Root) :-
+        justificationTreeRelation_internal(?Child,?Parent,?Root).
+justification_(?Parent,?Child,?Root) :- 
+	justification_(?_GrandFather,?Parent,?Root), 
+	justificationTreeRelation_internal(?Child,?Parent,?Root).
+
+/** Higher-level explanations
+
+  justificationMetrics(?Node,?BelowCount,?BelowRuleIdsAndFacts,?Root)
+  
+  Rule ids is a SET geared towards w, undefined for m......TO DO
+
+  Ex:
+    ?G = ${prohibited(by(RegW))(proposed(transaction)(by('Pacific Bank'))(with('Maui Sunset'))(of(amount(23)))(having(id(1101))))},
+
+    ?R = w(?G,null,\true,null,null,[]), 
+    justificationMetrics(?R,?Count,?Rules,?R)@\fidji
+  and
+    ?R = w(?G,null,\true,null,null,[]),
+    justification(?P,?_C,?R)@\fidji,
+    justificationMetrics(?P,?_Count,?_Rules,?R)@\fidji,
+    length(?_Rules,9)@\prolog(basics).
+
+  Facts count as much as rules.
+*/
+
+// Unused
+%baseJustificationMetrics(?Node,?BelowCount,?BelowRuleIds,?Root) :-
+	justificationMetrics(${justification(?,?,?)},?Node,?BelowCount,?BelowRuleIds,?Root).
+	
+justificationMetrics(?JR,?Node,1,?MyRuleID,?Root) :- 
+	?JR=..[?F,?,?,?|?Rest],
+        ?JRG=..[?F,?Node,?,?Root|?Rest],
+	\+ ?JRG, 	// tree leaf; 
+        !,
+	// Why does this provide LESS solutions than the above line???:
+        //     \naf justification(?Node,?,?Root), !.
+	%nodeToLiteral(?Node,?_Type,?_Term,?RuleOrFactOrSystem,?MatchingRule,?Module),
+	(?RuleOrFactOrSystem == rule -->> ?MyRuleID = [?MatchingRule-?Module] 
+	; ?RuleOrFactOrSystem =.. [fact,?_Fact] -->>
+               ?MyRuleID = [?RuleOrFactOrSystem-?Module] 
+	; ?MyRuleID = []
+        ).
+justificationMetrics(?JR,?Node,?BelowCount,?BelowRuleIds,?Root) :-
+	?JR=..[?F,?,?,?|?Rest], ?JRG=..[?F,?Node,?Child,?Root|?Rest],
+	?Metrics = bagof{?M| ?JRG, justificationMetrics(?JR,?Child,?ChildCount,?ChildIds,?Root), ?M = ?ChildCount/?ChildIds},
+	%nodeToLiteral(?Node,?_Type,?_Term,?RuleOrFactOrSystem,?MatchingRule,?Module),
+	( ?RuleOrFactOrSystem == rule -->> ?MyRuleID = [?MatchingRule-?Module] 
+	; ?RuleOrFactOrSystem =.. [fact,?_Fact] -->>
+              ?MyRuleID = [?RuleOrFactOrSystem-?Module] 
+	; ?MyRuleID = []
+        ),
+	justificationMetrics2([1/?MyRuleID|?Metrics],?BelowCount,?BelowRuleIds).
+
+justificationMetrics2([],0,[]).
+justificationMetrics2([?ChildCount/?ChildIds|?Metrics],?BelowCount,?BelowRuleIds) :- 
+	justificationMetrics2(?Metrics,?BelowCount1,?BelowRuleIds1),
+	?BelowCount \is ?ChildCount + ?BelowCount1,
+	merge(?BelowRuleIds1,?ChildIds,?BelowRuleIds)@\prolog(listutil).
+
+
+
+// Support for "smarter justifications", aka explanations
+// explanationWindow(WindowGUIref,RootNode)
+
+// explanationItem(Window,Order,Node,Answer)
+//      Answer is either of '?'/why/understood/dont_know. 
+// Node as in justificationTreeRelation / justification
+
+%initializeExplanation(?ListGUIref,?Root,?CS,?JT,?Outcome) :- 
+	?RootNode = ?JT(?Root,null,?CS,null,null,[]),
+	insert{%explanationWindow(?ListGUIref,?RootNode)},
+	insert{%explanationItem(?ListGUIref,1,?RootNode,why)},
+	%nextExplanation(?ListGUIref,1,why,?Outcome).
+
+
+// Similar to justification, but considering "understood" (aka "correct")
+// user answers
+// If bound, ?Window restricts the correct answers considered
+// to those in its answer list
+refinedJustification(?Parent,?Child,?Root,?Window) :- 
+	refinedJustification_(?Parent,?Child,?Root,?Window),
+        noPath(?Child), noPath(?Parent).
+
+// The above is a hack to avoid spurious duplicate answers;
+// this is the actual graph:
+refinedJustification_(?Parent,?Child,?Root,?Window) :- 
+	justificationTreeRelation_internal(?Child,?Parent,?Root), 
+	notKnownCorrect(?Child,?Window), notKnownCorrect(?Parent,?Window).
+refinedJustification_(?Parent,?Child,?Root,?Window) :- 
+	refinedJustification_(?_GrandFather,?Parent,?Root,?Window), 
+	justificationTreeRelation_internal(?Child,?Parent,?Root), 
+	notKnownCorrect(?Child,?Window).
+
+notKnownCorrect(null,?_W) :- !.
+notKnownCorrect(?Type(?G,?,?,?,?,?),?W) :- 
+	\+ (%explanationItem(?W,?,?Type(?GG,?,?,?,?,?),understood), myvariant(?G,?GG)).
+
+notCommentedYet(null,?_W) :- !.
+notCommentedYet(?Type(?G,?,?,?,?,?),?W) :-
+	\+ (%explanationItem(?W,?,?Type(?GG,?,?,?,?,?),?), myvariant(?G,?GG)).
+
+// hack to avoid failing the variant test because of Ergo's tracing argument
+// (in Prolog form)
+myvariant(?G,?GG) :- ?G=..?GL, ?GG=..?GGL, variant(?GL,?GGL)@\prolog(subsumes).
+
+mySubsumes(?General,?Specific) :- 
+	get_canonical_form(?General,?GC) @\prolog(flrcanon),
+	get_canonical_form(?Specific,?SC)@\prolog(flrcanon),
+	subsumes_chk(?GC,?SC)@\prolog(subsumes).
+
+
+
+
+refinedJustificationMetrics(?Node,?BelowCount,?BelowRuleIds,?Root,?Window) :-
+	justificationMetrics(${refinedJustification(?,?,?,?Window)},
+                             ?Node,
+                             ?BelowCount,?BelowRuleIds,
+                             ?Root).
+
+// ? Cause will be either a node, rule(?ID) or fact(TextualFact)
+bestDSDcause(?TopNode,?W,?Cause) :-
+	refinedJustificationMetrics(?TopNode,?_NodeCount,?RulesAndFacts,?TopNode,?W), 
+	length(?RulesAndFacts,?RuleAndFactCount)@\prolog(basics),
+	(?RulesAndFacts = [?RorF] -->>
+		( (?RorF = ?FFact-?Module, ?FFact =.. [fact,?Fact]) 
+		-->> ?Cause = fact(?Fact-?Module)
+		; (?RorF = ?_ID-?_Module, ?Cause = rule(?RorF))
+                )
+	;  ?RuleAndFactCount == 0 -->> \false // no more causes to show
+	;
+           ?Half \is ?RuleAndFactCount/2, 
+           ?Candidates =
+              bagof{ ?Item(asc) | 
+                 refinedJustification(?_Parent,?Child,?TopNode,?W), 
+                 // must we call this separately...???
+                 refinedJustificationMetrics(?Child,?,?ChildRules,?TopNode,?W),
+                 length(?ChildRules,?CRuleCount)@\prolog(basics),
+                 ?Distance \is abs(?CRuleCount-?Half),
+                 ?Item = ?Distance-?Child
+              },
+	   member(? - ?Cause,?Candidates)@\prolog(basics)
+        ).
+
+
+// nextExplanation(?W,?Order,?Answer,?Outcome)
+//    Handles an item selection change, by changing the database
+//    This needs to be in sync with constants in fjExplanationWindow
+
+%nextExplanation(?W,?Order,why,?Outcome) :-
+	updateExplanationItem(?W,?Order,?TopNode,why),
+	nextExplanationWhy(?W,?TopNode,?Outcome).
+%nextExplanation(?W,?Order,understood,?Outcome) :- 
+	updateExplanationItem(?W,?Order,?,understood),
+	?WhyItems = bagof{?O(desc)|%explanationItem(?W,?O,?,why)}, 
+	nextExplanationUnderstood(?W,?WhyItems,?Outcome).
+%nextExplanation(?W,?Order,dont_know,?Outcome) :- 
+	updateExplanationItem(?W,?Order,?,dont_know),
+	?WhyItems = bagof{?O(desc)|%explanationItem(?W,?O,?,why)}, 
+	nextExplanationDontKnow(?W,?WhyItems,?Outcome).
+%nextExplanation(?W,?Order,'?',?Outcome) :-
+        %nextExplanation(?W,?Order,dont_know,?Outcome).
+
+nextExplanationWhy(?W,?TopNode,?Outcome) :-
+        bestDSDcause(?TopNode,?W,?Cause), 
+	(?Cause=?_Diagnosis(?) ; notCommentedYet(?Cause,?W)), 
+	!, 
+	nextExplanation2(?Cause,?W,?Outcome).
+nextExplanationWhy(?_W,?_TopNode,?Outcome) :- ?Outcome = failed.
+
+nextExplanationUnderstood(?W,?WhyItems,?Outcome) :-
+	member(?K,?WhyItems)@\prolog(basics),
+        %explanationItem(?W,?K,?TopNode,why),
+        bestDSDcause(?TopNode,?W,?Cause),
+        (?Cause=?_Diagnosis(?) ; notCommentedYet(?Cause,?W)),
+	!,
+	nextExplanation2(?Cause,?W,?Outcome).
+nextExplanationUnderstood(?_W,?_WhyItems,?Outcome) :- ?Outcome = failed.
+
+nextExplanationDontKnow(?W,?WhyItems,?Outcome) :- 
+	member(?K,?WhyItems)@\prolog(basics),
+        %explanationItem(?W,?K,?TopNode,why),
+        bestDSDcause(?TopNode,?W,?Cause),
+        (?Cause=?_Diagnosis(?) ; notCommentedYet(?Cause,?W)),
+	!,
+	nextExplanation2(?Cause,?W,?Outcome).
+nextExplanationDontKnow(?_W,?_WhyItems,?Outcome) :- ?Outcome = failed.
+		
+nextExplanation2(?Cause,?W,?Outcome) :-
+	(?Cause=?_Diagnosis(?) -->> ?Outcome=?Cause
+	;
+            ?NewOrder \is 1+max{?O|%explanationItem(?W,?O,?,?)}, 
+            insert{%explanationItem(?W,?NewOrder,?Cause,'?')},
+            ?Outcome=?Cause
+        ).
+
+updateExplanationItem(?W,?Order,?Node,?NewAnswer) :- 
+	delete{ %explanationItem(?W,?Order,?Node,?_OldAnswer) },
+	insert{ %explanationItem(?W,?Order,?Node,?NewAnswer) },
+	refresh{justificationMetrics(${refinedJustification(?,?,?,?W)},?,?,?,?),
+                refinedJustification(?,?,?,?W),refinedJustification_(?,?,?,?W)}.
+
+/*
+   This is now defined as the why{...} primitive. In syslib/extensions/flrwhy.P
+   Direct entry point to the justifier, opening up Why or Why Not as appropriate
+
+    why(?G) :- ?G=..[?H|?], (?H=flogic(?,?) ; ?H=hilog(?,?)), !, why_(?G).
+    why(?G) :- why_(${?G@main}).
+
+    why_(?G) :- \+ \+ ?G, !, fjJustificationTree(?G,w)@\prolog, !.
+    why_(?G) :- fjJustificationTree(?G,m)@\prolog, !.
+*/
+
+%showDefinitionFor(?Goal) :- isvar{?Goal}, !, \false.
+%showDefinitionFor((?A,?)) :-
+        !,
+        %showDefinitionFor(?A). // cover path expressions
+%showDefinitionFor(?Head) :-
+	\if clause{@!{?ID} ?Head,?} \then (
+            %mayGetModule(?Head,?M), showSourceRule(?ID,?M,true)@\prologall
+        ) \else\if isbasefact{?Head} \then (
+            flora_decode_goal_as_mainless_atom(?Head,?HeadAtm)@\prolog(flrdecode),
+            concat_atom([?HeadAtm,' is one of the facts -- does not have a rule'],?Msg)@\prolog(string),
+            Dialog[show(Warning,?Msg)]@\e2j
+	) \else (
+            flora_decode_goal_as_mainless_atom(?Head,?HeadAtm)@\prolog(flrdecode),
+            concat_atom(['Could not find a matching clause for ',?HeadAtm],?Msg)@\prolog(string),
+            Dialog[show(Warning,?Msg)]@\e2j,
+            \false
+        ).
+							

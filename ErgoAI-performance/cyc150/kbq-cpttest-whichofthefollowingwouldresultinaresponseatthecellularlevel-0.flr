@@ -1,0 +1,140 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhichOfTheFollowingWouldResultInAResponseAtTheCellularLevel (query 0)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28variant_of_the_above.2C_derived_from.29_Biology_Chapter_11_Self-Quiz.2C_Question_7
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, genls('BiologicalProcess-CellularLevel-LocalizedToSingleCell', 'BiologicalProcess-CellularLevel')).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genls(CellularLevelResponseToSignal, 'BiologicalProcess-CellularLevel-LocalizedToSingleCell')).
+istAsserted(BaseKB, genls(TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ChemicalUnbindingEventTypeWithTypesFn(GlycogenMolecule, Glucose1PhosphateMolecule)), 'CellularLevelResponseToSignal-Amplified')).
+istAsserted(UniversalVocabularyMt, genls('CellularLevelResponseToSignal-Amplified', CellularLevelResponseToSignal)).
+
+// Explicit Background Facts
+istAsserted(BiologyMt, 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(PhosphorylaseKinaseMolecule)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(GlycogenPhosphorylaseMolecule)))).
+istAsserted(BiologyMt, 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(CAMPDependentKinaseMolecule)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(PhosphorylaseKinaseMolecule)))).
+istAsserted(BiologyMt, 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(GlycogenPhosphorylaseMolecule)), TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ChemicalUnbindingEventTypeWithTypesFn(GlycogenMolecule, Glucose1PhosphateMolecule)))).
+istAsserted(BiologyMt, 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(AdenylylCyclaseMolecule)))).
+istAsserted(BiologyMt, 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', 'CyclicAMPProduction-GlycogenBreakdownTransductionPathway', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(CAMPDependentKinaseMolecule)))).
+istAsserted(BiologyMt, 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(AdenylylCyclaseMolecule)), 'CyclicAMPProduction-GlycogenBreakdownTransductionPathway')).
+
+// Explicit Background Rules
+backwardSentence('causes-SubSitTypeSubSitType'(?PROCESS, ?CAUSE, ?EFFECT)) :- mtVisible(BaseKB), naf backchainForbidden('causes-SubSitTypeSubSitType'), 'causes-SubSitTypeSubSitType'(?PROCESS, ?CAUSE, ?INTERMED), 'causes-SubSitTypeSubSitType'(?PROCESS, ?INTERMED, ?EFFECT).
+backwardSentence(not('causes-SubSitTypeSubSitType'(?PROCESS, ?CAUSE, ?INTERMED))) :- mtVisible(BaseKB), naf backchainForbidden('causes-SubSitTypeSubSitType'), 'causes-SubSitTypeSubSitType'(?PROCESS, ?INTERMED, ?EFFECT), not('causes-SubSitTypeSubSitType'(?PROCESS, ?CAUSE, ?EFFECT)).
+backwardSentence(not('causes-SubSitTypeSubSitType'(?PROCESS, ?INTERMED, ?EFFECT))) :- mtVisible(BaseKB), naf backchainForbidden('causes-SubSitTypeSubSitType'), 'causes-SubSitTypeSubSitType'(?PROCESS, ?CAUSE, ?INTERMED), not('causes-SubSitTypeSubSitType'(?PROCESS, ?CAUSE, ?EFFECT)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260480', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260480', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-FirstOrderCollection-260481', FirstOrderCollection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-FirstOrderCollection-260481', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260480', MtTimeDimFn(Now)), genls('HYP-FirstOrderCollection-260481', Situation)).
+istAsserted(UniversalVocabularyMt, isa('HYP-FirstOrderCollection-260482', FirstOrderCollection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-FirstOrderCollection-260482', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260480', MtTimeDimFn(Now)), genls('HYP-FirstOrderCollection-260482', Situation)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-260480', MtTimeDimFn(Now)), 'causes-SubSitTypeSubSitType'('HYP-FirstOrderCollection-260481', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), 'HYP-FirstOrderCollection-260482')).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-260484', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-260484', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Collection-260485', Collection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-Collection-260485', Individual)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-WhichOfTheFollowingWouldResultInAResponseAtTheCellularLevel 0').
+%pretest :- 'causes-SubSitTypeSubSitType'(?SCRIPT, TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), ?EFFECT_SCENE), genls(?EFFECT_SCENE, 'BiologicalProcess-CellularLevel'), %write_results('SUCCESS  : $CPTTest-WhichOfTheFollowingWouldResultInAResponseAtTheCellularLevel 0').
+
+// Debugging
+proof(5558, 0) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(AdenylylCyclaseMolecule))).
+proof(5558, 1) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(AdenylylCyclaseMolecule))).
+proof(5558, 2) :- genls(TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ChemicalUnbindingEventTypeWithTypesFn(GlycogenMolecule, Glucose1PhosphateMolecule)), 'BiologicalProcess-CellularLevel').
+proof(5558, 3) :- genls(TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ChemicalUnbindingEventTypeWithTypesFn(GlycogenMolecule, Glucose1PhosphateMolecule)), 'BiologicalProcess-CellularLevel').
+proof(5558, 4) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(AdenylylCyclaseMolecule)), 'CyclicAMPProduction-GlycogenBreakdownTransductionPathway').
+proof(5558, 5) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(AdenylylCyclaseMolecule)), 'CyclicAMPProduction-GlycogenBreakdownTransductionPathway').
+proof(5558, 6) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(AdenylylCyclaseMolecule)), 'CyclicAMPProduction-GlycogenBreakdownTransductionPathway').
+proof(5558, 7) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(AdenylylCyclaseMolecule))), 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(AdenylylCyclaseMolecule)), 'CyclicAMPProduction-GlycogenBreakdownTransductionPathway').
+proof(5558, 8) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), 'CyclicAMPProduction-GlycogenBreakdownTransductionPathway').
+proof(5558, 9) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', 'CyclicAMPProduction-GlycogenBreakdownTransductionPathway', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(CAMPDependentKinaseMolecule))).
+proof(5558, 10) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', 'CyclicAMPProduction-GlycogenBreakdownTransductionPathway', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(CAMPDependentKinaseMolecule))).
+proof(5558, 11) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', 'CyclicAMPProduction-GlycogenBreakdownTransductionPathway', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(CAMPDependentKinaseMolecule))).
+proof(5558, 12) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), 'CyclicAMPProduction-GlycogenBreakdownTransductionPathway'), 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', 'CyclicAMPProduction-GlycogenBreakdownTransductionPathway', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(CAMPDependentKinaseMolecule))).
+proof(5558, 13) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(CAMPDependentKinaseMolecule))).
+proof(5558, 14) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(CAMPDependentKinaseMolecule)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(PhosphorylaseKinaseMolecule))).
+proof(5558, 15) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(CAMPDependentKinaseMolecule)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(PhosphorylaseKinaseMolecule))).
+proof(5558, 16) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(CAMPDependentKinaseMolecule)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(PhosphorylaseKinaseMolecule))).
+proof(5558, 17) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(CAMPDependentKinaseMolecule))), 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(CAMPDependentKinaseMolecule)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(PhosphorylaseKinaseMolecule))).
+proof(5558, 18) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(PhosphorylaseKinaseMolecule))).
+proof(5558, 19) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(PhosphorylaseKinaseMolecule)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(GlycogenPhosphorylaseMolecule))).
+proof(5558, 20) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(PhosphorylaseKinaseMolecule)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(GlycogenPhosphorylaseMolecule))).
+proof(5558, 21) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(PhosphorylaseKinaseMolecule)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(GlycogenPhosphorylaseMolecule))).
+proof(5558, 22) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(PhosphorylaseKinaseMolecule))), 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(PhosphorylaseKinaseMolecule)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(GlycogenPhosphorylaseMolecule))).
+proof(5558, 23) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(GlycogenPhosphorylaseMolecule))).
+proof(5558, 24) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(GlycogenPhosphorylaseMolecule)), TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ChemicalUnbindingEventTypeWithTypesFn(GlycogenMolecule, Glucose1PhosphateMolecule))).
+proof(5558, 25) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(GlycogenPhosphorylaseMolecule)), TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ChemicalUnbindingEventTypeWithTypesFn(GlycogenMolecule, Glucose1PhosphateMolecule))).
+proof(5558, 26) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(GlycogenPhosphorylaseMolecule)), TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ChemicalUnbindingEventTypeWithTypesFn(GlycogenMolecule, Glucose1PhosphateMolecule))).
+proof(5558, 27) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(GlycogenPhosphorylaseMolecule))), 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeFn(GlycogenPhosphorylaseMolecule)), TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ChemicalUnbindingEventTypeWithTypesFn(GlycogenMolecule, Glucose1PhosphateMolecule))).
+proof(5558, 28) :- 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ChemicalUnbindingEventTypeWithTypesFn(GlycogenMolecule, Glucose1PhosphateMolecule))).
+proof(5558, 29) :- genls(TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ChemicalUnbindingEventTypeWithTypesFn(GlycogenMolecule, Glucose1PhosphateMolecule)), 'BiologicalProcess-CellularLevel'), 'causes-SubSitTypeSubSitType'('GlycogenBreakdown-CellularSignalingScript', TotalityOfSubEventsOfTypeFn(SignalTransductionInGlycogenBreakdown, ActivationOfEnzymeOfTypeByEnzymeOfTypeFn(GProteinMolecule, GProteinLinkedReceptor)), TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ChemicalUnbindingEventTypeWithTypesFn(GlycogenMolecule, Glucose1PhosphateMolecule))).
+
+proof(5558, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(5558, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(5558, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(5558, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(5558, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(5558, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(5558, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(5558, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(5558, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(5558, 2002) :- admittedArgument(SecondFn(1, MinuteFn(48, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(5558, 2003) :- admittedArgument(SecondFn(1, MinuteFn(48, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(5558, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(5558, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(5558, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiologyMt).
+proof(5558, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(5558, 2008) :- genls(TotalityOfSubEventsOfTypeFn('GlycogenBreakdown-CellularSignalingScript', ChemicalUnbindingEventTypeWithTypesFn(GlycogenMolecule, Glucose1PhosphateMolecule)), 'BiologicalProcess-CellularLevel'). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

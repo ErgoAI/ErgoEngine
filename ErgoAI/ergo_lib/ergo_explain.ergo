@@ -1,0 +1,1056 @@
+/* File:   ergo_explain.ergo
+**
+** Author: Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2018-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+#include "flora_terms.flh"
+/*
+    EXTENDED_JUSTIFICATION=\true - seems buggy. Sends
+    ['~/Coherent/Demos/RegW/regwdemo'].
+    ${\(RegW prohibits the proposed transaction between ?_Bank and ?_Company for amount $?_Amount million\)@main}[why(full) -> ?Explanation]@\why.
+    into an infinite loop.
+*/
+#define EXTENDED_JUSTIFICATION    \false
+
+#define A_BASE_FACT  'it is a base fact'
+#define TOP_QUERY    'it is a top query'
+#define INDETERMINABLE  'inferrence rule cannot be determined'
+#define NOT_SPECIFIED   'no text given for the relevant rule'
+#define BASE_OR_BUILTIN 'this is a base fact or a builtin'
+#define BUILTIN         'this is a buitin primitive'
+#define BUILTIN_AXIOM   'derived via a builtin axiom (negation, defeasibility, composite goal, etc.)'
+#define CONTRADICTION   'derived by the axiom for contradiction'
+
+#define UNSORTED_EXPLANATIONS '_$_$ergo^use unsorted explanations'
+
+#define MAX_DEPTH_REACHED_REASON  max_depth_reached
+#define MAX_DEPTH_TEXT            'maximum explanation depth reached'
+
+#define REPEATED_SUBQUERY_REASON  repeated_subquery
+#define REPEATED_SUBQUERY_TEXT    'already explained subquery'
+
+:- compiler_options{production=on}.
+:- nontabled_module.
+:- suppress_rule_signatures.
+
+:- prolog{
+           //justificationTreeFunction(-Child,+Parent,+Root)
+           justificationTreeFunction/3,
+           change_module_if_match/4
+         }.
+
+:- symbol_context{
+                   support/?,
+                   why/?,
+                   undefined/?, true/?, false/?, unknown/?,
+                   contradiction/?,
+                   rebuttedBy/?, refutedBy/?,
+                   beatenByStrictRule/?, disqualified/?,
+                   w/?, m/?, d/?
+                 }.
+
+?- Method[mustDefine(off,max_explanation_depth(?)@\@)]@\sys.
+
+:- export{
+           ?[support->?],
+           ?[why->?],
+           ?[why(?)->?],
+           ?[why(?,?)->?],
+           ?[goal->?],
+           ?[text->?],
+           ?[info->?],
+           ?[reason->?],
+           ?[rule->?],
+           ?[size->?],
+           ?[isleaf],
+           ?[toJson->?],
+           %set_max_explanation_depth(?),
+           %clear_max_explanation_depth,
+           %get_max_explanation_depth(?),
+           %ignore_repeated_subgoals,
+           %expand_repeated_subgoals,
+           use_unsorted_explanations,
+           use_sorted_explanations,
+           using_sorted_explanations,
+           using_unsorted_explanations,
+           ensure_loaded
+         }.
+/*
+   This version is for highly hacked textits such as those treating if-then,
+   if-then-else, aggregates, etc.
+*/
+:- export{%textify(?,?)}.
+
+:- ignore_depchk{
+                  ?[toJson->?],
+                  justificationTreeFunction(?,?,?)@\fidji
+                }.
+
+:- prolog{
+           childOfDefeated/3,
+           convert_to_text/2,
+           check_callable/1,
+           support_info/4,
+           size_of_explanation/2,
+           check_justification_type/2,
+           get_justification_type/2,
+           printable_axiom/2,
+           goal_NOT_to_ignore/1,
+           ignored_goal/1,
+           immediate_support/3,
+           immediate_support_internal/4,
+           full_support_info/4,
+           paraphrase/2,
+           choose_rule_text/3,
+           support_object_is_not_aggregate_body/1,
+           all_support/4
+         }.
+:- table{
+          get_rule_text/4
+        }.
+
+ensure_loaded.
+
+?-  // initialize
+	feedback{tempoff},
+	%initialize.
+
+%initialize :- 
+	flora_install_dir(?ErgoDir)@\prolog(flrporting),
+	flora_slash(?S)@\prolog(flrporting),
+	\symbol[concat([?ErgoDir,?S,ergo_lib,?S,ergo_explain]) -> ?EXdir]@\basetype,
+	Libpath[add(?EXdir)]@\sys,
+	[ergo_explain_utils].
+
+// ?Goal must be reified, not a support object
+?Goal[why->?SupportObj] :-
+        immediate_support(?Goal,\?C,?SupportObj).
+
+// used only with ?Goal[why->?SupportObj].
+immediate_support(?Goal,?CallerMod,?SupportObj) :-
+        check_callable(?Goal),
+        // change Goal's module to \?C (caller's module)
+        // if Goal's module is \@ (\why)
+	change_module_if_match(?Goal,?GoalM,\@,?CallerMod)@\changemodule,
+        get_justification_type(?GoalM,?WhyOrWhyNot),
+        immediate_support_internal(?GoalM,?WhyOrWhyNot,?_RuleId,?SupportObj).
+
+// like immediate_support/4 but expects goal with explicit module
+// +GoalM,+WhyOrWhyNot,-RuleId,-SupportObj
+immediate_support_internal(?GoalM,why,ruleid(null,null,null),?SupportObj) :-
+        isbasefact{?GoalM},
+        !,
+        ?SupportObj = w(?GoalM,null,EXTENDED_JUSTIFICATION,null,A_BASE_FACT,[]).
+// +GoalM,+WhyOrWhyNot,-RuleId,-SupportObj
+immediate_support_internal(?GoalM,whynot,ruleid(null,null,null),?SupportObj) :-
+        isnonvar{?GoalM},
+        ?GoalM ~ \naf ?PosGoal,
+        isbasefact{?PosGoal},
+        !,
+        ?SupportObj = w(?PosGoal,null,EXTENDED_JUSTIFICATION,null,A_BASE_FACT,[]).
+// +GoalM,+WhyOrWhyNot,-RuleId,-SupportObj
+immediate_support_internal(?GoalM,?WhyOrWhyNot,ruleid(?Id,?File,?Mod),?SupportObj) :-
+        (?WhyOrWhyNot == why -->>
+          ?Parent = w(?GoalM,null,EXTENDED_JUSTIFICATION,null,null,[])
+        ; // whynot
+          ?Parent = m(?GoalM,null,EXTENDED_JUSTIFICATION,null,null,[])
+        ),
+        justificationTreeFunction(?SupportObj,?Parent,?)@\fidji,
+        ?SupportObj[goal->?SuppGoal],
+        (?GoalM ~ ?@?Mod -->> \true  // v. important! or misidentification
+        ; \true                      // of Mod may occur
+        ),
+        get_calling_rule_info(?SuppGoal,?Id,?File,?Mod,?GoalM)@\plg(flrcallflora),
+        // don't do it! var(Id) means INDETERMINABLE!
+        //(isvar{?Id} -->> ?Id = null; \true),
+        goal_NOT_to_ignore(?SuppGoal).
+
+?Goal[why(full)->?AllSupport] :-
+        caller{?Mod},
+        full_support_info(?Goal,?Mod,info_withouttext,?AllSupport),
+        !.
+?Goal[why(full,withtext)->?AllSupport] :-
+        caller{?Mod},
+        full_support_info(?Goal,?Mod,info_withtext,?AllSupport),
+        !.
+?Goal[why(full,textonly)->?AllSupport] :-
+        caller{?Mod},
+        full_support_info(?Goal,?Mod,info_textonly,?AllSupport),
+        !.
+?Goal[why(full,raw)->?AllSupport] :-
+        caller{?Mod},
+        full_support_info(?Goal,?Mod,info_unify,?AllSupport),
+        !.
+
+// full_support_info(+Goal,+Mod,+Transform,+WhyOrWhyNot,-AllSupport)
+// This rule is for the case of CONTRADICTION
+full_support_info(?Goal,?Mod,?Transform,
+                   explanation(?GoalTruth,
+                                [explanation(?TrueGoal,?AllSupport1),
+                                  explanation(?FalseGoal,?AllSupport2)]
+                              )) :-
+        check_callable(?Goal),
+	change_module_if_match(?Goal,?GoalM,\@,?Mod)@\changemodule,
+        false{?GoalM},
+        true{?GoalM},
+        !,
+        // In case of contradiction we do not perform naf-simplification
+        (?Transform == info_withtext -->>
+          // TrueGoal/FalseGoal is Truth(Goal,Comment,GoalText,RuleInfo)
+          convert_to_text(?GoalM,?GoalText),
+          ?GoalTruth =
+             contradiction(?GoalM,TOP_QUERY,?GoalText,ruleinfo(ruleid(null,null,null),CONTRADICTION)),
+          ?TrueGoal =
+             true(?GoalM,null,?GoalText,ruleinfo(?PosRuleId,?PosRuleText)),
+          ?FalseGoal =
+             false(?GoalM,null,?GoalText,ruleinfo(?NegRuleId,?NegRuleText))
+        ; ?Transform == info_textonly -->>
+          // TrueGoal/FalseGoal is Truth(GoalText,RuleText)
+          convert_to_text(?GoalM,?GoalText),
+          ?GoalTruth = contradiction(?GoalText,TOP_QUERY),
+          ?TrueGoal = true(?GoalText,?PosRuleText),
+          ?FalseGoal = false(?GoalText,?NegRuleText)
+        ; ?GoalTruth = contradiction(?GoalM,TOP_QUERY,CONTRADICTION),
+          // TrueGoal/FalseGoal is Truth(Goal,Comment,RuleId)
+          ?TrueGoal = true(?GoalM,null,?PosRuleId),
+          ?FalseGoal = false(?GoalM,null,?NegRuleId)
+        ),
+
+        //\unless immediate_support_internal(?GoalM,why,?PosRuleId,?SuppObjPos)
+        //\do ?PosRuleId = ruleid(null,null,null),
+        (immediate_support_internal(?GoalM,why,?PosRuleId,?SuppObjPos) -->> \true
+        ; ?PosRuleId = ruleid(null,null,null)
+        ),
+
+        get_rule_text(?SuppObjPos,?PosRuleId,?Mod,?PosRuleText),
+        
+        (using_sorted_explanations -->>
+          ?SupportList1 =
+             setof{?SupportObj|
+                    immediate_support_internal(?GoalM,why,?,?SupportObj)
+                  }
+        ; ?SupportList1 =
+             bagof{?SupportObj|
+                    immediate_support_internal(?GoalM,why,?,?SupportObj)
+                  }
+        ),
+        all_support(?SupportList1,?Transform,?AllSupport1,0),
+        ergo_clear_seen_subgoals@\prolog(ergo_explain_utils),
+
+        ?GoalMnaf ~ \naf ?GoalM,
+
+        //\unless immediate_support_internal(?GoalMnaf,why,?NegRuleId,?SuppObjNaf)
+        //\do ?NegRuleId = ruleid(null,null,null),
+        (immediate_support_internal(?GoalMnaf,why,?NegRuleId,?SuppObjNaf) -->> \true
+        ; ?NegRuleId = ruleid(null,null,null)
+        ),
+
+        get_rule_text(?SuppObjNaf,?NegRuleId,?Mod,?NegRuleText),
+
+        (using_sorted_explanations -->>
+          ?SupportList2 =
+             setof{?SupportObj|
+                    immediate_support_internal(?GoalMnaf,why,?,?SupportObj)
+                  }
+        ; ?SupportList2 =
+             bagof{?SupportObj|
+                    immediate_support_internal(?GoalMnaf,why,?,?SupportObj)
+                  }
+        ),
+        all_support(?SupportList2,?Transform,?AllSupport2,0),
+        ergo_clear_seen_subgoals@\prolog(ergo_explain_utils).
+
+// case of NO contradiction
+// performs naf-simplification: false(\naf G) ~~> G; true(\naf G) ~~> false(G)
+full_support_info(?Goal,?Mod,?Transform,?TopExplanation) :-
+        check_callable(?Goal),
+        // change Goal's module to ?Mod (caller's module) if its module is \why
+	change_module_if_match(?Goal,?GoalM,\@,?Mod)@\changemodule,
+        (?Transform == info_withtext -->>
+          // GoalTruth part is Truth(Goal,Comment,GoalText,RuleInfo)
+          (false{?GoalM} -->>
+            convert_to_text(?GoalM,?TopGoalText), // must be after false{?GoalM}
+            (isnafform{?GoalM,?PosGoalM} -->>
+              ?PosGoalM,
+              convert_to_text(?PosGoalM,?GoalText), // must be after false{?GoalM}
+              ?GoalTruth = true(?PosGoalM,TOP_QUERY,?GoalText,ruleinfo(?RuleId,?RuleText))
+            ;
+              ?GoalText = ?TopGoalText,
+              ?GoalTruth = false(?GoalM,TOP_QUERY,?GoalText,ruleinfo(?RuleId,?RuleText))
+            ),
+            ?TopGoalTruth = false(?GoalM,TOP_QUERY,?TopGoalText,ruleinfo(?RuleId,TOP_QUERY))
+          ; true{?GoalM} -->>
+            convert_to_text(?GoalM,?TopGoalText), // must be after false{?GoalM}
+            (isnafform{?GoalM,?PosGoalM} -->>
+              convert_to_text(?PosGoalM,?GoalText), // must be after true{?GoalM}
+              ?GoalTruth = false(?PosGoalM,TOP_QUERY,?GoalText,ruleinfo(?RuleId,?RuleText))
+            ;
+              ?GoalText = ?TopGoalText,
+              ?GoalTruth = true(?GoalM,TOP_QUERY,?GoalText,ruleinfo(?RuleId,?RuleText))
+            ),
+            ?TopGoalTruth = true(?GoalM,TOP_QUERY,?TopGoalText,ruleinfo(?RuleId,TOP_QUERY))
+          ; undefined{?GoalM} -->>
+            convert_to_text(?GoalM,?TopGoalText),
+            ?GoalText = ?TopGoalText,
+            ?GoalTruth = undefined(?GoalM,TOP_QUERY,?GoalText,ruleinfo(?RuleId,?RuleText)),
+            ?TopGoalTruth = undefined(?GoalM,TOP_QUERY,?TopGoalText,ruleinfo(?RuleId,TOP_QUERY))
+          ; // this should never happen, but added just in case
+            convert_to_text(?GoalM,?TopGoalText),
+            ?GoalText = ?TopGoalText,
+            ?GoalTruth = undefined(?GoalM,TOP_QUERY,?GoalText,ruleinfo(?RuleId,?RuleText)),
+            ?TopGoalTruth = undefined(?GoalM,TOP_QUERY,?TopGoalText,ruleinfo(?RuleId,TOP_QUERY))
+          )
+        ; ?Transform == info_textonly -->>
+          // GoalTruth part is Truth(GoalText,RuleText)
+          (false{?GoalM} -->>
+            convert_to_text(?GoalM,?TopGoalText),
+            (isnafform{?GoalM,?PosGoalM} -->>
+              ?PosGoalM, // to bind and give example
+              convert_to_text(?PosGoalM,?GoalText), // must be after false{?GoalM}
+              ?GoalTruth = true(?GoalText,?RuleText)
+            ;
+              ?GoalText = ?TopGoalText,
+              ?GoalTruth = false(?GoalText,?RuleText)
+            ),
+            ?TopGoalTruth = false(?TopGoalText,TOP_QUERY)
+          ; true{?GoalM} -->>
+            convert_to_text(?GoalM,?TopGoalText), // must be after true{?GoalM}
+            (isnafform{?GoalM,?PosGoalM} -->>
+              convert_to_text(?PosGoalM,?GoalText), // must be after true{?GoalM}
+              ?GoalTruth = false(?GoalText,?RuleText)
+            ;
+              ?GoalText = ?TopGoalText,
+              ?GoalTruth = true(?GoalText,?RuleText)
+            ),
+            ?TopGoalTruth = true(?TopGoalText,TOP_QUERY)
+          ; undefined{?GoalM} -->>
+            convert_to_text(?GoalM,?TopGoalText),
+            ?GoalText = ?TopGoalText,
+            ?GoalTruth = undefined(?GoalText,?RuleText),
+            ?TopGoalTruth = undefined(?TopGoalText,TOP_QUERY)
+          ; // this should never happen, but added just in case
+            convert_to_text(?GoalM,?TopGoalText),
+            ?GoalText = ?TopGoalText,
+            ?GoalTruth = undefined(?GoalText,?RuleText),
+            ?TopGoalTruth = undefined(?TopGoalText,TOP_QUERY)
+          )
+        ;
+          // ?GoalTruth part is Truth(Goal,Comment,RuleId)
+          (false{?GoalM} -->>
+            (isnafform{?GoalM,?PosGoalM} -->>
+              ?PosGoalM,
+              ?GoalTruth = true(?PosGoalM,TOP_QUERY,?RuleId)
+            ;
+              ?GoalTruth = false(?GoalM,TOP_QUERY,?RuleId)
+            ),
+            ?TopGoalTruth = false(?GoalM,TOP_QUERY,?RuleId)
+          ; true{?GoalM} -->>
+            (isnafform{?GoalM,?PosGoalM} -->>
+              ?GoalTruth = false(?PosGoalM,TOP_QUERY,?RuleId)
+            ;
+              ?GoalTruth = true(?GoalM,TOP_QUERY,?RuleId)
+            ),
+            ?TopGoalTruth = true(?GoalM,TOP_QUERY,?RuleId)
+          ; ?GoalTruth = undefined(?GoalM,TOP_QUERY,?RuleId),
+            ?TopGoalTruth = undefined(?GoalM,TOP_QUERY,?RuleId)
+          )
+        ),
+
+        (isvar{?PosGoalM} -->> ?RealGoal = ?GoalM
+        ; ?RealGoal = ?PosGoalM
+        ),
+        get_justification_type(?RealGoal,?WhyOrWhyNot),
+        // similar thing to obtain Reason is in all_support()
+        (immediate_support_internal(?RealGoal,?WhyOrWhyNot,?RuleId,?GoalSupp),
+          support_object_is_not_aggregate_body(?GoalSupp),
+          ?RuleId = ruleid(?Id,?,?), isnonvar{?Id}, ?Id \== null
+          -->>
+          get_rule_text(?GoalSupp,?RuleId,?Mod,?RuleTextPre)
+        ; immediate_support_internal(?RealGoal,?WhyOrWhyNot,?RuleId,?GoalSupp),
+          support_object_is_not_aggregate_body(?GoalSupp),
+          ?GoalSupp[reason->?Reason], ?Reason \== null
+          -->>
+          (?RuleId = ruleid(?Id,?F,?),
+            (isvar{?Id} -->> ?Id = null; \true),
+            (isvar{?F} -->> ?F = null; \true)
+          ; \true
+          ),
+          choose_rule_text(?Reason,INDETERMINABLE,?RuleTextPre)
+        ; immediate_support_internal(?RealGoal,?WhyOrWhyNot,?RuleId,?GoalSupp),
+          support_object_is_not_aggregate_body(?GoalSupp)
+          -->>
+          get_rule_text(?GoalSupp,?RuleId,?Mod,?RuleTextPre),
+          ?RuleId = ruleid(?Id,?F,?),
+          (isvar{?Id} -->> ?Id = null; \true),
+          (isvar{?F} -->> ?F = null; \true)
+        ; ?RuleId = ruleid(null,null,null), ?RuleTextPre = INDETERMINABLE
+        ),
+
+        // show 'top query' rather than 'rule text not given' for top queries
+        (?RuleTextPre == INDETERMINABLE, isvar{?PosGoalM} -->>
+          ?RuleText = TOP_QUERY
+        ; ?RuleText = ?RuleTextPre
+        ),
+
+        (using_sorted_explanations -->>
+          ?SupportList =
+             setof{?SupportObj|
+                    immediate_support_internal(?RealGoal,?WhyOrWhyNot,?,?SupportObj)
+                  }
+        ; ?SupportList =
+             bagof{?SupportObj|
+                    immediate_support_internal(?RealGoal,?WhyOrWhyNot,?,?SupportObj)
+                  }
+        ),
+        all_support(?SupportList,?Transform,?AllSupport,0),
+ 
+        // if top goal changed from negative to positive, add the original
+        // goal as a top goal
+        (isvar{?PosGoalM} -->>
+          ?TopExplanation = explanation(?GoalTruth,?AllSupport)
+        ;
+          ?TopExplanation = explanation(?TopGoalTruth,[explanation(?GoalTruth,?AllSupport)])
+        ),
+        ergo_clear_seen_subgoals@\prolog(ergo_explain_utils).
+
+// unused?
+check_justification_type(why,?Goal) :-
+        cloneterm{?Goal,?GoalCopy},
+        (true{?GoalCopy}
+        ; undefined{?GoalCopy}
+        ).
+check_justification_type(whynot,?Goal) :-
+        false{?Goal}.
+
+get_justification_type(?Goal,?Type) :-
+        cloneterm{?Goal,?GoalCopy},
+        (false{?GoalCopy}, true{?GoalCopy} -->> (?Type = why ; ?Type = whynot)
+        ; false{?GoalCopy} -->> ?Type = whynot
+        ; ?Type = why
+        ).
+
+
+// returns support for ?SupportObj
+// give full explanation (with w/6, m/6, d/6 types)
+?SupportObj[support->?SupportChildObj] :-
+        isnonvar{?SupportObj},
+        ?SupportObj = ?type(?,?,?,?,?,?),
+        ?type \in [w,m,d],
+        !,
+        justificationTreeFunction(?SupportChildObj,?SupportObj,?)@\fidji,
+        goal_NOT_to_ignore(?SupportChildObj.goal).
+
+
+// isleaf means: ?SupportObj's goal does not require justification,
+// unconditionally true
+// Expects support objects, not goals.
+?SupportObj[isleaf] :-
+        isnonvar{?SupportObj},
+        ?SupportObj = ?type(?Goal,?,?,?,?,?),
+        !,
+        // Not changing module for Goal because support objects have
+        // explicit modules, so @\why won't affect it
+        ( is_delayed_literal(?Goal)@\prolog(flrdelaysupport) -->> true
+        ; ?type == w -->> (true{?Goal} ; undefined{?Goal})
+        ; ?type == m -->> false{?Goal}
+          // defeater nodes are never leaves
+        ; ?type == d -->> \false
+        ; // should not be getting here since ?type = w/m/d
+          \true
+        ),
+        // no supporting children. Tabled, but \+ is fine here,
+        // as no cyclic dependency on justificationTreeFunction.
+        \+ justificationTreeFunction(?,?SupportObj,?)@\fidji.
+
+// Get goal from support object
+?SupportObj[goal->?Goal] :-
+        isnonvar{?SupportObj},
+        ?SupportObj = ?type(?PreGoal,?,?,?,?,?),
+        (?PreGoal = rebuttedBy(?,?Goal) -->> \true
+        ; ?PreGoal = refutedBy(?,?Goal) -->> \true
+        ; ?PreGoal = beatenByStrictRule(?Goal) -->> \true
+        ; ?PreGoal = disqualified(?,?,(?,?Goal)) -->> \true
+        ; ?Goal = ?PreGoal
+        ),
+        ?type \in [w,m,d],
+        // Not changing module for Goal because support objects have
+        // explicit modules, so the \why module propagation won't affect Goal.
+        !.
+
+// spells out what a support object means
+?SupportObj[info->?InfoObject] :-
+        info_withouttext(?SupportObj,?_RuleInfo,?InfoObject).
+
+info_withouttext(?SupportObj,?RuleInfo,?InfoObject) :-
+        // 2nd arg: UseErgoText = no/withtext/textonly
+        support_info(?SupportObj,no,?RuleInfo,?InfoObject).
+// methods that provide textual output exclusively or in addition
+info_withtext(?SupportObj,?RuleInfo,?InfoObject) :-
+        // 2nd arg: UseErgoText = no/withtext/textonly
+        support_info(?SupportObj,withtext,?RuleInfo,?InfoObject).
+info_textonly(?SupportObj,?RuleInfo,?InfoObject):-
+        // 2nd arg: UseErgoText = no/withtext/textonly
+        support_info(?SupportObj,textonly,?RuleInfo,?InfoObject).
+
+info_unify(?X,?,?Y) :- ?X=?Y.
+
+support_info(?SupportObj,?UseErgoText,?RuleInfo,?InfoObject) :-
+        isnonvar{?SupportObj},
+        ?SupportObj = w(?Goal,?,?,?,?,?),
+        !,
+        ?RuleInfo = ruleinfo(?RuleId,?RuleText),
+        (?RuleText == MAX_DEPTH_TEXT -->> ?Reason = MAX_DEPTH_REACHED_REASON
+        ; ?RuleText == REPEATED_SUBQUERY_TEXT -->> ?Reason = REPEATED_SUBQUERY_REASON
+        ; ?Reason = null // might need to elaborate
+        ),
+        paraphrase(?Goal,?GoalP),
+        (?UseErgoText==withtext -->>
+          /*
+             Delayed literals may not have enough bindings to execute without
+             errors, so we catch them. If there was an error, we cannot
+             determine the truth value.
+             Note: explanations probably have the same problem with delayed
+             formulas like those with wish/must quantifiers.
+          */
+          (is_delayed_literal(?Goal)@\prolog(flrdelaysupport),
+            catch{(?Goal,!!), ?, ?Exception = yes}, // execute immediately
+            ?Exception == yes -->>
+            convert_to_text(?GoalP,?GoalText),
+            ?InfoObject = unknown(?GoalP,?Reason,?GoalText,?RuleInfo)
+          ; undefined{?Goal} -->>
+            convert_to_text(?GoalP,?GoalText),
+            ?InfoObject = undefined(?GoalP,?Reason,?GoalText,?RuleInfo)
+          ; isbasefact{?Goal} -->>
+            convert_to_text(?GoalP,?GoalText),
+            ?InfoObject = true(?GoalP,A_BASE_FACT,?GoalText,?RuleInfo)
+          ; true{?Goal} -->>
+            (isnafform{?Goal,?PosGoal} -->>
+              paraphrase(?PosGoal,?PosGoalP),
+              convert_to_text(?PosGoalP,?GoalText),
+              ?InfoObject = false(?PosGoalP,?Reason,?GoalText,?RuleInfo)
+            ;
+              convert_to_text(?GoalP,?GoalText),
+              //DBGOUTLN(444=?GoalP)@\plg,
+              ?InfoObject = true(?GoalP,?Reason,?GoalText,?RuleInfo)
+            )
+          ;
+            // Goal is false
+            (isnafform{?Goal,?PosGoal} -->>
+              ?PosGoal, // to bind and give example
+              paraphrase(?PosGoal,?PosGoalP),
+              convert_to_text(?PosGoalP,?GoalText),
+              ?InfoObject = true(?PosGoalP,?Reason,?GoalText,?RuleInfo)
+            ;
+              convert_to_text(?GoalP,?GoalText),
+              ?InfoObject = false(?GoalP,?Reason,?GoalText,?RuleInfo)
+            )
+          )
+        ; ?UseErgoText==textonly -->>
+          (is_delayed_literal(?Goal)@\prolog(flrdelaysupport),
+            catch{(?Goal,!!), ?, ?Exception = yes}, // execute immediately
+            ?Exception == yes -->>
+            convert_to_text(?GoalP,?GoalText),
+            ?InfoObject = unknown(?GoalText,?RuleText)
+          ; undefined{?Goal} -->>
+            convert_to_text(?GoalP,?GoalText),
+            ?InfoObject = undefined(?GoalText,?RuleText)
+          ; true{?Goal} -->>
+            (isnafform{?Goal,?PosGoal} -->>
+              paraphrase(?PosGoal,?PosGoalP),
+              convert_to_text(?PosGoalP,?GoalText),
+              ?InfoObject = false(?GoalText,?RuleText)
+            ;
+              convert_to_text(?GoalP,?GoalText),
+              ?InfoObject = true(?GoalText,?RuleText)
+            )
+          ; 
+            // Goal is false
+            (isnafform{?Goal,?PosGoal} -->>
+              paraphrase(?PosGoal,?PosGoalP),
+              ?PosGoalP,
+              convert_to_text(?PosGoalP,?GoalText),
+              ?InfoObject = true(?GoalText,?RuleText)
+            ;
+              convert_to_text(?GoalP,?GoalText),
+              ?InfoObject = false(?GoalText,?RuleText)
+            )
+          )
+        ;
+          (is_delayed_literal(?Goal)@\prolog(flrdelaysupport),
+            catch{(?Goal,!!), ?, ?Exception = yes},
+            ?Exception == yes -->>
+            ?InfoObject = unknown(?GoalP,?Reason,?RuleId)
+          ; undefined{?Goal} -->> ?InfoObject = undefined(?GoalP,?Reason,?RuleId)
+          ; isbasefact{?Goal} -->> ?InfoObject = true(?GoalP,A_BASE_FACT,?RuleId)
+            // if we check true{?Goal} here then it sometimes fails:
+            // investigate (eg, general_tests/justifier2_ergo.ergo)
+          ; true{?Goal} -->> ?InfoObject = true(?GoalP,?Reason,?RuleId)
+          ; 
+            ?InfoObject = false(?GoalP,?Reason,?RuleId)
+          )
+        ).
+support_info(?SupportObj,?UseErgoText,?RuleInfo,?InfoObject) :-
+        isnonvar{?SupportObj},
+        ?SupportObj = d(?Goal,?,?,?,?,?),
+        !,
+        ?RuleInfo = ruleinfo(?RuleId,?RuleText),
+        (?RuleText == MAX_DEPTH_TEXT -->> ?Reason = MAX_DEPTH_REACHED_REASON
+        ; ?RuleText == REPEATED_SUBQUERY_TEXT -->> ?Reason = REPEATED_SUBQUERY_REASON
+        ; ?Reason = null // might need to elaborate
+        ),
+        paraphrase(?Goal,?GoalP),
+        childOfDefeated(?Goal,?_reason2,?Defeater)@\fidji,
+        (?UseErgoText==withtext -->>
+          (undefined{?Defeater} -->>
+            convert_to_text(?GoalP,?GoalText),
+            ?InfoObject = undefined(?GoalP,?Reason,?GoalText,?RuleInfo)
+          ;
+            convert_to_text(?GoalP,?GoalText),
+            ?InfoObject = true(?GoalP,?Reason,?GoalText,?RuleInfo)
+          )
+        ; ?UseErgoText==textonly -->>
+          (undefined{?Defeater} -->>
+            convert_to_text(?GoalP,?GoalText),
+            ?InfoObject = undefined(?GoalText,?RuleText)
+          ;
+            convert_to_text(?GoalP,?GoalText),
+            ?InfoObject = true(?GoalText,?RuleText)
+          )
+        ; (undefined{?Defeater} -->> ?InfoObject = undefined(?GoalP,?Reason,?RuleId)
+            // if we check true{?Defeater} here then it sometimes fails:
+            // investigate (eg, justifier/justifier_basics.ergo)
+          ;
+            ?InfoObject = true(?GoalP,?Reason,?RuleId)
+          )
+        ).
+
+support_info(?SupportObj,?UseErgoText,?RuleInfo,?InfoObject) :-
+        isnonvar{?SupportObj},
+        ?SupportObj = m(?Goal,?,?,?,?,?),
+        !,
+        ?RuleInfo = ruleinfo(?RuleId,?RuleText),
+        (?RuleText == MAX_DEPTH_TEXT -->> ?Reason = MAX_DEPTH_REACHED_REASON
+        ; ?RuleText == REPEATED_SUBQUERY_TEXT -->> ?Reason = REPEATED_SUBQUERY_REASON
+        ; ?Reason = null // might need to elaborate
+        ),
+        paraphrase(?Goal,?GoalP),
+        (?UseErgoText==withtext -->>
+          // see the earlier note about the limitations of the explanation
+          // mechanism when it comes to delayed literals/formulas
+          (is_delayed_literal(?Goal)@\prolog(flrdelaysupport),
+            catch{(?Goal,!!), ?, ?Exception = yes},
+            ?Exception == yes -->>
+            convert_to_text(?GoalP,?GoalText),
+            ?InfoObject = unknown(?GoalP,?Reason,?GoalText,?RuleInfo)
+          ; undefined{?Goal} -->>
+            convert_to_text(?GoalP,?GoalText),
+            ?InfoObject = undefined(?GoalP,?Reason,?GoalText,?RuleInfo)
+          ; false{?Goal} -->>
+            (isnafform{?Goal,?PosGoal} -->>
+              ?PosGoal, // to bind and give example
+              paraphrase(?PosGoal,?PosGoalP),
+              convert_to_text(?PosGoalP,?GoalText),
+              ?InfoObject = true(?PosGoalP,?Reason,?GoalText,?RuleInfo)
+            ;
+              convert_to_text(?GoalP,?GoalText),
+              ?InfoObject = false(?GoalP,?Reason,?GoalText,?RuleInfo)
+            )
+          ;
+            // Goal is true
+            (isnafform{?Goal,?PosGoal} -->>
+              paraphrase(?PosGoal,?PosGoalP),
+              convert_to_text(?PosGoalP,?GoalText),
+              ?InfoObject = false(?PosGoalP,?Reason,?GoalText,?RuleInfo)
+            ;
+              convert_to_text(?GoalP,?GoalText),
+              ?InfoObject = true(?GoalP,?Reason,?GoalText,?RuleInfo)
+            )
+          )
+        ; ?UseErgoText==textonly -->>
+          (is_delayed_literal(?Goal)@\prolog(flrdelaysupport),
+            catch{(?Goal,!!), ?, ?Exception = yes},
+            ?Exception == yes -->>
+            convert_to_text(?GoalP,?GoalText),
+            ?InfoObject = unknown(?GoalText,?RuleText)
+          ; undefined{?Goal} -->>
+            convert_to_text(?GoalP,?GoalText),
+            ?InfoObject = undefined(?GoalText,?RuleText)
+          ; false{?Goal} -->>
+            (isnafform{?Goal,?PosGoal} -->>
+              ?PosGoal,
+              paraphrase(?PosGoal,?PosGoalP),
+              convert_to_text(?PosGoalP,?GoalText),
+              ?InfoObject = true(?GoalText,?RuleText)
+            ;
+              convert_to_text(?GoalP,?GoalText),
+              ?InfoObject = false(?GoalText,?RuleText)
+            )
+          ;
+            // Goal is true
+            (isnafform{?Goal,?PosGoal} -->>
+              paraphrase(?PosGoal,?PosGoalP),
+              convert_to_text(?PosGoalP,?GoalText),
+              ?InfoObject = false(?GoalText,?RuleText)
+            ;
+              convert_to_text(?GoalP,?GoalText),
+              ?InfoObject = true(?GoalText,?RuleText)
+            )
+          )
+        ;
+          (is_delayed_literal(?Goal)@\prolog(flrdelaysupport),
+            catch{(?Goal,!!), ?, ?Exception = yes}, // execute immediately
+            ?Exception == yes -->>
+            ?InfoObject = unknown(?GoalP,?Reason,?RuleId)
+          ; undefined{?Goal} -->> ?InfoObject = undefined(?GoalP,?Reason,?RuleId)
+          ; false{?Goal} -->> ?InfoObject = false(?GoalP,?Reason,?RuleId)
+          ;
+            ?InfoObject = true(?GoalP,?Reason,?RuleId)
+          )
+        ).
+
+?SupportObj[reason->?Reason] :-
+        (isvar{?SupportObj} -->> ?Reason = null
+        ; ?SupportObj == MAX_EXPLANATION_DEPTH -->> ?Reason = MAX_DEPTH_REACHED_REASON
+        ; ?SupportObj == REPEATED_SUBQUERY -->> ?Reason=REPEATED_SUBQUERY_REASON
+        ; ?SupportObj = ?Type(?,?Reason,?,?,?,?), ?Type==d -->> \true
+        ; ?SupportObj = ?Type(?,?,?,?,?Reason,?), ?Type \in [m,w] -->> \true
+        ; ?Reason = null // just in case
+        ).
+
+?SupportObj[rule->ruleid(?Id,?File,?Mod)] :-
+        ?SupportObj = ?Type(?,?,?,?,?,?),
+        ?Type \in [m,w],
+        ?SupportObj[goal->?Goal],
+        get_calling_rule_info(?Goal,?Id,?File,?Mod,?)@\plg(flrcallflora).
+
+
+// This takes text generation into account; otherwise, just decodes as atom
+// Expects either a goal or a support object.
+?SupportObj[text->?GoalText] :-
+        isnonvar{?SupportObj},
+        ?SupportObj = ?type(?Goal,?,?,?,?,?),
+        ?type \in [w,m,d],
+        !,
+        // Not changing module for Goal because support objects have
+        // explicit modules, so @\why won't affect them
+        convert_to_text(?Goal,?GoalText).
+?SupportObj[text->?GoalText] :-
+        isnonvar{?SupportObj},
+        ?SupportObj = ?truth_val(?Goal),
+        ?truth_val \in [true,false,undefined,contradiction],
+        !,
+        // Not changing module for Goal because goals in true(Goal), etc.,
+        // have explicit modules, so @\why won't affect them
+        convert_to_text(?Goal,?GoalText).
+?Goal[text->?GoalText] :-
+        isnonvar{?Goal},
+	change_module_if_match(?Goal,?GoalM,\@,\?C)@\changemodule,
+        convert_to_text(?GoalM,?GoalText).
+
+// provides size of full or partial explanation
+?Explanation[size->?Size] :- size_of_explanation(?Explanation,?Size).
+
+/*
+   NOTE: to add propagation through constructs like while-do and others,
+   expand flrparser_template:dive_into_compiled_code/3 and
+   flrdecode:decode_literal_internal/4.
+   Do NOT touch convert_to_text/2 or paraphrase/2!!
+*/
+convert_to_text(?Goal,?GoalText) :-
+        cloneterm{?Goal,?GoalCopy},
+        (flora_decode_module_name(?GoalCopy,?M)@\prolog(flrwrapper) -->> \true
+        ; ?M = FLORA_DEFAULT_WORKSPACE
+        ),
+        convert_to_body_literal(?GoalCopy,?BodyGoal)@\plg(flrcanon),
+        flora_decode_via_textgen(?BodyGoal,
+                                  [ergo_textit_show(?,?,?,?M)@\prolog(ergo_textit),
+                                    ergotext_textgen_show(?,?,?M)@\prolog(ergo_textit)],
+                                  ?GoalText
+                                )@\prolog(flrparser).
+
+/*
+   This version is for highly hacked textits such as those treating if-then,
+   if-then-else, aggregates, etc.
+*/
+%textify(?Goal,?GoalText) :-
+        convert_to_text(?Goal,?GoalTextPre),
+        flora_undouble_quotes(?GoalTextPre,?GoalText)@\prolog(flrporting).
+
+/*
+   all_support(+List,+Transform,-AllSupport,?Depth)
+   Takes a list of support objects and returns all their support child-objects
+   recursively. If Transform (atom) is given, apply this HiLog predicate to
+   produce each output element.
+*/
+//?- counter{aaa:=1}.  // for loop testing
+all_support([],?,[],?) :- !.
+all_support([?H|?Rest],?Transform,[?HOut|?RestOut], ?DepthIn) :-
+        ?Depth \is ?DepthIn+1,
+        ( // this branch is probably unimportant:
+          //      setof = [] if no immediate support
+          //      anyway (due to the alternative branch below)
+          ?H[isleaf] -->>
+          ?HOut = explanation(?H2,[]),
+          ?RuleId=ruleid(null,null,null)
+        ;
+          max_explanation_depth(?MaxDepth), ?Depth > ?MaxDepth -->>
+          ?HOut = explanation(?H2,[]),
+          ?HChild = MAX_EXPLANATION_DEPTH,
+          ?RuleId=ruleid(null,null,null)
+        ;
+          // check if variant of ?H is in the subgoal trie - to avoid loops
+          ?H[goal->?G],
+          ergo_check_subgoal(?G)@\prolog(ergo_explain_utils)
+          -->> 
+          ?HOut = explanation(?H2,[]),
+          ?HChild = REPEATED_SUBQUERY,
+          ?RuleId=ruleid(null,null,null)
+        ;
+          ?H[goal->?G],
+          // save ?G in a trie-indexed predicate
+          ergo_remember_subgoal(?G)@\prolog(ergo_explain_utils),
+          (?G ~ ?@?Mod -->> \true // v. important! or misidentification of ?Mod may occur
+          ; \true 
+          ),
+          (justificationTreeFunction(?HChild,?H,?)@\fidji,
+            get_calling_rule_info(?HChild.goal,?Id,?File,?Mod,?)@\plg(flrcallflora),
+            support_object_is_not_aggregate_body(?HChild),
+            ?Id \= null
+            -->> \true
+          ; justificationTreeFunction(?HChild,?H,?)@\fidji,
+            //support_object_is_not_aggregate_body(?HChild),
+            ?HChild.reason \= null
+            -->> \true
+          ; justificationTreeFunction(?HChild,?H,?)@\fidji
+            -->> ?Id = null, ?File = null
+          ;
+            ?Id = null, ?File = null
+          ),
+          // don't do it! var(Id) means INDETERMINABLE!
+          //(isvar{?Id} -->> ?Id = null ; \true),
+          (isvar{?Mod} -->> ?Mod = null ; \true),
+          ?RuleId=ruleid(?Id,?File,?Mod),
+
+          (using_sorted_explanations -->>
+            ?SupportList = setof{?HChild|
+                                  justificationTreeFunction(?HChild,?H,?)@\fidji,
+                                  ?HChild[goal->?HChild.goal],
+                                  goal_NOT_to_ignore(?HChild.goal)
+                                }
+          ; ?SupportList = bagof{?HChild|
+                                  justificationTreeFunction(?HChild,?H,?)@\fidji,
+                                  ?HChild[goal->?HChild.goal],
+                                  goal_NOT_to_ignore(?HChild.goal)
+                                }
+          ),
+          all_support(?SupportList,?Transform,?AllSupportList,?Depth),
+          ?HOut = explanation(?H2,?AllSupportList)
+        ),
+        ?HChild[reason->?Reason],
+        get_rule_text(?HChild,?RuleId,?Mod,?CandidateRuleText),
+        choose_rule_text(?Reason,?CandidateRuleText,?RuleText),
+        //DBGOUTLN(111=?Reason+?CandidateRuleText+?RuleText)@\plg,
+        //DBGOUTLN(222=?Reason+?CandidateRuleText+?RuleText+?HChild+?H)@\plg,
+        ?Transform(?H,ruleinfo(?RuleId,?RuleText),?H2),
+        //DBGOUTLN(333=?H2)@\plg,
+        all_support(?Rest,?Transform,?RestOut,?Depth).
+
+size_of_explanation([],0) :- !.
+size_of_explanation([?H|?T],?Size) :-
+        size_of_explanation(?H,?S1),
+        size_of_explanation(?T,?S2),
+        ?Size \is ?S1+?S2.
+size_of_explanation(explanation(?_Call,?Support),?Size) :-
+        size_of_explanation(?Support,?S1),
+        ?Size \is ?S1+1.
+/*
+size_of_explanation((?_Call,?Support),?Size) :-
+        size_of_explanation(?Support,?S1),
+        ?Size \is ?S1+1.
+*/
+
+
+// convert certain internal predicates into user-readable form
+paraphrase(${sub_compound(?Meth,?MthGeneralization,?,?)@\prolog(flrauxil)},
+              ?Presentation) :-
+        !,
+        flora_decode_oid_list_as_atom_list([?Meth,?MthGeneralization],
+                                            [?MethAtm,?MthGenAtm]
+                                          )@\prolog(flrdecode),
+        flora_concat_atoms(['method ', ?MthGenAtm,
+                             ' is a generalization of ', ?MethAtm],
+                            ?Presentation)@\prolog(flrporting).
+paraphrase(${sub_compound_eq(?Meth,?MthGeneralization,?,?,?)@\prolog(flrauxil)},
+              ?Presentation) :-
+        !,
+        flora_decode_oid_list_as_atom_list([?Meth,?MthGeneralization],
+                                            [?MethAtm,?MthGenAtm]
+                                          )@\prolog(flrdecode),
+        flora_concat_atoms(['method ', ?MthGenAtm,
+                             ' is a generalization of ', ?MethAtm],
+                            ?Presentation)@\prolog(flrporting).
+paraphrase(?_Goal,?_Goal) :- \true.
+
+goal_NOT_to_ignore(?X) :- \+ignored_goal(?X).
+// list of goals to ignore
+ignored_goal(?G) :- convert_to_text(?G,?GT), ?GT == \IGNORE.
+ignored_goal(${FLORA_DELAY_CHECKER(?,?)@\prolog}).
+
+check_callable(?Goal) :-
+        isatom{?Goal},
+        \+ ?Goal:\modular,
+        !,
+        ?Goal[show->?GoalA]@\show,
+        sysabort(['<Explanation API> ', ?GoalA, ': the goal to be explained must be a callable formula'])@\sys.
+check_callable(?Goal) :-
+        isnonvar{?Goal},
+        ?Goal:\callable,
+        !.
+check_callable(?Goal) :-
+        ?Goal[show->?GoalA]@\show,
+        sysabort(['<Explanation API> ', ?GoalA, ': the goal to be explained must be a callable formula'])@\sys.
+
+/*
+   Get text for rule. In special cases is refined by choose_rule_text().
+*/
+get_rule_text(?ChildObj,?RuleId,?Mod,?RuleText) :-
+        ?RuleId = ruleid(?Id,?File,?ModOrNull),
+        (?ModOrNull==NULL -->> ?RealMod = ?Mod
+        ; ?RealMod = ?ModOrNull
+        ),
+        (isvar{?ChildObj} -->> ?RuleText = BASE_OR_BUILTIN
+        ; isvar{?Id} -->>
+          //DBGOUTLN(1111=?Id+?ChildObj)@\plg,
+          ?Id = null,                   // means: probably INDETERMINABLE
+          ?ChildObj[reason->?Reason],
+          (?Reason == null -->> ?RuleText = INDETERMINABLE // rule can't be determined
+          ; printable_axiom(?Reason,?PrintableReason),
+            (?Reason == A_BASE_FACT -->> ?RuleText = ?PrintableReason
+            ; ?RuleText \is 'axiom|' || ?PrintableReason
+            )
+          )
+        ; ?Id \== null,
+          @!{?Id[file->?File,module->?RealMod,textit->?RuleText]@?RealMod}
+          -->> \true                     // textit is specified
+          //,DBGOUTLN(2222=?Id+?ChildObj+?RuleText)@\plg
+        ; ?ChildObj[reason->?Reason], ?Reason \== null -->>
+          printable_axiom(?Reason,?PrintableReason),
+          (?Reason == A_BASE_FACT -->> ?RuleText = ?PrintableReason
+          ; ?RuleText \is 'axiom|' || ?PrintableReason
+          )
+        ; ?Id \== null
+          -->> ?RuleText = NOT_SPECIFIED // rule's textit isn't specified
+        ; ?RuleText = BUILTIN_AXIOM      // possibly not just base/builtin
+          //,DBGOUTLN(iiii=?Id+?ChildObj)@\plg
+        ),
+        (isvar{?File} -->> ?File = null ; \true).
+
+/*
+   If ?Reason is more informative than ?CandidateRuleText, use ?Reason
+   Used to refine ?CandidateText which is obtained from get_rule_text().
+   In ?CandidateText is known in advance (eg, INDETERMINABLE) then no need to
+   call get_rule_text() first.
+*/
+choose_rule_text(?Reason,?CandidateText,?RealText) :-
+        ((?Reason == NULL ; isvar{?Reason}) -->> ?RealText = ?CandidateText
+        ; ?Reason == MAX_DEPTH_REACHED_REASON -->> ?RealText = MAX_DEPTH_TEXT
+        ; ?Reason == REPEATED_SUBQUERY_REASON -->> ?RealText = REPEATED_SUBQUERY_TEXT
+        ; isnonvar{?CandidateText},
+          //?CandidateText \in [NOT_SPECIFIED, INDETERMINABLE, BASE_OR_BUILTIN]
+          ?CandidateText \in [INDETERMINABLE, BUILTIN_AXIOM ]
+          -->>
+          printable_axiom(?Reason,?PrintableReason),
+          (?Reason == A_BASE_FACT -->> ?RealText = ?PrintableReason
+          ; ?RealText \is 'axiom|' || ?PrintableReason
+          )
+        ; ?RealText = ?CandidateText
+        ).
+
+printable_axiom('equality axiom','derived by equality substitution') :- !.
+printable_axiom(disqualified,'defeated by disqualification') :- !.
+printable_axiom(rebuttedBy,'defeated by rebuttal') :- !.
+printable_axiom(refutedBy,'defeated by refutation') :- !.
+printable_axiom(beatenByStrictRule,'defeated by refutation') :- !.
+printable_axiom('aggregate expression','computed via an aggregate function') :- !.
+printable_axiom(canceled,'defeated by cancellation') :- !.
+printable_axiom(?_X,?_X).
+
+
+// AFAIK, this case happens only with bodies of aggregate expressions
+support_object_is_not_aggregate_body(?SuppObj) :-
+        isnonvar{?SuppObj},
+        ?SuppObj = ?_Type(?,?,?,?CallerId,?,?),
+        ?CallerId \== fj_bodyExpression.
+
+
+/****** specialized Json for explanations via why(full,textonly) -> ... ******/
+
+:- prolog{
+           explanation2json/2,
+           explanationSupport2json/2
+         }.
+
+?Explanation[toJson -> ?Json] :-
+        explanation2json(?Explanation,?Json_pre),
+        // need to optimize here so as to not scan ?Json_pre twice
+        flatten(?Json_pre,?Json_pre2)@\prolog(basics),
+	flora_concat_items(?Json_pre2,?Json)@\prolog(flrporting).
+
+explanation2json(?Explanation,['{ "truthvalue":"',?TruthVal,
+                                '", "goal":"',?GoalTextEscaped,
+                                '", "ruleinfo":"',?RuleTextEscaped,
+                                '", "support":[',?SupportJson,']}']) :-
+        ?Explanation = explanation(?TruthVal(?GoalText,?RuleText),?SupportList),
+        !,
+        flora_escape_2quotes_backslash_in_atom_undouble_quotes(?GoalText,?GoalTextEscaped)@\plg(flrporting),
+        flora_escape_2quotes_backslash_in_atom(?RuleText,?RuleTextEscaped)@\plg(flrporting),
+        explanationSupport2json(?SupportList,?SupportJson).
+explanation2json(?Explanation,_) :-
+        sysabort(['The method toJson handles only explanations produced via\n\t\tthe why(full,textonly) method. The below explanation is not:\n\t\t   ',?Explanation])@\sys.
+
+explanationSupport2json([],[]) :- !.
+explanationSupport2json([?Expl|?SupportList],[?ExplJson,?Separator|?SupportJson]) :-
+        explanation2json(?Expl,?ExplJson),
+        (?SupportList==[] -->> ?Separator = ''
+        ; ?Separator = ','
+        ),
+        explanationSupport2json(?SupportList,?SupportJson).
+
+
+using_sorted_explanations :- conget(UNSORTED_EXPLANATIONS,0)@\prolog(gensym).
+using_unsorted_explanations :- conget(UNSORTED_EXPLANATIONS,1)@\prolog(gensym).
+use_sorted_explanations :- conset(UNSORTED_EXPLANATIONS,0)@\prolog(gensym).
+use_unsorted_explanations :- conset(UNSORTED_EXPLANATIONS,1)@\prolog(gensym).
+
+?- use_sorted_explanations.
+?- %expand_repeated_subgoals.
+?- %set_max_explanation_depth(30).
+
+%set_max_explanation_depth(?Depth) :-
+        %clear_max_explanation_depth,
+        insert{max_explanation_depth(?Depth)}.
+%clear_max_explanation_depth :-
+        deleteall{max_explanation_depth(?)}.
+%get_max_explanation_depth(?Depth) :- max_explanation_depth(?Depth).
+
+%ignore_repeated_subgoals :-
+        ergo_ignore_repeated_subgoals(on)@\prolog(ergo_explain_utils).
+%expand_repeated_subgoals :-
+        ergo_ignore_repeated_subgoals(off)@\prolog(ergo_explain_utils).

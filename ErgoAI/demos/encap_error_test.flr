@@ -1,0 +1,39 @@
+:- export{updatable(?_[g -> ?_], ?_[h(?_,?_)] >> (foo, bar), ?_[k -> ?_], m(?_,?_)(?_) >> abc)}.
+?- export{?_[e -> ?_]}@foo.
+:- export{updatable(?_[b->?_, c->?_, d->?_]>>m1,m2,m3)}.
+:- export{updatable(?_[d->?_])}.
+:- export{?_[c->?_]>>m3,m4}.
+:- export{updatable(?_[d->?_]),?_[c->?_]}.
+
+//error condition, incorrect symbol exported.
+//:- export{updatable(_[|d->_|]),_[c->_]}.
+
+:- export{updatable(?_[a(?_,?_)->?_]>>n1,n2,n3),updatable(?_[b->?_]>>m1,m2),?_[c->?_]>>m3}.
+
+
+//error condition, var not exported.
+//:- export{updatable(_[b(_,_)->_]>>(m1,m2,m3,m4)), obj[c->_], _[d(_,_,_)->_]>>(n1,n2,n3)}.
+
+
+:- export{updatable(?_[b(?_,?_)->?_]>>(m1,m2,m3,m4)), ?_[c->?_], ?_[d(?_,?_,?_)->?_]>>(n1,n2,n3)}.
+
+//error condition, var not exported.
+//:- export{updatable(_[b(_,_)->return]>>(m1,m2,m3,m4)), _[c->_], _[d(_,_,_)->_]>>(n1,n2,n3)}.
+
+:- export{?_[b(?_,?_)->?_]>>(m1)}.
+
+//error condition, var not exported.
+//:- export{_[b(att1,_)->_]>>(m1)}.
+
+:- export{?_[b(?_,?_)->?_]>>(m1,m2)}.
+
+:- export{(?_[c1->?_]>>m3,m4), ?_[b1(?_,?_)->?_]>>m1}.
+:- export{?_[p1]}.
+
+//error, dynamic module only in executable case.
+//:- export{_[e -> _]}@foo.
+
+:- export{%p2(?_)}.
+:- export{?_[t4(?_) ->?_] >> u1,u2,u3,u4}.
+:- export{(?_[t1(?_,?_)] , t2(?_,?_), ?_[t3(?_,?_,?_)->?_]) >> (m1,m2,m3)}.
+

@@ -1,0 +1,119 @@
+
+\section{Regular Expression Matching}
+\label{sec-regexp}
+
+\index{regular expression}
+Regular expression matching is important in many applications. \ERGO
+provides convenient facilities for such operations based on the well-known
+PCRE package,\footnote{
+  \url{http://pcre.org/}
+  }
+which supports Perl-style extended regular expressions, which are
+documented at this RL:
+\url{http://perldoc.perl.org/perlre.html#Regular-Expressions}. The Web
+contains many sites that include various tutorials for this type of
+expressions.
+
+On Linux and Mac,
+in order to use the pattern matching facility, PCRE must be installed
+before \ERGO is installed. On Windows, PCRE gets installed together with \ERGO,
+so the below instructions can be skipped.
+
+To install PCRE on Linux, use the system's package manager and search for
+\texttt{pcre}. The names of the packages differ from distribution to
+distribution. On Debian, Ubuntu, and Mint, two packages need to be installed:
+\texttt{libpcre3} and \texttt{libpcre++-dev}; on Fedora and CentOS, the package is
+\texttt{pcre-devel}; on the Mac, use Homebrew to install the \texttt{pcre}
+package. (The exact name of the package may differ slightly depending on the
+version of the OS, e.g., \texttt{libpcre3-dev}.)
+
+If, on Linux or Mac, \ERGO was installed \emph{first} and PCRE is
+installed afterwards, \ERGOAI must be reinstalled.
+Alternatively, it can be reconfigured as follows: change to the
+top directory of \ERGOAI (the one that has \texttt{ErgoAI} and
+\texttt{XSB} as subdirectories) and then execute
+%% 
+\begin{verbatim}
+    sh ./ErgoAI/ergoAI_config.sh
+\end{verbatim}
+%% 
+Follow the prompts.
+
+\index{matchOne method}
+\index{matchAll method}
+\paragraph{Pattern matching commands.}
+Like other string and symbol operations, \ERGO provides the pattern matching
+facility through its \texttt{\bs{}basetype}  (or \texttt{\bs{}btp}) module.
+Three API calls are supported:
+%% 
+\begin{itemize}
+\item  \texttt{?\emph{Symbol}[matchOne(?\emph{Pattern}) -> ?\emph{Result}]}:
+  find the first match.\\
+  Here
+  \texttt{?\emph{Symbol}} must be a Prolog atom (which includes the data
+  types \texttt{\bs{}url}, \texttt{\bs{}string}, or \texttt{\bs{}symbol});
+  it is a string to be matched against the \texttt{\emph{?Pattern}} regular
+  expression---also a Prolog atom that represents a Perl regular
+  expression. \textbf{Important}: Perl regular expressions include various
+  keywords that start with a backslash, e.g., \texttt{\bs{}d}. These
+  backslashes must be \emph{doubled} in \texttt{\emph{?Pattern}}, i.e.,
+  \texttt{\bs{}\bs{}d}.  
+
+  \texttt{?\emph{Result}} is a HiLog term of the form
+  \texttt{match(?\emph{Match},?\emph{Prematch},?\emph{Postmatch},?\emph{Submatches})},
+  that represents the \emph{first} match.
+  Here the first argument, \texttt{?\emph{Match}}, is the substring of
+  \texttt{?\emph{Symbol}} that matches the pattern;
+  \texttt{?\emph{Prematch}} is the substring of \texttt{?\emph{Match}}
+  that precedes
+  \texttt{?\emph{Match}};   \texttt{?\emph{Postmatch}} is the substring
+  that follows \texttt{?\emph{Match}}; and \texttt{?\emph{Submatches}} is a
+  list of submatches. These submatches are substrings of the pattern that match
+  the \emph{subpatterns} of \texttt{?\emph{Pattern}} that are enclosed in
+  parentheses (see the examples below).
+\item \texttt{?\emph{Symbol}[matchAll(?\emph{Pattern}) -> ?\emph{Result}]}: 
+  find all matches.\\
+  Here
+  \texttt{?\emph{Symbol}} and \texttt{\emph{?Pattern}} are as before and
+  \texttt{?\emph{Result}} is a \emph{list} of the terms
+  of the form
+  \texttt{match(?\emph{Match},?\emph{Prematch},?\emph{Postmatch},?\emph{Submatches})}
+  described above.
+\item \texttt{?\emph{Symbol}[substitute(?\emph{Pattern},?\emph{Substitution}) -> ?Result]}:
+  substitute a string for all matching substrings.
+  \\
+  Here \texttt{?\emph{Symbol}}
+  and \texttt{\emph{?Pattern}} are as before and
+  \texttt{?\emph{Substitution}} is a Prolog atom. \texttt{?\emph{Result}}
+  is \texttt{?\emph{Symbol}} with each matching substring replaced
+  with \texttt{?\emph{Substitution}}.
+\end{itemize}
+%% 
+Examples:
+%% 
+{\small
+\begin{verbatim}
+    ergo> 'Hello12345-6789 NYwalk'[matchOne('(\\d{5}-\\d{4})\\ [A-Z]{2}')->?R]@\btp.
+    ?R = match('12345-6789 NY',Hello,walk,['12345-6789'])
+
+    ergo> 'a@b.com@c.net@d.edu'[matchAll('[a-z]+@[a-z]+\.(com|net|edu)')->?Result]@\btp.
+    ?Result = [match('a@b.com',,'@c.net@d.edu',[com]),
+               match('com@c.net','a@b.','@d.edu',[net]),
+               match('om@c.net','a@b.c','@d.edu',[net]),
+               match('m@c.net','a@b.co','@d.edu',[net]),
+               match('net@d.edu','a@b.com@c.',,[edu]),
+               match('et@d.edu','a@b.com@c.n',,[edu]),
+               match('t@d.edu','a@b.com@c.ne',,[edu])]
+
+    ergo> 'This is a Mississippi issue'[substitute(is,was)->?Result]@\btp.
+    ?Result = 'Thwas was a Mwasswassippi wassue'
+\end{verbatim}
+  }
+%% 
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

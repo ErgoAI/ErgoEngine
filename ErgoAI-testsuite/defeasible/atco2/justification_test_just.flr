@@ -1,0 +1,66 @@
+:- use_argumentation_theory{AT} .
+:- symbol_context{rif#instRule(?,?,?)@?}.
+:- symbol_context{rif#candr(?,?)@?}.
+rif#instRule(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?_c), normalBehavior, ${starts(interPhase(?_c))@main}, [${isA(?_c, cellCycle)@main}]) .
+@@{strict} @!{rif#defeatedr(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda")} rif#defeatedr(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c)) :- rif#instRule(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c), normalBehavior, ${starts(interPhase(?c))@main}, [${isA(?_c, cellCycle)@main}])@builtin \and status(normalBehavior,\@F,${starts(interPhase(?c))@main})[howDefeated->?_]@AT .
+@@{strict} @!{rif#candr_f(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda")(0)} rif#candr(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c), f, (0)) :- \naf isA(?c, cellCycle)@main .
+@@{strict} @!{rif#candr_t(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda")} rif#candr(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c), t) :- isA(?c, cellCycle)@main .
+@@{strict} @!{rif#jr_f_2(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda")} rif#jr(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c), f) :- rif#defeatedr(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c))@builtin .
+@@{strict} @!{rif#jr_f_1(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda")} rif#jr(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c), f) :- rif#candr(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c), f, ?_)@builtin .
+@@{strict} @!{rif#jr_t(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda")} rif#jr(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c), t) :- rif#candr(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c), t)@builtin \and \naf rif#defeatedr(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c))@builtin .
+@@{strict} @!{rif#ja_f(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda")} rif#ja(${starts(interPhase(?c))@main}, f, \"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c)) :- \naf starts(interPhase(?c))@main \and rif#jr(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c), f)@builtin .
+@@{strict} @!{rif#ja_t(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda")} rif#ja(${starts(interPhase(?c))@main}, t, \"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c)) :- starts(interPhase(?c))@main \and rif#jr(\"urn:uuid:3bc9b7e5-0415-455f-9504-bd82aeff1dda"(?c), t)@builtin .
+rif#instRule(anomaly(?_c), normalBehavior, ${replicatedDNA(?_c)@main}, [${starts(interPhase(?_c))@main}]) .
+@@{strict} @!{rif#defeatedr(anomaly)}
+rif#defeatedr(anomaly(?c)) :-
+	rif#instRule(anomaly(?c), normalBehavior, ${replicatedDNA(?c)@main}, [${starts(interPhase(?_c))@main}])@builtin,
+	status(normalBehavior,\@F,${replicatedDNA(?c)@main})[howDefeated->?_]@AT.
+test(?c) :-
+	status(normalBehavior,\@F,${replicatedDNA(?c)@main})[howDefeated->?_]@AT.
+?- //\trace(log1),
+	status(normalBehavior,\@F,${replicatedDNA(?c)@main})[howDefeated->?_]@AT.
+
+@@{strict} @!{rif#candr_f(anomaly)(0)} rif#candr(anomaly(?c), f, (0)) :- \naf starts(interPhase(?c))@main .
+@@{strict} @!{rif#candr_t(anomaly)} rif#candr(anomaly(?c), t) :- starts(interPhase(?c))@main .
+@@{strict} @!{rif#jr_f_2(anomaly)} rif#jr(anomaly(?c), f) :- rif#defeatedr(anomaly(?c))@builtin .
+@@{strict} @!{rif#jr_f_1(anomaly)} rif#jr(anomaly(?c), f) :- rif#candr(anomaly(?c), f, ?_)@builtin .
+@@{strict} @!{rif#jr_t(anomaly)} rif#jr(anomaly(?c), t) :- rif#candr(anomaly(?c), t)@builtin \and \naf rif#defeatedr(anomaly(?c))@builtin .
+@@{strict} @!{rif#ja_f(anomaly)} rif#ja(${replicatedDNA(?c)@main}, f, anomaly(?c)) :- \naf replicatedDNA(?c)@main \and rif#jr(anomaly(?c), f)@builtin .
+@@{strict} @!{rif#ja_t(anomaly)} rif#ja(${replicatedDNA(?c)@main}, t, anomaly(?c)) :- replicatedDNA(?c)@main \and rif#jr(anomaly(?c), t)@builtin .
+rif#instRule(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?_c), normalBehavior, ${growth(?_c)@main}, [${starts(interPhase(?_c))@main}]) .
+@@{strict} @!{rif#defeatedr(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8")} rif#defeatedr(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c)) :- rif#instRule(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c), normalBehavior, ${growth(?c)@main}, [${starts(interPhase(?_c))@main}])@builtin \and status(normalBehavior,\@F,${growth(?c)@main})[howDefeated->?_]@AT .
+@@{strict} @!{rif#candr_f(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8")(0)} rif#candr(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c), f, (0)) :- \naf starts(interPhase(?c))@main .
+@@{strict} @!{rif#candr_t(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8")} rif#candr(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c), t) :- starts(interPhase(?c))@main .
+@@{strict} @!{rif#jr_f_2(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8")} rif#jr(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c), f) :- rif#defeatedr(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c))@builtin .
+@@{strict} @!{rif#jr_f_1(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8")} rif#jr(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c), f) :- rif#candr(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c), f, ?_)@builtin .
+@@{strict} @!{rif#jr_t(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8")} rif#jr(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c), t) :- rif#candr(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c), t)@builtin \and \naf rif#defeatedr(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c))@builtin .
+@@{strict} @!{rif#ja_f(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8")} rif#ja(${growth(?c)@main}, f, \"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c)) :- \naf growth(?c)@main \and rif#jr(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c), f)@builtin .
+@@{strict} @!{rif#ja_t(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8")} rif#ja(${growth(?c)@main}, t, \"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c)) :- growth(?c)@main \and rif#jr(\"urn:uuid:b33c49bf-c79d-46cb-85ba-03030ee453e8"(?c), t)@builtin .
+rif#instRule(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?_c), normalBehavior, ${starts(mitosisPhase(?_c))@main}, [${replicatedDNA(?_c)@main}, ${growth(?_c)@main}]) .
+@@{strict} @!{rif#defeatedr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c")} rif#defeatedr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c)) :- rif#instRule(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c), normalBehavior, ${starts(mitosisPhase(?c))@main}, [${replicatedDNA(?_c)@main}, ${growth(?_c)@main}])@builtin \and status(normalBehavior,\@F,${starts(mitosisPhase(?c))@main})[howDefeated->?_]@AT .
+@@{strict} @!{rif#candr_f(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c")(1)} rif#candr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c), f, (1)) :- replicatedDNA(?c)@main \and \naf growth(?c)@main .
+@@{strict} @!{rif#candr_f(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c")(0)} rif#candr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c), f, (0)) :- \naf replicatedDNA(?c)@main .
+@@{strict} @!{rif#candr_t(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c")} rif#candr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c), t) :- replicatedDNA(?c)@main \and growth(?c)@main .
+@@{strict} @!{rif#jr_f_2(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c")} rif#jr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c), f) :- rif#defeatedr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c))@builtin .
+@@{strict} @!{rif#jr_f_1(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c")} rif#jr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c), f) :- rif#candr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c), f, ?_)@builtin .
+@@{strict} @!{rif#jr_t(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c")} rif#jr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c), t) :- rif#candr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c), t)@builtin \and \naf rif#defeatedr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c))@builtin .
+@@{strict} @!{rif#ja_f(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c")} rif#ja(${starts(mitosisPhase(?c))@main}, f, \"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c)) :- \naf starts(mitosisPhase(?c))@main \and rif#jr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c), f)@builtin .
+@@{strict} @!{rif#ja_t(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c")} rif#ja(${starts(mitosisPhase(?c))@main}, t, \"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c)) :- starts(mitosisPhase(?c))@main \and rif#jr(\"urn:uuid:7168c1a9-c18e-4131-aa8f-d7647157156c"(?c), t)@builtin .
+rif#instRule(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?_c), normalBehavior, ${dividedCell(?_c)@main}, [${starts(mitosisPhase(?_c))@main}]) .
+@@{strict} @!{rif#defeatedr(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e")} rif#defeatedr(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c)) :- rif#instRule(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c), normalBehavior, ${dividedCell(?c)@main}, [${starts(mitosisPhase(?_c))@main}])@builtin \and status(normalBehavior,\@F,${dividedCell(?c)@main})[howDefeated->?_]@AT .
+@@{strict} @!{rif#candr_f(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e")(0)} rif#candr(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c), f, (0)) :- \naf starts(mitosisPhase(?c))@main .
+@@{strict} @!{rif#candr_t(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e")} rif#candr(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c), t) :- starts(mitosisPhase(?c))@main .
+@@{strict} @!{rif#jr_f_2(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e")} rif#jr(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c), f) :- rif#defeatedr(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c))@builtin .
+@@{strict} @!{rif#jr_f_1(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e")} rif#jr(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c), f) :- rif#candr(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c), f, ?_)@builtin .
+@@{strict} @!{rif#jr_t(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e")} rif#jr(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c), t) :- rif#candr(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c), t)@builtin \and \naf rif#defeatedr(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c))@builtin .
+@@{strict} @!{rif#ja_f(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e")} rif#ja(${dividedCell(?c)@main}, f, \"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c)) :- \naf dividedCell(?c)@main \and rif#jr(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c), f)@builtin .
+@@{strict} @!{rif#ja_t(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e")} rif#ja(${dividedCell(?c)@main}, t, \"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c)) :- dividedCell(?c)@main \and rif#jr(\"urn:uuid:1c5a65da-d800-4fcf-8e3d-3a053cc2429e"(?c), t)@builtin .
+rif#instRule(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?_c), chemicalInhibition, ${\neg replicatedDNA(?_c)@main}, [${chemicalTreatment(?_c)@main}]) .
+@@{strict} @!{rif#defeatedr(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827")} rif#defeatedr(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c)) :- rif#instRule(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c), chemicalInhibition, ${\neg replicatedDNA(?c)@main}, [${chemicalTreatment(?_c)@main}])@builtin \and status(chemicalInhibition,\@F,${\neg replicatedDNA(?c)@main})[howDefeated->?_]@AT .
+@@{strict} @!{rif#candr_f(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827")(0)} rif#candr(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c), f, (0)) :- \naf chemicalTreatment(?c)@main .
+@@{strict} @!{rif#candr_t(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827")} rif#candr(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c), t) :- chemicalTreatment(?c)@main .
+@@{strict} @!{rif#jr_f_2(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827")} rif#jr(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c), f) :- rif#defeatedr(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c))@builtin .
+@@{strict} @!{rif#jr_f_1(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827")} rif#jr(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c), f) :- rif#candr(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c), f, ?_)@builtin .
+@@{strict} @!{rif#jr_t(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827")} rif#jr(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c), t) :- rif#candr(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c), t)@builtin \and \naf rif#defeatedr(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c))@builtin .
+@@{strict} @!{rif#ja_f(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827")} rif#ja(${\neg replicatedDNA(?c)@main}, f, \"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c)) :- \naf \neg replicatedDNA(?c)@main \and rif#jr(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c), f)@builtin .
+@@{strict} @!{rif#ja_t(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827")} rif#ja(${\neg replicatedDNA(?c)@main}, t, \"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c)) :- \neg replicatedDNA(?c)@main \and rif#jr(\"urn:uuid:8679a0ec-9ae4-4f26-826b-ed709955c827"(?c), t)@builtin .

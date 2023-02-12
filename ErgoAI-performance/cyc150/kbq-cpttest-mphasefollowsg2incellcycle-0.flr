@@ -1,0 +1,100 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-MPhaseFollowsG2InCellCycle (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(genlPreds, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, commutativeInArgs(endTogetherInSituationType, 2, 3)).
+istAsserted(UniversalVocabularyMt, isa(predicateIntersection, PartiallyCommutativePredicate)).
+istAsserted(UniversalVocabularyMt, isa(endTogetherInSituationType, PartiallyCommutativePredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(properSubEventTypes, properSubSituationTypes)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(BiologyMt, properSubEventTypes(InterphaseOfEukaryoticCellCycle, G2Phase)).
+istAsserted(UniversalVocabularyMt, predicateIntersection(uniqueProperSubEventTypes, uniqueProperSubSituationTypes, properSubEventTypes)).
+istAsserted(BiologyMt, phasesAlternateInCycleType(TheEukaryoticCellCycle, InterphaseOfEukaryoticCellCycle, MitoticPhaseOfCellCycle)).
+istAsserted(BiologyMt, endTogetherInSituationType(EukaryoticCellCycle, InterphaseOfEukaryoticCellCycle, G2Phase)).
+istAsserted(UniversalVocabularyMt, genlPreds('coveringOfEventType-Nonoverlapping', coveringOfEventType)).
+istAsserted(BiologyMt, 'coveringOfEventType-Nonoverlapping'(InterphaseOfEukaryoticCellCycle, [G1Phase, SPhase, G2Phase])).
+istAsserted(BaseKB, iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, EukaryoticCellCycle)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Implicit Background Rules
+forwardSentence(genlPreds(?PRED, ?GENLPRED1)) :- removalSentence(predicateIntersection(?PRED, ?XGENLPRED2, ?GENLPRED1)).
+forwardSentence(genlPreds(?PRED, ?GENLPRED1)) :- removalSentence(predicateIntersection(?PRED, ?GENLPRED1, ?XGENLPRED2)).
+forwardSentence(stepFollowsStepInCycleType(?CT, ?P2, ?P1)) :- removalSentence(assertedSentence(phasesAlternateInCycleType(?CT, ?P1, ?P2))).
+forwardSentence(stepFollowsStepInCycleType(?CYCLE, ?FOLLOWS, ?SUB1)) :- removalSentence(endTogetherInSituationType(?ITERATED_TYPE, ?PRECEDES, ?SUB1)), removalSentence(properSubSituationTypes(?PRECEDES, ?SUB1)), removalSentence(stepFollowsStepInCycleType(?CYCLE, ?FOLLOWS, ?PRECEDES)), removalSentence(iteratedSubsituationTypeOfSerialCycleType(?CYCLE, ?ITERATED_TYPE)).
+forwardSentence(uniqueProperSubEventTypes(?SUPER_TYPE, ?SUB_TYPE)) :- removalSentence(coveringOfEventType(?SUPER_TYPE, ?LIST)), removalSentence(memberOfList(?SUB_TYPE, ?LIST)).
+
+// Explicit Background Facts
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-MPhaseFollowsG2InCellCycle 0').
+%pretest :- stepFollowsStepInCycleType(TheEukaryoticCellCycle, MitoticPhaseOfCellCycle, G2Phase), %write_results('SUCCESS  : $CPTTest-MPhaseFollowsG2InCellCycle 0').
+
+// Debugging
+proof(10554, 0) :- stepFollowsStepInCycleType(TheEukaryoticCellCycle, MitoticPhaseOfCellCycle, G2Phase).
+
+proof(10554, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(10554, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(10554, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(10554, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(10554, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(10554, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(10554, 1006) :- genlPreds(uniqueProperSubEventTypes, properSubEventTypes).
+proof(10554, 1007) :- stepFollowsStepInCycleType(TheEukaryoticCellCycle, MitoticPhaseOfCellCycle, InterphaseOfEukaryoticCellCycle).
+proof(10554, 1008) :- iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, EukaryoticCellCycle).
+proof(10554, 1009) :- uniqueProperSubEventTypes(InterphaseOfEukaryoticCellCycle, G2Phase).
+proof(10554, 1010) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(10554, 1011) :- stepFollowsStepInCycleType(TheEukaryoticCellCycle, MitoticPhaseOfCellCycle, G2Phase).
+
+proof(10554, 2000) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(10554, 2001) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(10554, 2002) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiologyMt).
+proof(10554, 2003) :- genlPreds(uniqueProperSubEventTypes, properSubSituationTypes).
+proof(10554, 2004) :- genlPreds('coveringOfEventType-Nonoverlapping', coveringOfEventType).
+proof(10554, 2005) :- genlPreds(properSubEventTypes, properSubSituationTypes).
+proof(10554, 2006) :- isa(predicateIntersection, PartiallyCommutativePredicate).
+proof(10554, 2007) :- isa(endTogetherInSituationType, PartiallyCommutativePredicate).
+proof(10554, 2008) :- memberOfList(G2Phase, [G1Phase, SPhase, G2Phase]). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

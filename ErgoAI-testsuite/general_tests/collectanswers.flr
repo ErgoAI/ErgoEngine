@@ -1,0 +1,46 @@
+#define ITERATIONS 30000
+
+p(a,1).
+p(b,1).
+r[b->8].
+r[c->8].
+p(d,1) :- \true.
+p(d,1) :- \true.
+p(d,1) :- \true.
+p(d,1) :- \true.
+p(d,1) :- \true.
+p(x,2) :- \naf p(x,2).
+p(aa,2) :- \naf p(aa,2).
+p(aa,2) :- \naf p(aa,2).
+p(bb,2) :- \naf p(bb,2).
+p(bb,2) :- \naf p(bb,2).
+
+%tst1 :- flora_collect_all(${q(?X,?Y)},['?X'=?X,'?Y'=?Y],?True,?Undef,?Exception)@\plg,
+	(writeln('tst1: true'=?Exception+?True), writeln('tst1: undf'=?Undef))@\plg.
+
+%tst2 :- flora_collect_all(${q(?X,?Y)},['?X'=?X,'?Y'=?Y],?True,aaaaa,?Exception)@\plg,
+	writeln('tst2: true'=?Exception+?True)@\plg.
+
+%tst3 :- flora_collect_all(${q(?X,?Y)},['?X'=?X,'?Y'=?Y],f(?),?Undef,?Exception)@\plg,
+	writeln('tst3: undf'=?Exception+?Undef)@\plg.
+
+
+q(?X,?Y) :- r[?X->?Y].
+q(?X,?Y) :- p(?X,?Y).
+qq(?X,?Y) :- q(?X,?Y).
+qq(?X,?Y) :- qq(?X,?Z),  ?Y \is ?Z+1, ?Y< ITERATIONS.
+
+%tst4 :- 
+	flora_collect_all(${qq(?X,?Y)},['?X'=?X,'?Y'=?Y],?True,?Undef,?Exception)@\plg,
+	length(?True,?LT)@\plg(basics),
+	length(?Undef,?LU)@\plg(basics),
+	(write('tst4: true answers'=?Exception+?LT), writeln('  undef answers'=?LU))@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4.
+
+%test :- tell(temp)@\plg,
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        %pretest,
+        told@\plg.

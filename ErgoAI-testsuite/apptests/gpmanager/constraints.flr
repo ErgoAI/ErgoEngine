@@ -1,0 +1,211 @@
+:- use_rule_structure_db.
+/* Here we keep various consistency constraints, such as that the
+  number of requested TAs for each course isn't lower than the number
+  of assigned TAs or that the load of each student assigned as a TA
+  matches that student's support
+
+   Most of these are checked while doing the various reports. But the
+   following can be used to periodically check global consistency.
+   These global constraints are expensive.
+
+    // These would print warning messages and succeed
+   %check_ta_assignment_and_support_consistency.
+   %check_course_ta_assignment_consistency.
+   %check_temporal_data.
+   %check_duplicate_student_entries.
+
+    // These checks all constraints that are not checked
+    // as part of other queries.
+   %check_all_unchecked_constraints.
+
+
+*/
+
+:- symbol_context{
+       ms/1, support/1, parttime/0, phd/1, status/1, onleave/0, date/0,
+        %check_course_ta_assignment_consistency@\@,
+        %check_course_ta_assignment_consistency(?)@\@,
+        %check_ta_assignment_and_support_consistency(?)@\@,
+        %check_ta_assignment_and_support_consistency@\@
+    }.
+
+?- [prettyprint>>pp].
+
+:- ignore_depchk{?_ @\sys, ?_[%?_]@pp}.
+
+// Check that the TA load and the support-as-TA loads match
+// If a student is not supported by contract, but is assigned as a TA, 
+// check if he is on the waiting list
+%check_ta_assignment_and_support_consistency(?Stud,?Sem) :-
+	?Stud:student(?Sem)@PPLMODULE,
+	?TLoad = sum{?TL|?Stud.taught[semester->?Sem,load->?TL,\naf lecturer]@PPLMODULE},
+        \unless ?Stud.support(?Sem)[type->ta,load->?SLoad]@PPLMODULE
+        \do (\if ?Stud[ta_waitlist->?Sem(?_)]@PPLMODULE
+            \then ?SLoad=?TLoad \else ?SLoad=0
+	),
+	?Stud[last->?L,first->?F]@PPLMODULE,
+	?Discrepancy \is abs(?SLoad - ?TLoad),
+	// Loads are floats, so check that they are close, not equal
+	\if ?Discrepancy > 0.1
+	\then warning((?L, ', ', ?F, ' in ', ?Sem,
+		       ': TA assignment load ', ?TLoad,
+		       ' is inconsistent with TA support load ', ?SLoad))@\sys,
+	?TotalLoad = sum{?_Load | ?Stud.support(?Sem)[load->?_Load,type->?Type]@PPLMODULE,
+	                        (?Type==ta; ?Type==ra; ?Type=ga) },
+	// Totals are floats, so check that they are close, not equal
+	\if ?TotalLoad > 1.1
+	\then warning((?L, ', ', ?F, ' ', ?Sem,
+		       ': Total support ', ?TotalLoad,
+		       ' > 1. Verify student''s RA & TA assignments'))@\sys.
+
+%check_ta_assignment_and_support_consistency(?Sem) :- 
+	?_L = collectset{?Stud| %check_ta_assignment_and_support_consistency(?Stud,?Sem)}.
+
+%check_ta_assignment_and_support_consistency :-
+	?Semesters=collectset{?S| ?_[semester->?S]@PPLMODULE},
+	%check_ta_assignment_and_support_consistency1(?Semesters).
+%check_ta_assignment_and_support_consistency1([]) :- !.
+%check_ta_assignment_and_support_consistency1([?Sem|?Rest]) :-
+	?_L = collectset{?Stud| %check_ta_assignment_and_support_consistency(?Stud,?Sem)},
+	%check_ta_assignment_and_support_consistency1(?Rest).
+
+
+// check that supported student is not on leave or part time
+%check_support_and_status_consistency(?Sem) :-
+	?_:student(?Sem)[status(?Sem)->?_[type->onleave],
+                          support(?Sem)->?Sup[type->?SupType\=self],
+                          last->?L, first->?F]@PPLMODULE,
+        support_name(?SupType,?Sup,?SupName),
+	warning((?L, ', ', ?F,
+	          ': student is on leave, but has support: ',
+		   ?SupName))@\sys,
+	\false.
+%check_support_and_status_consistency(?Sem) :-
+	?_:student(?Sem)[status(?Sem)->?_[type->parttime],
+                          support(?Sem)->?Sup[type->?SupType\=self],
+                          last->?L, first->?F]@PPLMODULE,
+        support_name(?SupType,?Sup,?SupName),
+	warning((?L, ', ', ?F,
+	          ': student is part time, but has support: ',
+		   ?SupName))@\sys,
+	\false.
+%check_support_and_status_consistency(?_) :- \true.
+
+
+// Check that the number of graduate/undergraduate TAs match the stated needs
+%check_course_ta_assignment_consistency(?Crs,?Sem) :-
+	?Crs[getOffering(?Sem)->?Offering]@COURSES,
+	?Offering[need_grad   ->   ?GNeed,
+		 need_ug     ->   ?UNeed,
+	         assigned_grad -> ?GradNum, // this attr is derived
+		 assigned_ug   -> ?UGNum    // this attr is derived
+        ]@COURSES,
+	\if ?GradNum > ?GNeed
+        \then warning(('Course ', ?Crs, ', ', ?Sem,
+	               ': Assigned more Grad TAs than requested'))@\sys,
+	\if ?UGNum > ?UNeed
+        \then warning(('Course ', ?Crs, ', ', ?Sem,
+		       ': Assigned more UG TAs than requested'))@\sys.
+
+%check_course_ta_assignment_consistency(?Sem) :-
+	?_L = collectset{?Crs| %check_course_ta_assignment_consistency(?Crs,?Sem)}.
+
+// Like %check_course_ta_assignment_consistency/1, but does
+// the check for all semesters.
+%check_course_ta_assignment_consistency :-
+	?Semesters=collectset{?S| ?_[semester->?S]@PPLMODULE},
+	%check_course_ta_assignment_consistency1(?Semesters).
+%check_course_ta_assignment_consistency1([]) :- !.
+%check_course_ta_assignment_consistency1([?Sem|?Rest]) :-
+	?_L = collectset{?Crs| %check_course_ta_assignment_consistency(?Crs,?Sem)},
+	%check_course_ta_assignment_consistency1(?Rest).
+
+
+%check_assigned_courses_offered(?Sem) :-
+	\if (?_:student[last->?L, first->?F,
+	              taught -> ?_[course->?Crs, semester->?Sem]]@PPLMODULE,
+	    \naf ?Crs[offerings-> ?_[semester->?Sem]]@COURSES)
+	\then warning(('Course ', ?Crs,
+		       ': Assigned to ',
+		       ?L, ', ', ?F, ' in ', ?Sem,
+		       ' but this course isn''t offered'))@\sys.
+
+// A faster way is to sort, but this is fast enough
+// If it finds a duplicate entry then it prints it out.
+%check_duplicate_student_entries :-
+	?Stud1[last->?L, first->?F, email->?Email1]@PPLMODULE,
+	?Stud2[last->?L, first->?F, email->?Email2]@PPLMODULE,
+	?Stud1 \= ?Stud2,
+	\+ duplicate_students_stoplist(?Email1),
+	\+ duplicate_students_stoplist(?Email2),
+	format('Possible duplicate entry: ~w, ~w: ~w/~w~n',[?L,?F,?Email1,?Email2])@\plg(format).
+%check_duplicate_student_entries :- !.
+// These are the emails of student namesakes,
+// who we know that they are different people
+duplicate_students_stoplist('liwei@cs.sunysb.edu').
+duplicate_students_stoplist('weili@cs.sunysb.edu').
+duplicate_students_stoplist('xinli@ic.sunysb.edu').
+duplicate_students_stoplist('xinli3@mail.ustc.edu.cn').
+
+
+// Make sure that student cannot have valid status unless an active student
+// This is prevented by the definition of phd(Semester), ms(Semester).
+// It just a sanity check to prevent bugs from creeping in.
+%inconsistent_status(?S) :-
+	(?S:phd(?Sem) ; ?S:ms(?Sem))@PPLMODULE,
+	\naf ?S:student(?Sem)@PPLMODULE,
+	?S[last->?L, first->?F]@PPLMODULE,
+	warning(('Inactive student has active status: ',
+	          ?L, ', ', ?F, '\n'))@\sys.
+
+%check_student_status :-
+	?_L = collectset{?S| %inconsistent_status(?S)}.
+
+
+// Check all dates and semesters
+%check_temporal_data :-
+	?_L = collectset{?Item| (bad_date(?Item); bad_semester(?Item); bad_interval(?Item))}.
+
+bad_date(?Item) :-
+	(?Item[?Attr {1..1}=> date, ?Attr -> ?D]@PPLMODULE
+	; ?Item[?Attr => date, ?Attr -> ?D]@PPLMODULE
+        ),
+	?D[\naf isDate]@TEMPORAL,
+	warning(('Invalid date: ', ?Item, '[', ?Attr, ': ', ?D, ']'))@\sys,
+	\if ?Item = ?_(?Oid)
+        \then
+           ?Oid[pp_self(\@)]@pp.
+
+bad_semester(?Item) :-
+	(?Item[?Attr {1..1}=> semester, ?Attr -> ?Sem]@PPLMODULE
+	; ?Item[?Attr => semester, ?Attr -> ?Sem]@PPLMODULE
+        ),
+	?Sem[\naf isSemester]@TEMPORAL,
+	warning(('Invalid semester: ', ?Item, '[', ?Attr, ': ', ?Sem, ']'))@\sys,
+	\if ?Item = ?_(?Oid)
+        \then
+           ?Oid[pp_self(\@)]@pp.
+
+bad_interval(?Item) :-
+	?Item[since->?S, until->?U]@PPLMODULE,
+	?U[before->?S]@TEMPORAL,
+	\if ?Item = ?_(?Stud)
+        \then
+           ?Stud[last->?L, first->?F]@PPLMODULE
+        \else
+           (?L='', ?F = ''),
+	warning(('Invalid time interval: ', ?L, ', ', ?F, '\n'))@\sys,
+	?Item[pp_self(PPLMODULE)]@pp.
+
+
+// Check all constraints that aren't checked in other queries
+%check_all_unchecked_constraints :-
+	cputime(?Start)@\plg(),
+	%check_course_ta_assignment_consistency,
+	%check_duplicate_student_entries,
+	%check_student_status,
+	%check_temporal_data,
+	cputime(?End)@\plg(),
+	?Delta \is ?End - ?Start,
+	write('CPU time: ')@\plg(),
+	writeln(?Delta)@\io.

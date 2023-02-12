@@ -1,0 +1,90 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-CellWithCellPlateIsWhat (query 0)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:__Biology_Chapter_12_Self-quiz.2C_Question_2
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, disjointWith(PlantBLO, AnimalBLO)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genls(BotanicalCell, PlantBLO)).
+istAsserted(UniversalVocabularyMt, genls(AnimalCell, AnimalBLO)).
+
+// Implicit Background Rules
+forwardSentence(isa(?INST1, BotanicalCell)) :- removalSentence(internalParts(?INST1, ?INST2)), removalSentence(isa(?INST2, CellPlate)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259443', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259443', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-259444', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259443', isa('HYP-Cell-259444', Cell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-CellPlate-259445', Individual)).
+istAsserted('Hypothesis-HypotheticalContext-259443', isa('HYP-CellPlate-259445', CellPlate)).
+istAsserted('Hypothesis-HypotheticalContext-259443', isa('HYP-CellPlate-259445', OrganicMaterial)).
+istAsserted('Hypothesis-HypotheticalContext-259443', internalParts('HYP-Cell-259444', 'HYP-CellPlate-259445')).
+
+// Query
+queryMt('Hypothesis-HypotheticalContext-259443').
+//REMOVED TITLE('KBQ  : $CPTTest-CellWithCellPlateIsWhat 0').
+%pretest :- (neg isa('HYP-Cell-259444', CellTypeByCellLifeStageFn(Cytokinesis)) or neg isa('HYP-Cell-259444', AnimalCell)), %write_results('SUCCESS  : $CPTTest-CellWithCellPlateIsWhat 0').
+
+// Debugging
+proof(1471, 0) :- not(isa('HYP-Cell-259444', AnimalCell)).
+
+proof(1471, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(1471, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(1471, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(1471, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(1471, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(1471, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(1471, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(1471, 1007) :- isa('HYP-Cell-259444', BotanicalCell).
+
+proof(1471, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-259443', 1, genlMt).
+proof(1471, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-259443', 2, genlMt).
+proof(1471, 2002) :- genlMt('Hypothesis-HypotheticalContext-259443', UniversalVocabularyMt).
+proof(1471, 2003) :- genlMt('Hypothesis-HypotheticalContext-259443', 'Hypothesis-HypotheticalContext-259443').
+proof(1471, 2004) :- genlMt('Hypothesis-HypotheticalContext-259443', BiologyMt).
+proof(1471, 2005) :- isa('HYP-CellPlate-259445', CellPlate). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

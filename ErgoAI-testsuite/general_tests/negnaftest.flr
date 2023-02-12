@@ -1,0 +1,29 @@
+
+:- symbol_context{b/0}.
+:- ignore_depchk{tst1@?,tst2@?,tst3@?}.
+
+?- insertrule{\neg aaa(a) :- \neg b,c}.
+?- insertrule{aaa(a) :- \neg b,c}.
+
+?- insertrule{\neg bbb(b) :- \neg b,c}.
+?- insertrule{\neg ddd(d) :- \neg f,c}.
+
+c.
+\neg b.
+\neg f :- \undefined.
+
+tst1 :- \naf aaa(?V), !!, truthvalue{?T},
+	?V[show->?VA]@\show,
+	writeln(test1=?VA+?T)@\plg.
+tst2 :- \naf bbb(?V), !!, truthvalue{?T},
+	?V[show->?VA]@\show,
+	writeln(test2=?VA+?T)@\plg.
+tst3 :- \naf ddd(?V), !!, truthvalue{?T},
+	?V[show->?VA]@\show,
+	writeln(test3=?VA+?T)@\plg.
+
+%pretest :- tst1, tst2, tst3.
+
+%test :- tell(temp)@\plg,
+	%pretest,
+	told@\plg.

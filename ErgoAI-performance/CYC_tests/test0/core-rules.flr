@@ -1,0 +1,343 @@
+:- iriprefix{silk = "http://vulcan.com/2008/silk#"}.
+:- iriprefix{dc = "http://purl.org/dc/elements/1.1/"}.
+:- iriprefix{imp = "http://www.cyc.com/silk/implementation/"}.
+:- iriprefix{swrlb = "http://www.w3.org/2003/11/swrlb"}.
+:- iriprefix{cyc = "http://sw.cyc.com/2009/04/07/concept/"}.
+:- iriprefix{silkb = "http://vulcan.com/2008/silk-builtins#"}.
+//:- use_argumentation_theory{ogcle} .
+//?- [ogclpe>>ogcle] .
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+:- iriprefix{swrlb = "http://www.w3.org/2003/11/swrlb"}.
+impPred(istAsserted) .
+impPred(queryMt) .
+impPred(imp#directVisible) .
+imp#directVisible(?MT) :- queryMt(?MT) .
+impPred(mtVisible) .
+mtVisible(?MT) :- imp#directVisible(?MT) .
+mtVisible(?GENL) :- imp#directVisible(?SPEC) and sbhlSentence(genlMt(?SPEC, ?GENL)) .
+mtVisible(?MT) :- queryMt(EverythingPSC) and sbhlSentence(isa(?MT, Microtheory)) .
+impPred(assertedSentence) .
+assertedSentence(?P) :- istAsserted(?MT, ?P) and mtVisible(?MT) .
+impPred(lookupSentence) .
+lookupSentence(?ASENT) :- assertedSentence(?ASENT) .
+lookupSentence(?ASENT) :- forwardSentence(?ASENT) .
+impPred(forwardSentence) .
+forwardSentence(arity(?R, (2))) :- mtVisible(BaseKB) and removalSentence(isa(?R, BinaryRelation)) .
+forwardSentence(isa(?NART, ?COL)) :- mtVisible(BaseKB) and removalSentence(natFunction(?NART, ?F)) and removalSentence(resultIsa(?F, ?COL)) .
+impPred(imp#destructureFormula) .
+
+//imp#destructureFormula(?TERM, ?R, ?ARGS) :- ?TERM =.. [hilog(?R) | ?ARGS].
+
+imp#destructureFormula(?TERM, ?R, ?ARGS) :- ?TERM = ?R(), ?ARGS = [].
+imp#destructureFormula(?TERM, ?R, ?ARGS) :- ?TERM = ?R(?A1), ?ARGS = [?A1].
+imp#destructureFormula(?TERM, ?R, ?ARGS) :- ?TERM = ?R(?A1,?A2), ?ARGS = [?A1,?A2].
+imp#destructureFormula(?TERM, ?R, ?ARGS) :- ?TERM = ?R(?A1,?A2,?A3), ?ARGS = [?A1,?A2,?A3].
+imp#destructureFormula(?TERM, ?R, ?ARGS) :- ?TERM = ?R(?A1,?A2,?A3,?A4), ?ARGS = [?A1,?A2,?A3,?A4].
+imp#destructureFormula(?TERM, ?R, ?ARGS) :- ?TERM = ?R(?A1,?A2,?A3,?A4,?A5), ?ARGS = [?A1,?A2,?A3,?A4,?A5].
+imp#destructureFormula(?TERM, ?R, ?ARGS) :- ?TERM = ?R(?A1,?A2,?A3,?A4,?A5,?A6), ?ARGS = [?A1,?A2,?A3,?A4,?A5,?A6].
+
+impPred(imp#isNonAtomic) .
+imp#isNonAtomic(?X) :- imp#destructureFormula(?X, ?_R, ?_ARGS) .
+imp#isNonAtomic(?X) :- %silkb#isGround(?X)@builtin and not imp#isAtomic(?X) .
+impPred(formulaArity) .
+formulaArity(?FORM, ?ARITY) :- imp#destructureFormula(?FORM, ?RELN, ?ARGS) and imp#listLength(?ARITY, ?ARGS) .
+impPred(operatorFormulas) .
+operatorFormulas(?R, ?TERM) :- not %silkb#isGround(?TERM)@builtin and imp#destructureFormula(?TERM, ?R, ?_ARGS) and %silkb#isGround(?R)@builtin .
+operatorFormulas(?R, ?TERM) :- %silkb#isGround(?TERM)@builtin and imp#isNonAtomic(?TERM) and imp#arg0((1), ?TERM, ?R) .
+impPred(argN) .
+argN(?ARG, ?ARGNUM, ?NAT) :- %silkb#isGround(?ARGNUM)@builtin and %silkb#isInteger(?ARGNUM)@builtin and ?ARGNUM  >=  (0) and %silkb#isGround(?NAT)@builtin and imp#isNonAtomic(?NAT) and ?_INDEX is (?ARGNUM  +  (1)) and imp#arg0(?_INDEX, ?NAT, ?ARG) .
+argN(?ARG, ?ARGNUM, ?NAT) :- %silkb#isGround(?NAT)@builtin and imp#isNonAtomic(?NAT) and not %silkb#isGround(?ARGNUM)@builtin and %silkb#listMember([(1), (2), (3), (4), (5), (6)], ?_INDEX)@builtin and imp#arg0(?_INDEX, ?NAT, ?ARG) and ?ARGNUM is (?_INDEX  -  (1)) .
+impPred(imp#listMember) .
+imp#listMember(?X, [?X | ?_Y]) :- %silkb#isGround(?X)@builtin .
+imp#listMember(?X, [?_Y | ?Z]) :- imp#listMember(?X, ?Z) .
+impPred(imp#setElement) .
+imp#setElement(?X, SetOfListMembersFn(?LIST)) :- %silkb#isList(?LIST)@builtin and imp#listMember(?X, ?LIST) .
+impPred(imp#listLength) .
+imp#listLength((0), []) .
+imp#listLength(?LEN, [?_FIRST | ?REST]) :- imp#listLength(?RL, ?REST) and ?LEN is (?RL  +  (1)) .
+impPred(imp#setCardinality) .
+imp#setCardinality(?CARD, SetOfListMembersFn(?LIST)) :- %silkb#isGround(?LIST)@builtin and %silkb#isList(?LIST)@builtin and imp#listLength(?CARD, ?LIST) .
+impPred(imp#operatorInList) .
+imp#operatorInList(?FORMULA, ?LIST) :- operatorFormulas(?RELN, ?FORMULA) and imp#listMember(?RELN, ?LIST) .
+impPred(imp#digitString) .
+imp#digitString((0), ("0"^^_string)) .
+imp#digitString((1), ("1"^^_string)) .
+imp#digitString((2), ("2"^^_string)) .
+imp#digitString((3), ("3"^^_string)) .
+imp#digitString((4), ("4"^^_string)) .
+imp#digitString((5), ("5"^^_string)) .
+imp#digitString((6), ("6"^^_string)) .
+imp#digitString((7), ("7"^^_string)) .
+imp#digitString((8), ("8"^^_string)) .
+imp#digitString((9), ("9"^^_string)) .
+neg imp#digitString(?N, ?S) :- not imp#digitString(?N, ?S) .
+impPred(imp#toInteger) .
+imp#toInteger(?N, ?STRING) :- imp#digitString(?N, ?STRING) .
+imp#toInteger(?N, ?STRING) :- %swrlb#stringLength((2), ?STRING)@builtin and imp#digitString(?TENS, ?TD) and %swrlb#substring(?TD, ?STRING, (1), (1))@builtin and imp#digitString(?ONES, ?OD) and %swrlb#substring(?OD, ?STRING, (2), (1))@builtin and ?N is (((10)  *  ?TENS)  +  ?ONES) .
+imp#toInteger(?N, ?STRING) :- %swrlb#stringLength((3), ?STRING)@builtin and imp#digitString(?HUNS, ?HD) and %swrlb#substring(?HD, ?STRING, (1), (1))@builtin and imp#digitString(?TENS, ?TD) and %swrlb#substring(?TD, ?STRING, (2), (1))@builtin and imp#digitString(?ONES, ?OD) and %swrlb#substring(?OD, ?STRING, (3), (1))@builtin and ?N is ((((100)  *  ?HUNS)  +  (((10)  *  ?TENS)  +  ?ONES))) .
+imp#toInteger(?N, ?STRING) :- %swrlb#stringLength((2), ?STRING)@builtin and %swrlb#substring(("-"^^_string), ?STRING, (1), (1))@builtin and imp#digitString(?ONES, ?OD) and %swrlb#substring(?OD, ?STRING, (2), (1))@builtin and ?N is ((-1)  *  ?ONES) .
+imp#toInteger(?N, ?STRING) :- %swrlb#stringLength((3), ?STRING)@builtin and %swrlb#substring(("-"^^_string), ?STRING, (1), (1))@builtin and imp#digitString(?TENS, ?TD) and %swrlb#substring(?TD, ?STRING, (2), (1))@builtin and imp#digitString(?ONES, ?OD) and %swrlb#substring(?OD, ?STRING, (3), (1))@builtin and ?N is ((-1)  *  (((10)  *  ?TENS)  +  ?ONES)) .
+imp#toInteger(?N, ?STRING) :- %swrlb#stringLength((4), ?STRING)@builtin and %swrlb#substring(("-"^^_string), ?STRING, (1), (1))@builtin and imp#digitString(?HUNS, ?HD) and %swrlb#substring(?HD, ?STRING, (2), (1))@builtin and imp#digitString(?TENS, ?TD) and %swrlb#substring(?TD, ?STRING, (3), (1))@builtin and imp#digitString(?ONES, ?OD) and %swrlb#substring(?OD, ?STRING, (4), (1))@builtin and ?N is ((-1)  *  (((100)  *  ?HUNS)  +  (((10)  *  ?TENS)  +  ?ONES))) .
+neg imp#toInteger(?N, ?STRING) :- not imp#toInteger(?N, ?STRING) .
+impPred(integerBetween) .
+integerBetween(?LOW, ?LOW, ?HI) :- %silkb#isInteger(?HI)@builtin and %silkb#isInteger(?LOW)@builtin and ?HI  >=  ?LOW .
+integerBetween(?LOW, ?MID, ?HI) :- %silkb#isInteger(?HI)@builtin and %silkb#isInteger(?LOW)@builtin and ?HI  >=  ?LOW and integerBetween(?LOW, ?LOWMID, ?HI) and ?MID is ?LOWMID  +  (1) and ?HI  >=  ?MID .
+impPred(imp#directIsa) .
+imp#directIsa(?OBJ, ?COL) :- lookupSentence(isa(?OBJ, ?COL)) .
+imp#directIsa(?NAT, ?COL) :- operatorFormulas(?FUNC, ?NAT) and lookupSentence(resultIsa(?FUNC, ?COL)) .
+impPred(imp#directQuotedIsa) .
+imp#directQuotedIsa(?OBJ, ?COL) :- lookupSentence(quotedIsa(?OBJ, ?COL)) .
+impPred(imp#directGenls) .
+imp#directGenls(?SPEC, ?GENL) :- lookupSentence(genls(?SPEC, ?GENL)) .
+imp#directGenls(?NAT, ?COL) :- operatorFormulas(?FUNC, ?NAT) and lookupSentence(resultGenl(?FUNC, ?COL)) .
+impPred(imp#disjointWithLink) .
+imp#disjointWithLink(?A, ?B) :- lookupSentence(disjointWith(?A, ?B)) .
+imp#disjointWithLink(?A, ?B) :- lookupSentence(disjointWith(?B, ?A)) .
+sbhlSentence(isa(?OBJ, ?COL)) :- imp#directIsa(?OBJ, ?COL) .
+sbhlSentence(isa(?X, Thing)) :- %silkb#isGround(?X)@builtin .
+sbhlSentence(isa(?OBJ, ?GENL)) :- %silkb#isGround(?OBJ)@builtin and imp#directIsa(?OBJ, ?SPEC) and sbhlSentence(genls(?SPEC, ?GENL)) .
+sbhlSentence(isa(?OBJ, ?GENL)) :- %silkb#isGround(?GENL)@builtin and not %silkb#isGround(?OBJ)@builtin and sbhlSentence(genls(?SPEC, ?GENL)) and imp#directIsa(?OBJ, ?SPEC) .
+sbhlSentence(not(isa(?TERM, ?COL))) :- %silkb#isGround(?TERM)@builtin and %silkb#isGround(?COL)@builtin and not sbhlSentence(isa(?TERM, ?COL)) and imp#directIsa(?TERM, ?NEAR) and sbhlSentence(disjointWith(?NEAR, ?COL)) .
+sbhlSentence(genls(?SPEC, ?GENL)) :- imp#directGenls(?SPEC, ?GENL) .
+sbhlSentence(genls(?COL, ?COL)) :- sbhlSentence(isa(?COL, Collection)) .
+sbhlSentence(genls(?LOW, ?HIGH)) :- %silkb#isGround(?LOW)@builtin and imp#directGenls(?LOW, ?MID) and sbhlSentence(genls(?MID, ?HIGH)) .
+sbhlSentence(genls(?LOW, ?HIGH)) :- %silkb#isGround(?HIGH)@builtin and not %silkb#isGround(?LOW)@builtin and imp#directGenls(?MID, ?HIGH) and sbhlSentence(genls(?LOW, ?MID)) .
+sbhlSentence(disjointWith(?A, ?B)) :- not %silkb#isGround(?A)@builtin and %silkb#isGround(?B)@builtin and sbhlSentence(disjointWith(?B, ?A)) .
+sbhlSentence(disjointWith(?LOWA, ?LOWB)) :- %silkb#isGround(?LOWA)@builtin and sbhlSentence(genls(?LOWA, ?A)) and imp#disjointWithLink(?A, ?B) and sbhlSentence(genls(?LOWB, ?B)) .
+sbhlSentence(genlPreds(?SPEC, ?GENL)) :- lookupSentence(genlPreds(?SPEC, ?GENL)) .
+sbhlSentence(genlPreds(?P, ?P)) :- sbhlSentence(isa(?P, Predicate)) .
+sbhlSentence(genlPreds(?LOW, ?HIGH)) :- %silkb#isGround(?LOW)@builtin and lookupSentence(genlPreds(?LOW, ?MID)) and sbhlSentence(genlPreds(?MID, ?HIGH)) .
+sbhlSentence(genlPreds(?LOW, ?HIGH)) :- %silkb#isGround(?HIGH)@builtin and not %silkb#isGround(?LOW)@builtin and lookupSentence(genlPreds(?MID, ?HIGH)) and sbhlSentence(genlPreds(?LOW, ?MID)) .
+sbhlSentence(genlPreds(?LOW, ?HIGH)) :- %silkb#isGround(?LOW)@builtin and lookupSentence(genlInverse(?LOW, ?MID)) and sbhlSentence(genlInverse(?MID, ?HIGH)) .
+sbhlSentence(genlPreds(?LOW, ?HIGH)) :- %silkb#isGround(?HIGH)@builtin and not %silkb#isGround(?LOW)@builtin and lookupSentence(genlInverse(?MID, ?HIGH)) and sbhlSentence(genlInverse(?LOW, ?MID)) .
+sbhlSentence(genlInverse(?SPEC, ?GENL)) :- lookupSentence(genlInverse(?SPEC, ?GENL)) .
+sbhlSentence(genlInverse(?P, ?P)) :- sbhlSentence(isa(?P, SymmetricBinaryPredicate)) .
+sbhlSentence(genlInverse(?LOW, ?HIGH)) :- %silkb#isGround(?LOW)@builtin and lookupSentence(genlPreds(?LOW, ?MID)) and sbhlSentence(genlInverse(?MID, ?HIGH)) .
+sbhlSentence(genlInverse(?LOW, ?HIGH)) :- %silkb#isGround(?HIGH)@builtin and not %silkb#isGround(?LOW)@builtin and lookupSentence(genlPreds(?MID, ?HIGH)) and sbhlSentence(genlInverse(?LOW, ?MID)) .
+sbhlSentence(genlInverse(?LOW, ?HIGH)) :- %silkb#isGround(?LOW)@builtin and lookupSentence(genlInverse(?LOW, ?MID)) and sbhlSentence(genlPreds(?MID, ?HIGH)) .
+sbhlSentence(genlInverse(?LOW, ?HIGH)) :- %silkb#isGround(?HIGH)@builtin and not %silkb#isGround(?LOW)@builtin and lookupSentence(genlInverse(?MID, ?HIGH)) and sbhlSentence(genlPreds(?LOW, ?MID)) .
+impPred(imp#negationPredsLink) .
+imp#negationPredsLink(?A, ?B) :- lookupSentence(negationPreds(?A, ?B)) .
+imp#negationPredsLink(?A, ?B) :- lookupSentence(negationPreds(?B, ?A)) .
+impPred(imp#negationInverseLink) .
+imp#negationInverseLink(?A, ?B) :- lookupSentence(negationInverse(?A, ?B)) .
+imp#negationInverseLink(?A, ?B) :- lookupSentence(negationInverse(?B, ?A)) .
+imp#negationInverseLink(?A, ?A) :- sbhlSentence(isa(?A, AsymmetricBinaryPredicate)) .
+sbhlSentence(negationPreds(?A, ?B)) :- not %silkb#isGround(?A)@builtin and %silkb#isGround(?B)@builtin and sbhlSentence(negationPreds(?B, ?A)) .
+sbhlSentence(negationPreds(?LOWA, ?LOWB)) :- %silkb#isGround(?LOWA)@builtin and sbhlSentence(genlPreds(?LOWA, ?A)) and imp#negationPredsLink(?A, ?B) and sbhlSentence(genlPreds(?LOWB, ?B)) .
+sbhlSentence(negationPreds(?LOWA, ?LOWB)) :- %silkb#isGround(?LOWA)@builtin and sbhlSentence(genlPreds(?LOWA, ?A)) and imp#negationInverseLink(?A, ?B) and sbhlSentence(genlInverse(?LOWB, ?B)) .
+sbhlSentence(negationPreds(?LOWA, ?LOWB)) :- %silkb#isGround(?LOWA)@builtin and sbhlSentence(genlInverse(?LOWA, ?A)) and imp#negationPredsLink(?A, ?B) and sbhlSentence(genlInverse(?LOWB, ?B)) .
+sbhlSentence(negationPreds(?LOWA, ?LOWB)) :- %silkb#isGround(?LOWA)@builtin and sbhlSentence(genlInverse(?LOWA, ?A)) and imp#negationInverseLink(?A, ?B) and sbhlSentence(genlPreds(?LOWB, ?B)) .
+sbhlSentence(negationInverse(?A, ?B)) :- not %silkb#isGround(?A)@builtin and %silkb#isGround(?B)@builtin and sbhlSentence(negationInverse(?B, ?A)) .
+sbhlSentence(negationInverse(?LOWA, ?LOWB)) :- %silkb#isGround(?LOWA)@builtin and sbhlSentence(genlPreds(?LOWA, ?A)) and imp#negationInverseLink(?A, ?B) and sbhlSentence(genlPreds(?LOWB, ?B)) .
+sbhlSentence(negationInverse(?LOWA, ?LOWB)) :- %silkb#isGround(?LOWA)@builtin and sbhlSentence(genlPreds(?LOWA, ?A)) and imp#negationPredsLink(?A, ?B) and sbhlSentence(genlInverse(?LOWB, ?B)) .
+sbhlSentence(negationInverse(?LOWA, ?LOWB)) :- %silkb#isGround(?LOWA)@builtin and sbhlSentence(genlInverse(?LOWA, ?A)) and imp#negationPredsLink(?A, ?B) and sbhlSentence(genlPreds(?LOWB, ?B)) .
+sbhlSentence(negationInverse(?LOWA, ?LOWB)) :- %silkb#isGround(?LOWA)@builtin and sbhlSentence(genlInverse(?LOWA, ?A)) and imp#negationInverseLink(?A, ?B) and sbhlSentence(genlInverse(?LOWB, ?B)) .
+impPred(imp#directGenlMt) .
+imp#directGenlMt(?SPEC, ?GENL) :- lookupSentence(genlMt(?SPEC, ?GENL)) .
+imp#directGenlMt(MtSpace(?MONAD, MtTimeDimFn(?TIME)), ?MONAD) :- %silkb#isGround(?MONAD)@builtin and %silkb#isGround(?TIME)@builtin and not imp#operatorInList(?MONAD, [MtSpace, MtTimeDimFn]) .
+imp#directGenlMt(MtSpace(MtTimeDimFn(?TIME), ?MONAD), ?MONAD) :- %silkb#isGround(?MONAD)@builtin and %silkb#isGround(?TIME)@builtin and not imp#operatorInList(?MONAD, [MtSpace, MtTimeDimFn]) .
+imp#directGenlMt(MtSpace(MtTimeDimFn(?TIME), ?MONAD), MtSpace(?MONAD, MtTimeDimFn(?TIME))) :- %silkb#isGround(?MONAD)@builtin and %silkb#isGround(?TIME)@builtin and not imp#operatorInList(?MONAD, [MtSpace, MtTimeDimFn]) .
+imp#directGenlMt(MtSpace(?MONAD, MtTimeDimFn(?TIME)), MtSpace(MtTimeDimFn(?TIME), ?MONAD)) :- %silkb#isGround(?MONAD)@builtin and %silkb#isGround(?TIME)@builtin and not imp#operatorInList(?MONAD, [MtSpace, MtTimeDimFn]) .
+sbhlSentence(genlMt(?SPEC, ?GENL)) :- imp#directGenlMt(?SPEC, ?GENL) .
+sbhlSentence(genlMt(?MT, ?MT)) :- sbhlSentence(isa(?MT, Microtheory)) .
+sbhlSentence(genlMt(?LOW, ?HIGH)) :- %silkb#isGround(?LOW)@builtin and imp#directGenlMt(?LOW, ?MID) and sbhlSentence(genlMt(?MID, ?HIGH)) .
+sbhlSentence(genlMt(?LOW, ?HIGH)) :- %silkb#isGround(?HIGH)@builtin and not %silkb#isGround(?LOW)@builtin and imp#directGenlMt(?MID, ?HIGH) and sbhlSentence(genlMt(?LOW, ?MID)) .
+impPred(imp#indirectIsa) .
+imp#indirectIsa(?OBJ, ?FAR) :- %silkb#isGround(?OBJ)@builtin and imp#directIsa(?OBJ, ?NEAR) and sbhlSentence(genls(?NEAR, ?FAR)) and ?FAR != ?NEAR .
+imp#indirectIsa(?OBJ, ?FAR) :- not %silkb#isGround(?OBJ)@builtin and %silkb#isGround(?FAR)@builtin and sbhlSentence(genls(?NEAR, ?FAR)) and imp#directIsa(?OBJ, ?NEAR) and ?FAR != ?NEAR .
+sbhlSentence(nearestIsa(?OBJ, ?NEAR)) :- imp#directIsa(?OBJ, ?NEAR) and not imp#indirectIsa(?OBJ, ?NEAR) .
+impPred(imp#indirectGenls) .
+imp#indirectGenls(?COL, ?FAR) :- %silkb#isGround(?COL)@builtin and imp#directGenls(?COL, ?NEAR) and sbhlSentence(genls(?NEAR, ?FAR)) and ?FAR != ?NEAR .
+imp#indirectGenls(?COL, ?FAR) :- not %silkb#isGround(?COL)@builtin and %silkb#isGround(?FAR)@builtin and sbhlSentence(genls(?NEAR, ?FAR)) and imp#directGenls(?COL, ?NEAR) and ?FAR != ?NEAR .
+sbhlSentence(nearestGenls(?COL, ?NEAR)) :- imp#directGenls(?COL, ?NEAR) and not imp#indirectGenls(?COL, ?NEAR) .
+impPred(imp#quotedDefnAdmits) .
+imp#quotedDefnAdmits(?X, SubLInteger) :- %silkb#isGround(?X)@builtin and %silkb#isInteger(?X)@builtin .
+imp#quotedDefnAdmits(?X, SubLRealNumber) :- %silkb#isGround(?X)@builtin and %silkb#isFloat(?X)@builtin .
+imp#quotedDefnAdmits(?X, SubLString) :- %silkb#isGround(?X)@builtin and %silkb#isString(?X)@builtin .
+imp#quotedDefnAdmits(?X, ExtentionalList) :- %silkb#isGround(?X)@builtin and %silkb#isList(?X)@builtin .
+impPred(imp#defnAdmits) .
+imp#defnAdmits(?X, Integer) :- imp#quotedDefnAdmits(?X, SubLInteger) .
+imp#defnAdmits(?X, RealNumber) :- imp#quotedDefnAdmits(?X, SubLRealNumber) .
+imp#defnAdmits(?X, CharacterString) :- imp#quotedDefnAdmits(?X, SubLString) .
+imp#defnAdmits(?X, List) :- imp#quotedDefnAdmits(?X, ExtentionalList) .
+impPred(quotedDefnSentence) .
+quotedDefnSentence(quotedIsa(?X, ?COL)) :- imp#quotedDefnAdmits(?X, ?DCOL) and sbhlSentence(genls(?DCOL, ?COL)) .
+quotedDefnSentence(not(quotedIsa(?X, ?COL))) :- imp#quotedDefnAdmits(?X, ?DCOL) and sbhlSentence(disjointWith(?DCOL, ?COL)) .
+impPred(defnSentence) .
+defnSentence(isa(?X, ?COL)) :- imp#defnAdmits(?X, ?DCOL) and sbhlSentence(genls(?DCOL, ?COL)) .
+defnSentence(not(isa(?X, ?COL))) :- imp#defnAdmits(?X, ?DCOL) and sbhlSentence(disjointWith(?DCOL, ?COL)) .
+sbhlSentence(quotedIsa(?X, ?COL)) :- quotedDefnSentence(quotedIsa(?X, ?COL)) .
+sbhlSentence(not(quotedIsa(?X, ?COL))) :- quotedDefnSentence(not(quotedIsa(?X, ?COL))) .
+imp#directIsa(?X, ?COL) :- imp#defnAdmits(?X, ?COL) .
+sbhlSentence(isa(?X, ?COL)) :- defnSentence(isa(?X, ?COL)) .
+sbhlSentence(not(isa(?X, ?COL))) :- defnSentence(not(isa(?X, ?COL))) .
+imp#directQuotedIsa(?X, ?COL) :- imp#quotedDefnAdmits(?X, ?COL) .
+sbhlSentence(quotedIsa(?X, ?COL)) :- quotedDefnSentence(quotedIsa(?X, ?COL)) .
+sbhlSentence(not(quotedIsa(?X, ?COL))) :- quotedDefnSentence(not(quotedIsa(?X, ?COL))) .
+imp#defnAdmits(?X, NonNegativeInteger) :- imp#defnAdmits(?X, Integer) and ?X  >=  (0) .
+imp#defnAdmits(?X, PositiveInteger) :- imp#defnAdmits(?X, Integer) and ?X  >  (0) .
+impPred(imp#isAtomicSentence) .
+imp#isAtomicSentence(?ASENT) :- operatorFormulas(?PRED, ?ASENT) and %silkb#isGround(?PRED)@builtin .
+impPred(imp#wffRejectedArgument) .
+imp#wffRejectedArgument(?TERM, ?N, ?RELN) :- %silkb#isGround(?TERM)@builtin and sbhlSentence(isa(?RELN, Relation)) and lookupSentence(argIsa(?RELN, ?N, ?COL)) and sbhlSentence(not(isa(?TERM, ?COL))) .
+imp#wffRejectedArgument(?TERM, ?N, ?RELN) :- %silkb#isGround(?TERM)@builtin and sbhlSentence(isa(?RELN, Relation)) and lookupSentence(argGenl(?RELN, ?N, ?COL)) and sbhlSentence(not(genls(?TERM, ?COL))) .
+impPred(imp#wffAdmittedArgument) .
+imp#wffAdmittedArgument(?TERM, ?N, ?RELN) :- %silkb#isGround(?TERM)@builtin and sbhlSentence(isa(?RELN, Relation)) and lookupSentence(arity(?RELN, ?MAX)) and integerBetween((1), ?N, ?MAX) and not imp#wffRejectedArgument(?TERM, ?N, ?RELN) .
+impPred(imp#wffRejectedSentence) .
+imp#wffRejectedSentence(?FORMULA) :- operatorFormulas(?RELN, ?FORMULA) and formulaArity(?FORMULA, ?ACTUAL) and lookupSentence(arity(?RELN, ?ARITY)) and ?ARITY != ?ACTUAL .
+imp#wffRejectedSentence(?FORMULA) :- %silkb#isGround(?FORMULA)@builtin and operatorFormulas(?RELN, ?FORMULA) and formulaArity(?FORMULA, ?ACTUAL) and integerBetween((1), ?N, ?ACTUAL) and argN(?TERM, ?N, ?FORMULA) and imp#wffRejectedArgument(?TERM, ?N, ?RELN) .
+impPred(imp#wffAdmittedSentence) .
+imp#wffAdmittedSentence(?SENT) :- not rejectedSentence(?SENT) .
+impPred(gpLookupSentence) .
+gpLookupSentence(?ASENT) :- imp#isAtomicSentence(?ASENT) and imp#destructureFormula(?ASENT, ?P, ?ARGS) and sbhlSentence(genlPreds(?SPEC, ?P)) and imp#destructureFormula(?ASENT2, ?SPEC, ?ARGS) and lookupSentence(?ASENT2) .
+gpLookupSentence(?P(?ARG1, ?ARG2)) :- sbhlSentence(isa(?P, BinaryPredicate)) and sbhlSentence(genlInverse(?SPEC, ?P)) and lookupSentence(?P(?ARG2, ?ARG1)) .
+gpLookupSentence(not(?ASENT)) :- imp#isAtomicSentence(?ASENT) and imp#destructureFormula(?ASENT, ?P, ?ARGS) and sbhlSentence(genlPreds(?P, ?GENL)) and imp#destructureFormula(?ASENT2, ?GENL, ?ARGS) and lookupSentence(not(?ASENT2)) .
+gpLookupSentence(not(?P(?ARG1, ?ARG2))) :- sbhlSentence(isa(?P, BinaryPredicate)) and sbhlSentence(genlInverse(?P, ?GENL)) and lookupSentence(not(?GENL(?ARG2, ?ARG1))) .
+impPred(imp#transitivityLink) .
+imp#transitivityLink(?PTRANS(?A, ?B)) :- gpLookupSentence(?PTRANS(?A, ?B)) .
+impPred(imp#transitivityWalk1to2) .
+imp#transitivityWalk1to2(?PTRANS(?A, ?B)) :- imp#transitivityLink(?PTRANS(?A, ?B)) .
+imp#transitivityWalk1to2(?PTRANS(?A, ?C)) :- imp#transitivityLink(?PTRANS(?A, ?B)) and imp#transitivityWalk1to2(?PTRANS(?C, ?C)) .
+impPred(imp#transitivityWalk2to1) .
+imp#transitivityWalk2to1(?PTRANS(?A, ?B)) :- imp#transitivityLink(?PTRANS(?A, ?B)) .
+imp#transitivityWalk2to1(?PTRANS(?A, ?C)) :- imp#transitivityLink(?PTRANS(?B, ?C)) and imp#transitivityWalk2to1(?PTRANS(?A, ?B)) .
+impPred(imp#transitivityFanoutArg) .
+imp#transitivityFanoutArg(?PRED, ?N) :- lookupSentence(fanOutArg(?PRED, ?N)) .
+imp#transitivityFanoutArg(?PRED, (1)) :- sbhlSentence(isa(?PRED, BinaryPredicate)) and not imp#transitivityFanoutArg(?PRED, (2)) .
+impPred(transitivitySentence) .
+transitivitySentence(?PTRANS(?A, ?C)) :- %silkb#isGround(?PTRANS)@builtin and not hlPred(?PTRANS) and %silkb#isGround(?A)@builtin and not %silkb#isGround(?C)@builtin and sbhlSentence(isa(?PTRANS, TransitiveBinaryPredicate)) and imp#transitivityLink(?PTRANS(?A, ?B)) and imp#transitivityWalk1to2(?PTRANS(?B, ?C)) .
+transitivitySentence(?PTRANS(?A, ?C)) :- %silkb#isGround(?PTRANS)@builtin and not %silkb#isGround(?A)@builtin and %silkb#isGround(?C)@builtin and sbhlSentence(isa(?PTRANS, TransitiveBinaryPredicate)) and imp#transitivityLink(?PTRANS(?B, ?C)) and imp#transitivityWalk2to1(?PTRANS(?A, ?B)) .
+transitivitySentence(?PTRANS(?A, ?C)) :- %silkb#isGround(?PTRANS)@builtin and not hlPred(?PTRANS) and %silkb#isGround(?A)@builtin and %silkb#isGround(?C)@builtin and sbhlSentence(isa(?PTRANS, TransitiveBinaryPredicate)) and imp#transitivityFanoutArg(?PTRANS, (1)) and imp#transitivityLink(?PTRANS(?A, ?B)) and imp#transitivityWalk1to2(?PTRANS(?B, ?C)) .
+transitivitySentence(?PTRANS(?A, ?C)) :- %silkb#isGround(?PTRANS)@builtin and not hlPred(?PTRANS) and %silkb#isGround(?A)@builtin and %silkb#isGround(?C)@builtin and sbhlSentence(isa(?PTRANS, TransitiveBinaryPredicate)) and imp#transitivityFanoutArg(?PTRANS, (2)) and imp#transitivityLink(?PTRANS(?B, ?C)) and imp#transitivityWalk2to1(?PTRANS(?A, ?B)) .
+impPred(imp#decidableAsent) .
+imp#decidableAsent(?ASENT) :- %silkb#isGround(?ASENT)@builtin and imp#isAtomicSentence(?ASENT) and operatorFormulas(?PRED, ?ASENT) and gpLookupSentence(completeExtentDecidable(?PRED)) .
+imp#decidableAsent(?ASENT) :- not %silkb#isGround(?ASENT)@builtin and imp#isAtomicSentence(?ASENT) and operatorFormulas(?PRED, ?ASENT) and gpLookupSentence(completeExtentEnumerable(?PRED)) .
+imp#decidableAsent(isa(?OBJ, ?COL)) :- not %silkb#isGround(?OBJ)@builtin and %silkb#isGround(?COL)@builtin and gpLookupSentence(completelyEnumerableCollection(?COL)) .
+imp#decidableAsent(isa(?OBJ, ?COL)) :- %silkb#isGround(?OBJ)@builtin and %silkb#isGround(?COL)@builtin and gpLookupSentence(completelyDecidableCollection(?COL)) .
+impPred(imp#tvaPredicate) .
+imp#tvaPredicate(?PRED) :- not hlPred(?PRED) and assertedSentence(transitiveViaArg(?PRED, ?_TRANS, ?_ARGNUM)) .
+imp#tvaPredicate(?PRED) :- not hlPred(?PRED) and assertedSentence(transitiveViaArgInverse(?PRED, ?_TRANS, ?_ARGNUM)) .
+impPred(tvaSentence) .
+tvaSentence(?P(?NEW1)) :- imp#tvaPredicate(?P) and assertedSentence(transitiveViaArg(?P, ?LINK, (1))) and removalSentence(?LINK(?ARG1, ?NEW1)) and ?ARG1 != ?NEW1 and removalSentence(?P(?ARG1)) .
+tvaSentence(?P(?NEW1, ?ARG2)) :- imp#tvaPredicate(?P) and assertedSentence(transitiveViaArg(?P, ?LINK, (1))) and removalSentence(?P(?ARG1, ?ARG2)) and ?ARG1 != ?NEW1 and removalSentence(?LINK(?ARG1, ?NEW1)) .
+tvaSentence(?P(?ARG1, ?NEW2)) :- imp#tvaPredicate(?P) and assertedSentence(transitiveViaArg(?P, ?LINK, (2))) and removalSentence(?P(?ARG1, ?ARG2)) and ?ARG1 != ?NEW2 and removalSentence(?LINK(?ARG2, ?NEW2)) .
+tvaSentence(?P(?NEW1, ?ARG2, ?ARG3)) :- imp#tvaPredicate(?P) and assertedSentence(transitiveViaArg(?P, ?LINK, (1))) and removalSentence(?P(?ARG1, ?ARG2, ?ARG3)) and ?ARG1 != ?NEW1 and removalSentence(?LINK(?ARG1, ?NEW1)) .
+tvaSentence(?P(?ARG1, ?NEW2, ?ARG3)) :- imp#tvaPredicate(?P) and assertedSentence(transitiveViaArg(?P, ?LINK, (2))) and removalSentence(?P(?ARG1, ?ARG2, ?ARG3)) and ?ARG2 != ?NEW2 and removalSentence(?LINK(?ARG2, ?NEW2)) .
+tvaSentence(?P(?ARG1, ?ARG2, ?NEW3)) :- imp#tvaPredicate(?P) and assertedSentence(transitiveViaArg(?P, ?LINK, (3))) and removalSentence(?P(?ARG1, ?ARG2, ?ARG3)) and ?ARG3 != ?NEW3 and removalSentence(?LINK(?ARG3, ?NEW3)) .
+tvaSentence(?P(?NEW1)) :- not hlPred(?P) and assertedSentence(transitiveViaArgInverse(?P, ?LINK, (1))) and removalSentence(?LINK(?NEW1, ?ARG1)) and ?ARG1 != ?NEW1 and removalSentence(?P(?ARG1)) .
+tvaSentence(?P(?NEW1, ?ARG2)) :- imp#tvaPredicate(?P) and assertedSentence(transitiveViaArgInverse(?P, ?LINK, (1))) and removalSentence(?P(?ARG1, ?ARG2)) and ?ARG1 != ?NEW1 and removalSentence(?LINK(?NEW1, ?ARG1)) .
+tvaSentence(?P(?ARG1, ?NEW2)) :- imp#tvaPredicate(?P) and assertedSentence(transitiveViaArgInverse(?P, ?LINK, (2))) and removalSentence(?P(?ARG1, ?ARG2)) and ?ARG2 != ?NEW2 and removalSentence(?LINK(?NEW2, ?ARG2)) .
+tvaSentence(?P(?NEW1, ?ARG2, ?ARG3)) :- imp#tvaPredicate(?P) and assertedSentence(transitiveViaArgInverse(?P, ?LINK, (1))) and removalSentence(?P(?ARG1, ?ARG2, ?ARG3)) and ?ARG1 != ?NEW1 and removalSentence(?LINK(?NEW1, ?ARG1)) .
+tvaSentence(?P(?ARG1, ?NEW2, ?ARG3)) :- imp#tvaPredicate(?P) and assertedSentence(transitiveViaArgInverse(?P, ?LINK, (2))) and removalSentence(?P(?ARG1, ?ARG2, ?ARG3)) and ?ARG2 != ?NEW2 and removalSentence(?LINK(?NEW2, ?ARG2)) .
+tvaSentence(?P(?ARG1, ?ARG2, ?NEW3)) :- imp#tvaPredicate(?P) and assertedSentence(transitiveViaArgInverse(?P, ?LINK, (3))) and removalSentence(?P(?ARG1, ?ARG2, ?ARG3)) and ?ARG3 != ?NEW3 and removalSentence(?LINK(?NEW3, ?ARG3)) .
+impPred(imp#evaluatableFunction) .
+impPred(imp#evaluatablePredicate) .
+imp#evaluatableFunction(?F) :- sbhlSentence(isa(?F, EvaluatableFunction)) .
+imp#evaluatablePredicate(?P) :- sbhlSentence(isa(?P, EvaluatablePredicate)) .
+impPred(imp#evaluateTerm) .
+impPred(imp#evaluateSentence) .
+imp#evaluateTerm(?ANS, PlusFn(?X, ?Y)) :- %silkb#isNumber(?X)@builtin and %silkb#isNumber(?Y)@builtin and ?ANS is (?X  +  ?Y) .
+imp#evaluateTerm(?ANS, DifferenceFn(?X, ?Y)) :- %silkb#isNumber(?X)@builtin and %silkb#isNumber(?Y)@builtin and ?ANS is (?X  -  ?Y) .
+imp#evaluateTerm(?ANS, TimesFn(?X, ?Y)) :- %silkb#isNumber(?X)@builtin and %silkb#isNumber(?Y)@builtin and ?ANS is (?X  *  ?Y) .
+imp#evaluateTerm(?INT, QuotientFn(?X, ?Y)) :- %silkb#isNumber(?X)@builtin and %silkb#isNumber(?Y)@builtin and ?ANS is (?X  /  ?Y) and %swrlb#round(?INT, ?ANS)@builtin and ?X is (?INT  *  ?Y) .
+imp#evaluateTerm(?ANS, QuotientFn(?X, ?Y)) :- %silkb#isNumber(?X)@builtin and %silkb#isNumber(?Y)@builtin and ?ANS is (?X  /  ?Y) and %swrlb#round(?INT, ?ANS)@builtin and not ?X is (?INT  *  ?Y) .
+imp#evaluateSentence(different(?X1, ?X2)) :- %silkb#isGround([?X1, ?X2])@builtin and not ?X1 :=: ?X2 .
+imp#evaluateSentence(different(?X1, ?X2, ?X3)) :- %silkb#isGround([?X1, ?X2, ?X3])@builtin and not ?X1 :=: ?X2 and not ?X1 :=: ?X3 and not ?X2 :=: ?X3 .
+imp#evaluateSentence(differentSymbols(?X1, ?X2)) :- %silkb#isGround([?X1, ?X2])@builtin and ?X1 != ?X2 .
+imp#evaluateSentence(differentSymbols(?X1, ?X2, ?X3)) :- %silkb#isGround([?X1, ?X2, ?X3])@builtin and ?X1 != ?X2 and ?X1 != ?X3 and ?X2 != ?X3 .
+imp#evaluateSentence(numericallyEqual(?NUM1, ?NUM2)) :- %silkb#isGround([?NUM1, ?NUM2])@builtin and %silkb#isNumber(?NUM1)@builtin and %silkb#isNumber(?NUM2)@builtin and ?NUM1 = ?NUM2 .
+imp#evaluateSentence(greaterThan(?BIG, ?SMALL)) :- %silkb#isGround([?BIG, ?SMALL])@builtin and %silkb#isNumber(?BIG)@builtin and %silkb#isNumber(?SMALL)@builtin and ?BIG  >  ?SMALL .
+imp#evaluateSentence(greaterThanOrEqualTo(?BIG, ?SMALL)) :- imp#evaluateSentence(greaterThan(?BIG, ?SMALL)) .
+imp#evaluateSentence(greaterThanOrEqualTo(?BIG, ?SMALL)) :- imp#evaluateSentence(numericallyEqual(?BIG, ?SMALL)) .
+imp#evaluateSentence(lessThan(?SMALL, ?BIG)) :- imp#evaluateSentence(greaterThan(?BIG, ?SMALL)) .
+imp#evaluateSentence(lessThanOrEqualTo(?SMALL, ?BIG)) :- imp#evaluateSentence(greaterThanOrEqualTo(?BIG, ?SMALL)) .
+impPred(imp#removalPredicate) .
+imp#removalPredicate(?P) :- %silkb#isGround(?P)@builtin and not impPred(?P) and not backchainRequired(?P) .
+impPred(removalSentence) .
+?P() :- imp#removalPredicate(?P) and removalSentence(?P()) .
+?P(?ARG1) :- imp#removalPredicate(?P) and removalSentence(?P(?ARG1)) .
+?P(?ARG1, ?ARG2) :- imp#removalPredicate(?P) and removalSentence(?P(?ARG1, ?ARG2)) .
+?P(?ARG1, ?ARG2, ?ARG3) :- imp#removalPredicate(?P) and removalSentence(?P(?ARG1, ?ARG2, ?ARG3)) .
+?P(?ARG1, ?ARG2, ?ARG3, ?ARG4) :- imp#removalPredicate(?P) and removalSentence(?P(?ARG1, ?ARG2, ?ARG3, ?ARG4)) .
+neg ?P() :- imp#removalPredicate(?P) and removalSentence(not(?P())) .
+neg ?P(?ARG1) :- imp#removalPredicate(?P) and removalSentence(not(?P(?ARG1))) .
+neg ?P(?ARG1, ?ARG2) :- imp#removalPredicate(?P) and removalSentence(not(?P(?ARG1, ?ARG2))) .
+neg ?P(?ARG1, ?ARG2, ?ARG3) :- imp#removalPredicate(?P) and removalSentence(not(?P(?ARG1, ?ARG2, ?ARG3))) .
+neg ?P(?ARG1, ?ARG2, ?ARG3, ?ARG4) :- imp#removalPredicate(?P) and removalSentence(not(?P(?ARG1, ?ARG2, ?ARG3, ?ARG4))) .
+removalSentence(?ASENT) :- imp#isAtomicSentence(?ASENT) and lookupSentence(?ASENT) .
+removalSentence(not(?ASENT)) :- imp#isAtomicSentence(?ASENT) and lookupSentence(not(?ASENT)) .
+removalSentence(?ASENT) :- imp#isAtomicSentence(?ASENT) and gpLookupSentence(?ASENT) .
+removalSentence(not(?P(?ARG1))) :- not hlPred(?P) and sbhlSentence(negationPreds(?P, ?NOTP)) and lookupSentence(?NOTP(?ARG1)) .
+removalSentence(not(?P(?ARG1, ?ARG2))) :- not hlPred(?P) and sbhlSentence(negationPreds(?P, ?NOTP)) and lookupSentence(?NOTP(?ARG1, ?ARG2)) .
+removalSentence(not(?P(?ARG1, ?ARG2, ?ARG3))) :- not hlPred(?P) and sbhlSentence(negationPreds(?P, ?NOTP)) and lookupSentence(?NOTP(?ARG1, ?ARG2, ?ARG3)) .
+removalSentence(not(?P(?ARG1, ?ARG2))) :- not hlPred(?P) and sbhlSentence(negationInverse(?P, ?NOTP)) and lookupSentence(?NOTP(?ARG2, ?ARG1)) .
+removalSentence(isa(?OBJ, ?COL)) :- %silkb#isGround(?OBJ)@builtin and %silkb#isGround(?COL)@builtin and sbhlSentence(isa(?OBJ, ?COL)) .
+removalSentence(not(isa(?OBJ, ?COL))) :- %silkb#isGround(?OBJ)@builtin and %silkb#isGround(?COL)@builtin and sbhlSentence(not(isa(?OBJ, ?COL))) .
+removalSentence(isa(?OBJ, ?COL)) :- %silkb#isGround(?OBJ)@builtin and not %silkb#isGround(?COL)@builtin and sbhlSentence(isa(?OBJ, ?COL)) .
+removalSentence(isa(?OBJ, ?COL)) :- %silkb#isGround(?COL)@builtin and not %silkb#isGround(?OBJ)@builtin and sbhlSentence(isa(?OBJ, ?COL)) .
+removalSentence(nearestIsa(?OBJ, ?COL)) :- %silkb#isGround(?OBJ)@builtin and not %silkb#isGround(?COL)@builtin and sbhlSentence(nearestIsa(?OBJ, ?COL)) .
+removalSentence(genls(?SPEC, ?GENL)) :- %silkb#isGround(?SPEC)@builtin and %silkb#isGround(?GENL)@builtin and sbhlSentence(genls(?SPEC, ?GENL)) .
+removalSentence(not(genls(?SPEC, ?GENL))) :- %silkb#isGround(?SPEC)@builtin and %silkb#isGround(?GENL)@builtin and sbhlSentence(not(genls(?SPEC, ?GENL))) .
+removalSentence(genls(?SPEC, ?GENL)) :- %silkb#isGround(?SPEC)@builtin and not %silkb#isGround(?GENL)@builtin and sbhlSentence(genls(?SPEC, ?GENL)) .
+removalSentence(genls(?SPEC, ?GENL)) :- %silkb#isGround(?GENL)@builtin and not %silkb#isGround(?SPEC)@builtin and sbhlSentence(genls(?SPEC, ?GENL)) .
+removalSentence(disjointWith(?COL1, ?COL2)) :- %silkb#isGround(?COL1)@builtin and %silkb#isGround(?COL2)@builtin and sbhlSentence(disjointWith(?COL1, ?COL2)) .
+removalSentence(genlPreds(?LOW, ?HIGH)) :- %silkb#isGround(?LOW)@builtin and %silkb#isGround(?HIGH)@builtin and sbhlSentence(genlPreds(?LOW, ?HIGH)) .
+removalSentence(genlPreds(?LOW, ?HIGH)) :- %silkb#isGround(?LOW)@builtin and not %silkb#isGround(?HIGH)@builtin and sbhlSentence(genlPreds(?LOW, ?HIGH)) .
+removalSentence(genlPreds(?LOW, ?HIGH)) :- %silkb#isGround(?HIGH)@builtin and not %silkb#isGround(?LOW)@builtin and sbhlSentence(genlPreds(?LOW, ?HIGH)) .
+removalSentence(negationPreds(?A, ?B)) :- %silkb#isGround(?A)@builtin and %silkb#isGround(?B)@builtin and sbhlSentence(negationPreds(?A, ?B)) .
+removalSentence(genlMt(?LOW, ?HIGH)) :- %silkb#isGround(?LOW)@builtin and %silkb#isGround(?HIGH)@builtin and sbhlSentence(genlMt(?LOW, ?HIGH)) .
+removalSentence(genlMt(?LOW, ?HIGH)) :- %silkb#isGround(?LOW)@builtin and not %silkb#isGround(?HIGH)@builtin and sbhlSentence(genlMt(?LOW, ?HIGH)) .
+removalSentence(genlMt(?LOW, ?HIGH)) :- not %silkb#isGround(?LOW)@builtin and %silkb#isGround(?HIGH)@builtin and sbhlSentence(genlMt(?LOW, ?HIGH)) .
+removalSentence(termOfUnit(?NART, ?NAUT)) :- %silkb#isGround(?NART)@builtin and assertedSentence(termOfUnit(?NART, ?NAUT)) .
+removalSentence(natFunction(?NART, ?F)) :- assertedSentence(termOfUnit(?NART, ?NAUT)) and operatorFormulas(?F, ?NAUT) .
+removalSentence(?EVASENT) :- %silkb#isGround(?EVASENT)@builtin and operatorFormulas(?P, ?EVASENT) and imp#evaluatablePredicate(?P) and imp#evaluateSentence(?EVASENT) .
+removalSentence(not(?EVASENT)) :- %silkb#isGround(?EVASENT)@builtin and operatorFormulas(?P, ?EVASENT) and imp#evaluatablePredicate(?P) and not imp#evaluateSentence(?EVASENT) .
+removalSentence(evaluate(?ANS, ?EVAEXP)) :- %silkb#isGround(?EVAEXP)@builtin and operatorFormulas(?F, ?EVAEXP) and imp#evaluatableFunction(?F) and imp#evaluateTerm(?ANS, ?EVAEXP) .
+removalSentence(?ASENT) :- %silkb#isGround(?ASENT)@builtin and operatorFormulas(?PRED, ?ASENT) and %silkb#isGround(?PRED)@builtin and not hlPred(?PRED) and imp#tvaPredicate(?PRED) and tvaSentence(?ASENT) .
+removalSentence(memberOfList(?X, ?LIST)) :- %silkb#isGround(?X)@builtin and %silkb#isGround(?LIST)@builtin and %silkb#isList(?LIST)@builtin and imp#listMember(?X, ?LIST) .
+removalSentence(memberOfList(?X, ?LIST)) :- not %silkb#isGround(?X)@builtin and %silkb#isGround(?LIST)@builtin and %silkb#isList(?LIST)@builtin and imp#listMember(?X, ?LIST) .
+removalSentence(extentCardinality(?SET, ?CARD)) :- %silkb#isGround(?SET)@builtin and imp#setCardinality(?CARD, ?SET) .
+removalSentence(lengthOfList(?LIST, ?LEN)) :- %silkb#isGround(?LIST)@builtin and imp#listLength(?LEN, ?LIST) .
+removalSentence(elementOf(?X, ?SET)) :- %silkb#isGround(?X)@builtin and %silkb#isGround(?SET)@builtin and imp#setElement(?X, ?SET) .
+removalSentence(elementOf(?X, ?SET)) :- not %silkb#isGround(?X)@builtin and %silkb#isGround(?SET)@builtin and imp#setElement(?X, ?SET) .
+removalSentence(?PTRANS(?A, ?C)) :- %silkb#isGround(?PTRANS)@builtin and not hlPred(?PTRANS) and %silkb#isGround(?A)@builtin and not %silkb#isGround(?C)@builtin and sbhlSentence(isa(?PTRANS, TransitiveBinaryPredicate)) and transitivitySentence(?PTRANS(?A, ?C)) .
+removalSentence(?PTRANS(?A, ?C)) :- %silkb#isGround(?PTRANS)@builtin and not hlPred(?PTRANS) and not %silkb#isGround(?A)@builtin and %silkb#isGround(?C)@builtin and sbhlSentence(isa(?PTRANS, TransitiveBinaryPredicate)) and transitivitySentence(?PTRANS(?A, ?C)) .
+removalSentence(?PTRANS(?A, ?C)) :- %silkb#isGround(?PTRANS(?A, ?C))@builtin and not hlPred(?PTRANS) and sbhlSentence(isa(?PTRANS, TransitiveBinaryPredicate)) and transitivitySentence(?PTRANS(?A, ?C)) .
+removalSentence(?PREF(?A, ?B)) :- %silkb#isGround(?PREF)@builtin and not hlPred(?PREF) and %silkb#isGround(?A)@builtin and not %silkb#isGround(?B)@builtin and sbhlSentence(isa(?PREF, ReflexiveBinaryPredicate)) and ?A = ?B .
+removalSentence(?PREF(?A, ?B)) :- %silkb#isGround(?PREF)@builtin and not hlPred(?PREF) and not %silkb#isGround(?A)@builtin and %silkb#isGround(?B)@builtin and sbhlSentence(isa(?PREF, ReflexiveBinaryPredicate)) and ?A = ?B .
+removalSentence(?PREF(?A, ?A)) :- %silkb#isGround(?PREF)@builtin and not hlPred(?PREF) and %silkb#isGround(?A)@builtin and sbhlSentence(isa(?PREF, ReflexiveBinaryPredicate)) .
+removalSentence(?PSYM(?A, ?B)) :- %silkb#isGround(?PSYM)@builtin and not hlPred(?PSYM) and sbhlSentence(isa(?PSYM, SymmetricBinaryPredicate)) and lookupSentence(?PSYM(?B, ?A)) .
+removalSentence(equalSymbols(?X, ?Y)) :- %silkb#isGround(?X)@builtin and %silkb#isGround(?Y)@builtin and ?X = ?Y .
+removalSentence(equalSymbols(?X, ?Y)) :- %silkb#isGround(?X)@builtin and not %silkb#isGround(?Y)@builtin and ?X = ?Y .
+removalSentence(equalSymbols(?X, ?Y)) :- not %silkb#isGround(?X)@builtin and %silkb#isGround(?Y)@builtin and ?X = ?Y .
+removalSentence(?PRED(?INS, ?VAL)) :- %silkb#isGround(?PRED)@builtin and %silkb#isGround(?INS)@builtin and %silkb#isGround(?VAL)@builtin and lookupSentence(relationAllInstance(?PRED, ?COL, ?VAL)) and sbhlSentence(isa(?INS, ?COL)) .
+removalSentence(?PRED(?INS, ?VAL)) :- %silkb#isGround(?PRED)@builtin and %silkb#isGround(?INS)@builtin and not %silkb#isGround(?VAL)@builtin and sbhlSentence(isa(?INS, ?COL)) and lookupSentence(relationAllInstance(?PRED, ?COL, ?VAL)) .
+removalSentence(not(?ASENT)) :- %silkb#isGround(?ASENT)@builtin and imp#isAtomicSentence(?ASENT) and imp#wffRejectedSentence(?ASENT) .
+removalSentence(not(?ASENT)) :- %silkb#isGround(?ASENT)@builtin and imp#decidableAsent(?ASENT) and not removalSentence(?ASENT) .
+removalSentence(trueSentence(?ASENT)) :- %silkb#isGround(?ASENT)@builtin and imp#isAtomicSentence(?ASENT) and removalSentence(?ASENT) .
+removalSentence(unknownSentence(?ASENT)) :- %silkb#isGround(?ASENT)@builtin and imp#isAtomicSentence(?ASENT) and not removalSentence(?ASENT) .
+removalSentence(assertedSentence(?ASENT)) :- imp#isAtomicSentence(?ASENT) and lookupSentence(?ASENT) .
+removalSentence(admittedArgument(?TERM, ?N, ?RELN)) :- %silkb#isGround(?TERM)@builtin and %silkb#isGround(?N)@builtin and %silkb#isGround(?RELN)@builtin and imp#wffAdmittedArgument(?TERM, ?N, ?RELN) .
+impPred(imp#transformationPredicate) .
+imp#transformationPredicate(?P) :- %silkb#isGround(?P)@builtin and not hlPred(?P) and not backchainForbidden(?P) .
+impPred(backwardSentence) .
+impPred(transformationSentence) .
+?P() :- imp#transformationPredicate(?P) and transformationSentence(?P()) .
+?P(?ARG1) :- imp#transformationPredicate(?P) and transformationSentence(?P(?ARG1)) .
+?P(?ARG1, ?ARG2) :- imp#transformationPredicate(?P) and transformationSentence(?P(?ARG1, ?ARG2)) .
+?P(?ARG1, ?ARG2, ?ARG3) :- imp#transformationPredicate(?P) and transformationSentence(?P(?ARG1, ?ARG2, ?ARG3)) .
+?P(?ARG1, ?ARG2, ?ARG3, ?ARG4) :- imp#transformationPredicate(?P) and transformationSentence(?P(?ARG1, ?ARG2, ?ARG3, ?ARG4)) .
+neg ?P() :- imp#transformationPredicate(?P) and transformationSentence(not(?P())) .
+neg ?P(?ARG1) :- imp#transformationPredicate(?P) and transformationSentence(not(?P(?ARG1))) .
+neg ?P(?ARG1, ?ARG2) :- imp#transformationPredicate(?P) and transformationSentence(not(?P(?ARG1, ?ARG2))) .
+neg ?P(?ARG1, ?ARG2, ?ARG3) :- imp#transformationPredicate(?P) and transformationSentence(not(?P(?ARG1, ?ARG2, ?ARG3))) .
+neg ?P(?ARG1, ?ARG2, ?ARG3, ?ARG4) :- imp#transformationPredicate(?P) and transformationSentence(not(?P(?ARG1, ?ARG2, ?ARG3, ?ARG4))) .
+transformationSentence(?ASENT) :- backwardSentence(?ASENT) .
+transformationSentence(not(?ASENT)) :- backwardSentence(not(?ASENT)) .
+transformationSentence(?ASENT) :- imp#isAtomicSentence(?ASENT) and imp#destructureFormula(?ASENT, ?P, ?ARGS) and sbhlSentence(genlPreds(?SPEC, ?P)) and ?SPEC != ?P and imp#destructureFormula(?ASENT2, ?SPEC, ?ARGS) and backwardSentence(?ASENT2) .
+transformationSentence(not(?ASENT)) :- imp#isAtomicSentence(?ASENT) and imp#destructureFormula(?ASENT, ?P, ?ARGS) and sbhlSentence(negationPreds(?P, ?NP)) and imp#destructureFormula(?ASENT2, ?NP, ?ARGS) and backwardSentence(?ASENT2) .
+transformationSentence(?SP(?ARG1, ?ARG2)) :- sbhlSentence(isa(?SP, SymmetricBinaryPredicate)) and backwardSentence(?SP(?ARG2, ?ARG1)) .
+transformationSentence(not(?ASENT)) :- imp#isAtomicSentence(?ASENT) and imp#destructureFormula(?ASENT, ?P, ?ARGS) and sbhlSentence(genlPreds(?P, ?GENL)) and ?GENL != ?P and imp#destructureFormula(?ASENT2, ?GENL, ?ARGS) and backwardSentence(not(?ASENT2)) .
+

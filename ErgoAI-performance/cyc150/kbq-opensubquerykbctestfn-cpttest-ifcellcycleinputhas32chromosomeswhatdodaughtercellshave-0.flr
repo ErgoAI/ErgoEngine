@@ -1,0 +1,139 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ: ( : $OpenSubqueryKBCTestFn  : $CPTTest-IfCellCycleInputHas32ChromosomesWhatDoDaughterCellsHave) (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(BiologyMt, iteratedSubsituationTypeOfSerialCycleType(TheCellCycle, CellCycle)).
+istAsserted(UniversalVocabularyMt, genls(TheEukaryoticCellCycle, TheCellCycle)).
+istAsserted(BaseKB, iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, EukaryoticCellCycle)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(BiologyMt, genls(EukaryoticCellCycle, CellCycle)).
+istAsserted(BiologyMt, uniqueProperPhysicalPartTypes(Cell, PartTypeEntirePortionFn(Cell, Cytoplasm))).
+
+// Implicit Background Rules
+forwardSentence(relationAllExistsCount(?PRED, ?COL1, ?COL2, 1)) :- removalSentence(relationAllExistsUnique(?PRED, ?COL1, ?COL2)).
+forwardSentence(relationAllExistsUnique(?PRED, ?COL1, ?COL2)) :- removalSentence(relationAllExistsCount(?PRED, ?COL1, ?COL2, 1)).
+forwardSentence(genls(?SPEC_ITERATION, ?GEN_ITERATION)) :- removalSentence(iteratedSubsituationTypeOfSerialCycleType(?SPEC_CYCLE, ?SPEC_ITERATION)), removalSentence(iteratedSubsituationTypeOfSerialCycleType(?GEN_CYCLE, ?GEN_ITERATION)), removalSentence(genls(?SPEC_CYCLE, ?GEN_CYCLE)).
+forwardSentence(relationAllExistsCount(properPhysicalParts, ?OBJECT_TYPE, ?PART_TYPE, ?NUMBER)) :- removalSentence(properPhysicalPartTypeCount(?OBJECT_TYPE, ?PART_TYPE, ?NUMBER)).
+forwardSentence(properPhysicalPartTypeCount(?BIG, ?SMALL, 1)) :- removalSentence(uniqueProperPhysicalPartTypes(?BIG, ?SMALL)).
+
+// Explicit Background Facts
+
+// Explicit Background Rules
+backwardSentence(relationInstanceExistsCount(?RELATION, ?INSTANCE, ?TYPE2, ?NUM)) :- mtVisible(BaseKB), naf backchainForbidden(relationInstanceExistsCount), relationAllExistsCount(?RELATION, ?TYPE1, ?TYPE2, ?NUM), isa(?INSTANCE, ?TYPE1).
+backwardSentence(not(isa(?INSTANCE, ?TYPE1))) :- mtVisible(BaseKB), naf backchainForbidden(isa), relationAllExistsCount(?RELATION, ?TYPE1, ?TYPE2, ?NUM), not(relationInstanceExistsCount(?RELATION, ?INSTANCE, ?TYPE2, ?NUM)).
+backwardSentence(not(relationAllExistsCount(?RELATION, ?TYPE1, ?TYPE2, ?NUM))) :- mtVisible(BaseKB), naf backchainForbidden(relationAllExistsCount), isa(?INSTANCE, ?TYPE1), not(relationInstanceExistsCount(?RELATION, ?INSTANCE, ?TYPE2, ?NUM)).
+forwardSentence(relationInstanceExistsCount(properPhysicalParts, ?CELL, EukaryoticChromosome, ?N)) :- removalSentence(cellHasNumberOfChromosomes(?CELL, ?N)).
+backwardSentence(cellHasNumberOfChromosomes(?OUTPUT, ?N)) :- mtVisible(BiologyMt), naf backchainForbidden(cellHasNumberOfChromosomes), daughterCells(?CC, ?OUTPUT), parentCell(?CC, ?INPUT), cellHasNumberOfChromosomes(?INPUT, ?N), isa(?CC, CellCycle).
+backwardSentence(not(isa(?CC, CellCycle))) :- mtVisible(BiologyMt), naf backchainForbidden(isa), daughterCells(?CC, ?OUTPUT), parentCell(?CC, ?INPUT), cellHasNumberOfChromosomes(?INPUT, ?N), not(cellHasNumberOfChromosomes(?OUTPUT, ?N)).
+backwardSentence(not(daughterCells(?CC, ?OUTPUT))) :- mtVisible(BiologyMt), naf backchainForbidden(daughterCells), parentCell(?CC, ?INPUT), cellHasNumberOfChromosomes(?INPUT, ?N), isa(?CC, CellCycle), not(cellHasNumberOfChromosomes(?OUTPUT, ?N)).
+backwardSentence(not(parentCell(?CC, ?INPUT))) :- mtVisible(BiologyMt), naf backchainForbidden(parentCell), daughterCells(?CC, ?OUTPUT), cellHasNumberOfChromosomes(?INPUT, ?N), isa(?CC, CellCycle), not(cellHasNumberOfChromosomes(?OUTPUT, ?N)).
+backwardSentence(not(cellHasNumberOfChromosomes(?INPUT, ?N))) :- mtVisible(BiologyMt), naf backchainForbidden(cellHasNumberOfChromosomes), daughterCells(?CC, ?OUTPUT), parentCell(?CC, ?INPUT), isa(?CC, CellCycle), not(cellHasNumberOfChromosomes(?OUTPUT, ?N)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259985', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259985', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-EukaryoticCellCycle-259986', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259985', MtTimeDimFn(Now)), isa('HYP-EukaryoticCellCycle-259986', EukaryoticCellCycle)).
+istAsserted(UniversalVocabularyMt, isa('HYP-DiploidCell-259987', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259985', MtTimeDimFn(Now)), isa('HYP-DiploidCell-259987', DiploidCell)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Cell-259988', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259985', MtTimeDimFn(Now)), isa('HYP-Cell-259988', Cell)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259985', MtTimeDimFn(Now)), parentCell('HYP-EukaryoticCellCycle-259986', 'HYP-DiploidCell-259987')).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259985', MtTimeDimFn(Now)), cellHasNumberOfChromosomes('HYP-DiploidCell-259987', 32)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259985', MtTimeDimFn(Now)), daughterCells('HYP-EukaryoticCellCycle-259986', 'HYP-Cell-259988')).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259985')).
+//REMOVED TITLE('KBQ ( : $OpenSubqueryKBCTestFn  : $CPTTest-IfCellCycleInputHas32ChromosomesWhatDoDaughterCellsHave) 0').
+%pretest :- relationInstanceExistsCount(properPhysicalParts, 'HYP-Cell-259988', ?TYPE, ?N), %write_results('SUCCESS ( : $OpenSubqueryKBCTestFn  : $CPTTest-IfCellCycleInputHas32ChromosomesWhatDoDaughterCellsHave) 0').
+
+// Debugging
+proof(3849, 0) :- isa('HYP-Cell-259988', Cell).
+proof(3849, 1) :- isa('HYP-Cell-259988', Cell).
+proof(3849, 2) :- relationAllExistsCount(properPhysicalParts, Cell, PartTypeEntirePortionFn(Cell, Cytoplasm), 1).
+proof(3849, 3) :- relationAllExistsCount(properPhysicalParts, Cell, PartTypeEntirePortionFn(Cell, Cytoplasm), 1).
+proof(3849, 4) :- relationAllExistsCount(properPhysicalParts, Cell, PartTypeEntirePortionFn(Cell, Cytoplasm), 1).
+proof(3849, 5) :- isa('HYP-Cell-259988', Cell), relationAllExistsCount(properPhysicalParts, Cell, PartTypeEntirePortionFn(Cell, Cytoplasm), 1).
+proof(3849, 6) :- relationInstanceExistsCount(properPhysicalParts, 'HYP-Cell-259988', PartTypeEntirePortionFn(Cell, Cytoplasm), 1).
+proof(3849, 7) :- parentCell('HYP-EukaryoticCellCycle-259986', 'HYP-DiploidCell-259987').
+proof(3849, 8) :- parentCell('HYP-EukaryoticCellCycle-259986', 'HYP-DiploidCell-259987').
+proof(3849, 9) :- isa('HYP-EukaryoticCellCycle-259986', CellCycle).
+proof(3849, 10) :- daughterCells('HYP-EukaryoticCellCycle-259986', 'HYP-Cell-259988').
+proof(3849, 11) :- cellHasNumberOfChromosomes('HYP-DiploidCell-259987', 32).
+proof(3849, 12) :- cellHasNumberOfChromosomes('HYP-DiploidCell-259987', 32).
+proof(3849, 13) :- isa('HYP-EukaryoticCellCycle-259986', CellCycle), daughterCells('HYP-EukaryoticCellCycle-259986', 'HYP-Cell-259988'), cellHasNumberOfChromosomes('HYP-DiploidCell-259987', 32).
+proof(3849, 14) :- isa('HYP-EukaryoticCellCycle-259986', CellCycle), cellHasNumberOfChromosomes('HYP-DiploidCell-259987', 32), daughterCells('HYP-EukaryoticCellCycle-259986', 'HYP-Cell-259988').
+proof(3849, 15) :- isa('HYP-EukaryoticCellCycle-259986', CellCycle), cellHasNumberOfChromosomes('HYP-DiploidCell-259987', 32), parentCell('HYP-EukaryoticCellCycle-259986', 'HYP-DiploidCell-259987'), daughterCells('HYP-EukaryoticCellCycle-259986', 'HYP-Cell-259988').
+proof(3849, 16) :- cellHasNumberOfChromosomes('HYP-Cell-259988', 32).
+proof(3849, 17) :- relationInstanceExistsCount(properPhysicalParts, 'HYP-Cell-259988', EukaryoticChromosome, 32).
+
+proof(3849, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(3849, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(3849, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(3849, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(3849, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(3849, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(3849, 1006) :- iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, EukaryoticCellCycle).
+proof(3849, 1007) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(3849, 1008) :- genls(EukaryoticCellCycle, CellCycle).
+proof(3849, 1009) :- properPhysicalPartTypeCount(Cell, PartTypeEntirePortionFn(Cell, Cytoplasm), 1).
+proof(3849, 1010) :- relationAllExistsUnique(properPhysicalParts, Cell, PartTypeEntirePortionFn(Cell, Cytoplasm)).
+proof(3849, 1011) :- relationAllExistsCount(properPhysicalParts, Cell, PartTypeEntirePortionFn(Cell, Cytoplasm), 1).
+
+proof(3849, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-259985', 1, genlMt).
+proof(3849, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-259985', 2, genlMt).
+proof(3849, 2002) :- admittedArgument(SecondFn(13, MinuteFn(26, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(3849, 2003) :- admittedArgument(SecondFn(13, MinuteFn(26, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(3849, 2004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259985'), UniversalVocabularyMt).
+proof(3849, 2005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259985'), BaseKB).
+proof(3849, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259985'), BiologyMt).
+proof(3849, 2007) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259985'), MtSpace('Hypothesis-HypotheticalContext-259985', MtTimeDimFn(Now))).
+proof(3849, 2008) :- genls(TheEukaryoticCellCycle, TheCellCycle).
+proof(3849, 2009) :- isa('HYP-EukaryoticCellCycle-259986', CellCycle).
+proof(3849, 2010) :- isa('HYP-Cell-259988', Cell). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

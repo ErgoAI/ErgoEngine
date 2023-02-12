@@ -1,0 +1,241 @@
+/* File:      flrxmllib.flr
+** Author(s): Rohan Shirwaikar
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2017.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options{production=on}.
+
+:- nontabled_module.
+
+:- symbol_context{\in_arc/0, \in_child_arc/1, \child/1, show/0, show/1,
+                    apply_xpath(?,?,?,?,?,?)@?
+        }.
+:- prolog{is_nav_prop/1, is_xml_object/1, apply_xpath/4}.
+
+:- suppress_rule_signatures.
+:- export{
+        ensure_loaded,
+        ?[xpath_xml(?,?,?)->?],
+        //?[xpath_sgml(?,?,?)->?],
+        //?[xpath_html(?,?,?)->?],
+        ?[xpath_xhtml(?,?,?)->?],
+	?[load_xml(?) -> ?],
+	?[load_sgml(?) -> ?],
+	?[load_html(?) -> ?],
+	?[load_xhtml(?) -> ?],
+	?[show -> ?],
+	?[show(?) -> ?],
+
+        parse_structure(?,?,?,?),
+        apply_xpath(?,?,?,?,?,?),
+
+        set_mode(?),
+        get_mode(?),
+	flrelement(?_,?_,?_,?_),
+	flrattribute(?_,?_,?_,?_),
+	flrattributefunc(?_,?_,?_,?_,?_)}.
+
+// enable debug
+//?- set_mode(debug).
+
+ensure_loaded :- !.
+
+set_mode(?M) :- set_mode(?M)@\prolog(flrxml).
+get_mode(?M) :- get_mode(?M)@\prolog(flrxml).
+
+flrelement(?Obj, ?EltNam, ?Child, ?Mod) :-
+	flrxml_newoid(?Child)@\prolog(flrxml),
+	\unless isloaded{?Mod}  \do newmodule{?Mod}, 
+	insert{?Obj[?EltNam->?Child]@?Mod},
+	\if get_mode(debug)
+        \then writeln(${?Obj[?EltNam->?Child]@?Mod})@\io,
+	!.
+
+flrattribute(?Obj, ?AttrNam, ?Val, ?Mod) :- 
+	\unless isloaded{?Mod}  \do newmodule{?Mod}, 
+	insert{?Obj[?AttrNam->?Val]@?Mod},
+	\if get_mode(debug)
+        \then writeln(${?Obj[?AttrNam->?Val]@?Mod})@\io,
+	!.
+flrattributefunc(?Obj, ?AttrNam, ?Num, ?Val, ?Mod):- 
+	\unless isloaded{?Mod}  \do newmodule{?Mod}, 
+	insert{?Obj[?AttrNam(?Num)->?Val]@?Mod},
+	\if get_mode(debug)
+        \then writeln(${?Obj[?AttrNam(?Num)->?Val]@?Mod})@\io,
+	!.
+
+?InDoc[xpath_xml(?XPathExpr,?NamespacePrefLst,?Mod) -> ?Warn] :-
+        apply_xpath(?InDoc,?XPathExpr,?NamespacePrefLst,?SelectedDoc),
+	string(?SelectedDoc)[load_xml(?Mod) -> ?Warn].
+
+?InDoc[xpath_sgml(?XPathExpr,?NamespacePrefLst,?Mod) -> ?Warn] :-
+        apply_xpath(?InDoc,?XPathExpr,?NamespacePrefLst,?SelectedDoc),
+	string(?SelectedDoc)[load_sgml(?Mod) -> ?Warn].
+
+?InDoc[xpath_html(?XPathExpr,?NamespacePrefLst,?Mod) -> ?Warn] :-
+        apply_xpath(?InDoc,?XPathExpr,?NamespacePrefLst,?SelectedDoc),
+	string(?SelectedDoc)[load_html(?Mod) -> ?Warn].
+
+?InDoc[xpath_xhtml(?XPathExpr,?NamespacePrefLst,?Mod) -> ?Warn] :-
+        apply_xpath(?InDoc,?XPathExpr,?NamespacePrefLst,?SelectedDoc),
+	string(?SelectedDoc)[load_xhtml(?Mod) -> ?Warn].
+
+// apply XPathExpr to InDoc to get SelectedDoc
+apply_xpath(?InDoc,?XPathExpr,?NamespacePrefLst,?SelectedDoc) :-
+        // if InDoc is atom, assume it is a file
+        (isatom{?InDoc} -->> ?Doc = file(?InDoc)
+        ; ?Doc = ?InDoc
+        ),
+	p2h{?DocP,?Doc},
+	parse_xpath(?DocP,?XPathExpr,?SelectedDoc,?NamespacePrefLst)@\prologall(xpath).
+
+// exported
+// ?InType: xml, xhtml only
+apply_xpath(?InDoc,?InType,?XPathExpr,?NamespacePrefLst,?Warn,?ParsedTerm) :-
+        apply_xpath(?InDoc,?XPathExpr,?NamespacePrefLst,?SelectedDoc),
+        parse_structure(string(?SelectedDoc)@\prolog,?InType,?Warn,?ParsedTerm).
+
+
+?InDoc[load_xml(?Mod) -> ?Warn] :-
+        (get_mode(data) -->> ?Space = [space(remove)]
+        ; ?Space = []
+        ),
+        load_structure(?InDoc, [dialect(xml)|?Space], ?Warn, ?Mod).
+
+?InDoc[load_sgml(?Mod) -> ?Warn] :-
+        load_structure(?InDoc, [dialect(sgml)],?Warn, ?Mod).
+
+?InDoc[load_html(?Mod) -> ?Warn] :-
+	dtd(html,?Dtd,?_Warn1)@\prolog(sgml),
+	load_structure(?InDoc, [?Dtd, dialect(sgml)], ?Warn, ?Mod).
+
+?InDoc[load_xhtml(?Mod) -> ?Warn] :-
+	dtd(xhtml,?Dtd,?_Warn1)@\prolog(sgml),
+	load_structure(?InDoc, [?Dtd, dialect(sgml)], ?Warn, ?Mod).
+
+// Just parse as Prolog term - low level, for hackers
+// parse_structure(+?InDoc, +?InType, -?Warn, -?ParsedTerm) :-
+//     InType = xml, sgml, html, xhtml
+parse_structure(?InDoc, ?InType, ?Warn, ?ParsedTerm) :-
+        // if InDoc is atom, assume it is a file
+        (isatom{?InDoc} -->> ?Doc = file(?InDoc)
+        ; ?Doc = ?InDoc
+        ),
+	p2h{?DocP,?Doc}, // source
+        (?InType == xml -->>
+            (get_mode(data) -->> ?Opt = [dialect(xml),space(remove)]
+            ; ?Opt = [dialect(xml)]
+            )
+        ; ?InType == sgml -->> ?Opt = [dialect(sgml)]
+        ; ?InType == html -->>
+            dtd(html,?Dtd,?_Warn1)@\prolog(sgml),
+            ?Opt = [?Dtd, dialect(sgml)]
+        ; ?InType == xhtml -->>
+            dtd(xhtml,?Dtd,?_Warn1)@\prologall(sgml),
+            ?Opt = [?Dtd, dialect(sgml)]
+        ),
+	// Don't convert ParsedTerm to HiLog: save the overhead of convertion
+	load_structure(?DocP, ?ParsedTerm, ?Opt, ?Warn)@\prolog(sgml).
+
+load_structure(?_, ?_, ?_, ?Mod) :- 
+	isvar{?Mod},
+	!,
+	sysabort('<XML import>: module name must be bound')@\sys.
+load_structure(?InDoc, ?Opt, ?Warn, ?Mod) :-
+        // if InDoc is atom, assume it is a file
+        (isatom{?InDoc} -->> ?Doc = file(?InDoc)
+        ; ?Doc = ?InDoc
+        ),
+	p2h{?DocP,?Doc}, // source
+	p2h{?OptP,?Opt}, // options
+	// Don't use prologall here.
+	// There is no need to convert ?ResultTerm to hilog and back.
+	// Also, XSB chokes on huge terms in p2h.
+	load_structure(?DocP, ?ResultTerm, ?OptP, ?Warn)@\prolog(sgml),
+	\if isloaded{?Mod}  \then erasemodule{?Mod}, 
+        !,
+	xml_parse_doc(?ResultTerm, ?Mod)@\prolog(flrxml),
+        (get_mode(navlinks)@\prolog(flrxml) -->> %insert_bridge_rules(?Mod)
+        ; \true
+        ),
+        // cut prevents backtracking here
+        !.
+
+%insert_bridge_rules(?Mod) :-
+	insertrule_z{
+	    (?O1[\in_arc -> ?InArc] :- ?[?InArc->?O1],
+                                    \+is_nav_prop(?InArc)@\xml,
+                                    is_xml_object(?O1)@\xml)@?Mod,
+	    (?O2[\parent -> ?O21] :- ?O21[?InArc2->?O2],
+                                       \+is_nav_prop(?InArc2)@\xml,
+                                       is_xml_object(?O2)@\xml)@?Mod,
+	    (?O3[\in_child_arc(?N) -> ?InArc] :-
+                                     ?O3[\child(?N)->?[\in_arc -> ?InArc]],
+                                     is_xml_object(?O3)@\xml)@?Mod
+	},
+	insertrule_z{
+	    (?O4[\childlist -> ?ChildList]:-
+		?ChildList = setof{?Child[?O41]|?O41[\child(?)->?Child],
+                                           is_xml_object(?O41)@\xml},
+                ?O4 = ?O41)@?Mod
+	},
+	insertrule_z{
+	    (?O6[\childcount -> ?Count ]:- 
+		 ?Count = count{?Child[?O61]|?O61[\child(?)->?Child],
+                                        is_xml_object(?O61)@\xml},
+                 ?O6 = ?O61)@?Mod
+	}.
+
+?Mod[show -> ${?S[?P->?O]@?Mod}] :-
+        ?S[?P->?O]@?Mod,
+        is_xml_object(?S),
+        \+ is_nav_prop(?P).
+
+// show element by name
+?Mod[show(?elementname) -> ${?S[?P->?O]@?Mod}] :-
+        isatom{?elementname},
+        !,
+        ?[?elementname->?S]@?Mod,
+        ?S[?P->?O]@?Mod,
+        is_xml_object(?S),
+        \+ is_nav_prop(?P).
+// if argument is an attribute, show the element of that attribute
+?Mod[show(attribute(?attrname)) -> ${?S[?P->?O]@?Mod}] :-
+        isatom{?attrname},
+        ?S[attribute(?attrname)->?]@?Mod,
+        ?S[?P->?O]@?Mod,
+        is_xml_object(?S),
+        \+ is_nav_prop(?P).
+
+is_nav_prop(\in_arc).
+is_nav_prop(\in_child_arc(?)).
+is_nav_prop(\child(?)).
+is_nav_prop(\parent).
+is_nav_prop(\leftsibling).
+is_nav_prop(\rightsibling).
+is_nav_prop(\childcount).
+is_nav_prop(\childlist).
+is_nav_prop(\order).
+//is_nav_prop(\content). // unclear why needed - not used
+//is_nav_prop(\string).  // not navigational
+
+is_xml_object(?X) :- \+ islist{?X}, \+ is_nav_prop(?X).

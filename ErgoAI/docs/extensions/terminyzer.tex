@@ -1,0 +1,242 @@
+\subsection{Non-termination Analysis}\label{sec-terminyzer}
+\index{non-termination}
+\index{Terminyzer}
+
+It is a fact of life that an \ERGO query might not terminate. In fact, due
+to the expressive power of \ERGO, it is \emph{undecidable} whether a query
+will terminate or not. However, \ERGO comes with a powerful analysis tool
+called \emph{Terminyzer} (for non-\emph{Termin}ation Anal\emph{yzer}),
+which can greatly help in determining whether a given query might not
+terminate.
+
+Terminyzer examines the trace of the query run and tries to detect symptoms
+of non-termination. Since the problem is fundamentally undecidable, it may
+not find any problems even if they exist and it may report a
+non-terminating loop falsely.  In some cases, the analysis might turn out
+to be too time consuming and thus not feasible.
+Details of the approach are given in \cite{terminyzer2,liang-padl-13}.
+It is guaranteed that Terminyzer will find a problematic loop \emph{given enough
+time}. But the time we have is limited and it is pointless to wait beyond
+10 or 15 minutes. When Terminyzer reports a loop, however, it means that
+the query will indeed not terminate or it might terminate after a very long
+period of time and the reported loop may be a computational
+bottleneck. It is worth to examine the reported loop and see if you can
+spot any inefficiency or redundancy.
+
+Non-termination can happen due to two reasons:
+%% 
+\begin{itemize}
+\item  the execution might be invoking some subgoals repeatedly, with
+  larger and larger arguments; or
+\item  some subgoal has an infinite number of answers.
+\end{itemize}
+%% 
+Here is a typical example of a non-terminating query due to the first reason:
+%% 
+\begin{verbatim}
+    p(a).
+    q(b).
+    p(?X) :- q(f1(?X)).
+    q(?X) :- p(f2(?X)).
+    ?- p(?X).
+\end{verbatim}
+%% 
+Clearly, the two rules on lines 3 and 4 repeatedly call each other with
+increasingly growing arguments f1(...), f1(f2(...)), f1(f2(f1(...)))
+etc., and Terminyzer will dutifully report the following:
+%% 
+\begin{verbatim}
+*** Report: subgoals that form a possibly infinite call loop ***
+    p(f2(f1(f2(f1(?A)))))@main
+        in rule on line 4, file test1.ergo, module main
+    q(f1(f2(f1(f2(f1(?A))))))@main
+        in rule on line 3, file test1.ergo, module main
+\end{verbatim}
+%% 
+The user can then examine the reported subgoals in the rules that occur at
+the specified lines and will easily see the problem. In general, several
+subgoals in several rules can be involved, and the larger the cycle the
+harder it is to understand what is going on. However, this is certainly
+much easier than manually finding and
+examining a sometimes astronomical number of possible loops in a
+knowledge base that has a few dozens to thousands of of rules.
+
+\index{call abstraction}
+If the cause of non-termination is sue to repeated calls to the same
+subgoals with increasingly large arguments, a simple remedy may sometimes
+help; it is called \emph{call abstraction}   and can be requested using the
+\texttt{setruntime} directive described in Section~\ref{sec-size-control}. 
+Call abstraction is a technique that the underlying XSB inference engine
+can use to prevent calls with increasingly deeply nested arguments by
+replacing deeply nested subterms with variables. In our example, subgoal
+abstraction at term size 5 will take the call
+such as
+%% 
+\begin{verbatim}
+    p(f1(f2(f1(f2(f1(?X))))))
+\end{verbatim}
+%% 
+and transform it into an equivalent call
+%% 
+\begin{verbatim}
+    p(f1(f2(f1(?Y)))), ?Y = f2(f1(?X))
+\end{verbatim}
+%% 
+The effect is that the new call has no more than 5 symbols and the first
+cause of non-termination is impossible. In our case, issuing the command
+%% 
+\begin{verbatim}
+    ?- setruntime{goalsize(5,abstract)}.
+\end{verbatim}
+%% 
+prior to running the query \texttt{p(?X)} would terminate the query with
+the answer 
+%% 
+\begin{verbatim}
+    ?X =  a
+\end{verbatim}
+%% 
+Call abstraction is no a panacea, however. In some cases, it may transform a
+non-terminating program with an infinite loop of subgoal calls into a
+non-terminating program in which some subgoal has an infinite number of
+answers. That is, the first cause of non-termination will morph into the
+second. To see if call abstraction might help your query, check the box
+``Abstract large subgoals?'' when you start Terminyzer (which is in the
+sequel).
+
+If the cause of non-termination is an infinite number of answers
+to some subgoal or a set of subgoals, Terminyzer will try to identify such
+subgoals. To illustrate, consider the following knowledge base and a query:
+%% 
+\begin{verbatim}
+    p(a).
+    q(b).
+    p(f1(?X)) :- q(?X).
+    q(f2(?X)) :- p(?X).
+    ?- p(?X).
+\end{verbatim}
+%% 
+This is similar to the previous query, but the function symbols are in the
+rule heads. It is easy to see that the query has the answers
+\texttt{p(f1(a))}, \texttt{p(f1(f2(f1(a))))},
+\texttt{p(f1(f2(f1(f2(f1(a))))))}, etc., ad infinity.
+In this case, Terminyzer will report
+%% 
+\begin{verbatim}
+*** Report: subgoals that form a possibly infinite answer-producing pattern ***
+    q(?A)@main
+        in rule on line 3, file test2.ergo, module main
+    p(?A)@main
+        in rule on line 4, file test2.ergo, module main
+\end{verbatim}
+%% 
+What this means is that answers to the subgoal \texttt{q(?A)} that 
+feeds into the rule on line 3 might cause production of new answers for the
+head \texttt{p(...)}. But the next line in the report says that production
+of new answers for \texttt{p(...)} might cause production of new answers
+for \texttt{q(...)} because \texttt{p(...)} feeds its answers into the rule
+on line 4, which generates answers for its head \texttt{q(...)}.
+
+\index{answer abstraction}
+In the rare case when
+you find that the knowledge base is correct and the infinite set of
+answers is inevitable, the computation will not terminate and one will not
+get any answers. However, not everything is lost. The engine also supports
+\emph{answer abstraction} --- a technique similar to call abstraction.
+Since we cannot cheat the nature, something will have to give, and what we
+have to give is precision.
+Executing both of these commands (where the sizes are chosen for the
+sake of an example):
+%% 
+\begin{verbatim}
+    ?- setruntime{goalsize(7,abstract)},
+       setruntime{answersize(3,abstract)}.
+\end{verbatim}
+%% 
+will give the following answers:
+%% 
+\begin{verbatim}
+    ?X = a
+    ?X = f1(b)
+    ?X = f1(f2(a))
+    ?X = f1(f2(f1(b)))
+    ?X = f1(f2(f1(?(?))))  - undefined
+\end{verbatim}
+%% 
+what this means is that we got four certain answers and the instances of
+the fifth answer are \emph{undefined}. This is because some of them are
+true answers and some are not. 
+
+Answer abstraction together with call abstraction is guaranteed to
+terminate any query that has the following properties:
+%% 
+\begin{itemize}
+\item  uses only tabled (non-transactional predicates and methods)
+\item  does not use arithmetic operators
+\item  does not perform updates of any kind.
+\end{itemize}
+%% 
+
+To see how Terminyzer works in practice, start \ERGO and load the knowledge
+base. Then type
+%% 
+\begin{verbatim}
+    terminyzer{}.
+\end{verbatim}
+%% 
+\index{tripwire}
+at the command prompt or select ``\emph{Use Terminyzer}'' 
+from the \emph{Debug} menu, if using the Studio. 
+
+If the monitor has graphical capabilities,
+a window will pop up with suggested values of various ``tripwires.''
+A tripwire is a condition that will cause XSB to pause if certain events happen.
+Terminyzer uses the following tripwires:
+%% 
+\begin{itemize}
+\item  \emph{timer}: the query computation will pause if a timeout occurs
+\item  \emph{goal size limit}: if the computation generates a subgoal of
+  the size exceeding the specified  number, the computation will pause;
+  the Terminyzer window also lets the user check a box to request that call
+  abstraction should be used.
+\item  \emph{answer size limit}: the computation will pause if a subgoal
+  answer gets generated that exceeds the given limit.
+\item  \emph{limit on the number of currently unfinished subgoals}:
+  the computation reaches the state where the number of unfinished subgoals
+  (that it is still trying to evaluate) exceeds the given limit.
+\end{itemize}
+%% 
+When the computation pauses, various messages will be printed for your
+perusal and Terminyzer will start its analysis. When it is done, a window
+will pop up telling you the results. It may find the problem on the first try
+and you should then try to find the problem in the knowledge base based on
+Terminyzer's report.  It is also possible that no problems were found.
+In that case, you might want to ask Terminyzer to try harder.
+
+When Terminyzer finishes its analysis, it asks the user whether to continue
+the analysis further or to stop. If you would like to continue, respond
+appropriately and the analysis will continue after you resume the query.
+(The query is not resumed by itself, giving the user an opportunity to change
+mind or to examine the reported statistics and to use other tools.)
+When the query is resumed, the computation will pause again if any of the
+tripwires is tripped. Note that if the pause happened due to the times then
+the timer is reset to the same value as before. If the pause was due to any
+other reason, say, reaching the goal size limit, that limit is
+automatically increased by 20\%. (Any other tripwire limit is not
+affected unless the computation pauses due to that tripwire.)
+
+Note that with each new pause the time it takes to analyze the computation
+increases, since Terminyzer now tries to look at a bigger chunk of the
+computation trace. It does try to give the user an idea about how long the
+wait might be, but it is only a very rough figure.
+
+Finally, if you decide to stop Terminyzer, this does not stop the query.
+You can still resume it, use other analysis tools, or you can abort it.
+
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

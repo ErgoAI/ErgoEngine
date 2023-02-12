@@ -1,0 +1,16 @@
+:- use_argumentation_theory{AT} .
+?- [atck2>>AT] .
+
+\#(?X,?Y) : \Exclusion[\opposers->{${\neg drive(?X, ?Y)}, ${atLoc(?X)}, ${destination(?Y)}}].
+@{action(?X, ?Y)} \neg destination(?Y) :- \neg drive(?X, ?Y), atLoc(?X).
+@{action(?X, ?Y)} \neg atLoc(?X) :- \neg drive(?X, ?Y), destination(?Y).
+@{action(?X, ?Y)} drive(?X, ?Y) :- atLoc(?X), destination(?Y).
+@{state} atLoc(Seattle) .
+@{goal} destination(Vancouver) .
+
+%tst1 :- write('drive_result=')@\plg, drive(?X,?Y), writeln(?X+?Y)@\plg.
+
+%test :-
+	tell(temp)@\plg(),
+	%tst1,
+	told@\plg.

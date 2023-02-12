@@ -1,0 +1,20 @@
+:- use_argumentation_theory.
+
+(?x : ?c) :- ?c(?x)@main .
+\neg ?c(?x) :- \neg (?x : ?c) .
+?c(?x) :- (?x : ?c) .
+\neg (?x : ?c) :- \neg ?c(?x)@main .
+
+\neg ?_sub(?x) :- \neg ?super(?x)@main .
+?_super(?x) :- ?sub(?x)@main .
+
+%tst1 :-
+	write('test1: ')@\plg,
+	?query : rif#PersistentQuery,
+	writeln(ok)@\plg.
+
+%pretest :- %tst1.
+
+%test :- tell(temp)@\plg(), 
+	%pretest,
+	told@\plg().

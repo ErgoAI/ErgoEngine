@@ -1,0 +1,184 @@
+/* File:      flrdatatype_utils.P  -- Utils for data types
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_characters.flh"
+#include "flora_tabling_methods.flh"
+
+:- import length/2, reverse/2 from basics.
+:- import
+	flora_abort/1,
+	flora_concat_strings/2
+   from flrporting.
+
+:- export
+	flora_toLower/2,
+	flora_toUpper/2,
+	flora_startsWith_list/2,
+	flora_second_repr/2,
+        flora_pad_to_length/3,
+	flora_cut_off_trailing_zeros/2,
+	flora_int_to_atom_with_leading_zeros/3.
+
+:- table flora_toLower/2 as AUXILIARY_TABLING_TYPE.
+:- table flora_toUpper/2 as AUXILIARY_TABLING_TYPE.
+
+
+%% Convert Integer to atom and pad 0's in front up to the desired length
+flora_int_to_atom_with_leading_zeros(Int,DesiredLength,Result) :-
+	number_codes(Int,IntChars),
+	length(IntChars,IntSize),
+	PadNum is max(0, DesiredLength - IntSize),
+	pad_with(IntChars,CH_0,PadNum,Result).
+
+
+pad_with(IntChars,_CharCode,PadNum,IntChars) :- PadNum < 1, !.
+pad_with(IntChars,CharCode,PadNum,Result) :-
+	PadNum > 0,
+	PaddedLst = [CharCode|IntChars],
+	PadNum1 is PadNum - 1,
+	pad_with(PaddedLst,CharCode,PadNum1,Result).
+
+%% representation for seconds
+flora_second_repr(Sec,Repr) :-
+	atom(Sec),
+	atom_codes(Sec,SecLst),
+	(SecLst==[] -> Num = 0
+	;
+	    number_codes(Num,SecLst)
+	),
+	flora_second_repr(Num,Repr),
+	!.
+flora_second_repr(Sec,Repr) :-
+	number(Sec),
+	!,
+	IntPart is truncate(Sec),
+	Frac is Sec-IntPart,
+	frac_repr(Frac,FracRepr),
+	flora_int_to_atom_with_leading_zeros(IntPart,2,IntRepr),
+	flora_concat_strings([IntRepr,FracRepr],Repr).
+flora_second_repr(Sec,_Repr) :-
+	flora_abort(['invalid specification for seconds, ', Sec]).
+
+%% This is a bit dirty: just returns the 6 significant digits of the fraction
+%% and rounds up the rest
+frac_repr(Frac,FracRepr) :-
+	%% rounding might help with floats imprecision: if it does, use it
+	Frac1 is round(Frac*1000000)/1000000,
+	(Frac1 < Frac -> Frac2 = Frac ; Frac2 = Frac1),
+
+	(Frac2 > 0
+	-> number_codes(Frac2,Codes1),
+	    %% keep second fractions up to 1 millionth
+            length(Codes1,CharsInFrac),
+            (CharsInFrac >= 7 ->
+                Codes1 = [_,C1,C2,C3,C4,C5,C6|_],
+                CodesPre = [C1,C2,C3,C4,C5,C6]
+            ; CharsInFrac == 6 ->
+                Codes1 = [_,C1,C2,C3,C4,C5|_],
+                CodesPre = [C1,C2,C3,C4,C5]
+            ; CharsInFrac == 5 ->
+                Codes1 = [_,C1,C2,C3,C4|_],
+                CodesPre = [C1,C2,C3,C4]
+            ; CharsInFrac == 4 ->
+                Codes1 = [_,C1,C2,C3|_],
+                CodesPre = [C1,C2,C3]
+            ; CharsInFrac == 3 ->
+                Codes1 = [_,C1,C2|_],
+                CodesPre = [C1,C2]
+            ; Codes1 = [_,C1|_],
+                CodesPre = [C1,0'0]
+            ),
+	    flora_cut_off_trailing_zeros(CodesPre,FracRepr)
+	;
+	    FracRepr = ""
+	).
+
+flora_cut_off_trailing_zeros(Codes,CodesOut) :-
+	reverse(Codes,RCodes),
+	cut_off_leading_zeros(RCodes,RCodes1),
+	%% make sure to remove the decimal dot, if no digits are left after it
+	(RCodes1 = [CH_DOT|Rest] -> RCodes2 = Rest
+        ; RCodes2 = RCodes1
+        ),
+	reverse(RCodes2,CodesOut).
+
+cut_off_leading_zeros([],[]) :- !.
+cut_off_leading_zeros([CH_0|Rest],Result) :-
+	!,
+	cut_off_leading_zeros(Rest,Result).
+cut_off_leading_zeros(Rest,Rest).
+
+
+flora_toLower(Atom,Result) :-
+	atom_codes(Atom,ACodes),
+	flora_toLower_list(ACodes,ACodesResult),
+	atom_codes(Result,ACodesResult).
+
+flora_toLower_list([],[]) :- !.
+flora_toLower_list([C|CodeL],[C1|CodeLResult]) :-
+	toLowerCode(C,C1),
+	flora_toLower_list(CodeL,CodeLResult).
+
+toLowerCode(C,C1) :-
+	C >= CH_A, C =< CH_Z,
+	!,
+	C1 is C + (CH_a - CH_A).
+toLowerCode(C,C).
+
+flora_toUpper(Atom,Result) :-
+	atom_codes(Atom,ACodes),
+	flora_toUpper_list(ACodes,ACodesResult),
+	atom_codes(Result,ACodesResult).
+
+flora_toUpper_list([],[]) :- !.
+flora_toUpper_list([C|CodeL],[C1|CodeLResult]) :-
+	toUpperCode(C,C1),
+	flora_toUpper_list(CodeL,CodeLResult).
+
+toUpperCode(C,C1) :-
+	C >= CH_a, C =< CH_z,
+	!,
+	C1 is C + (CH_A - CH_a).
+toUpperCode(C,C).
+
+
+flora_startsWith_list(_List,[]) :- !.
+flora_startsWith_list([H|RestList],[H|RestSubList]) :-
+	flora_startsWith_list(RestList,RestSubList).
+
+
+%% pad list from front with 0's to certain length
+flora_pad_to_length(PadLen,InList,OutList) :-
+        basics:length(InList,CurrLen),
+        pad_to_length(CurrLen,PadLen,InList,OutList).
+pad_to_length(CurrLen,PadLen,List,List) :-
+        CurrLen >= PadLen,
+        !.
+pad_to_length(CurrLen,PadLen,InList,OutList) :-
+        NewLen is CurrLen+1,
+        pad_to_length(NewLen,PadLen,[0|InList],OutList).

@@ -1,0 +1,87 @@
+/* File:      flroptimize.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**      Coherent Knowledge Systems, LLC, 2014-2018
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+%% THIS WILL LIKELY BE DEPRECATED - NO LONGER CAN WE SEE A DIFFERENCE
+%% USING THIS FLAG (FLORA_LOCAL_OVERRIDE_OPTION)
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+#include "flora_porting.flh"
+
+:- import flora_abolish_nonincremental_tables/0 from flrtables.
+:- import
+        flora_set_runtime_switch_registry/2,
+        flora_clear_runtime_switch_registry/2,
+        flora_runtime_switch_registry/2
+   from flrregistry.
+:- import
+	flora_storage_check_module_name/1
+   from flrstorageutils.
+:- import flora_abort/2 from flrporting.
+
+:- export
+	'\\optimize'/1,
+	'\\optimize'/2,
+	'\\resetoptimization'/1,
+	'\\resetoptimization'/2.
+
+%% List all valid optimization options here
+switch_type(FLORA_LOCAL_OVERRIDE_OPTION).
+
+check_option(Option) :-
+	(switch_type(Option), !
+        ; flora_abort(['Invalid ', FLSYSTEM, ' runtime optimization option, ', Option], FLORA_ABORT_NOTRACE)
+	).
+
+'\\optimize'(Option) :-
+	check_option(Option),
+	(
+	    flora_runtime_switch_registry(Option,Module), var(Module), !
+	;   flora_set_runtime_switch_registry(Option,_)
+	),
+	flora_abolish_nonincremental_tables.
+	
+'\\optimize'(Option,Module) :-
+	check_option(Option),
+	flora_storage_check_module_name(Module),
+	(
+	    flora_runtime_switch_registry(Option,Module), !
+	;   flora_set_runtime_switch_registry(Option,Module)
+	),
+	flora_abolish_nonincremental_tables.
+    
+
+'\\resetoptimization'(Option) :-
+	check_option(Option),
+	flora_clear_runtime_switch_registry(Option,_).
+
+'\\resetoptimization'(Option,Module) :-
+	check_option(Option),
+	flora_storage_check_module_name(Module),
+	flora_clear_runtime_switch_registry(Option,Module).

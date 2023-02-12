@@ -1,0 +1,194 @@
+:- use_rule_structure_db.
+:- symbol_context{a/?,p/?,tst35/0,tst40/0,tst41/0,tst42/0,tst43/0}.
+
+%tst1 :- \unless a(b) ~ ?_X@foo
+        \do writeln('tst1 failed as expected')@\plg.
+%tst1_2 :- \unless %a(b) ~ %?_X@foo
+        \do writeln('tst1_2 failed as expected')@\plg.
+%tst2 :- a(b)@foo ~ ?X@foo, ?Y = foo, a(b)@?Y ~ ?X@foo, ?Z=a(b), ?Z@?Y ~ ?X@foo,
+	a(b)@foo ~ ?XX@?YY,
+	write('tst2 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(?X,?XX,?YY))@\plg(flrdecode), nl@\plg.
+%tst2_2 :- %a(b)@foo ~ %?X@foo, ?Y = foo, %a(b)@?Y ~ %?X@foo, ?Z=a(b), %?Z@?Y ~ %?X@foo,
+	%a(b)@foo ~ %?XX@?YY,
+	write('tst2_2 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(?X,?XX,?YY))@\plg(flrdecode), nl@\plg.
+%tst3 :- ?_X@?M ~ ?Y@foo, ?Z@foo ~ ?V@?N, ?Z=a, ?Y=a(b),
+	write('tst3 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(${?_X@?M}, ${?V@?N}))@\plg(flrdecode), nl@\plg.
+%tst3_2 :- %?_X@?M ~  %?Y@foo, %?Z@foo ~ %?V@?N, ?Z=a, ?Y=a(b),
+	write('tst3_2 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(${%?_X@?M}, ${%?V@?N}))@\plg(flrdecode), nl@\plg.
+%tst4 :- \unless a(b)@foo ~ ?_X@bar \do writeln('tst4 failed as expected')@\plg.
+%tst4_2 :- \unless %a(b)@foo ~ %?_X@bar \do writeln('tst4_2 failed as expected')@\plg.
+%tst5 :- a(b)@?M ~ ?X@bar, ?Y@bar ~ a(b)@?MM,
+	write('tst5 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(?X,?M,?Y,?MM))@\plg(flrdecode), nl@\plg.
+%tst5_2 :- %a(b)@?M ~ %?X@bar, %?Y@bar ~ %a(b)@?MM,
+	write('tst5_2 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(?X,?M,?Y,?MM))@\plg(flrdecode), nl@\plg.
+%tst6 :- ?X@?M ~ ?Y@foo, ?Y=a(b), ?X@?M~a(b)@foo,
+	write('tst6 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(${?X@?M},?Y))@\plg(flrdecode), nl@\plg.
+%tst6_2 :- %?X@?M ~ %?Y@foo, ?Y=a(b), %?X@?M~ %a(b)@foo,
+	write('tst6_2 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(${%?X@?M}))@\plg(flrdecode), nl@\plg.
+%tst7 :- ?X@?M ~ ?Y@foo, ?Y=a(b), ?Y@?Z ~a(b)@?W, ?W=bar,
+	write('tst7 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(${?X@?M},?Y,?Z,?W))@\plg(flrdecode), nl@\plg.
+%tst7_2 :- %?X@?M ~ %?Y@foo, ?Y=a(b), %?Y@?Z ~ %a(b)@?W, ?W=bar,
+	write('tst7_2 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(${%?X@?M},?Y,?Z,?W))@\plg(flrdecode), nl@\plg.
+%tst8 :- a(b)@?X ~ ?Y@foo, ?Y@?Z ~a(b)@?W, ?Z=foo,
+	write('tst8 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(?X,?Y,?W))@\plg(flrdecode), nl@\plg.
+%tst8_2 :- %a(b)@?X ~ %?Y@foo, %?Y@?Z ~ %a(b)@?W, ?Z=foo,
+	write('tst8_2 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(?X,?Y,?W))@\plg(flrdecode), nl@\plg.
+%tst9 :- \unless (a(b)@?_X ~ ?Y@foo, ?Y@?_Z ~a(b)@pp) 
+	 \do writeln('tst9 failed as expected')@\plg.
+%tst9_2 :- \unless (%a(b)@?_X ~ %?Y@foo, %?Y@?_Z ~ %a(b)@pp) 
+	 \do writeln('tst9_2 failed as expected')@\plg.
+%tst10 :- a[b->?C]@foo ~ ?X@?Z, ?X ~ ${?A[?B->cc]@foo},
+	write('tst10 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(?X,?Z,?A,?B,?C))@\plg(flrdecode), nl@\plg.
+%tst11 :- a[b->?C]@?M ~ ?X@?Z, ?X@?_N~ ?A[?B->cc]@foo,
+	write('tst11 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(?X,?Z,?M,?A,?B,?C))@\plg(flrdecode), nl@\plg.
+
+%tst12 :- a(?X)@?_M ~ ?Y@?Z, ?X=dd, ?Z = ff, ?XX@?YY ~ a[b->cc]@foo,
+	write('tst12 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(?X,?Y,?Z,?XX,?YY))@\plg(flrdecode), nl@\plg.
+
+%tst13 :- insert{p(${a[b->c]})}, p(?X), ?X@?Y ~ a[b->c]@?Z, ?Y=\@,
+	write('tst13 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(?X,?Y,?Z))@\plg(flrdecode), nl@\plg.
+
+%tst14 :- ?X ~ a[b->c,e->d]@foo, ?M=foo, ?X@?M ~ a[b->c,e->d]@?M,
+	write('tst14 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(?X,?M))@\plg(flrdecode), nl@\plg.
+
+%tst15 :- ?X ~ a[b->c,e->d]@foo, ?M=foo, ?X@?M ~ a[b->c,e->d]@foo,
+	write('tst15 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(?X,?M))@\plg(flrdecode), nl@\plg.
+
+%tst16 :- ?X ~ a[b->c;e->d]@foo, ?M=foo, ?X@?M ~ a[b->c;e->d]@?M,
+	write('tst16 succeeded, as expected = ')@\plg,
+	flora_write_goal(ans(?X,?M))@\plg(flrdecode), nl@\plg.
+
+%tst17 :- ?P@?M ~ ?_L,  ?P=${q(a)}, ?P@?M1~?L1, ?L1@?M ~ ?L2,  ?P ~ ?L2@?M,
+	writeln('tst17 succeeded, as expected' = ?M1+?M)@\plg.
+
+%tst18 :- ?P@?M ~ ?_L,  ?P=${q(a)}, ?P@?M1~?L1,  ?P ~ ?L1@?M,
+	writeln('tst18 succeeded, as expected' = ?M1+?M)@\plg.
+
+%tst19 :- ?X@?M ~ a[b->c]@foo, ?X@?M1~?X@bar,
+	writeln('tst19 succeeded, as expected' = ?M1+?M)@\plg.
+
+%tst20 :- a(b)@?X ~ ?Y@foo, ?Y@?Z ~a(b)@?W,
+	writeln('tst20 succeeded, as expected' = ?X+?Z+?W)@\plg.
+
+%tst21 :- ${\+ ppp(aaa)@mmm} =.. ?P, ?_PP =.. ?P, writeln(tst21=ok)@\plg.
+
+%tst22 :- ${\neg ?_x(ppp,?_kkk)@mpp} =.. ?P, ?_PP =..?P, writeln(tst22=ok)@\plg.
+
+%tst23 :- ?_x =aaa, ${\neg ?_x[ppp->?_kkk]@mpp} =.. ?P, ?_PP =..?P, writeln(tst23=ok)@\plg.
+
+%tst24 :- ${\neg ?_x(ppp,?_kkk)@mpp} =.. ?P, ?_PP =..?P, writeln(tst24=ok)@\plg.
+
+%tst25 :- ${\neg ?_x@mpp} =.. ?P, ?_PP =..?P, writeln(tst25=ok)@\plg.
+
+%tst26 :- ?x=p(rr), ${\neg ?x@mpp} =.. ?P, ?_PP =..?P, writeln(tst26=ok)@\plg.
+
+%tst27 :- ?x=p(rr), ${\naf ?x@mpp} =.. ?P, ?_PP =..?P, writeln(tst27=ok)@\plg.
+%tst28 :- ${\naf ?_x@mpp} =.. ?P, ?_PP =..?P, writeln(tst28=ok)@\plg.
+%tst29 :- ${\naf ?_x(ppp)@mpp} =.. ?P, ?_PP =..?P, writeln(tst29=ok)@\plg.
+%tst30 :- ${\naf ?_x[ppp->?_kkk]@mpp} =.. ?P, ?_PP =..?P, writeln(tst30=ok)@\plg.
+
+%tst31 :- \naf ?_x[ppp->?_kkk]@?_M ~ \naf ?_xx@mmm, writeln(tst31=ok)@\plg.
+
+%tst32 :- \naf ppp(aaa) ~ \naf ppp(?_X)@?_M, writeln(tst32=ok)@\plg.
+
+%tst33 :- ${forall(?_x)^p(?_x)@www} =.. [negation(naf), ${(\naf p(?_x)@?mod)}],
+	  writeln(tst33=?mod)@\plg.
+
+%tst34 :- ${forall(?_x)^p(?_x)@www} =.. [negation(naf), ${(\naf p(?_x)@www)}],
+	  writeln(tst34=ok)@\plg.
+
+%tst35 :- ${(p(t) :- q(a))} =.. ?x, ?x = [?,?,?h,?b], writeln(tst35=?h+?b)@\io.
+
+%tst36 :- ${?_X \is 1+1}=..?_P, ?PP=.. [builtin(is),?Y,1+1],?PP,writeln(tst36=?Y)@\plg.
+
+p(1,1,1).
+%tst37 :- ${\naf ?x@main}=..?P, ?x=p(a,a,a), ?PP=..?P, ?PP, writeln(tst37=ok)@\plg.
+
+%tst38 :- ${\isnumber(123)}=..?P, ?PP=.. ?P,?PP,writeln(tst38=ok)@\plg.
+
+aaaa,bbbb.
+%tst39 :- ${aaaa,bbbb}=..?P, ?PP=.. ?P,?PP, writeln(tst39=ok)@\plg.
+
+%tst40 :- ?X = ${\naf p}, ?Y=${\naf ?X@?}, ?Y ~ ?P@?, writeln(tst40=?P)@\io.
+%tst41 :- ?X = ${\naf p}, ?Y=${\naf ?X@?}, ?Y ~ p, writeln(tst41=ok)@\io.
+%tst42 :- ?X = ${\naf p}, ?Y=${\naf ?X@?}, ?Y ~ \naf ?P@?, writeln(tst42=?P)@\io.
+%tst43 :- ?X = ${\naf p}, ?Y=${\naf ?X@main}, ?Y ~ \naf ?P@?, writeln(tst43=?P)@\io.
+
+%tst44 :- ${foo;bar} =.. [logic(or),${foo},${bar}], writeln(tst44=ok)@\plg.
+%tst45 :- ${\if foo\then bar\else moo} =.. [control(ifthenelse),main,${foo},${bar},${moo}], writeln(tst45=ok)@\plg.
+%tst46 :- ${\while foo \do bar} =..[control(whiledo),main,${foo},${bar}], writeln(tst46=ok)@\plg.
+%tst47 :- ${insert{?V|p(?V)}} =.. [update(insert),main,[?_A],${p(?_A2)}], writeln(tst47=ok)@\plg.
+%tst48 :- ${deleteall{?V|p(?V)@foo}} =.. [update(deleteall),main,[?_A],${p(?_A2)@foo}], writeln(tst48=ok)@\plg.
+%tst49 :- ${?X=min{?V|p(?V)}}=..[logic(and),?Agg,?X=?T], ?Agg=..[aggregate(min),?V,[],[],${p(?V)},?T], writeln(tst49=ok)@\plg.
+%tst50 :- ${?X=min{?V|p(?V)}} =.. [logic(and),?Agg,?X=?T], ?Agg =.. [aggregate(min), ?V, [],[], ${p(?V)}, ?T], writeln(tst50=ok)@\plg.
+%tst51 :- count{?V[?G]|p(?V,?G)} =.. [aggregate(count),?_V,[?G],[],${p(?_C,?G)},?_R], writeln(tst51=ok)@\plg.
+%tst52 :- ${insert{q(?V),r(?V)|p(?V)}} =.. [update(insert),main,[${q(?V)},${r(?V)}],${p(?_A2)}], writeln(tst52=ok)@\plg.
+%tst53 :- ${delete{q(?V),r(?V)|p(?V)}} =.. [update(delete),main,[${q(?V)}, ${r(?V)}],${p(?_A2)}], writeln(tst53=ok)@\plg.
+%tst54 :- ${insert{p,(q:-r)}} =.. [update(insert),main,[${p},${q :- r}]], writeln(tst54=ok)@\plg.
+%tst55 :- (${delete{p,(q:-r)}} =.. [update(delete),main,[${p},${q :- r}]]
+            -->> writeln(tst55=ok)@\plg
+          ; writeln(tst55=failed)@\plg
+          ).
+%tst56 :- ${insert{p(?V),(q:-r)|o(?V)}} =.. [update(insert),main,[${p(?V)},${q:-r}]|?_P], writeln(tst56=ok)@\plg.
+%tst57 :- ${insertrule{(q:-r),(u:-v)}} =.. [update(insertrule_z),main,[${q:-r},${u:-v}]], writeln(tst57=ok)@\plg.
+%tst58 :- ${wish(nonvar(?X))^p(?X)} =.. [quantifier(delay),wish,${nonvar(?X)@\plg},${p(?X)}], writeln(tst58=ok)@\plg.
+
+%tst59 :- ${\neg a[b->c]@foo} =.. [negation(neg), ${a[b->c]@foo}], writeln(tst59=ok)@\plg.
+%tst60 :- ${\neg p(a,b)@foo} =.. [negation(neg), ${p(a,b)@foo}], writeln(tst60=ok)@\plg.
+%tst61 :- ${\naf a[b->c]@foo} =.. [negation(naf), ${a[b->c]@foo}], writeln(tst61=ok)@\plg.
+%tst62 :- ${\naf p(a,b)@foo} =.. [negation(naf), ${p(a,b)@foo}], writeln(tst62=ok)@\plg.
+
+%tst63 :- ${a[b=>c]@foo} =.. [flogic(=>,foo), a, b, c], writeln(tst63=ok)@\plg.
+%tst64 :- ${a[|b=>c|]@foo} =.. [flogic('*=>',foo), a, b, c], writeln(tst64=ok)@\plg.
+%tst65 :- ${a[b+>>c]@foo} =.. [flogic('+>>',foo), a, b, c], writeln(tst65=ok)@\plg.
+%tst66 :- ${a[|b+>>c|]@foo} =.. [flogic('*+>>',foo), a, b, c], writeln(tst66=ok)@\plg.
+%tst67 :- ${a[b->->c]@foo} =.. [flogic(->->,foo), a, b, c], writeln(tst67=ok)@\plg.
+%tst68 :- ${a[|b->->c|]@foo} =.. [flogic('*->->',foo), a, b, c], writeln(tst68=ok)@\plg.
+%tst69 :- ${a:b@foo} =.. [flogic(:,foo), a, b], writeln(tst69=ok)@\plg.
+%tst70 :- ${a::b@foo} =.. [flogic(::,foo), a, b], writeln(tst70=ok)@\plg.
+%tst71 :- ${a:=:b@foo} =.. [flogic(:=:,foo), a, b], writeln(tst71=ok)@\plg.
+%tst72 :- ${a[]@foo} =.. [flogic([],foo), a], writeln(tst72=ok)@\plg.
+%tst73 :- ${a[p]@foo} =.. [flogic(boolean,foo), a, p], writeln(tst73=ok)@\plg.
+%tst74 :- ${a[|p|]@foo} =.. [flogic('*boolean',foo), a, p], writeln(tst74=ok)@\plg.
+%tst75 :- ${a[%p]@foo} =.. [flogic('%boolean',foo), a, p], writeln(tst75=ok)@\plg.
+
+%pretest :- %tst1,%tst2,%tst3,%tst4,%tst5,%tst6,%tst7,%tst8,%tst9,%tst10,
+	%tst11,%tst12,
+	%tst13,%tst14,%tst15,%tst16,
+	%tst17, %tst18, %tst19, %tst20,
+        %tst1_2,%tst2_2,%tst3_2,%tst4_2,%tst5_2,%tst6_2,%tst7_2,%tst8_2,%tst9_2,
+	%tst21, %tst22, %tst23, %tst24, %tst25, %tst26, %tst27, %tst28, %tst29,
+	%tst30, %tst31, %tst32,
+	%tst33, %tst34, %tst35,
+	%tst36, %tst37, %tst38, %tst39,
+	%tst40, %tst41, %tst42, %tst43,
+	%tst44, %tst45, %tst46, %tst47, %tst48,
+        %tst49, %tst50, %tst51, %tst52,
+	%tst53, %tst54, %tst55, %tst56, %tst57, %tst58, %tst59, %tst60, %tst61,
+	%tst62, %tst63, %tst64, %tst65, %tst66, %tst67, %tst68, %tst69, %tst70,
+	%tst71, %tst72, %tst73, %tst74, %tst75.
+
+%test :- tell(temp)@\plg, 
+	%pretest,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	told@\plg.
+

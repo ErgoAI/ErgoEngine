@@ -1,0 +1,94 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhichOfTheFollowingIsTrueOfReceptorMolecules (query 0)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_Biology_Chapter_11_Online_Quiz.2C_Question_9
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genls(CytoplasmicReceptorMolecule, ReceptorMolecule)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Explicit Background Facts
+istAsserted(MolecularBiologyMt, relationAllExists('in-ContCompletely', CytoplasmicReceptorMolecule, Cytoplasm)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-261706', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-261706', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-FirstOrderCollection-261707', FirstOrderCollection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-FirstOrderCollection-261707', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261706', MtTimeDimFn(Now)), genls('HYP-FirstOrderCollection-261707', Situation)).
+istAsserted(UniversalVocabularyMt, isa('HYP-BinaryRolePredicate-261708', BinaryRolePredicate)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261706', MtTimeDimFn(Now)), typePrimaryFunction(ReceptorMolecule, 'HYP-FirstOrderCollection-261707', 'HYP-BinaryRolePredicate-261708')).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-261710', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-261710', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Collection-261711', Collection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-Collection-261711', Thing)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261710', MtTimeDimFn(Now)), relationAllExists(actors, 'HYP-Collection-261711', ProteinKinaseMolecule)).
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-261714', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-261714', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Collection-261715', Collection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-Collection-261715', Thing)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261714', MtTimeDimFn(Now)), relationAllExists(actors, 'HYP-Collection-261715', IonChannel)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-WhichOfTheFollowingIsTrueOfReceptorMolecules 0').
+%pretest :- (relationAllExists('in-Lodged', ?_MOL_TYPE, CellMembrane), genls(?_MOL_TYPE, ReceptorMolecule) or relationAllExists('in-ContCompletely', ?_MOL_TYPE, Cytoplasm), genls(?_MOL_TYPE, ReceptorMolecule)), %write_results('SUCCESS  : $CPTTest-WhichOfTheFollowingIsTrueOfReceptorMolecules 0').
+
+// Debugging
+proof(10558, 0) :- relationAllExists('in-ContCompletely', CytoplasmicReceptorMolecule, Cytoplasm).
+proof(10558, 1) :- relationAllExists('in-ContCompletely', CytoplasmicReceptorMolecule, Cytoplasm).
+proof(10558, 2) :- genls(CytoplasmicReceptorMolecule, ReceptorMolecule).
+proof(10558, 3) :- genls(CytoplasmicReceptorMolecule, ReceptorMolecule).
+proof(10558, 4) :- genls(CytoplasmicReceptorMolecule, ReceptorMolecule), relationAllExists('in-ContCompletely', CytoplasmicReceptorMolecule, Cytoplasm).
+proof(10558, 5) :- ist(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), genls(CytoplasmicReceptorMolecule, ReceptorMolecule)), ist(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), relationAllExists('in-ContCompletely', CytoplasmicReceptorMolecule, Cytoplasm)).
+proof(10558, 5) :- ist(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), genls(CytoplasmicReceptorMolecule, ReceptorMolecule)), ist(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), relationAllExists('in-Lodged', CytoplasmicReceptorMolecule, CellMembrane)).
+
+proof(10558, 1000) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(10558, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(10558, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(10558, 2002) :- admittedArgument(SecondFn(1, MinuteFn(39, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(10558, 2003) :- admittedArgument(SecondFn(1, MinuteFn(39, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(10558, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(10558, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(10558, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MolecularBiologyMt).
+proof(10558, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(10558, 2008) :- genls(CytoplasmicReceptorMolecule, ReceptorMolecule). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

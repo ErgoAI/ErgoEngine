@@ -1,0 +1,69 @@
+/* File:      ergo_pkgs/e2dsv.ergo -- DSV import
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2016-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+
+:- compiler_options{production=on}.
+
+:- suppress_rule_signatures.
+:- nontabled_module.
+
+:- export{
+           ?[arg(?)->?],
+	    dsv_load(?,?,?),
+            dsv_save(?,?,?,?),
+           add_key_info(?,?,?),
+           reinitialize
+	 }.
+
+%init :- flora_install_dir(?ErgoDir)@\prolog(flrporting),
+	flora_slash(?S)@\prolog(flrporting),
+	flora_concat_atoms([?ErgoDir,?S,ergo_pkgs,?S,e2dsv],
+	                   ?EPdir)@\prolog(flrporting),
+	Libpath[add(?EPdir)]@\sys,
+        ensure_loaded(ergo_dsv)@\prolog,
+        wipe_out_module_data(\@)@\prolog(ergo_dsv),
+        !.
+
+?- feedback{tempoff},
+        %init.
+
+reinitialize :- wipe_out_module_data(\@)@\prolog(ergo_dsv).
+
+dsv_load(url(?Infile),?Spec,?Format) :-
+        !,
+        p2h{?PSpec,?Spec},
+        load_dsv_in_ergo(url(?Infile)@\prolog,?PSpec,\@,?Format)@\prolog(ergo_dsv).
+dsv_load(?Infile,?Spec,?Format) :-
+        p2h{?PSpec,?Spec},
+        load_dsv_in_ergo(?Infile,?PSpec,\@,?Format)@\prolog(ergo_dsv).
+
+
+dsv_save(url(?Infile),?Spec,?OutFile,?Format) :-
+        !,
+        p2h{?PSpec,?Spec},
+        save_dsv_as_ergo(url(?Infile)@\prolog,?PSpec,?OutFile,?Format)@\prolog(ergo_dsv).
+dsv_save(?Infile,?Spec,?OutFile,?Format) :-
+        p2h{?PSpec,?Spec},
+        save_dsv_as_ergo(?Infile,?PSpec,?OutFile,?Format)@\prolog(ergo_dsv).
+
+add_key_info(?Pred,?Arity,?KeyPositions) :-
+        add_key_info(?Pred,?Arity,?KeyPositions)@\prolog(ergo_dsv).

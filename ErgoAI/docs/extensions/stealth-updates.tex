@@ -1,0 +1,85 @@
+
+\subsection{Stealth Updates}\label{sec-stealth-updates}
+
+Issuing an update command while still evaluating a non-transactional
+subgoal in a reactive tabling module will cause a runtime error:
+%% 
+\begin{verbatim}
+   p(?X) :- insert{%abc}.
+   ?- p(1).
+
+   ++Error[Ergo]> tabled predicate/method depends on an update.
+\end{verbatim}
+%% 
+This happens because, while computing the truth value of \texttt{p(1)}, we
+changed the underlying knowledge base, which could have affected the result.
+In this particular case, inserting \texttt{\%abc} cannot affect \texttt{p(1)}
+and the inference engine could have noticed this. However, maintaining
+precise dependencies among the literals is expensive and is usually not
+worth the effort and the computational cost. In general, of course, inserting \texttt{\%abc} could have affected
+the truth value of \texttt{p(1)}, which makes \texttt{p(1)} even harder to
+evaluate, whence the error.
+
+As discussed earlier, the above type of dependency is bad style and
+issuing an error makes perfect sense. However, in some situations, like
+the example of computing histograms on page~\pageref{page-histogram},
+updates issued while evaluating tabled subgoals can be useful.
+Another situation when this facility could be used is when one needs to do
+some kind of bookkeeping such as recording if a particular tabled literal
+has ever been called.
+
+\index{update!stealth}
+\index{stealth update}
+\index{stealth\{...\}}
+%%
+To this end, \ERGO provides the \texttt{stealth\{...\}} primitive, which
+can be used in insert and delete commands to make literals being
+inserted/deleted invisible to the reactive tabling mechanism, thus
+avoiding runtime errors. For instance,
+%% 
+\begin{verbatim}
+   p(?_X) :- insert{stealth{%abc,%p(2),a[%b]}}.
+   ?- p(1).
+
+   Yes
+\end{verbatim}
+%% 
+And yes, only transactional literals, as in the above example, can be
+inserted/deleted with the help of the \texttt{stealth\{...\}} primitive. 
+Without this primitive, even transactional literals cannot be used in updates
+while evaluating a tabled subgoal in a reactive module.
+
+Note that transactional variables \emph{are} allowed in stealth updates. For example,
+%% 
+\begin{verbatim}
+   ergo> ?X = ppp, insert{stealth{%?X(1)}}.
+   ?X = ppp
+
+   ergo> %ppp(?X).
+   ?X = 1
+\end{verbatim}
+%%
+
+\index{UDF!and stealth update}
+\index{stealth update and UDFs}
+Another interesting use of stealth updates is defining UDFs (see
+Section~\ref{sec:udf}) that have side
+effects like database updates. For instance, suppose we want a UDF to
+insert something into the database and return some result:
+%% 
+\begin{verbatim}
+   %fooPRED(?val, =?Res+1) :- insert{%abc(?val)}, ?Res = ?val.
+   \udf fooUDF(?form) := ?res \if %fooPRED(?form, ?res).
+\end{verbatim}
+%% 
+Unfortunately, this won't work because if one asks the query \texttt{?-
+?A=fooUDF(1)} then an error will result for the same reason as earlier in
+this section. However, changing \texttt{insert\{\%abc(?val)\}}  to
+\texttt{insert\{stealth\{\%abc(?val)\}\}} saves the day. 
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 

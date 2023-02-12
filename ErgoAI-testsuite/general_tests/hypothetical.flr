@@ -1,0 +1,84 @@
+:- setsemantics{tabling=variant+reactive}.
+
+p(a,f(b)).
+p(c,f(d)).
+p(e,f(g)).
+
+r(?X,?Y) :- p(?Z,f(?X)), ?Z[foo -> ?Y].
+
+// mixed hypothetical/non-hypothetical test
+%tst1 :-
+	// stuff before a hypothetical
+	p(?X,f(?Y)),
+	// a hypothetical possibility query
+	<> (t_insert{c[foo->g(y)], a[foo->bar]}, r(?Y,?Z)),
+	// some stuff after
+	insert{cde[efg->k]},
+	p(a,?),
+	// print results
+	write('\ntst1: X'=?X)@\plg,
+	write('  Y'=?Y)@\plg,
+	write('  Z'=?Z)@\plg,
+	\false.
+%tst1 :- \true.
+
+// c[foo->g(y)] was inserted hypothetically, so it should be false
+%tst2 :- write('\ntst2: ')@\plg,
+	\if c[foo->g(y)] \then
+           writeln(failed)@\plg
+	\else
+           writeln(succeded)@\plg.
+
+// r(?Y,?Z) was true after a hypotheticalinsert, so it should be false now
+%tst3 :- write('\ntst3: ')@\plg,
+	\if r(?,?) \then
+           writeln(failed)@\plg
+	\else
+           writeln(succeded)@\plg.
+
+// cde[efg->k] was not inserted hypotheticaly, so it stays
+%tst4 :- write('tst4: ')@\plg,
+	\if ?[efg->?] \then
+           writeln(succeded)@\plg
+	\else
+           writeln(failed)@\plg.
+
+// an impossibility query
+%tst5 :-
+	// stuff before a hypothetical
+	p(?X,f(?Y)),
+	// a hypothetical IMpossibility query
+	~<> (t_insert{c[foo->g(y)], a[foo->bar]}, r(e,?)),
+	// some stuff after
+	insert{cde[efg->k]},
+	p(a,?),
+	// print results
+	write('\ntst5: X'=?X)@\plg,
+	write('  Y'=?Y)@\plg,
+	\false.
+%tst5 :- \true.
+
+
+// delete test
+%tst6 :- insert{c[foo->g(y)]},
+	 <>(t_delete{p(c,?)}, \naf r(?,?)),
+	 r(?X,?Y),
+	 p(c,?),
+	// print results
+	write('\ntst6: X'=?X)@\plg,
+	write('  Y'=?Y)@\plg.
+
+%cleanup :- t_delete{c[foo->g(y)],cde[efg->k]}.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %cleanup.
+
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	!, // cut needed to cause reactive tables update,
+	   // as there are choice points left
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\prolog.

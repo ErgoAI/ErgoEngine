@@ -1,0 +1,374 @@
+/*
+   THIS FILE IS IN THE PUBLIC DOMAIN.
+   
+   IT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+   IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+   OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+   OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+
+:- iriprefix{fibob = "http://www.omg.org/spec/FIBO/FIBO-BE/20120501/ontology/"}.
+:- iriprefix{edmc = "http://www.edmcouncil.org/semanticrepository/ontologies/"}.
+
+template(headbody,
+          \(RegW prohibits the proposed transaction between ?Bank and ?Company for amount $?Amount million\),
+          transaction(proposed)(prohibited)(?_Id,by=?Bank,with=?Company,amount=?Amount)
+        ).
+
+template(headbody,
+          \(The proposed transaction between ?Bank and ?Company for amount $?Amount million
+             is prohibited, the transaction id is ?Id\),
+          transaction(proposed)(prohibited)(?Id,by=?Bank,with=?Company,amount=?Amount)
+        ).
+
+template(headbody,
+          \(The proposed transaction by ?Bank with ?Company for $?Amount million is exempt from being covered by RegW\),
+          exempt_proposed_transaction(?_Id,by=?Bank,with=?Company,amount=?Amount)
+        ).
+
+template(headbody,
+          \(What proposed transactions between ?Bank and ?Company for amount $?Amount million
+             are not prohibited by RegW?\),
+          exempt_proposed_transaction(?_Id,by=?Bank,with=?Company,amount=?Amount)
+        ).
+template(headbody,
+          \(The proposed transaction between ?Bank and ?Company for amount $?Amount million
+             is not prohibited by RegW\),
+          exempt_proposed_transaction(?_Id,by=?Bank,with=?Company,amount=?Amount)
+        ).
+
+template(headbody,
+          \(What proposed transactions between ?Bank and ?Company for amount $?Amount million
+             are exempt from being covered according to RegW?\),
+          exempt_proposed_transaction(?_Id,by=?Bank,with=?Company,amount=?Amount)
+        ).
+
+template(headbody,
+          \(Who is a legally formalized organization (?Organization)?\),
+          ?Organization:legally_formalized_organization
+        ).
+
+template(headbody,
+          \(?Organization is a legally formalized organization\),
+          ?Organization:legally_formalized_organization
+        ).
+
+template(headbody,
+          \(Who (?Owner) wholly owns (?Owned) and controls whom, in the FIBO sense?\),
+          ?Owner[fibob#whollyOwnsAndControls->?Owned]
+        ).
+
+template(body,
+          \(?Owner wholly owns ?Owned and controls it?\),
+          ?Owner[fibob#whollyOwnsAndControls->?Owned]
+        ).
+template(body,
+          \(?Owned is wholly owned and controlled by ?Owner, in the FIBO sense\),
+          ?Owned[fibob#whollyOwnedAndControlledBy -> ?Owner]
+	).
+
+template(headbody,
+          \(Who is a formal organization (?Organization), in the FIBO sense?\),
+          ?Organization:fibob#FormalOrganization
+        ).
+
+template(body,
+          \(?Organization is a formal organization, in the FIBO sense?\),
+          ?Organization:fibob#FormalOrganization
+        ).
+template(body,
+          \(?Organization is a body corporate, in the FIBO sense\),
+          ?Organization:fibob#BodyCorporate
+	).
+
+template(headbody,
+          \(The proposed transaction between ?Bank and ?Company is not covered: the transaction id is ?Id and the amount is $?Amount million\),
+          \neg covered_proposed_transaction(?Id,by=?Bank,with=?Company,amount=?Amount)
+        ).
+
+template(headbody,
+          \(The limit imposed by RegW on the proposed transactions of ?Bank with ?Company is $?Amount million\),
+          limit_for_covered_transactions(proposed)(?Bank,?Company,?Amount)
+        ).
+
+template(headbody,
+          \(?Bank has capital stock and surplus of $?Amount million\),
+          capital_stock_and_surplus(?Bank,?Amount)
+        ).
+
+template(headbody,
+          \(Threshhold percentage for aggregate affiliates is ?Amt percent\),
+          threshold_percentage_for_aggregate_affiliates(?Amt)
+        ).
+
+template(headbody,
+          \(?Company is a listed company on exchange ?Exchange\),
+          exchange_listed_company(?Company,?Exchange)
+        ).
+
+template(headbody,
+          \(?Bank made previous loan=?Id to ?Company in the amount=?Amount\),
+          loan(previous)(?Id,from=?Bank,to=?Company,amount=?Amount)
+        ).
+
+template(headbody,
+          \(?Bank proposed loan transaction ?Id to ?Company in the amount of $?Amount million\),
+          loan(proposed)(?Id,from=?Bank,to=?Company,amount=?Amount)
+        ).
+
+template(headbody,
+          \(?Bank proposed to purchase asset=?Asset from company=?Company in the amount=?Amount; transaction id=?Id\),
+          asset_purchase(proposed)(?Id,by=?Bank,from=?Company,asset=?Asset,amount=?Amount)
+        ).
+
+template(headbody,
+          \(?Bank gave loan to ?Company in the amount=?Amount\),
+          loan(?_Id,from=?Bank,to=?Company,amount=?Amount)
+        ).
+
+template(headbody,
+          \(?Bank gave loan=?Id to ?Company in the amount=?Amount\),
+          loan(?Id,from=?Bank,to=?Company,amount=?Amount)
+        ).
+
+template(headbody,
+          \(RegW prohibits the proposed transaction  ?Id by ?Bank with ?Affiliate of $?Amount million\),
+          transaction(proposed)(prohibited)(?Id,by=?Bank,with=?Affiliate,amount=?Amount)
+        ).
+
+template(body,
+          \(RegW does not prohibit the proposed transaction  ?Id by ?Bank with ?Affiliate of $?Amount million\),
+          \neg transaction(proposed)(prohibited)(?Id,by=?Bank,with=?Affiliate,amount=?Amount)
+        ).
+
+
+template(headbody,
+          \(The proposed transaction ?Id by ?Bank with ?Affiliate
+             of $?Amount million is a RegW covered transaction\),
+          covered_proposed_transaction(?Id,by=?Bank,with=?Affiliate,amount=?Amount)
+        ).
+
+template(headbody,
+          \(The proposed transaction ?Id by ?Bank with ?Affiliate
+             of $?Amount million is not a RegW covered transaction\),
+          \neg covered_proposed_transaction(?Id,by=?Bank,with=?Affiliate,amount=?Amount)
+        ).
+
+
+template(body,
+          \(There is a previous asset purchase id=?Id of ?Company common stock
+             by ?Bank from ?Affiliate of ?Amount million\),
+          asset_purchase(previous)(?Id,by=?Bank,from=?Affiliate,
+                                    asset=common_stock(?Company),amount=?Amount)
+        ).
+
+template(headbody,
+          \(The common stock of ?Company has a ready market as an asset\),
+          asset_has_ready_market(common_stock(?Company))
+        ).
+
+template(body,
+          \(The asset ?Asset has a ready market\),
+          asset_has_ready_market(?Asset)
+        ).
+
+// MK:what is the diff between an asset purchase and a "previous" asset purchase
+template(body,
+          \(There is an asset purchase id=?Id of ?Asset common stock by ?Bank from ?Company of $?Amount million\),
+          asset_purchase(?Id,by=?Bank,from=?Company,asset=?Asset,amount=?Amount)
+        ).
+	
+
+template(headbody,
+          \(RegW imposes a limit of $?Limit million for any covered proposed transaction by bank ?Bank with affiliate ?Affiliate\),
+          limit_for_covered_transactions(proposed)(?Bank,?Affiliate,?Limit)
+        ).
+
+// ?LimitType = aggregate, individual
+template(body,
+          \(There is an ?LimitType-affiliate limit of $?Amt million for any proposed RegW covered transaction by ?Bank with ?Affiliate\),
+          limit_for_covered_transactions(?LimitType)(proposed)(?Bank,?Affiliate,?Amt)
+	).
+
+template(headbody,
+          \(Transaction id=?Id by bank ?Bank with ?Affiliate in the amount of $?Amount million is covered\),
+          transaction(covered)(?Id,by=?Bank,with=?Affiliate,amount=?Amount)
+        ).
+
+template(headbody,
+          \(Transaction id=?Id by bank ?Bank with ?Affiliate in the amount of $?Amount million is not covered\),
+          \neg transaction(covered)(?Id,by=?Bank,with=?Affiliate,amount=?Amount)
+        ).
+
+template(body,
+          \(Bank ?Bank issued ?DocType with id=?Id on behalf of affiliate ?Affiliate in the amount of $?Amount million\),
+          issuance_of(?DocType)(?Id,by=?Bank,on_behalf_of=?Affiliate,amount=?Amount)
+        ).
+
+template(body,
+          \(Bank ?Bank accepted (transaction=?Id) from another party an asset issued by affiliate ?Affiliate as collateral in the amount of $?Amount million\),
+          (acceptance(collateral)(?Id,by=?Bank,from=?_Company,asset=?Asset,amount=?Amount),
+            issued_by(?Asset,?Affiliate))
+        ).
+
+template(body,
+          \(Bank ?Bank proposed acceptance (transaction=?Id) from ?Company
+             asset ?Asset issued by affiliate ?Affiliate as collateral in
+             the amount of $?Amount million\),
+          (acceptance(collateral)(proposed)(?Id,by=?Bank,from=?Company,asset=?Asset,amount=?Amount),
+            issued_by(?Asset,?Affiliate))
+        ).
+
+template(body,
+          \(Bank ?Bank purchased (transaction=?Id) from another party an asset issued by affiliate ?Affiliate in the amount of $?Amount million\),
+          (purchase(?Id,by=?Bank,from=?_Company,asset=?Asset,amount=?Amount),
+            issued_by(?Asset,?Affiliate))
+        ).
+
+template(body,
+          \(Bank ?Bank proposed purchase (transaction=?Id) from ?Company an asset issued by affiliate ?Affiliate in the amount of $?Amount million\),
+          (purchase(proposed)(?Id,by=?Bank,from=?Company,asset=?Asset,amount=?Amount),
+            issued_by(?Asset,?Affiliate))
+        ).
+
+// ?DocumentType = guarantee, acceptance,letter_of_credit
+template(body,
+          \(Bank ?Bank proposed issuance of ?DocumentType (transaction=?Id) on behalf of affiliate ?Affiliate in the amount of $?Amount million\),
+          issuance_of(?DocumentType)(proposed)(?Id,by=?Bank,on_behalf_of=?Affiliate,amount=?Amount)
+        ).
+
+
+// ?LimitType = Aggregate, Individual
+template(headbody,
+          \(?LimitType limit imposed by RegW on transactions by ?Bank with ?Company for any covered proposed transaction is $?Amt million\),
+          limit_for_covered_transactions(?LimitType)(by=?Bank,with=?Company,amount=?Amt)
+        ).
+
+template(headbody,
+          \(Threshold for individual affiliate for ?Bank is $?Amount million\),
+          threshold_for_individual_affiliate(?Bank,?Amount)
+        ).
+
+template(headbody,
+          \(Threshold percentage for individual affiliate is ?Percentage percent\),
+          threshold_percentage_for_individualaffiliate(?Percentage)
+        ).
+
+template(body,
+          \(There is a previous transaction=?Type in the amount of ?Amount with id=?Id between ?Bank and ?Company involving asset ?Asset\),
+          ?Type(previous)(?Id,by=?Bank,from=?Company,asset=?Asset,amount=?Amount)
+        ).
+
+// remaining templates used in justification
+template(headbody,
+          \(?Affiliate is a RegW affiliate of ?Principal\),
+          affiliate_of(?Affiliate,?Principal)
+        ).
+
+template(headbody,
+          \(?Bank is a bank\),
+          ?Bank:bank
+	).
+
+template(headbody,
+          \(?Company is a company\),
+          ?Company:company
+	).
+
+template(headbody,
+          \(?Advisee is advised by ?Advisor\),
+          advised_by(?Advisee,?Advisor)
+	).
+
+template(body,
+          \(?controller controls ?controllee\),
+          controls(?controller,?controllee)
+	).
+
+template(headbody,
+          \(?controllee is controlled by  ?controller\),
+          controlled_by(?controllee,?controller)
+	).
+
+template(headbody,
+          \(?subsidiary is a subsidiary of ?parent\),
+          subsidiary_of(?subsidiary,?parent)
+	).
+
+template(headbody,
+          \(?Company1 and ?Company2 are controlled by the same company\),
+          common_control(?Company1,?Company2)
+	).
+
+template(headbody,
+          \(?sub is a subclass of ?super\),
+          ?sub :: ?super
+	).
+
+template(headbody,
+          \(There is a transaction by ?Bank with ?Affiliate of $?Amt million\),
+          transaction(proposed)(?_Id,by=?Bank,with=?Affiliate,amount=?Amt)
+	).
+
+template(headbody,
+          \(There is a previous transaction by ?Bank with ?Affiliate of $?Amt million\),
+          transaction(previous)(?_Id,by=?Bank,with=?Affiliate,amount=?Amt)
+	).
+
+template(headbody,
+          \(There is a proposed asset purchase of ?Asset common stock by ?Bank from ?Company of $?Amt million\),
+          asset_purchase(proposed)(?_Id,by=?Bank,from=?Company,asset=common_stock(?Asset),amount=?Amt)
+	).
+
+template(headbody,
+          \(The previous transaction with id=?Id by ?Bank with ?Affiliate
+             of $?Amt million is a RegW covered transaction\),
+          ?Id:covered_previous_transaction[by->?Bank,with->?Affiliate,amount->?Amt]
+	).
+
+template(body,
+          \(The previous transaction with id=?Id by ?Bank with ?Affiliate
+             of $?Amt million is not a RegW covered transaction\),
+          (?Id[by->?Bank,with->?Affiliate,amount->?Amt],
+            \neg ?Id:covered_previous_transaction)
+        ).
+
+template(headbody,
+          \(The total of previous RegW covered transactions by ?Bank with ?Affiliate is $?Amt million\),
+          total_of_covered_previous_transactions(?Bank,?Affiliate,?Amt)
+	).
+
+template(headbody,
+          \(The aggregated total of previous RegW covered transactions by ?Bank with all affiliates is $?Amt million\),
+          aggregated_total_previous_covered_transactions_with_all_affiliates(?Bank,?Amt)
+	).
+
+template(headbody,
+          \(The maximum threshold for aggregate RegW covered transactions by ?Bank with all affiliates is $?Amt million\),
+          threshold_for_aggregate_affiliates(?Bank,?Amt)
+	).
+
+template(body,
+          \(fibob#whollyOwnedAndControlledBy has a RDFS range of fibob#FormalOrganization\),
+          ?[|fibob#whollyOwnedAndControlledBy => fibob#FormalOrganization|]
+	).
+
+template(body,
+          \(?Swap is a narrow-based index credit default swap contract, in the EDMC sense\),
+          edmc#Narrow_Based_Index_Credit_Default_Swap_Contract(?Swap)
+	).
+
+template(body,
+          \(?Swap is a broad-based index credit default swap contract, in the EDMC sense\),
+          edmc#Broad_Based_Index_Credit_Default_Swap_Contract(?Swap)
+	).
+
+template(body,
+          \(Broad-based versus narrow-based are two disjoint kinds of index credit default swaps, in the EDMC sense\),
+          owl#disjointWith(edmc#Broad_Based_Index_Credit_Default_Swap_Contract, edmc#Narrow_Based_Index_Credit_Default_Swap_Contract)
+	).
+	

@@ -1,0 +1,71 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-IsChromosomeOfCellInTelophaseUnduplicated (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-261026', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-261026', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-CellTypeByCellLifeStageFnTelophase-261027', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261026', MtTimeDimFn(Now)), isa('HYP-CellTypeByCellLifeStageFnTelophase-261027', CellTypeByCellLifeStageFn(Telophase))).
+istAsserted(UniversalVocabularyMt, isa('HYP-UnduplicatedChromosome-261028', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261026', MtTimeDimFn(Now)), isa('HYP-UnduplicatedChromosome-261028', UnduplicatedChromosome)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261026', MtTimeDimFn(Now)), chromosomes('HYP-CellTypeByCellLifeStageFnTelophase-261027', 'HYP-UnduplicatedChromosome-261028')).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261026')).
+//REMOVED TITLE('KBQ  : $CPTTest-IsChromosomeOfCellInTelophaseUnduplicated 0').
+%pretest :- isa('HYP-UnduplicatedChromosome-261028', UnduplicatedChromosome), %write_results('SUCCESS  : $CPTTest-IsChromosomeOfCellInTelophaseUnduplicated 0').
+
+// Debugging
+proof(7920, 0) :- isa('HYP-UnduplicatedChromosome-261028', UnduplicatedChromosome).
+
+proof(7920, 1000) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(7920, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-261026', 1, genlMt).
+proof(7920, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-261026', 2, genlMt).
+proof(7920, 2002) :- admittedArgument(SecondFn(52, MinuteFn(9, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(7920, 2003) :- admittedArgument(SecondFn(52, MinuteFn(9, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(7920, 2004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261026'), UniversalVocabularyMt).
+proof(7920, 2005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261026'), BaseKB).
+proof(7920, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261026'), MtSpace('Hypothesis-HypotheticalContext-261026', MtTimeDimFn(Now))).
+proof(7920, 2007) :- isa('HYP-UnduplicatedChromosome-261028', UnduplicatedChromosome). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

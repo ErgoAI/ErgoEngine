@@ -1,0 +1,298 @@
+/* File:      flrtables.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018;
+**      and Vulcan, Inc., 2010-2013.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+/*
+** Calls that abolish tables of predicates & calls. Adapted from XSB's tables.P
+*/
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "builtin.h"
+#include "heap_defs_xsb.h"
+
+
+:- export
+	flora_abolish_table_predicate/1,
+	flora_abolish_table_predicate/2,
+	flora_abolish_table_call/1,
+	flora_abolish_table_call_carefully/1,
+	flora_refresh_tables/1,
+	flora_has_incomplete_incr_dependent_table/1,
+	flora_has_incomplete_incr_dependent_table_plain/1,
+	flora_abolish_nonincremental_tables/0,
+	flora_abolish_nonincremental_tables_with_skip/0,
+	FLLIBREFRESH/2.
+:- import
+	table_state/4, get_calls/3,
+        get_returns/2,
+	abolish_nonincremental_tables/0,
+	abolish_nonincremental_tables/1,
+	abolish_table_pred/1
+   from tables.
+:- import convert_to_head_literal/2 from flrcanon.
+:- import predicate_property/2 from curr_sym.
+:- import
+	%%incr_invalidate_call/1,
+	incr_trans_depends/2
+   from increval.
+
+:- import
+	flora_increment_update_counter/0
+   from flrupdatecounter.
+:- import
+        cleanup_negation/1,
+        register_negated_call/1,
+	flora_unwrap_negation/2
+   from flrnegation.
+:- import
+	flora_generalize_last/2
+   from flrtrim.
+:- import FLORA_SYMBOL('refresh_table_for')/1 from usermod.
+:- import flora_warning_line/2 from flrprint.
+%%:- import flora_decode_goal_as_atom/2 from flrdecode.
+
+:- ensure_loaded('flrdynmod.P').
+
+
+FLLIBREFRESH(_ThisModule,CallList) :-
+	flora_refresh_list(CallList),
+	flora_increment_update_counter.
+
+flora_refresh_list([]).
+flora_refresh_list([H|T]) :-
+	flora_refresh_tables(H),
+	flora_refresh_list(T).
+
+%% refresh tables for call
+flora_refresh_tables(Call) :-
+	flora_generalize_last(Call,GenCall),
+	FLORA_SYMBOL('refresh_table_for')(GenCall),
+	!.
+flora_refresh_tables(_).
+
+
+%% Call must be of the form p(_,_) -- it is an internal Flora-2 predicate
+%% This is a safe way of abolishing all predicate's tables
+flora_abolish_table_predicate(Call) :-
+	flora_abolish_table_predicate(Call,abolish_table_pred_hook(_Error)).
+	%%flora_abolish_table_predicate(Call,throw(_ErrorType)).
+flora_abolish_table_predicate(Call,Hook) :-
+	(
+	  nonincremental_predicate(Call),
+	  table_state(Call,_PredType,_CallType,AnsSetStatus)
+	->
+	    (   AnsSetStatus == incomplete
+	    ->  arg(1,Hook,table_error(abolishing_incomplete_call,Call)),
+		call(Hook)
+	    ;   abolish_table_pred(Call)
+	    )
+	%%; flora_has_incomplete_incr_dependent_table(Call) -> true
+	;
+	  %%increval:incr_invalidate_call(Call),
+	  true
+	).
+
+abolish_table_pred_hook(Error) :-
+	Error = table_error(abolishing_incomplete_call,Call),
+	(flora_unwrap_negation(Call,UnwrappedCall) -> Comment = 'negation of'
+	;  Comment = '', UnwrappedCall = Call
+	),
+	%% sometimes Call is not decodable - don't decode
+	%%flora_decode_goal_as_atom(UnwrappedCall,CallStr),
+	(true, !  % if debugging - replace "true" with "fail"
+	; flora_warning_line('Attempt to discard incomplete table while computing ~w ~w', [Comment,Call])
+	).
+
+
+%% Safe way of abolishing a table for a call and the unifying calls
+flora_abolish_table_call(Call) :-
+        flora_abolish_table_call(Call,
+				 incremental_also,
+				 abolish_table_call_hook(_Error)).
+
+%% Like flora_abolish_table_call/1 but noop for incrementally tabled predicates
+flora_abolish_table_call_carefully(Call) :-
+        flora_abolish_table_call(Call,
+				 nonincremental_only,
+				 abolish_table_call_hook(_Error)).
+
+
+flora_abolish_table_call(Call,IncrementalFlag,Hook) :-
+	%% if non-tabled then flora_abolish_table_call is a no-op
+	predicate_property(Call,tabled),
+	get_calls(Call,Handle,_Template),
+	tables:check_if_subgoal_still_exists(Call,Handle),
+	table_state(Handle,_PredType,_CallType,AnsSetStatus),
+	(   AnsSetStatus == undefined
+	->  throw(table_error(abolishing_undefined_call,Call))
+	;   AnsSetStatus == incomplete
+	->  arg(1,Hook,table_error(abolishing_incomplete_call,Call)),
+	    %% Note: The Hook is a no-op, it basically refuses
+	    %% to abolish incomplete tables
+	    call(Hook)
+	/*
+	;   _PredType = subsumptive
+	->  arg(1,Hook,table_error(abolishing_subsumptive_call,Call)),
+	    call(Hook)
+	*/
+	; nonincremental_predicate(Call) ->
+	    internal_abolish_table_call(Handle)
+	;  %% can get here only if the table is complete
+	    incremental_predicate(Call),
+	    IncrementalFlag == incremental_also
+	-> 
+	    %% uncomment this and comment the piece
+	    %% (flora_has_incomplete_incr_dependent_table(Call) ...
+	    %% below once Bug 6 is fixed.
+	    %%true
+	    (flora_has_incomplete_incr_dependent_table(Call) -> true
+	    ;
+		%% uncommenting this USED to cause crashes
+		%%increval:incr_invalidate_call(Call),
+                %% the below is for testing, should not be used here - ever
+                %%tables:abolish_table_call(Call),
+		true
+	    )
+	),
+	fail.
+flora_abolish_table_call(_Call,_Flag,_Hook).
+
+abolish_table_call_hook(table_error(Type,Call)) :-
+	(Type == abolishing_incomplete_call
+	->  Comment = 'incomplete'
+	/*
+	; Type == abolishing_subsumptive_call
+	->  Comment = 'subsumptive'
+	*/
+	),
+	%% sometimes Call is not decodable - don't decode
+	%%flora_decode_goal_as_atom(Call,CallStr),
+	(true, !  % for debugging - replace with fail
+	; flora_warning_line('Attempt to abolish ~w table for ~w', [Comment,Call])
+	).
+
+flora_has_incomplete_incr_dependent_table(Call) :-
+	predicate_property(Call,incremental),
+	%% This catches errors in incr_trans_depends/2: this pred abolishes
+	%% the call and sometimes causes XSB to issue an error as if we are
+	%% abolishing the call rather than it itself doing it.
+	catch(flora_has_incomplete_incr_dependent_table_plain(Call),_,true).
+
+flora_has_incomplete_incr_dependent_table_plain(Call) :-
+	table_state(Call,_PredType,_CallType,incomplete),
+	!.
+flora_has_incomplete_incr_dependent_table_plain(Call) :-
+	%% 1st arg is what depends on the 2nd
+	incr_trans_depends(CallDep,Call),
+	table_state(CallDep,_PredType,_CallType,incomplete),
+	!.
+
+nonincremental_predicate(Call) :-
+	predicate_property(Call,opaque),
+	!.
+nonincremental_predicate(Call) :-
+	\+predicate_property(Call,incremental).
+
+incremental_predicate(Call) :-
+	predicate_property(Call,incremental).
+
+%% abolishes nonincremental tables.
+%% if such a table is incomplete then don't issue any errors
+flora_abolish_nonincremental_tables_with_skip :-
+	%%abolish_all_tables.
+	abolish_nonincremental_tables(on_incomplete(skip)).
+flora_abolish_nonincremental_tables :-
+	%%abolish_all_tables.
+	abolish_nonincremental_tables.
+
+
+internal_abolish_table_call(Handle) :-
+	abolish_table_call_bi(Handle,ABOLISH_TABLES_DEFAULT).
+abolish_table_call_bi(_Handle,_Action) :-
+	'_$builtin'(ABOLISH_TABLE_CALL).
+
+%% The default (transitive abolish) should be used; seems to work
+?- flrtesting:set_abolish_tables_flag(default).
+%%?- flrtesting:set_abolish_tables_flag(singly).
+
+FLLIBPEEK(Call) :-
+        %% copy_term handles attrib vars. Otherwise, get_calls/3 strips
+        %% the attributes and we can never get the triggers fired
+        copy_term(Call,Copy),
+        convert_to_head_literal(Copy,Head),
+        Copy \= Head,  %% to make sure it is a Flora predicate
+        get_calls(Head,SF,Return), 
+	get_returns(SF,Return),
+        %% Now unify and whatever triggers there are will fire
+        Call = Copy.
+
+%%%%%%%%%%%%%%%%%%%%% table_once replacement %%%%%%%%%%%%%%%%%%%%%%%%%%%
+#include "builtin.h"
+#include "incr_xsb_defs.h"
+#include "table_inspection_defs.h"
+
+:- import term_psc/2, psc_tabled/2, psc_get_incr/2 from machine.
+
+:- export flora_table_once/1.
+:- export FLLIBPEEK/1.
+
+breg_retskel(_BregOffset,_Arity,_RetTerm,_SubgoalPtr) :- '_$builtin'(154).
+
+flora_table_once(Call) :-
+        nonvar(Call),
+	term_psc(Call,Psc),
+	((psc_tabled(Psc,T),T > 0)  ->	
+	    psc_get_incr(Psc,INCR),
+	    (INCR =:= INCREMENTAL -> flora_table_once_incremental(Call)
+	     ;
+                cleanup_negation(flora_table_once_nonincremental(Call)),
+                register_negated_call(flora_table_once_nonincremental(Call)),
+                flora_table_once_nonincremental(Call)
+            )
+        ;
+            cleanup_negation(flora_table_once_nonincremental(Call)),
+            register_negated_call(flora_table_once_nonincremental(Call)),
+            flora_table_once_nonincremental(Call)
+        ).                      % << could be optimized
+
+:- table flora_table_once_nonincremental/1 as opaque.
+flora_table_once_nonincremental(Call) :-
+    '_$savecp'(Breg),
+    breg_retskel(Breg,1,Skel,Cs),
+    copy_term(Skel,Oskel),
+    call(Call),
+    (get_returns(Cs,Oskel,_Leaf) -> fail ; true).
+
+:- table flora_table_once_incremental/1 as incremental.
+flora_table_once_incremental(Call) :-
+    '_$savecp'(Breg),
+    breg_retskel(Breg,1,Skel,Cs),
+    copy_term(Skel,Oskel),
+    call(Call),
+    (get_returns(Cs,Oskel,_Leaf) -> fail ; true).

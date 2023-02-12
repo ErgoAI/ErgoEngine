@@ -1,0 +1,32 @@
+oa:ca.
+ca::da.
+da[|foo(k)|].
+
+
+%tst1 :- write('tst1: ')@\plg(),
+	 insert{ca[|foo(u)|]},
+	 oa[foo(?Xa)],
+	 writeln(?Xa)@\plg().
+%tst2 :- write('tst2: ')@\plg(), oa[foo(?Xa)], writeln(?Xa)@\plg().
+%tst3 :- write('tst3: ')@\plg(),
+	 delete{ca[|foo(?_)|]},
+	 oa[foo(?Xa)],
+	 writeln(?Xa)@\plg().
+%tst4 :- write('tst4: ')@\plg(), oa[foo(?Xa)], writeln(?Xa)@\plg().
+
+%pretest :- 
+	\abolishtables,
+	setsemantics{equality=none},
+	%tst1, %tst2,
+	setsemantics{equality=basic},
+	%tst3, %tst4.
+
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+
+

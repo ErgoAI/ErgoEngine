@@ -1,0 +1,128 @@
+#include "standard.h"
+
+r(1,2).
+
+/*
+   PROBLEM: ?Y in r(?X,?Y) gets naf'ed and separated from head
+
+   This translates into  forall(?X)^\naf r(?X,?Y) \/ ?Y>0
+   Hence  \naf r(?X,?Y) \/ ?Y>0 which disconnects Y in r/2 from Y in ?Y>0
+   causing unbinstantiatedness warning.
+
+   But in  forall(?Y)^forall(X)^( r(?X,?Y) ~~> ?Y>0 )
+   pushing is OK:
+        forall(?Y)^( \naf r(?X,?Y) \/ ?Y>0 )
+        \naf (r(?X,?Y) /\ \+ ?Y>0 )
+   Here ?Y will be bound by r/2 each time we prove r(?X,?Y) /\ \+ ?Y>0 and so
+   ?Y is not disconnected between r/2 and ?Y>0.
+
+***** This has been solved via a somewhat hacky trick:  forall(?Y)^(....)
+   is not pushed through unsafe \or, if one of the disjuncts is a delayed
+   builtin like ?Y > 0!  ************************
+*/
+r1 :-
+        //forall(?Y)^
+        forall(?X)^
+        /*
+           The below quantifier makes this rule succeed but it is still wrong
+           because it succeeds both with ?Y>0 (true) and ?Y<0 (undefined).
+        */
+        //exists(?Y)^
+        (
+          r(?X,?Y) ~~> ?Y>0
+        ).
+
+//%tst1 :- \if catch{r1,?B,(arg(1,?B,?Msg)@\plg,writeln(?Msg)@\plg,\false)}
+%tst1 :- \if true{r1}
+        \then writeln(test1=ok)@\plg \else writeln(test1=failed)@\plg.
+
+
+/*
+   This test is from general_tests/lt3.flr, test4.
+   If we get more cautious in pushing quantifiers (making r1 above safe)
+   then the below test fails.
+   It should return
+     test2 = [Ann + Bob,Bess + Don,Bob + Ann]
+   but instead will return []
+*/
+r2(?CN1,?CN2) :-
+    exist(?C1,?C2)^
+        (
+          names(?C1,?CN1),
+          names(?C2,?CN2),
+          ?C1 != ?C2,
+          forall(?sh)^
+          exist(?Au1,?Ak1)^
+          forall(?Au2,?Ak2)^
+          (
+            rel(?Au1,?sh,?C1,?Ak1) <~~ rel(?Au2,?sh,?C2,?Ak2)
+          )
+        ).
+
+%tst2 :- setof{?O| true{r2(?CN1,?CN2)}, ?O = ?CN1+?CN2} = ?L, writeln(test2=?L)@\plg.
+
+names(c2,Bob).
+names(c4,Ann).
+names(c5,Bess).
+names(c7,Don).
+
+rel(a14,s1,c5,p4).
+rel(a15,s1,c7,p4).
+rel(a16,s1,c7,p5).
+
+rel(a21,s2,c2,p5).
+rel(a24,s2,c4,p6).
+rel(a25,s2,c5,p2).
+
+rel(a31,s3,c2,p3).
+rel(a32,s3,c4,p4).
+rel(a33,s3,c5,p5).
+rel(a35,s3,c7,p2).
+
+rel(a42,s4,c2,p1).
+rel(a43,s4,c4,p4).
+
+rel(a51,s5,c2,p5).
+rel(a52,s5,c2,p2).
+rel(a55,s5,c4,p4).
+rel(a56,s5,c5,p4).
+rel(a57,s5,c5,p6).
+rel(a59,s5,c7,p3).
+
+r3 :-
+        forall(?X)^
+        (
+          r(?X,?Y) ~~> ?Y<0
+        ).
+
+%tst3 :- \if undefined{r3}
+        \then writeln(test3=ok)@\plg \else writeln(test3=failed)@\plg.
+
+r4 :-
+        forall(?X,?Y)^
+        (
+          r(?X,?Y) ~~> ?Y<0
+        ).
+
+%tst4 :- \if false{r4}
+        \then writeln(test4=ok)@\plg \else writeln(test4=failed)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4.
+
+%test :-
+        (File[exists(lt4_old)]@\io -->> File[unlink(lt4_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(lt4_flora_old,lt4_old)]@\io
+	;  File[link(lt4_ergo_old,lt4_old)]@\io
+        ),
+        tell(temp)@\plg,
+	file_reopen(temp1,w,STDWARN,?_)@\plg(file_io),
+	%pretest,
+	file_close(STDWARN)@\plg(file_io),
+	told@\plg,
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp)@\plg,append,?Port2)@\plg,
+	copyIOport(?Port1,?Port2)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	flora_file_op(unlink,temp1)@\plg(flrporting).

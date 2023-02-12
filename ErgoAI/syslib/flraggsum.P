@@ -1,0 +1,149 @@
+/* File:      flraggsum.P
+**
+** Author(s): Guizhen Yang 
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2020.
+**      Coherent Knowledge Systems, 2016-2020.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_errors.flh"
+#include "flora_exceptions.flh"
+
+:- import member/2 from basics.
+:- import flora_warning_line/1 from flrprint.
+
+:- import flora_decode_oid_list_as_atom_list_substitute_vars/2 from flrdecode.
+:- import flora_abort/2 from flrporting.
+%%:- import ground_memberchk/1 from flrauxil.
+
+
+/*********************************************************************
+  fllibsum(+Var,+GrpByLst,[],+Goal,-Sum)
+*********************************************************************/
+FLLIBSUM(Var,[],[],Goal,Sum) :-
+	!,
+	findall(Var,Goal,Matches),
+	flora_sumaux(Matches,Sum).
+
+/*
+FLLIBSUM(Var,GrpByLst,[],Goal,_Sum) :-
+	ground_memberchk(GrpByLst),
+	!,
+	flora_decode_oid_list_as_atom_list_substitute_vars([Var,GrpByLst,Goal],
+							   [VarA,GrpByLstA,GoalA]),
+	flora_abort(['In ',FL_SUM,'{',VarA,GrpByLstA,'|',GoalA,'}',GROUPING_VAR_GROUND],
+		    FLORA_ABORT_NOTRACE).
+*/
+
+FLLIBSUM(Var,GrpByLst,[],Goal,Sum) :-
+	!,
+	findall(flora_result(Var,GrpByLst),Goal,Matches),
+	findall(Grp,member(flora_result(_,Grp),Matches),GL),
+	sort(GL,Groups),
+	member(GrpByLst,Groups),
+	findall(D,member(flora_result(D,GrpByLst),Matches),DL),
+	flora_sumaux(DL,Sum).
+
+
+/*********************************************************************
+  fllibsum(+Var,+GrpByLst,[],+Goal,-Sum)
+*********************************************************************/
+FLLIBSUMDISTINCT(Var,[],Goal,Sum) :-
+	!,
+	findall(Var,Goal,Matches1),
+	sort(Matches1,Matches),
+	flora_sumaux(Matches,Sum).
+
+/*
+FLLIBSUMDISTINCT(Var,GrpByLst,[],Goal,_Sum) :-
+	ground_memberchk(GrpByLst),
+	!,
+	flora_decode_oid_list_as_atom_list_substitute_vars([Var,GrpByLst,Goal],
+							   [VarA,GrpByLstA,GoalA]),
+	flora_abort(['In ',FL_SUMDISTINCT,'{',VarA,GrpByLstA,'|',GoalA,'}',GROUPING_VAR_GROUND],
+		    FLORA_ABORT_NOTRACE).
+*/
+
+FLLIBSUMDISTINCT(Var,GrpByLst,[],Goal,Sum) :-
+	!,
+	findall(flora_result(Var,GrpByLst),Goal,Matches),
+	findall(Grp,member(flora_result(_,Grp),Matches),GL),
+	sort(GL,Groups),
+	member(GrpByLst,Groups),
+	findall(D,member(flora_result(D,GrpByLst),Matches),DL1),
+	sort(DL1,DL),
+	flora_sumaux(DL,Sum).
+
+/*********************************************************************
+  fllibsum(+Var,+GrpByLst,+UniqLst,+Goal,-Sum)
+  Like sum, but in each group eliminate duplicates that have
+  the same values over the vars in UniqLst.
+*********************************************************************/
+FLLIBSUM(Var,[],UniqLst,Goal,Sum) :-
+	!,
+	findall(Var+UniqLst,Goal,Matches),
+        sort(Matches,UniqMatches),
+	flora_sumaux(UniqMatches,Sum).
+
+FLLIBSUM(Var,GrpByLst,UniqLst,Goal,Sum) :-
+	!,
+	findall(flora_result(Var+UniqLst,GrpByLst),Goal,Matches),
+	findall(Grp,member(flora_result(_,Grp),Matches),GL),
+	sort(GL,Groups),
+	member(GrpByLst,Groups),
+	findall(D,member(flora_result(D,GrpByLst),Matches),DL),
+        sort(DL,UniqDL), %% eliminate duplicates having same vals over UniqLst
+	flora_sumaux(UniqDL,Sum).
+
+
+
+/********************************************************************
+  flora_sumaux(+List,-Sum).
+  flora_sumaux(+List,-CurrSum,-Sum,-Warning)
+********************************************************************/
+flora_sumaux(Matches,Sum) :-
+	flora_sumaux(Matches,_,Sum,Warning),
+	( var(Warning) -> true
+	;
+	  flora_warning_line("discarding non-numeric objects while computing sum")
+	).
+
+
+flora_sumaux([],X,Sum,_) :-
+	!,
+	(var(X) -> Sum = 0; Sum=X).
+
+flora_sumaux([H|L],X,Sum,Warning) :-
+	( number(H) ->
+	    (var(X) -> S=H; S is X+H),
+	    flora_sumaux(L,S,Sum,Warning)
+        ; H = NumPart + _Uniq, number(NumPart) ->
+            (var(X) -> S=NumPart; S is X+NumPart),
+            flora_sumaux(L,S,Sum,Warning)
+        ;
+	    Warning=[],
+	    flora_sumaux(L,X,Sum,_)
+	).

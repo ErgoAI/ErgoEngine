@@ -1,0 +1,727 @@
+\chapter[Importing JSON Structures]
+{Importing and Exporting JSON Structures\\
+  {\Large by Michael Kifer}}
+
+JSON is a popular notation for representing data. It is defined
+by the ECMA-404 standard, which can be found at \url{http://www.json.org/}.
+This chapter describes the \ERGO facility for importing JSON structures
+called \emph{values}; it is based on an open source parser called Parson
+\url{https://github.com/kgabis/parson}.
+
+\section{Introduction}
+
+In brief, a JSON structure is a \emph{value}, which can be
+  an \emph{object}, an
+\emph{array}, a \emph{string}, a \emph{number},  \texttt{true}, \texttt{false},
+or \texttt{null}. An array is an expression of the form
+\texttt{[$value_1$, ..., $value_n$]}; an object has the form
+\texttt{\{ $string_1$ : $value_1$,  ..., $string_n$ : $value_n$
+  \}}; strings are enclosed in double quotes and are called the \emph{keys}
+of the object; numbers have the usual
+syntax, and \texttt{true}, \texttt{false}, and \texttt{null} are constants
+as written. Here are examples of relatively simple JSON values:
+%% 
+\begin{verbatim}
+{
+  "first": "John",
+  "last": "Doe",
+  "age": 25
+}
+
+[1, 2, {"one" : 1.1, "two": 2.22}, null]
+
+123
+\end{verbatim}
+%% 
+and here is a more complex example where values are nested to the depth of
+five:
+%% 
+\begin{verbatim}
+{
+  "status": "ok",
+  "results": [{"recordings": [{"id": "12345"}],
+               "score": 0.789,
+               "id": "9876"
+              }]
+}
+\end{verbatim}
+%% 
+
+Although not part of the standard, it is quite common to see JSON
+structures that contains comments like in C, Java, etc. The multiline
+comments have the form \texttt{/* ... */} and the here-to-end-of-line
+comments start with the \texttt{//}. The JSON parser ignores such comments.
+
+The standard recommends, but does not require, that the keys in an object
+do not have duplicates (at the same level of nesting). Thus, for instance,
+%% 
+\begin{verbatim}
+    {"a":1, "b":2, "b":3}
+\end{verbatim}
+%% 
+is allowed, but discouraged. By default, the JSON parser does not allow
+duplicate keys and considers such objects as ill-formed. However, it also
+provides an option to allow duplicate keys.
+
+
+\section{API for Importing JSON  as Terms}
+
+When \ERGO ingests a JSON structure, it represents it as a term as follows:
+%% 
+\begin{itemize}
+\item  Arrays are represented as lists.
+\item  Strings are represented as \ERGO symbols (Prolog atoms).
+\item  Numbers are represented as such.
+\item  \texttt{true}, \texttt{false}, \texttt{null} are represented as the
+  \texttt{\bs{}true},
+  \texttt{\bs{}false}, and \texttt{\bs{}@?}.
+  representation of the \FLSYSTEM quasi-constant \texttt{\bs{}@?}). 
+\item Finally, an object of the form \texttt{\{
+    $str_1$:$val_1$,...,$str_n$:$val_n$\}} is represented as
+  \texttt{json([$str_1'$=$val_1'$,...,$str_n'$=$val_n'$])}, where
+  $str_i'$ is the atom corresponding to the string $str_i$ and $val_i'$ is
+  the \ERGO representation of the JSON value $val_i$.
+  Here, as above, \texttt{json} is a unary Prolog, not HiLog, function
+  symbol.
+\end{itemize}
+%% 
+For instance, the above examples would be represented as HiLog 
+\ERGO terms as follows:
+%% 
+\begin{verbatim}
+json([first = John, last = Doe, age = 25])
+[1, 2, json([one = 1.1000, two = 2.2200]), \@?]
+123
+json([status = ok,
+      results = [json([recordings = [json([id = '12345'])],
+                       score = 0.7890,
+                       id = '9876']
+                     )]
+     ])
+\end{verbatim}
+%% 
+where we tried to pretty-print the last result so it would be easier to
+relate to the original (which was also pretty-printed).
+
+\ERGO provides the following methods for importing JSON:
+%% 
+\begin{itemize}
+\item
+  \texttt{\emph{Source}[parse -> ?\emph{Result}]@\bs{}json}\\
+  Here \emph{Source} can have one of these forms
+  %% 
+  \begin{itemize}
+  \item   \texttt{string(\emph{Atom})}  
+  \item   \texttt{str(\emph{Atom})}
+  \item   \texttt{url(\emph{Atom})}
+  \item   \texttt{file(\emph{Atom})}
+  \item   \emph{Atom}
+  \item   a variable
+  \end{itemize}
+  %% 
+  The forms \texttt{string(\emph{Atom})} and \texttt{str(\emph{Atom})}
+  must supply an atom whose content is a JSON structure and
+  \emph{Result} will then be bound to the \ERGO representation of that
+  structure.
+  The form \texttt{url(\emph{Atom})} can be used to ask \ERGO to get a JSON
+  document from the Web. In that case, \emph{Atom} must be a URL. 
+  The forms \texttt{file(\emph{Atom})} and \emph{Atom}
+  interpret \emph{Atom} as a file name and will read the JSON structure
+  from there. The last form, when the source is a variable, assumes
+  that the JSON structure will come from the standard input. The user will
+  have to send the end-of-file signal (Ctrl-D in Linux or Mac; Ctrl-Z in
+  Windows) in order to tell when the entire term has been entered.\footnote{
+    Sending the end-of-file signal is not possible in the \ERGOAI Studio Listener,
+    so this last option is not available through the studio.
+  }
+  If the input JSON structure contains a syntax error or some other problem
+  is encountered (e.g., not enough memory) then the above predicate will
+  fail and a warning indicating the reason will be printed to the standard
+  output.
+
+  \emph{?Result} can be a variable or any other term. If  \emph{?Result}
+  has the form \texttt{pretty}(\emph{?Var})  then \emph{?Var}
+  will get bound to a pretty-printed string representation of the input
+  JSON structure. If \emph{?Result} has any other form (typically a
+  variable) then the input is converted into an \ERGO term as explained
+  above.
+  For instance, the query 
+  \texttt{string('\{"abc":1, "cde":2\}')[parse->?X]@\bs{}json}   
+  will bind \texttt{?X} to the \ERGO HiLog term \texttt{json([abc=1,cde=2])}
+  while the query  \texttt{string('\{"abc":1,
+    "cde":2\}')[parse->pretty(?X)]@\bs{}json}  will bind \texttt{?X} to the atom
+  %% 
+\begin{verbatim}
+'{
+    "abc": 1,
+    "cde": 2
+}'
+\end{verbatim}
+  %% 
+  which is a pretty-printed copy of the input JSON string.
+\item
+  \texttt{\emph{Source}[parse(\emph{Selector}) -> ?\emph{Result}]@\bs{}json}\\
+  The meaning of \emph{Source}  and \emph{Result}  parameters here are the
+  same as before.
+  The \emph{Selector} parameter must be a path expression of the form
+  ``string1.string2.string3'' (with one or more components) that allows
+  one to select the \emph{first} sub-object of a bigger JSON object and
+  return its
+  representation. Note, the first argument \emph{must} supply an object, not an
+  array or some other type of value. For instance, if the input is
+  %% 
+\begin{verbatim}
+{ "first":1, "second":{"third":[1,2], "fourth":{"fifth":3}} }  
+\end{verbatim}
+  %% 
+  then the query \texttt{?[parse(first) -> ?X]@\bs{}json} will bind
+  \texttt{?X} to 1 while
+  \\
+  \texttt{?[parse('second.fourth') -> ?X]@\bs{}json} will bind it to
+  \texttt{json([fifth = 3])}.
+
+  Note that the selector lets one navigate through subobjects but not
+  through arrays. If an array is encountered in the middle, the query will
+  fail. For instance, if the input is
+\begin{verbatim}
+{ "first":1, "second":[{"third":[1,2], "fourth":{"fifth":3}}] }  
+\end{verbatim}
+  then the query \texttt{?[parse('second.fourth') -> ?X]@\bs{}json}
+  will fail and \texttt{?X} will not be bound to anything because the
+  selector \texttt{"second"} points to an array and the selector
+  \texttt{"fourth"} cannot penetrate it. 
+
+  Also note that if the JSON structure has more than one sub-object that
+  satisfies the selection and duplicate keys are allowed
+  (e.g., in \texttt{\{"a":1, "a":2\}} both 1 and 2 satisfy the selection)
+  then only the first sub-object will be returned. (See below to learn about
+  duplicate keys in JSON.)
+
+\item \texttt{set\_option(\emph{option}=\emph{value})@\bs{}json}\\
+  This sets options for parsing JSON for all the subsequent calls to the
+  \texttt{\bs{}json} module. Currently, only the following is supported:
+  %% 
+\begin{verbatim}
+    duplicate_keys=true
+    duplicate_keys=false
+\end{verbatim}
+  %% 
+  As explained earlier, the default is that duplicate keys in JSON objects
+  are treated as syntax errors. The first of the above options tells the
+  parser to allow the duplicates. The second option restores the default.
+\end{itemize}
+%% 
+
+Here is a more complex example, which uses the JSON parser to
+process the result of a search of
+Google's Knowledge Graph to see what it knows about Benjamin Grosof.
+To make the output a bit more manageable, we are only asking to get the
+JSON subobject rooted at the property \texttt{itemListElement}.
+The Knowledge Graph itself is queried using XSB's \texttt{curl}
+library. 
+(The Google KG's
+session key in the example is invalid: one must supply one's own key.)
+%% 
+\begin{alltt}
+?- ?U = '\url{https://kgsearch.googleapis.com/v1/entities:search?query=benjamin_grosof&key=XYZ&limit=1}',
+   load_page(url(?U),
+             [secure(false)], ?, ?_SearchResult, ?)@\bs{}plgall(curl),
+   str(?_SearchResult)[parse(itemListElement) -> ?Answer]@\bs{}json.
+\end{alltt}
+%% 
+The answer to this query is
+%% 
+\begin{alltt}
+?Answer = [json(['@type' = EntitySearchResult,
+                 result = json(['@id' = 'kg:/m/09pb9y8',
+                                name = 'Benjamin Nathan Grosof',
+                                '@type' = [Person, Thing],
+                                description = Mathematician]),
+                 resultScore = 19.3944])]
+\end{alltt}
+%% 
+
+The same can actually be obtained in a much simpler way using the
+\texttt{url} feature for the JSON source, as described above:
+%% 
+\begin{alltt}
+?- ?U = '\url{https://kgsearch.googleapis.com/v1/entities:search?query=benjamin_grosof&key=XYZ&limit=1}',
+   url(?U)[ parse(itemListElement) -> ?Answer @\bs{}json.
+\end{alltt}
+%% 
+At present, the \texttt{url(...)} feature works only for documents
+that are not protected by passwords or SSL. 
+
+\section{API for Importing JSON as Facts}
+
+The API for importing JSON as terms is useful if one
+needs to traverse the imported JSON tree structure and process it in some
+complex way. However, in knowledge
+interchange, JSON is often used to exchange facts about enterprises being
+modeled by the different knowledge base. For instance, the native
+representation in Wikidata and MongoDB is JSON and to get the Wikidata or the
+MongoDB facts into \ERGO we would want to represent the information as
+queriable facts.
+Fortunately, converting JSON into \ERGO facts is easy because the former is
+mappable 1-1 to \ERGO frames. For instance, the following JSON
+%% 
+\begin{verbatim}
+   {"kind": "person", "fullName": "John Doe", "age": 22, "gender": "Male",
+    "child": {{"fullName":"Bob Doe", "age":1},    // embedded JSON objects
+              {"fullName":"Alice Doe", "age":3}},
+    "citiesLived": [{ "place":"Boston", "numberOfYears":5}, // JSON objects
+                    {"place":"Rome", "numberOfYears":6}]}   // embedded in list
+\end{verbatim}
+%% 
+translates into this:
+%% 
+\begin{verbatim}
+   \#[kind->person, fullName->'John Doe', age->22, gender->Male,
+      child->{\#[fullName->'Bob Doe', age->1],
+              \#[fullName->'Alice Doe', age->3]},
+      citiesLived->[\#[place->Boston, numberOfYears->5],
+                    \#[place->Rome, numberOfYears->6]]
+   ].
+\end{verbatim}
+%% 
+The principle of this translation
+should be obvious from the above example except that frames
+are not allowed inside lists, and so
+%% 
+\begin{verbatim}
+   [\#[place->Boston,numberOfYears->5], \#[place->Rome,numberOfYears->6]]
+\end{verbatim}
+%% 
+is not a valid \ERGO 
+syntax. However, this problem is side-stepped by converting 
+lists with embedded frames, such as above,
+into plain lists augmented with additional
+frame-facts. For instance, the above offending list is represented as
+%% 
+\begin{verbatim}
+   [newObjId1, newObjId2]                  // complex list became plain list
+\end{verbatim}
+%% 
+where \texttt{newObjId1}  and \texttt{newObjId2} 
+are newly invented constants
+that do not appear anywhere else. In addition, the following facts are
+added:
+%% 
+\begin{verbatim}
+   newObjId1[place->Boston,numberOfYears->5]. // these are the facts that were
+   newObjId2[place->Rome,numberOfYears->6].   // embedded in the above list
+\end{verbatim}
+%% 
+Thus, the actual translation of the JSON structure in question is
+%% 
+\begin{verbatim}
+   \#[kind->person, fullName->'John Doe', age->22, gender->Male,
+      child->{\#[fullName->'Bob Doe', age->1],
+              \#[fullName->'Alice Doe', age->3]},
+      citiesLived->[newObjId1, newObjId2]  // list no longer has embedded frames
+   ].
+   newObjId1[place->Boston, numberOfYears->5].  // frames formerly
+   newObjId2[place->Rome, numberOfYears->6].    // embedded in a list
+\end{verbatim}
+%% 
+
+Conversion of JSON structures into facts is done by the following API calls:
+%% 
+\begin{itemize}
+\item  \texttt{?Src[parse2memory(?Mod)]@\bs{}json}:
+  The meaning of \texttt{?Src} is as before. This API call takes the input
+  JSON structure, which must be a JSON object (and not a list, number,
+  etc.) and inserts facts, as explained above, into the \ERGO module
+  \texttt{?Mod}.
+\item \texttt{?Src[parse2memory(?Mod,?Selector)]@\bs{}json}:
+  Like the previous call but also takes the selector argument whose meaning
+  is as in the case of the term-based JSON import.
+\item \texttt{?Src[parse2file(?File)@\bs{}json]}:
+  This is similar to parsing to memory, but the facts are instead written
+  to the specified file. If the file already exists, it is erased first.
+  The file can then be loaded or added into some \ERGO module (adding is
+  recommended).
+\item \texttt{?Src[parse2file(?File,?Selector)@\bs{}json]}:
+  Like the previous case, but also takes the selector argument.
+\end{itemize}
+%% 
+Only JSON objects (i.e., \{...\} - structures, not standalone constants or
+lists) can be converted to facts.
+
+Conversion to facts involves creation of a root \ERGO object that represents
+the entire JSON structure. This object then points to
+other objects that represent the various components of that structure, etc.
+The Id of the root object can be obtained via the query
+%% 
+\begin{verbatim}
+   ?- ?Module[json_root->?Oid]@\json.
+\end{verbatim}
+%% 
+Here \texttt{?Module}   is the module into which the JSON object is
+dumped by the\texttt{parse2memory} method or into which the file of facts is loaded 
+when \texttt{parse2file} is used.
+If more than one JSON object is dumped into the same module, the above query
+will return multiple answers---one for each JSON structure dumped into the module.
+One can ``forget'' the root-level oids using this API call:
+%% 
+\begin{verbatim}
+   ?- ?Module[forget_roots]@\json.
+\end{verbatim}
+%% 
+This is useful in situations when one is done processing a previous
+JSON structure and needs to traverse a newly-dumped structure into the same
+module.
+However, the most common way of working with JSON is when modules hold just
+one JSON structure at a time,
+and \texttt{erasemodule\{...\}} is used before another JSON
+structure is dumped into the same module. 
+
+
+\section{Exporting to JSON}
+
+\ERGO provides API for exporting HiLog terms as well as objects to JSON.
+
+\subsection{Exporting  HiLog Terms to JSON}
+
+The case of terms is simple: a term is represented simply as a JSON object
+with two features: \emph{functor} and \emph{arguments}. The functor is also
+a term so it is futher converted according to the same rules.  The
+\emph{arguments} part is a list of terms and the latter are converted
+recursively by the same rule. For instance,
+%% 
+\begin{verbatim}
+   ergo> p(o)(${a(9)},b,?L,[pp(ii),2,3,?L])[term2json -> ?J]@\json.
+   ?J = '{"functor":{"functor":"p","arguments":["o"]}
+          "arguments":[{"predicate":"a","module":"main","arguments":[9]},
+                       "b",
+                       {"variable":"h0"},
+                       [{"functor":"pp","arguments":["ii"]},
+                       2,
+                       3,
+                       {"variable":"h0"}]]}'
+
+   ergo> foo(a,b,bar(c,d))[term2json->?J]@\json.
+   ?J = '{"functor":"foo",
+          "arguments":["a","b",{"functor":"bar","arguments":["c","d"]}]}'
+
+   ergo> \foo("2010-12-12"^^\date, "kkk"^^\mytype, 123)[term2json -> ?J]@\json.
+   ?J = '{"functor":"\\\\foo",
+          "arguments":[
+              {"datatype":"\\\\date","literal":"2010-12-12"},
+              {"datatype":"\\\\mytype","literal":"kkk"},
+              123
+           ]}'
+
+   ergo> [a,b,bar(c,d)][term2json->?J]@\json.
+   ?J = '["a","b",{"functor":"bar","arguments":["c","d"]}]'
+
+   ergo> (a,b,bar(c,d))[term2json->?J]@\json.
+   ?J = '{"commalist":["a","b",{"functor":"bar","arguments":["c","d"]}]}'
+\end{verbatim}
+%% 
+Observe that \verb|\\\\foo| and the like above represents \texttt{\bs{}foo}
+with the backslash escaped with another backslash, as required by
+JSON. \ERGO shows four backslashes, as its output convention is to double
+every backslash so there would be no confusion between, say,
+\texttt{\bs{}n} representing the newline character and \texttt{\bs{}\bs{}n}
+representing a string consisting of a backslash and a letter \texttt{n}.
+
+Note that a term can be a reified predicate in which case the
+\texttt{"predicate"} feature name is used instead of \texttt{"functor"}.
+Also, a variable is translated into a JSON object of the form
+\texttt{\{"variable": "\textnormal{\emph{varname}}"\}}. Since variable names in a logic formula
+are immaterial and all that matters is whether two variables are the same
+or not, only internal names are shown. In the above example, the two
+occurrences of \texttt{?X} are shown as \texttt{"h0"}.
+Frame and subclass/isa formulas are also supported, but not aggregate functions.
+To see whether a particular form of a reified formula is supported
+and how it is represented in JSON, use the JSON API method \texttt{term2json},
+as shown above.
+The general form of that method is given below:
+%% 
+\begin{itemize}
+\item  \texttt{?Term[term2json -> ?Json]@\bs{}json} --- convert HiLog term
+  \texttt{?Term} into a JSON expression.   The result is
+  an atom (an \ERGO symbol) that contains the JSON expression. Such an atom
+  can be sent to a JSON-aware external application.
+\end{itemize}
+%% 
+
+\subsection{Exporting \ERGO Objects to JSON}
+
+This API takes a HiLog term that is interpreted as an object Id and returns
+the JSON encoding of all the immediate superclasses of that object and all the
+properties of that object.
+%% and for every descended object it encodes the same information.
+The input object can be in the current module or in some
+other module. Furthermore, the API can take conditions that would filter
+out the properties of the object that we are looking for as well as
+eliminate the descendant object that we don't want to see in the JSON encoding.
+The idea of the encoding can best be understood via examples.
+
+The first example gives a JSON encoding for the object \texttt{kati} from
+the \texttt{family\_obj.flr} demo located in the \texttt{demos/} folder in
+the \ERGO distribution.   First, we need to load this demo via the command
+\texttt{demo\{family\_obj\}}. To get the JSON encoding, we use the
+\texttt{object2json} method and then pretty-print the result  as explained
+previously. That is,
+%% 
+\begin{verbatim}
+    ?- demo{family_obj},
+       set_option(duplicate_keys=true)@\json,
+       kati[object2json -> ?Json]@\json,
+       string(?Json)[parse->pretty(?Res)]@\json,
+       writeln(?Res)@\io.
+
+    {
+            "\\self": "kati",
+            "\\isa": [
+                "female"
+            ],
+            "ancestor": "hermann",
+            "ancestor": "johanna",
+            "ancestor": "rita",
+            "ancestor": "wilhelm",
+            "brother": "bernhard",
+            "brother": "karl",
+            "daughter": "eva",
+            "father": "hermann",
+            "mother": "johanna",
+            "parent": "hermann",
+            "parent": "johanna",
+            "sister_in_law": "christina",
+            "uncle": "franz",
+            "uncle": "heinz"
+    }
+\end{verbatim}
+%% 
+Note that we set the \texttt{duplicate\_keys=true} option because in the
+\texttt{family\_obj} demo most of the properties (like \texttt{ancestor})
+are multi-valued, which leads to repeated keys in JSON representation.
+As we noted, this is allowed, but some applications do not support such
+JSON expressions. If one needs to talk to such applications, simply don't
+set the \texttt{duplicate\_keys=true} option and the above will represent
+duplicate JSON keys using lists. For instance,
+\texttt{"ancestor":["hermann","johanna","rita","wilhelm"]}.
+Note, however, that without the \texttt{duplicate\_keys}
+option the JSON encoding becomes
+lossy, since we no longer can tell whether the original \ERGO
+attribute \texttt{ancestor}
+was multivalued (with each single value being a string)
+or it was single-valued and the value was an ordered list.
+
+Here we also note that the use of JSON API can often be simpler if one
+recalls the very useful syntax of path expressions. For instance, the 3d
+and 4th lines in the above query can be written much more shortly as
+%% 
+\begin{verbatim}
+   string(kati.object2json)[parse->pretty(?Res)]@\json
+\end{verbatim}
+%% 
+If we try to encode the class \texttt{female} we get the following:
+%% 
+\begin{verbatim}
+   string(kati.object2json)[parse->pretty(?Res)]@\json, writeln(?Res)@\io.
+   {
+    "\\self": "female",
+    "\\sub": [
+        "person"
+    ],
+    "type": "gender"
+   }
+\end{verbatim}
+%% 
+Note that in \ERGO properties can be HiLog terms and so they cannot be
+encoded simply as a string like \texttt{"parent"}. For instance,
+%% 
+\begin{verbatim}
+   ?- insert{{a,b}:{c,d},d::k, k[|eee(123)->kkk|]}.
+   ?- a[object2json -> ?Json]@\json,
+      string(?Json)[parse->pretty(?Res)]@\json,
+      writeln(?Res)@\io.
+
+   {
+    "\\self": "a",
+    "\\isa": [
+        "c",
+        "d"
+    ],
+    "\\keyval": [
+        {
+            "functor": "eee",
+            "arguments": [
+                123
+            ]
+        },
+        [
+            "kkk"
+        ]
+    ]
+   }
+\end{verbatim}
+%% 
+Note that \texttt{eee(123) -> kkk} is a complex property that object
+\texttt{a} inherits from class \texttt{k}. It is encoded as a JSON
+keypair \texttt{"\bs\bs{}keyval"} : \emph{list} where the first element of
+\emph{list} is the encoding of \texttt{eee(123)} and the second of
+\texttt{"kkk"}.     
+
+Now we are ready to present the different versions of the
+\texttt{object2json} method.
+%% 
+\begin{itemize}
+\item  \texttt{?Obj[object2json -> ?Json]@\bs{}json} --- take an object and
+  return a
+  Prolog atom that contains a JSON representation of the object's
+  immediate superclasses and properties with respect to the \ERGO module
+  where this call is made.
+\item \texttt{?Obj[object2json(?Module) -> ?Json]@\bs{}json} --- as above, but
+  the properties and the superclasses of \texttt{?Obj} are taken from the
+  module \texttt{?Module}.
+\item
+  \texttt{?Obj[object2json(?Mod)(?keyFilter,?valFilter,?classFilter)->?Json]@\bs{}json}
+  --- this version lets one to not only specify the module but also impose
+  conditions on the properties of \texttt{?Obj}, on the superclasses, and
+  on the property values that we want to see in the JSON representation.
+  In the above, \texttt{(?Mod)} can be omitted and the current module will
+  be used then. A \texttt{null} (or any
+  other constant) condition means ``no filtering for that type of
+  argument.''  Otherwise, the filters must be unary predicates or
+  primitives. In the example below we use unary primitives
+  \texttt{isnumber\{?\}} and \texttt{isatom\{?\}}.
+\end{itemize}
+%% 
+First, we show what happens without filtering. It is an expansion of an
+earlier example:
+%% 
+\begin{verbatim}
+ergo> insert{{a,b}:c, c::{h,k}, h[|www->1|],k[|ppp->kk, eee(123)->kkk|]},
+      string(a.object2json)[parse->pretty(?Res)]@\json, writeln(?Res)@\io.
+{
+    "\\self": "a",
+    "\\isa": [
+        "c"
+    ],
+    "ppp": [
+        "kk"
+    ],
+    "www": [
+        1
+    ],
+    "\\keyval": [
+        {
+            "functor": "eee",
+            "arguments": [
+                123
+            ]
+        },
+        [
+            "kkk"
+        ]
+    ]
+}
+\end{verbatim}
+%% 
+In contrast, the following query says that we want to see only the atomic
+properties (so \texttt{eee(123)} will be omitted) and only such properties
+whose values are numbers. No restrictions on superclasses is imposed:
+%% 
+\begin{verbatim}
+ergo> string(a.object2json(isatomic{?},isnumber{?},null))[
+                parse->pretty(?Res)
+      ]@\json, writeln(?Res)@\io.
+{
+    "\\self": "a",
+    "\\isa": [
+        "c"
+    ],
+    "www": [
+        1
+    ]
+}
+\end{verbatim}
+%% 
+We see that the complex property \texttt{eee(123)->1} got dropped because
+it is not atomic and the property \texttt{"ppp"} got dropped because its
+values are not integers.
+
+\paragraph{Recursive export.} Sometimes it is desirable to convert not just
+an object, but an object together with its descendant objects---the ones
+reachable from the object via its attributes---into a single JSON
+structure. For instance, in our \texttt{family\_obj.flr}  example,
+\texttt{kati} has an \texttt{ancestor}-descendant object \texttt{hermann},
+which is also a  person-object that has its own JSON representation. We
+might want to attach that representation to the \texttt{kati}-JSON
+structure at the point where \texttt{"hermann"} is attached.
+To enable such a \emph{recursive} export into JSON, one must set the
+\texttt{recursive\_export} option by executing the following query:
+%% 
+\begin{verbatim}
+   ?- set_option(recursive_export=true)@\json.
+\end{verbatim}
+%% 
+We cannot show here the result of a recursive export for \texttt{kati}, as
+the resulting structure is too big, but we will show a smaller example:
+%% 
+\begin{verbatim}
+   ergo> insert{{a,b}:d, d::e, e::k ,k[|ppp->kk:d[prop1->abc,prop2->3], ppp->jj|]},
+         string(a.object2json)[parse->pretty(?_Res)]@\json, writeln(?_Res)@\io.
+    {
+        "\\self": "a",
+        "\\isa": [
+            "d"
+        ],
+        "ppp": [
+            {
+                "\\self": "jj"
+            },
+            {
+                "\\self": "kk",
+                "\\isa": [
+                    "d"
+                ],
+                "ppp": [
+                    {
+                        "\\self": "jj"
+                    },
+                    {
+                        "\\self": "kk",
+                        "\\isa": [
+                            "d"
+                        ]
+                    }
+                ],
+                "prop1": [
+                    {
+                        "\\self": "abc"
+                    }
+                ],
+                "prop2": [
+                    {
+                        "\\self": 3
+                    }
+                ]
+            }
+        ]
+    }
+\end{verbatim}
+%% 
+Here we see that \texttt{"kk"} (a \texttt{ppp}-descendant object of
+\texttt{"a"}) is also JSON-expanded. Moreover, it is easy to see that
+\texttt{kk[ppp->kk]} is true, which means that \texttt{kk} is a
+\texttt{ppp}-descendant of itself. Thus, there is a cycle through
+\texttt{kk} in the descendant-object relation and if we kept expanding
+\texttt{kk} as we traverse the \texttt{ppp} attribute, the resulting JSON
+term would be infinite. Therefore, as you can see, the second time we
+encounter \texttt{"kk"} it is \emph{not} expanded and only its
+isa-information is shown (the sub-information would have also been shown,
+if it existed).
+
+
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora-packages"
+%%% End: 

@@ -1,0 +1,61 @@
+\chapter[Pretty Printing]{Pretty Printing\\{\Large by Michael Kifer}}
+
+
+This package provides methods for pretty printing the information about an
+object or about all objects in a given class. This information can be saved
+in a file or printed on the screen. This package must be first loaded into
+a module, for instance, 
+%% 
+\begin{verbatim}
+   ?- [prettyprint>>pp].
+\end{verbatim}
+%% 
+and then the functionality of this package will be
+accessible using the {\tt @pp} reference.
+
+To pretty print information about an object, the following calls can be
+used.  The first argument is the user module whose object is to be pretty
+printed. (Recall that the same object can have completely different sets of
+properties in different user modules, so the pretty printing methods need to
+know which set of properties to use.)
+%%
+\begin{itemize}
+\item {\tt ?Class[pp\_class]@pp} --- pretty print all objects in class {\tt
+  ?Class} in the current module. Send the result to standard output.
+\item {\tt ?Class[pp\_class(?Module)]@pp} --- same, but the information is
+  printed on objects in module {\tt ?Module}. 
+\item  {\tt ?Class[pp\_class(?Module,?Outfile)]@pp} --- same, but
+  put the result in {\tt ?Outfile}.
+\item {\tt ?Obj[pp\_self]} --- pretty print the state of the object {\tt ?Obj}
+  in the current module. Send the result to standard output.
+\item {\tt ?Obj[pp\_self(?Module)]@pp} --- same, but use the object {\tt ?Obj}
+  in module {\tt ?Module}.  
+\item {\tt ?Obj[pp\_self(?Module,?Outfile)]@pp} --- same, but send the result 
+  to file {\tt ?Outfile}. 
+\item {\tt ?Class[pp\_isa]@pp} --- pretty print the part of the isa
+  hierarchy beneath {\tt ?Class} in the current module. Send the result to
+  standard output.
+\item {\tt ?Class[pp\_isa(?Module)]@pp} --- same, but use the isa hierarchy in
+  module {\tt ?Module}. 
+\item {\tt ?Class[pp\_isa(?Module,?Outfile)]@pp} --- same, but send the result
+  to file {\tt ?Outfile}.
+\end{itemize}
+%%
+The following example illustrates the use of this library:
+%%
+\begin{quote}
+ {\tt
+  flora2 ?- John[pp\_self(\thismodule)]@pp.
+   }
+\end{quote}
+%%
+When this method is called, the token \thismodule is replaced with the name
+of the module in which the call occurs, so it known that it has to pretty
+print the object {\tt John} in that module.
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "flora-packages"
+%%% End: 

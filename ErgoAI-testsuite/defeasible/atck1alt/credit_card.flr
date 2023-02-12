@@ -1,0 +1,272 @@
+:- use_argumentation_theory{ogcle}.
+?- [atck1alt>>ogcle].
+
+/* 
+   CREDIT CARD TRANSACTION AUTHORIZATION EXAMPLE
+
+   Enhanced example based on SWSL Application Scenarios
+   http://www.w3.org/Submission/2005/SUBM-SWSF-Applications-20050909/#subsubsec-app-policies-creditcard
+*/
+
+/*
+   SOME TERMINOLOGICAL ABBREVIATIONS:
+
+   CVC: Card Verification Code (the three or so numbers found on the back of
+   a credit card)
+   "Bank": the credit card company that is the issuer of the credit card
+   (e.g., Mastercard)
+
+   PREDICATES' MEANING:
+
+   transactionRequest: a credit card transaction requested by a customer
+   merchant: a merchant who is established to do credit card transactions
+	     with the credit card company
+   ccInGoodStanding: credit card is in good standing with the credit card
+                     company that is the issuer of the credit card
+   ccInfo: credit card info about the account and its status, that is on file
+           with the bank
+   authorize: the credit card transaction is authorized
+   transactionCVCOf: customer-supplied CVC that is part of the transaction
+   ccFraudRating: rating of a credit card by a fraud alerting/tracking service
+   fraudExpert: a service is a legitimate expert in fraud alerting/tracking
+   fraudRecommenderFor: trusted recommender of fraud experts
+   customerRating: the rating of customer based on the merchant's own/other
+       	           experience
+
+
+   The following group of rules are policies of the bank, then adopted/imported
+   as a group/module by the merchant, in this case eSellWow.
+
+   bankGoodStanding: Bank says by default the transaction is authorized if the
+		     card is in good standing
+   expiredCard: Bank says the transaction is disallowed if the card is expired. 
+   overLimit: Bank says the transaction is disallowed if the card is above
+              its account limit.
+   mismatchExpirationDate: Bank says the transaction is disallowed if the
+               expiration date from the customer or card in the transaction
+               does not match what's on file for the card. However, the
+               expiration date may not be available as part of the transaction.
+   mismatchCVC: Bank says the transaction is disallowed if the Card
+       	       Verification Code does not match what's on file for the card.
+
+   However, note that the CVC may not be available as part of the transaction.
+   mismatchAddress: Bank says the transaction is disallowed if
+       	       customer-supplied cardholder billing address does not match
+       	       what's on file for the card. However, the customer-supplied
+       	       cardholder billing addr may not be available.
+   mismatchName: Bank says the transaction is disallowed if customer-supplied
+                 cardholder name does not match what's on file for the card.
+       	         However, the customer-supplied cardholder billing addr may
+       	       	 not be available.
+   The expiredCard, overLimit, mismatchExpirationDate, mismatchCVC,
+   mismatchAddress, and mismatchName rules all have higher priority than
+   bankGoodStanding.
+
+   The following group of rules are additional policies of the merchant
+   eSellWow, which it adopted/imported from a vendor and consultant when
+   setting up its e-store website merchantRespectBank: Merchant say a
+   transaction is disallowed if the bank does.
+
+   merchantTrustBank: Merchant says, by default, that a transaction is allowed
+   if the bank does.
+   fraudAlert: Merchant says transaction is disallowed if a trusted fraud
+   tracking service rates the fraud risk as high for the card.
+   trustTRW: Merchant relies on recommenderServiceTRW for establishing
+       	     such trust.
+   badCustomer: Merchant says transaction is disallowed if its own/other
+	 experience indicates that the customer is a bad customer to deal with.
+   The fraudAlert and badCustomer rules both have higher priority
+       	 than merchantTrustBank.
+
+   The following are additional background fact rules, known to the merchant
+   eSellWow and the bank.
+   eSellWow is an established merchant for mastercard and visa.
+
+   The following are additional background fact rules, known to the merchant
+   eSellWow.
+   recommenderServiceTRW recommends fraudscreen
+*/
+
+
+
+// insertrule is just to test interaction with dynamic rules
+?- insertrule{
+@{bankGoodStanding}
+authorize(?Bank,?TransactionID) :-
+        transactionRequest(?TransactionID,?Merchant,?CreditCardNumber,?_Amount),
+        issuer(?CreditCardNumber,?Bank) \and merchant(?Merchant,?Bank) \and
+        ccInGoodStanding(?Bank,?CreditCardNumber)
+    }.
+
+?- insertrule{
+@{expiredCard}
+\neg authorize(?Bank,?TransactionID) :-
+        transactionRequest(?TransactionID,?Merchant,?CreditCardNumber,?_Amount),
+        issuer(?CreditCardNumber,?Bank) \and merchant(?Merchant,?Bank) \and
+        ccInfo(?CreditCardNumber,?Bank,?_CardholderName,?_AccountLimit,
+	       ?ExpiredFlag,?_ExpirationDate,?_CardholderAddress,?_CVC) \and
+        ?ExpiredFlag != false
+    }.
+
+@{overLimit}
+\neg authorize(?Bank,?TransactionID) :-
+        transactionRequest(?TransactionID,?Merchant,?CreditCardNumber,?Amount),
+        issuer(?CreditCardNumber,?Bank) \and merchant(?Merchant,?Bank) \and
+        ccInfo(?CreditCardNumber,?Bank,?_CardholderName,?AccountLimit,
+               ?_ExpiredFlag,?_ExpirationDate,?_CardholderAddress,?_CVC) \and
+        ?AccountLimit < ?Amount.
+
+@{mismatchCVC}
+\neg authorize(?Bank,?TransactionID) :-
+        transactionRequest(?TransactionID,?Merchant,?CreditCardNumber,?_Amount),
+        issuer(?CreditCardNumber,?Bank) \and merchant(?Merchant,?Bank) \and
+        ccInfo(?CreditCardNumber,?Bank,?_CardholderName,?_AccountLimit,
+               ?_ExpiredFlag,?_ExpirationDate,?_CardholderAddress,?CVC) \and
+        transactionCVCOf(?TransactionID,?TransactionCVC) \and
+        ?TransactionCVC != ?CVC.
+
+@{merchantTrustBank}
+authorize(?Merchant,?TransactionID) :-
+        transactionRequest(?TransactionID,?Merchant,?CreditCardNumber,?_Amount),
+        issuer(?CreditCardNumber,?Bank) \and merchant(?Merchant,?Bank) \and
+        authorize(?Bank,?TransactionID).
+
+@{merchantRespectBank}
+\neg authorize(?Merchant,?TransactionID) :-
+        transactionRequest(?TransactionID,?Merchant,?CreditCardNumber,?_Amount),
+        issuer(?CreditCardNumber,?Bank) \and merchant(?Merchant,?Bank) \and
+        \neg authorize(?Bank,?TransactionID).
+
+@{fraudAlert}
+\neg authorize(?Merchant,?TransactionID) :-
+        transactionRequest(?TransactionID,?Merchant,?CreditCardNumber,?_Amount),
+        issuer(?CreditCardNumber,?Bank) \and merchant(?Merchant,?Bank) \and
+        ccInfo(?CreditCardNumber,?Bank,?CardholderName,?_AccountLimit,
+               ?_ExpiredFlag,?_ExpirationDate,?_CardholderAddress,?_CVC) \and
+        fraudRecommenderFor(?Merchant,?recommenderService) \and
+        fraudExpert(?recommenderService,?FraudFirm) \and
+        ccFraudRiskRating(?FraudFirm,?CardholderName,high).
+
+@{badCustomer}
+\neg authorize(?Merchant,?TransactionID) :-
+        transactionRequest(?TransactionID,?Merchant,?CreditCardNumber,?_Amount),
+        issuer(?CreditCardNumber,?Bank) \and merchant(?Merchant,?Bank) \and
+        ccInfo(?CreditCardNumber,?Bank,?CardholderName,?_AccountLimit,
+                ?_ExpiredFlag,?_ExpirationDate,?_CardholderAddress,?_CVC) \and
+        customerRating(?Merchant,?CardholderName,bad).
+
+fraudRecommenderFor(eSellWow,recommenderServiceTRW).
+
+merchant(eSellWow,mastercard).
+
+merchant(eSellWow,visa).
+
+fraudExpert(recommenderServiceTRW,fraudscreen).
+
+\overrides(expiredCard,bankGoodStanding).
+\overrides(overLimit,bankGoodStanding).
+
+\overrides(mismatchCVC,bankGoodStanding).
+
+\overrides(fraudAlert,merchantTrustBank).
+\overrides(badCustomer,merchantTrustBank).
+
+
+/*
+   The following groups of "case" facts each specify a
+   particular case scenario of a requested customer transaction.
+
+   Joe Goya has a card in good standing, unexpired, and the transaction amount
+   is below the account limit.  His customer rating is good.  Transaction
+   expiration date, address, and CVC are unavailable, as is fraud alert rating.
+   The policies thus imply that his transaction ought to be authorized by the
+   merchant as well as by the bank.
+
+   Mary Freund has a card in good standing, unexpired, and the transaction
+   amount is below the account limit. Her address matches, and her fraud report
+   and customer rating are fine. But the transaction CVC and address do not
+   match the ones on file. Thus the policies imply that the transaction on her
+   card ought to be disallowed by the merchant as well as the bank.
+
+   Andy Lee has a card in good standing, unexpired, and the transaction amount
+   is under the account limit. But his customer rating is bad. Thus the
+   policies imply that his transaction ought to be disallowed by the merchant
+   (regardless of whether the bank allows it).
+*/
+
+transactionRequest(trans1014,eSellWow,'999912345678',70).
+issuer('999912345678',mastercard).
+ccInfo('999912345678',mastercard,joeGoya,1100,true,'2007_08','43 Garden Drive, Cincinnati OH',702).
+ccInGoodStanding(mastercard,'999912345678').
+customerRating(eSellWow,joeGoya,good).
+
+transactionRequest(trans1015,eSellWow,'099912345678',70).
+issuer('099912345678',mastercard).
+ccInfo('099912345678',mastercard,sueGoya,1100,false,'2008_09','43 Garden Drive, Cincinnati OH',702).
+ccInGoodStanding(mastercard,'099912345678').
+customerRating(eSellWow,sueGoya,good).
+
+transactionRequest(trans2023,eSellWow,'999987654321',410).
+issuer('999987654321',visa).
+ccInfo('999987654321',visa,maryFreund,2400,false,'2008_02','325 Haskell Street, Seattle, WA',684).
+ccInGoodStanding(visa,'999987654321').
+ccFraudRiskRating(fraudscreen,maryFreund,low).
+customerRating(eSellWow,maryFreund,excellent).
+transactionCVCOf(trans2023,524).
+
+transactionRequest(trans3067,eSellWow,'999956781234',120).
+issuer('999956781234',mastercard).
+ccInfo('999956781234',mastercard,andyLee,900,false,'2006_05','1500 Seaview Boulevard, Daytona Beach, FL',837).
+ccInGoodStanding(mastercard,'999956781234').
+customerRating(eSellWow,andyLee,bad).
+
+/*
+  The above premises (policy rules and case facts) together entail the
+  following conclusions about the authorization of the particular requested
+  transactions by customers Joe Goya, Mary Freund, and Andy Lee.
+  
+  Notice that:
+    1. Without defeasible reasoning, authorize(mastercard,trans1014) would
+       have been true. In our case it is false because expiredCard defears
+       bankGoodStanding. So, the bank denies, but the merchant approves.
+    2. In the case of Andy Lee (trans3067), the merchant denies authorization
+       even though the bank approves it. This is because of the merchant's
+       own customer rating info and policies.
+       Without defeasible reasoning, authorize(eSellWow,trans3067)
+       would have been true.
+
+   The entailed approval vs. denial by the bank, and by the merchant,
+   of authorization of the particular requested credit card transactions.
+*/
+
+%test1 :-  write('test01: ')@\plg,
+	\if (
+	    // joeGoya's credit card expired
+	    \neg authorize(mastercard,trans1014),
+	    \naf authorize(mastercard,trans1014),
+	    \neg authorize(eSellWow,trans1014),
+	    // sueGoya is ok
+	    authorize(mastercard,trans1015),
+	    authorize(eSellWow,trans1015),
+	    // mismatch in CVC number
+	    \neg authorize(visa,trans2023),
+	    \neg authorize(eSellWow,trans2023),
+	    // bank approves, but merchant eSellWow denies:
+	    // badCustomer overrides merchantTrustBank
+	    authorize(mastercard,trans3067),
+	    \naf authorize(eSellWow,trans3067),
+	    \neg authorize(eSellWow,trans3067)
+	   )
+	\then writeln(succeeded)@\plg
+	\else writeln(failed)@\plg.
+
+
+%pretest :- %test1.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	\abolishtables,
+	%pretest,
+	told@\plg().

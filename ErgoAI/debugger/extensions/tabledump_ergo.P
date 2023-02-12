@@ -1,0 +1,326 @@
+/* File:      extensions/tabledump_ergo.P -- Ergo listing of incomplete goals
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2015 - 2018.
+** All rights reserved.
+**
+*/
+
+
+#include "standard.h"
+
+
+/**************** Unfinished goals *************************************/
+
+:- import table_dump/2 from dump_table.
+:- import get_sdg_subgoal_info/1 from tables.
+
+:- import
+	flora_rename_vars_meaningfully/1,
+	flora_decode_goal_as_atom/2
+   from flrdecode.
+:- import
+	flatten/2,
+	reverse/2,
+	length/2
+   from basics.
+:- import
+	flora_replace_last/3
+   from flrtrim.
+
+:- import
+        open_gui_window_for_application/5,
+        gui_print_to_window/2,
+	flora_stdfdbk_string/1,
+	flora_stdfdbk_string/2
+   from flrprint.
+
+%%:- import flora_configuration/2 from flrregistry.
+
+:- import
+        editGtGetResult/3,
+        ipListenerWindow/1
+   from usermod.
+
+:- import
+        check_ergo_gui_busy/1,
+        ergo_gui_mode/0
+   from flrutils.
+
+:- import get_incr_sccs/1 from increval.
+
+:- import
+        enable_all_tripwires/0,
+        disable_all_tripwires/0
+   from flrerrhandler.
+
+:- export
+	scc_counts/2,
+	print_post_showtables_summary/0,
+	show_tables/0,
+	show_tables/2,
+	show_unfinished_goals/0,
+	show_unfinished_goals/2.
+
+show_unfinished_goals :-
+        ergo_gui_mode,
+        !,
+        check_ergo_gui_busy('showgoals{}'),
+        (ipListenerWindow(W) -> true
+        ; W=null
+        ),
+        disable_all_tripwires,
+        GT = gt('Parameters for Showing Active Goals',
+                [class = 'com.xsb.xj.containers.LabelValueColumn',
+                 label_anchor = west,
+                 updatable],
+                [
+                 gt(2000,[caption = 'Minimum goal calls cutoff ', integer],[]),
+                 gt(100,[caption = 'Minimum answers cutoff ',integer],[]),
+                 %% a spacer
+                 gt('   ',[caption = '',string,readonly,nonpersistent],[])
+                ]),
+        editGtGetResult(W,GT,Result),
+        arg(1,Result,CutoffCall),
+        arg(2,Result,CutoffAns),
+        show_unfinished_goals(CutoffCall,CutoffAns),
+        enable_all_tripwires.
+show_unfinished_goals :- show_unfinished_goals(1000,50).
+show_unfinished_goals(CutoffCall,CutoffAns) :-
+	get_sdg_subgoal_info(List),
+	filter_incomplete_goal_list(List,ListFiltered),
+	sort(ListFiltered,ListFilteredSorted),
+	aggregate_list(CutoffCall,CutoffAns,ListFilteredSorted,ListAgg),
+	length(ListAgg,NumberGoals),
+        open_gui_window_for_application(tabledump,
+                                        'Goals Currently Being Computed',
+                                        'Calls and Answers',
+                                        70, 70
+                                        ),
+	fmt_write_string(HdrStr,'\n+++ Goals currently being computed (with over %d calls or %d answers)\n\n', args(CutoffCall,CutoffAns)),
+        gui_print_to_window(tabledump,brown(HdrStr)),
+        !,
+	print_tabled_goals(ListAgg),
+        gui_print_to_window(tabledump,[brown('\n+++ Total: '),green(NumberGoals),brown(' goals\n')]).
+
+print_tabled_goals([]) :- !.
+print_tabled_goals([G|Rest]) :-
+	print_tabled_goal(G),
+	print_tabled_goals(Rest).
+
+print_tabled_goal(_-subgoal(Goal,CallsTo,Answers)) :-
+	flora_decode_goal_as_atom(Goal,FloraGoal),
+	gui_print_to_window(tabledump,
+                            [brown('>'),blue(' Goal:     '),FloraGoal,'\n',
+                             blue('  Called:   '),CallsTo,blue(' times\n'),
+                             blue('  Answers:  '),Answers,'\n']).
+
+filter_incomplete_goal_list([],[]) :- !.
+filter_incomplete_goal_list([subgoal(Goal,_SCCIdx,_TblHandle,CallsTo,Answers,_PosEdges,_NedEdges)|T],
+			    [subgoal(GoalOut,CallsTo,Answers)|TT]) :-
+	flora_replace_last(Goal,null,GoalOut),
+	flora_rename_vars_meaningfully(GoalOut),
+	filter_incomplete_goal_list(T,TT).
+
+%% for identical sybgoals (that differ only in the hidden rule id argument,
+%% aggregate the entries by summing them up
+aggregate_list(CutoffCall,CutoffAns,L,AL) :-
+	aggregate_list(CutoffCall,CutoffAns,(null,0,0),L,AL1),
+	sort(AL1,AL).
+
+aggregate_list(CutoffCall,CutoffAns,(Goal,Calls,Ans),[],Out) :-
+	!,
+	(Goal == null -> Out = []
+	;   ((Calls > CutoffCall ; Ans > CutoffAns) ->
+                Total is Calls+Ans,
+		Out = [Total-subgoal(Goal,Calls,Ans)]
+	    ; Out = []
+	    )
+	).
+aggregate_list(CutoffCall,CutoffAns,
+	       (OldGoal,OldCalls,OldAns),
+	       [subgoal(Goal,Calls,Ans)|Tail],
+	       Out) :-
+	(OldGoal == Goal ->
+	    NewCalls is Calls+OldCalls,
+	    NewAns is OldAns+Ans,
+	    aggregate_list(CutoffCall,CutoffAns,(Goal,NewCalls,NewAns),Tail,Out)
+	; OldGoal == null ->
+	    aggregate_list(CutoffCall,CutoffAns,(Goal,Calls,Ans),Tail,Out)
+	;
+	    %%Total is OldCalls+OldAns,
+	    ((OldCalls > CutoffCall ; OldAns > CutoffAns) ->
+                Total is OldCalls+OldAns,
+		Out = [Total-subgoal(OldGoal,OldCalls,OldAns)|RestOut]
+	    ; Out = RestOut
+	    ),
+	    aggregate_list(CutoffCall,CutoffAns,(Goal,Calls,Ans),Tail,RestOut)
+	).
+
+
+%% Show complete tables like the incomplete ones
+show_tables :-
+        ergo_gui_mode,
+        !,
+        check_ergo_gui_busy('showtables{}'),
+        (ipListenerWindow(W) -> true
+        ; W=null
+        ),
+        GT = gt('Parameters for Showing Complete Goals',
+                [class = 'com.xsb.xj.containers.LabelValueColumn',
+                 label_anchor = west,
+                 updatable],
+                [
+                 gt(1000,[caption = 'Minimum goal calls cutoff ', integer],[]),
+                 gt(50,[caption = 'Minimum answers cutoff ',integer],[]),
+                 %% a spacer
+                 gt('   ',[caption = '',string,readonly,nonpersistent],[])
+                ]),
+        editGtGetResult(W,GT,Result),
+        arg(1,Result,CutoffCall),
+        arg(2,Result,CutoffAns),
+        show_tables(CutoffCall,CutoffAns).
+show_tables :- show_tables(500,30).
+show_tables(CutoffCall,CutoffAns) :-
+	%% details look like Goal-subgoals(N) - details(List)
+	findall(Details,(table_dump(_,[output(false),summary(false),details(subgoals),results(Record)]),Record = (details = _-_-details(Details))),Out1),
+	flatten(Out1,Out),
+	filter_complete_goal_list(Out,OutFiltered),
+	sort(OutFiltered,ListFilteredSorted),
+	aggregate_list(CutoffCall,CutoffAns,ListFilteredSorted,ListAgg),
+	length(ListAgg,NumberGoals),
+        open_gui_window_for_application(tabledump,
+                                        'Fully Evaluated Goals and Answers',
+                                        'Calls and Answers',
+                                        70, 70),
+	fmt_write_string(HdrStr,'\n+++ Fully evaluated goals (with over %d calls or %d answers)\n\n', args(CutoffCall,CutoffAns)),
+        gui_print_to_window(tabledump,brown(HdrStr)),
+        !,
+	print_tabled_goals(ListAgg),
+        gui_print_to_window(tabledump,
+                            [brown('\n+++ Total: '),green(NumberGoals),brown(' goals\n')]).
+
+
+filter_complete_goal_list([],[]) :- !.
+filter_complete_goal_list([First|T], OutList) :-
+	First = (Goal - times_called(CallsTo) - answers(Answers) - _Stat),
+	(irrelevant_goal(Goal) -> filter_complete_goal_list(T,OutList)
+	;
+            flora_replace_last(Goal,null,GoalOut) -> 
+	    flora_rename_vars_meaningfully(GoalOut),
+	    filter_complete_goal_list(T,TT),
+	    OutList = [subgoal(GoalOut,CallsTo,Answers)|TT]
+	; GoalOut = Goal, 
+	    flora_rename_vars_meaningfully(GoalOut),
+	    filter_complete_goal_list(T,TT),
+	    OutList = [subgoal(GoalOut,CallsTo,Answers)|TT]
+	).
+
+scc_counts(AggrCounts,CountCutoff) :-
+	get_incr_sccs(SCClist),
+	preprocess_scc_list(SCClist,IdSubSortedL),
+	%%outlist('~/222',IdSubSortedL),  %% for testing
+	aggregate_scc_counts(IdSubSortedL,CountCutoff,SCCcounts),
+	aggregate_counts(SCCcounts,AggrCounts).
+
+/*
+outlist(File,List) :-
+	tell(File),
+	outlist(List),
+	told.
+outlist([]) :- !.
+outlist([H|T]) :-
+	flora_decode_goal_as_atom(H,FloraGoal),
+	writeln(FloraGoal),
+	outlist(T).
+*/
+
+
+preprocess_scc_list(In,Out) :-
+	preprocess_scc_list1(In,Intermed),
+	sort(Intermed,Out).
+preprocess_scc_list1([],[]) :- !.
+preprocess_scc_list1([ret(Sub,Id)|Rest],[(Id,SubOut)|RestOut]) :-
+	flora_replace_last(Sub,null,SubOut),
+	%%flora_rename_vars_meaningfully(SubOut),
+	preprocess_scc_list1(Rest,RestOut).
+
+aggregate_scc_counts(IdSubSortedL,CountCutoff,SCCcounts) :-
+	aggregate_scc_counts((-1,0),IdSubSortedL,CountCutoff,SCCcounts).
+
+aggregate_scc_counts(_,[],_,[]) :- !.
+aggregate_scc_counts((PrevId,PrevCount),[(Id,_)|Rest],CountCutoff,Out) :-
+	(PrevId == Id ->
+	    NewCount is PrevCount+1,
+	    aggregate_scc_counts((Id,NewCount),Rest,CountCutoff,Out)
+	; NewCount = 1,
+	    (PrevCount < CountCutoff -> Out = RestOut
+	    ; Out = [(PrevCount,PrevId)|RestOut]
+	    ),
+	    aggregate_scc_counts((Id,NewCount),Rest,CountCutoff,RestOut)
+	).
+
+aggregate_counts(SCCcounts,AggrCounts) :-
+	sort(SCCcounts,SCCcountsSorted),
+	aggregate_counts((0,0),SCCcountsSorted,AggrCounts).
+
+aggregate_counts(_,[],[]) :- !.
+aggregate_counts((PrevCount,CliqCount),[(Count,_)|Rest], Out) :-
+	(PrevCount == Count ->
+	    NewCliqCount is CliqCount+1,
+	    aggregate_counts((Count,NewCliqCount),Rest,Out)
+	; NewCliqCount = 1,
+	    (CliqCount < 1 -> Out = RestOut
+	    ; Out = [(PrevCount,CliqCount)|RestOut]
+	    ),
+	    aggregate_counts((Count,NewCliqCount),Rest,RestOut)
+	).
+
+count_cliques(List,Cutoff,Direction,Result) :-
+	count_cliques(List,Cutoff,Direction,0,Result).
+count_cliques([],_,_,Accummulator,Accummulator) :- !.
+count_cliques([(GoalCount,CliqCount)|List],Cutoff,Direction,Accummulator,Result) :-
+	((Direction == ascending, GoalCount < Cutoff
+	 ; Direction == descending, GoalCount > Cutoff
+	 )
+	-> Accummulator1 is Accummulator+CliqCount,
+	    count_cliques(List,Cutoff,Direction,Accummulator1,Result)
+	; Result = Accummulator
+	).
+	
+%% This is not yet being used
+print_post_showtables_summary :-
+	statistics(table_ops,[CallsSubsume,TblSubsume,CallsVariant,TblVariance,_,Answers]),
+	statistics(total_memory,[_,Memory]),
+	%% SCCs with one goal are not recursive
+	LowGoalCountCutoff = 2,
+	scc_counts(AggrCounts,LowGoalCountCutoff),
+	TotalCalls is CallsSubsume+CallsVariant,
+	TotTables is TblSubsume+TblVariance,
+	MemGBs is Memory / 1073741824,   %% 1024^3
+	flora_stdfdbk_string('~n~nSummary of statistics:~n~n'),
+	fmt_write(STDFDBK,'    memory:             %1.2fGB\n',arg(MemGBs)),
+	flora_stdfdbk_string('    subgoals evaluated: ~w~n',[TotTables]),
+	flora_stdfdbk_string('    facts derived:      ~w~n',[Answers]),
+	flora_stdfdbk_string('    calls to subgoals:  ~w~n',[TotalCalls]),
+	(reverse(AggrCounts,ReverseAggrCounts),
+	    ReverseAggrCounts = [(HighestCount,HiCliqNum)|_] 
+	->
+	    flora_stdfdbk_string('    largest recursive component has:  ~w goals; ~w such components~n',[HighestCount,HiCliqNum])
+	; true
+	),
+	(AggrCounts = [(LowestCount,LoCliqNum)|_] ->
+	    flora_stdfdbk_string('    smallest recursive component has: ~w goals; ~w such components~n',[LowestCount,LoCliqNum])
+	; true
+	),
+	UpperSummaryCutoff = 40,
+	LowSummaryCutoff = 4,
+	count_cliques(ReverseAggrCounts,UpperSummaryCutoff,descending,UpperCliqCount),
+	count_cliques(AggrCounts,LowSummaryCutoff,ascending,LowCliqCount),
+	flora_stdfdbk_string('    large recursive components (with over ~w goals): ~w~n',[UpperSummaryCutoff,UpperCliqCount]),
+	flora_stdfdbk_string('    small recursive components (with under ~w goals): ~w~n',[LowSummaryCutoff,LowCliqCount]).
+
+

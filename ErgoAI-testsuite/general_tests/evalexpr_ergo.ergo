@@ -1,0 +1,83 @@
+:- compiler_options{expert=on}.
+
+p(?X,=1+?Y,?Z) :- q(?Y), r(?X,?Z).
+q(1), q(3), r(a,b).
+
+?- insert{(p2(?X,=1+?Y,?Z) :- q(?Y), r(?X,?Z))}.
+
+%tst1 :- ?X \is abc||cde||f(?P)|| ' ',
+	 write(test1=?X)@\io,
+	 write_canonical(?X)@\io,
+	 write(='.'||?X||'.')@\io,
+	 write_canonical(=abc||'cde '' \\a ' ||f(?P))@\io,
+	 nl@\io.
+
+
+%tst2 :- p(?X,?Y,?Z),
+	 writeln(= test2 ||' '|| ?X||?Y||?Z)@\io,
+	 \false.
+%tst2 :- !.
+
+%tst3 :- q(?X), p(?V,=?X+1,?Z),
+	 writeln(= test3 ||= || ?V||?X||?Z)@\io,
+	 \false.
+%tst3 :- !.
+
+%tst4 :- ?Z=3, insert{pp(1,=2+?Z)},
+	 pp(?X,?Y),
+	 write(= 'test4: The result is: '||?X||' and '||?Y||'. ')@\io,
+	 write_canonical(= ' next \' \\result: '||?X||' and '||?Y)@\io,
+	 nl@\io.
+
+%tst5 :- ?X=3, delete{pp(1,=2+?X)},
+	 \if pp(?,?) \then writeln(= test5 || ' failed')@\io
+         \else writeln(= test5 || ' succeeded')@\io.
+
+%tst6 :- p2(?X,?Y,?Z),
+	 writeln(= test6 || = || ?X||?Y||?Z)@\io,
+	 \false.
+%tst6 :- !.
+
+%tst7 :- insertrule{p3(?XX,=1+?YY,?ZZ) :- q(?YY), r(?XX,?ZZ)},
+	 p3(?X,?Y,?Z),
+	 writeln(= test7 ||= || ?X||?Y||?Z)@\io,
+	 \false.
+%tst7 :- !.
+
+%tst8 :- deleterule{p3(?X,=1+?Y,?Z) :- q(?Y), r(?X,?Z)},
+	 \if p3(?,?,?) \then writeln(= test8 || ' failed')@\io
+         \else writeln(= test8 || ' succeeded')@\io.
+
+%tst9 :- ?X1 \is (([a,c,?L,b]--[c])++[?L,1]) -- [?L,a],
+	 ?X2 \is [a,c,?L,b]--[c]++[?L,1],
+	 ?X3 \is [a,b]++[c]++[?L,1],
+	 ?X4 \is [a,b]++[c]++[p,1],
+	 writeln(test9 = \is ?X1|| '..' ||?X2|| '..' ||?X3|| '..' ||?X4)@\plg,
+	 writeln(test9 = \is aaa||"bbbb"^^\string||?X||f(?X)||"http://aaa.cccc.com"^^\iri|| "12345"||"2014-12-23T12:23:44"^^\datetime)@\plg.
+
+\udf fff(?X) := =?X+5 \if ppp(?X).
+ppp({1,2,3}).
+?- insert{qqq(6)}.
+?- insert{rrr(=fff(?X))}.   // UDF fff/1 used inline with a =
+?- insert{rrr2(fff(?X))}.   // UDF fff/1 used inline without a =
+%tst10 :- qqq(sum{?V|ppp(?V)}), qqq(=sum{?V|ppp(?V)}), writeln(test10=ok)@\plg.
+%tst11 :- rrr(?Z), writeln(test11=?Z)@\plg, \false.
+%tst11 :- !.
+
+%tst12 :- insert{qqq1(=avg{?V|ppp(?V)})}, qqq1(?X), delete{qqq1(=avg{?V|ppp(?V)})}, writeln(test12=?X)@\plg.
+%tst13 :- insert{qqq2(avg{?V|ppp(?V)})}, qqq2(?X), delete{qqq2(avg{?V|ppp(?V)})}, writeln(test13=?X)@\plg.
+
+%tst14 :- ((qqq1(?) ; qqq2(?)) -->> writeln(test14=failed)@\plg ; writeln(test14=ok)@\plg).
+
+%tst15 :- rrr(?Z), writeln(test15=?Z)@\plg, \false.
+%tst15 :- !.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9,
+	    %tst10, %tst11, %tst12, %tst13, %tst14, %tst15.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.

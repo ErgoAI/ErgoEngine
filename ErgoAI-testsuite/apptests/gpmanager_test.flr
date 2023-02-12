@@ -1,0 +1,36 @@
+
+?- ['gpmanager/gpmanager' >> gpm],
+	['gpmanager/students' >> people],
+	['gpmanager/temporal' >> temporal], 
+	['gpmanager/courses' >> courses].
+
+%tst1 :- writeln('\n***tst1***')@\plg,
+         student[%print_ta_list_full(fall(2003))]@gpm.
+%tst2 :- writeln('\n***tst2***')@\plg,
+         student[%printallLNfull(fall(2006))]@gpm.
+%tst3 :- writeln('\n***tst3***')@\plg,
+         %print_tuition_roster(fall(2003))@gpm.
+%tst4 :- writeln('\n***tst4***')@\plg,
+         student[%print_ta_appointments(fall(2002))]@gpm.
+%tst5 :- writeln('\n***tst5***')@\plg,
+         %print_new_ta_emails(fall(2000))@gpm,
+         nl@\plg.
+%tst6 :- writeln('\n***tst6***')@\plg,
+         phd[%printnewLNfull(spring(2004))]@gpm.
+%tst7 :- writeln('\n***tst7***')@\plg,
+         ms[%print_graduation_list(spring(2003),fall(2003))]@gpm.
+%tst8 :- writeln('\n***tst8***')@\plg,
+         %print_delinquent_RPE(fall(2002))@gpm.
+%tst9 :- writeln('\n***tst9***')@\plg,
+         %print_late_prelim(fall(2004))@gpm.
+
+%pretest :-
+	%tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

@@ -1,0 +1,51 @@
+
+:- setsemantics{tabling=passive}.
+
+a[b->d].
+p(d).
+
+init :- (a[b->c] \or \true), (p(c) \or \true).
+
+p(?X) :- a[b->?X].
+
+%tst1 :- 
+	write('test1=')@\plg,
+	t_insert{a[b->c]},
+	refresh{p(c)},
+	\if (a[b->c], p(c)) \then writeln(yes)@\plg
+        \else writeln(no)@\plg.
+
+%tst2 :- 
+	write('test2=')@\plg,
+	delete{a[b->c]},
+	//\if (a[b->c] \or p(c)) \then writeln(no)@\plg
+        //\else writeln(yes)@\plg.
+	((a[b->c] \or p(c)) -->> writeln(no)@\plg
+        ; writeln(yes)@\plg
+        ).
+
+%change :- setsemantics{tabling=reactive}.
+%cleanup :- setsemantics{tabling=passive}.
+
+
+%tst3 :- 
+	write('test3=')@\plg,
+	t_insert{a[b->c]},
+	\if (a[b->c], p(c)) \then writeln(yes)@\plg
+        \else writeln(no)@\plg.
+
+%tst4 :- 
+	write('test4=')@\plg,
+	delete{a[b->c]},
+	\if (a[b->c] \or p(c)) \then writeln(no)@\plg
+        \else writeln(yes)@\plg.
+
+%pretest :- init, %tst1, %tst2, %change, %tst3, %tst4, %cleanup.
+
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\prolog.

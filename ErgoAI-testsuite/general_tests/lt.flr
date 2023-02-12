@@ -1,0 +1,225 @@
+#include "standard.h"
+
+:- setsemantics{tabling=reactive}.
+:- compiler_options{expert=on}.
+
+:- ignore_depchk{writeln(?)@\plg, write(?)@\plg}.
+
+dom({1,2,3}).
+dom2({1,2,3,4,5}).
+
+rrr({1,2,3,4,5}).
+p({1,2}).
+q({1,2,3}).
+
+pp({1,2},1).   p1({1,2},1).
+qq({1,2,3},1). q2({1,3},1).
+               p1(3,{2,3,4,5}).
+               q2(2,{2,3,4,5}).
+
+pp({1,2},3).
+qq({1,2},3).
+qq(3,7).
+
+// DOMAINS are DELIBERATELY placed at the end to test NAF delay
+
+// **** t1: true
+// forall p->q
+t1 :- \naf exists(?X)^(\naf ((p(?X) ~~> q(?X)))).
+ut1 :- forall(?X)^(p(?X) ~~> q(?X)).
+// **** t2: undefined
+// manual transform of t1
+t2 :- \naf exists(?X)^(\naf(aux_t2(?X))).
+aux_t2(?X) :- (p(?X) ~~> q(?X)).
+ut2 :- forall(?X)^aux_t2(?X).
+
+// ****t5 - undefined, t3,t4 - true
+// should be true: forall p->q, but we opened up ~~> without propagating naf
+t3 :- \naf exists(?X)^(\naf(((\naf p(?X)) \or q(?X)))).
+ut3 :- forall(?X)^(\naf p(?X) \or q(?X)).
+// manual transform of t3 with adding domain
+t4 :- \naf exists(?X)^(\naf(aux_t4(?X)), dom(?X)).
+aux_t4(?X) :- \naf p(?X) \or q(?X).
+ut4 :- forall(?X)^(aux_t4(?X) ; \naf dom(?X)).
+// manual transform without adding domain
+t5 :- \naf exists(?X)^(\naf(aux_t5(?X))).
+aux_t5(?X) :- (\naf p(?X) \or q(?X)).
+ut5 :- forall(?X)^(aux_t5(?X)).
+
+// ****t6, t7 - true
+// propagated version
+t6 :- \naf exists(?X)^(p(?X) , \naf q(?X)).
+// propagated version: same but without exists(?X)
+t7 :- \naf ((p(?X) , \naf q(?X))).
+
+
+// *** tt1 - true
+tt1 :- \naf exists(?X)^(\naf (pp(?X,?Y) ~~> qq(?X,?Y))).
+// propagated
+// *** tt2-tt5: true
+tt2 :- \naf exists(?X)^(pp(?X,?Y) , \naf qq(?X,?Y)).
+tt3 :- \naf exists(?Y)^(\naf (\naf exists(?X)^(pp(?X,?Y) , \naf qq(?X,?Y)))).
+utt3 :- forall(?Y)^(\naf exists(?X)^(pp(?X,?Y) , \naf qq(?X,?Y))).
+tt4 :- \naf exists(?Y)^(exists(?X)^(pp(?X,?Y) , \naf qq(?X,?Y))).
+tt5 :- \naf exists(?Y,?X)^(pp(?X,?Y) , \naf qq(?X,?Y)).
+utt5 :- forall(?Y,?X)^(\naf(pp(?X,?Y) , \naf qq(?X,?Y))).
+
+// *** tt6: undefined
+// \naf exists Y forall X (p1(X,Y) ~~> q2(X,Y))
+tt6 :- \naf exists(?Y)^(\naf exists(?X)^(p1(?X,?Y), \naf q2(?X,?Y))).
+utt6 :- forall(?Y)^exists(?X)^(p1(?X,?Y), \naf q2(?X,?Y)).
+// *** tt7: true (tt6 with domain)
+// *** utt7 should be equivalent
+tt7 :- \naf exists(?Y)^(\naf exists(?X)^(p1(?X,?Y), \naf q2(?X,?Y)), dom2(?Y)).
+utt7 :- forall(?Y)^(exists(?X)^(p1(?X,?Y), \naf q2(?X,?Y)) ; \naf dom2(?Y)).
+
+// **** tt8: undefined
+// tt6 manually transformed
+tt8 :- \naf exists(?Y)^(\naf tt8_aux(?Y)).
+tt8_aux(?Y) :- p1(?X,?Y), \naf q2(?X,?Y).
+utt8 :- forall(?Y)^tt8_aux(?Y).
+
+// **** r1: true because of the domain
+r1 :- \naf exists(?X)^(\naf rrr(?X), dom2(?X)).
+ur1 :- forall(?X)^(rrr(?X) ; \naf dom2(?X)).
+// **** r2: undefined
+r2 :- \naf exists(?X)^(\naf rrr(?X)).
+ur2 :- forall(?X)^rrr(?X).
+// **** r3: undefined
+// r2 manually transformed
+r3 :- \naf r3_aux(?_X).
+r3_aux(?X) :- \naf rrr(?X).
+// ur3 - should be undefined
+ur3 :- forall(?X)^(\naf r3_aux(?X)).
+// ur4: equivalent to ur3 - undefined
+ur4 :- \naf exists(?X)^r3_aux(?X).
+
+// IFF tests
+
+pred({1,2}).
+\neg pred(3).
+iff(?X) :- pred(?X)<~~>pred(?X).
+iff2 :- exists(?X)^(pred(?X)<~~>pred(?X)).
+iff3 :- forall(?X)^(pred(?X)<~~>pred(?X)).
+iff4 :-  pppp<~~>pppp.
+
+tst1 :- write('test1: ')@\plg,
+	true{t1}, undefined{t2},
+	writeln(ok)@\plg.
+tst1 :- \true.
+
+// the u-tests should have the same meaning as the t-tests
+utst1 :- write('utest1: ')@\plg,
+	true{ut1}, undefined{ut2},
+	writeln(ok)@\plg.
+utst1 :- \true.
+
+tst2 :-  write('test2: ')@\plg,
+	true{t3}, true{t4}, undefined{t5},
+	writeln(ok)@\plg.
+tst2 :- \true.
+
+utst2 :-  write('utest2: ')@\plg,
+	true{ut3}, true{ut4}, undefined{ut5},
+	writeln(ok)@\plg.
+utst2 :- \true.
+
+tst3 :-  write('test3: ')@\plg,
+	true{t6}, true{t7},
+	writeln(ok)@\plg.
+tst3 :- \true.
+
+tst4 :-  write('test4: ')@\plg,
+	true{tt1}, true{tt2}, true{tt3}, true{tt4},
+	writeln(ok)@\plg.
+tst4 :- \true.
+
+utst4 :-  write('utest4: ')@\plg,
+	true{utt3}, true{utt5},
+	writeln(ok)@\plg.
+utst4 :- \true.
+
+tst5 :-  write('test5: ')@\plg,
+	true{tt5}, undefined{tt6}, true{tt7}, undefined{tt8},
+	writeln(ok)@\plg.
+tst5 :- \true.
+
+utst5 :-  write('utest5: ')@\plg,
+	undefined{utt6}, true{utt7}, undefined{utt8},
+	writeln(ok)@\plg.
+utst5 :- \true.
+
+tst6 :-  write('test6: ')@\plg,
+	true{r1}, undefined{r2}, undefined{r3},
+	writeln(ok)@\plg.
+tst6 :- \true.
+
+utst6 :-  write('utest6: ')@\plg,
+	true{ur1}, undefined{ur2}, undefined{ur3}, undefined{ur4},
+	writeln(ok)@\plg.
+utst6 :- \true.
+
+tst7 :- forall(?X)^(iff(?X)~~>writeln(test7=?X)@\plg).
+
+//////////////////// New batch of tests: propagation of \neg 
+\neg np(a,b).
+\neg nq(a,b).
+tst8_pre :- exists(?x,?y)^(\naf \neg np(?x,?y) \or \neg nq(?x,?y)).
+/*
+  True because translates to exists(?x,?y)^(\neg p(?x,?y)~~> \neg nq(?x,?y)
+*/
+tst8 :- true{tst8_pre}, writeln(tst8=ok)@\plg.
+
+\neg npp(a,b).
+tst9_pre :- \neg forall(?X,?Y)^npp(?X,?Y).
+tst9 :- true{tst9_pre}, writeln(tst9=ok)@\plg.
+
+r({a,b}),\neg t(a),\neg t(b).
+tst10_pre :- forall(?X)^(\naf r(?X) \or \neg t(?X)).
+/*
+  True because translates to \naf exists(?X)^(r(?X),\naf \neg t(?X)).
+*/
+tst10 :- true{tst10_pre}, writeln(tst10=ok)@\plg.
+
+allequal([?x|?xs]) :-
+  forall(?m)^(?xs[member(?m)]@\basetype ~~> ?m = ?x).
+
+printequal(?list,?mood) :-
+  \if allequal(?list) \then
+    ?mood = happy
+  \else
+    ?mood = sad.
+
+printequal2([?x|?xs],?mood) :-
+  \if forall(?m)^(?xs[member(?m)]@\basetype ~~> ?m = ?x) \then
+    ?mood = happy
+  \else
+    ?mood = sad.
+
+tst11 :- true{allequal([2,2,2,2])}, true{printequal([2,2,2,2],?mood)},
+	 true{printequal2([2,2,2,2],?mood)}, writeln(tst11=ok)@\plg.
+
+pretest :- tst1, tst2, tst3, tst4, tst5, tst6, tst7, tst8, tst9, tst10, tst11.
+upretest :- utst1, utst2, utst4, utst5, utst6.
+
+%test :-
+        (File[exists(lt_old)]@\io -->> File[unlink(lt_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(lt_flora_old,lt_old)]@\io
+	;  File[link(lt_ergo_old,lt_old)]@\io
+        ),
+        tell(temp)@\plg,
+        Method[mustDefine(on)]@\sys,
+	file_reopen(temp1,w,STDWARN,?_)@\plg(file_io),
+        pretest,
+	upretest,
+	file_close(STDWARN)@\plg(file_io),
+	told@\plg,
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp)@\plg,append,?Port2)@\plg,
+	copyIOport(?Port1,?Port2)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+        Method[mustDefine(off)]@\sys,
+	flora_file_op(unlink,temp1)@\plg(flrporting).
+

@@ -1,0 +1,380 @@
+/* File:      extensions/terminyzer_ergo.P -- Ergo integration for Terminyzer
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2016 - 2018.
+** All rights reserved.
+**
+*/
+
+
+#include "standard.h"
+#include "flora_characters.flh"
+
+/**************** Terminyzer integration *************************************/
+
+:- import
+        flora_set_switch/1,
+        flora_clear_switch/1
+   from flrdebugger.
+
+:- import
+        stdout_color_string/2,
+        open_gui_window_for_application_if_necessary/5,
+        gui_print_to_window/2,
+        flora_warning_string/1
+   from flrprint.
+
+:- import
+        flora_decode_goal_as_atom_substitute_vars/2
+   from flrdecode.
+
+:- import
+        flora_file_op/2,
+        flora_match_substring/3,
+        flora_read_line_as_atom/1
+   from flrporting.
+
+:- import
+        get_goal_line_info_by_id_and_module/4,
+        set_java_cleanup/1,
+        flora_read_from_source/2
+   from flrutils.
+:- import
+        disable_all_tripwires/0,
+        enable_all_tripwires/0,
+        flora_stop_monitoring/1,
+        flora_set_subgoal_size/2,
+        flora_set_answer_size/2,
+        flora_set_max_active_goals/2,
+        %%flora_cancel_timeout/0,
+        flora_set_timeout/1
+   from flrerrhandler.
+:- import
+        flora_configuration/2
+   from flrregistry.
+
+:- import flora_get_break_level/1 from flora2.
+
+:- import
+        log_all_forest_flush/0,
+        log_all_forest_end/0
+   from tables.
+:- import
+        concat_atom/2
+   from string.
+
+:- import
+        check_ergo_gui_busy/1,
+        ergo_gui_mode/0
+   from flrutils.
+
+:- import
+        editGtGetResult/3,
+        ipListenerWindow/1
+   from usermod.
+
+:- import
+        PLG_ANSWERFLOW/3,
+        PLG_CALL_LOOP/1,
+        PLG_UNFINISHED_SUBG/4
+   from usermod.
+
+:- dynamic
+        PLG_ANSWERFLOW/3,
+        PLG_CALL_LOOP/1,
+        PLG_UNFINISHED_SUBG/4.
+
+
+:- export
+        flora_stop_terminyzer/1,
+        quit_ergo_terminyzer_mode/0,
+        analyze_non_termination/0,
+        start_logging_for_terminyzer/0,
+        start_logging_for_terminyzer/5.
+
+
+?- set_java_cleanup(flrterminyzer:cleanup_terminyzer).
+
+start_logging_for_terminyzer :-
+        ergo_gui_mode,
+        check_ergo_gui_busy('terminyzer{}'),
+        !,
+        (ipListenerWindow(W) -> true
+        ; W=null
+        ),
+        disable_all_tripwires,
+        GT = gt('Resource limits for Terminyzer''s  query execution log',
+                [class = 'com.xsb.xj.containers.LabelValueColumn',
+                 label_anchor = west,
+                 updatable],
+                [
+                 gt('',
+                    [caption = 'Set some or all of the limits below (0 = no limit):',
+                     label_anchor = span,
+                     atom,readonly,nonpersistent],[]),
+                 gt('   ', [atom,readonly,nonpersistent],[]), %% spacer
+                 gt(2, [caption = 'Timeout (in seconds):   ',
+                        tip = 'Non-negative integer or decimal. E.g., 2 or 1.5',
+                        float],[]),
+
+                 gt('',
+                    [caption = 'Maximal goal size (in number of symbols):   ',
+                     readonly,nonpersistent,atom],
+                    [gt(50,[integer,
+                            tip = 'Non-negative integer. Usually 30 - 100'],[]),
+                     gt('         ',
+                        [atom,readonly,nonpersistent],
+                        [gt(0,
+                            [caption = '  Abstract large goals?',
+                             class='com.xsb.xj.XJCheckBox',
+                             tip='Abstract goals that exceed the limit?'],
+                            []
+                           )
+                        ]
+                       )
+                    ]
+                   ),
+                 
+                 gt(40,
+                    [caption = 'Maximal answer size (in number of symbols):   ',
+                        tip = 'Positive integer. Usually 30 - 100',
+                        integer],
+                    []),
+                 gt('   ', [atom,readonly,nonpersistent],[]), %% spacer
+                 gt(1300,
+                    [caption = 'Maximal number of active subgoals:   ',
+                        tip = 'Positive integer. Usually 200 - 2000',
+                        integer],
+                    []),
+                 gt('   ', [atom,readonly,nonpersistent],[]) %% spacer
+                ]),
+        editGtGetResult(W,GT,Result),
+        Result =.. [_,Timeout,MaxGoal,AbstractGoal,MaxAnswer,MaxActiveGoals],
+        start_logging_for_terminyzer(Timeout,MaxGoal,AbstractGoal,MaxAnswer,MaxActiveGoals),
+        enable_all_tripwires.
+
+start_logging_for_terminyzer :-
+        PRINT('\nAfter how many seconds should Ergo check for symptomps of non-termination? '),
+        flora_read_line_as_atom(TimeoutLine),
+        concat_atom([TimeoutLine,'.'],TimeoutLineDot),
+        (flora_read_from_source(atom(TimeoutLineDot),Timeout),
+            number(Timeout), Timeout >= 0 -> true
+        ; PRINT('\nTimeout value must be a non-negative number.\n\n'),
+            fail
+        ),
+        PRINT('\nAt what goal size should Ergo check for symptomps of non-termination? '),
+        flora_read_line_as_atom(GoalSizeLine),
+        concat_atom([GoalSizeLine,'.'],GoalSizeLineDot),
+        (flora_read_from_source(atom(GoalSizeLineDot),GoalSize),
+            integer(GoalSize), GoalSize >= 0 -> true
+        ; PRINT('\nGoal size must be a non-negative integer.\n\n'),
+            fail
+        ),
+        PRINT('Should large subgoals be abstracted away? (y/n; default: n) '),
+        flora_read_line_as_atom(AbstractGoalLine),
+        flora_ground:flratom_char_code(AbstractGoalLine,0,AbstractResponse),
+        (memberchk(AbstractResponse,[CH_y,CH_Y]) ->
+            PRINTLN('... assuming -- yes'),
+            AbstractGoal = 1
+        ; PRINTLN('... no'),
+            AbstractGoal = 0
+        ),
+        PRINT('\nAt what answer size should Ergo check for symptomps of non-termination? '),
+        flora_read_line_as_atom(AnswerSizeLine),
+        concat_atom([AnswerSizeLine,'.'],AnswerSizeLineDot),
+        (flora_read_from_source(atom(AnswerSizeLineDot),AnswerSize),
+            integer(AnswerSize), AnswerSize >= 0 -> true
+        ; PRINT('\nAnswer size must be a non-negative integer.\n\n'),
+            fail
+        ),
+        PRINT('\nAt what number of active subgoals should Ergo check for symptomps of non-termination? '),
+        flora_read_line_as_atom(ActiveGoalsLine),
+        concat_atom([ActiveGoalsLine,'.'],ActiveGoalsLineDot),
+        (flora_read_from_source(atom(ActiveGoalsLineDot),MaxActiveGoals),
+            integer(MaxActiveGoals), MaxActiveGoals >= 0 -> true
+        ; PRINT('\nActive subgoal number must be a non-negative integer.\n\n'),
+            fail
+        ),
+        start_logging_for_terminyzer(Timeout,GoalSize,AbstractGoal,AnswerSize,MaxActiveGoals).
+start_logging_for_terminyzer(TimeoutIn,MaxGoal,AbstractGoal,MaxAnswer,MaxActiveGoals) :-
+        (TimeoutIn =:= 0, MaxGoal = 0, MaxAnswer = 0, MaxActiveGoals = 0 ->
+            PRINT('\nTimeout, goal/answer size, or maximum of active subgoals must be > 0.\n\n'),
+            fail
+        ; true
+        ),
+        flora_clear_switch(terminyzer_flag(_)),
+        Timeout is float(TimeoutIn),
+        flora_clear_switch(logforest),
+        flora_file_op(tmpfilename,TmpFile),
+        retractall(terminyzer_log_file(_)),
+        assert(terminyzer_log_file(TmpFile)),
+        log_all_forest_end,  %% if any logging was in effect, it will be closed
+        logforest(TmpFile),
+        flora_get_break_level(BL),
+        stdout_color_string('\nTerminyzer:\n',purple),
+        (BL>0 ->
+            stdout_color_string('  On resuming execution of the top-level query,\n',brown)
+        ;
+            stdout_color_string('  Now run a query.\n',brown)
+        ),
+        fmt_write_string(TimeoutAtm,'%1.2f seconds',arg(Timeout)),
+        stdout_color_string('  Ergo will pause if any of these events occurs:\n',brown),
+        (Timeout > 0 ->
+            stdout_color_string('    a top-level query runs for ',brown),
+            stdout_color_string(TimeoutAtm,green),
+            PRINTNL
+        ; true
+        ),
+        (MaxGoal > 0 ->
+            stdout_color_string('    the size of a subgoal exceeds ',brown),
+            stdout_color_string(MaxGoal,green),
+            PRINTNL
+        ; true
+        ),
+        (MaxAnswer > 0 ->
+            stdout_color_string('    the size of an answer exceeds ',brown),
+            stdout_color_string(MaxAnswer,green),
+            PRINTNL
+        ; true
+        ),
+        (MaxActiveGoals > 0 ->
+            stdout_color_string('    the number of active subgoals exceeds ',brown),
+            stdout_color_string(MaxActiveGoals,green),
+            PRINTNL
+        ; true
+        ),
+
+        stdout_color_string('  It will then try to determine if the query is unlikely to terminate\n\n',brown),
+        flora_set_timeout([repeating(Timeout,pause)]),
+        (AbstractGoal = 1 -> GoalAction = abstract
+        ; GoalAction = pause
+        ),
+        flora_set_subgoal_size(MaxGoal,GoalAction),
+        flora_set_answer_size(MaxAnswer,pause),
+        flora_set_max_active_goals(MaxActiveGoals,pause),
+        %% must be after logforest, timer, tripwires
+        flora_set_switch(terminyzer_flag(Timeout)).
+        
+
+analyze_non_termination :-
+        \+ terminyzer_is_active,
+        !.
+analyze_non_termination :-
+        flora_get_break_level(BL),
+        BL > 1,
+        !.
+analyze_non_termination :-
+        (\+ terminyzer_log_file(LogFile) ->
+            flora_abort('Terminyzer: cannot find the query execution log file',
+                        FLORA_ABORT_NOTRACE)
+        ; terminyzer_log_file(LogFile)
+        ),
+        log_all_forest_flush,
+        (terminyzer_results_file(ResultsFile) -> true
+        ; flora_file_op(tmpfilename,ResultsFileTmp),
+            concat_atom([ResultsFileTmp,'.pl'],ResultsFile),
+            assert(terminyzer_results_file(ResultsFile))
+        ),
+
+        terminyzer(LogFile,ResultsFile,prolog),
+        load_dync(ResultsFile),
+        show_terminyzer_report,
+
+        flora_file_op(size,LogFile,Size),
+        MBSize is Size/MEGABYTE,
+        fmt_write('The query execution log size is %1.2f MBs\n\n',arg(MBSize)),
+        stdout_color_string('If the analysis gave satisfactory results, stop it to free disk space.\n',blue),
+        flora_warning_string('Stop the analysis? The query can still be resumed (Y/N; default: N) '),
+        (flora_configuration(uimode,studio) -> nl
+        ; true
+        ),
+        (flora_read_line_as_atom(Answer) -> true
+        ; Answer = 'N'
+        ),
+        ((flora_match_substring(y,Answer,_) ; flora_match_substring('Y',Answer,_)) ->
+            flora_stop_terminyzer(silent),
+            stdout_color_string('\nTerminyzer has finished; the query can still be resumed.\n',blue)
+        ;
+            stdout_color_string('\nTerminyzer will continue when query execution resumes.\n',blue)
+        ).
+
+call_loop_report :-
+        PLG_CALL_LOOP(subgoals(SubgIdList)),
+        !,
+        print_culprit_subgoals(SubgIdList,
+                               '\n*** Report: subgoals that form a possibly infinite call loop ***\n').
+call_loop_report.
+
+answer_flow_report :-
+        PLG_ANSWERFLOW(subgoals(SubgIdList),calls(_CallIdList),loop(_IdLoop)),
+        !,
+        print_culprit_subgoals(SubgIdList,
+                               '\n*** Report: subgoals that form a possibly infinite answer-producing pattern ***\n').
+answer_flow_report :- gui_print_to_window(terminyzer,'\n').
+
+
+print_culprit_subgoals(SubgIdList,Message) :-
+        gui_print_to_window(terminyzer,brown(Message)),
+        print_culprit_subgoals_aux(SubgIdList),
+        gui_print_to_window(terminyzer,'\n').
+print_culprit_subgoals_aux([]) :- !.
+print_culprit_subgoals_aux([SubgId|Rest]) :-
+        print_one_culprit_subgoal(SubgId),
+        print_culprit_subgoals_aux(Rest).
+
+print_one_culprit_subgoal(SubgId) :-
+        PLG_UNFINISHED_SUBG(SubgId,subgoal(Subg),ruleid(RuleId),module(Module)),
+        ((RuleId == NULL ; Module == NULL) -> true %% probably a bug
+        ; get_goal_line_info_by_id_and_module(RuleId,Module,File,RuleInfo),
+            flora_decode_goal_as_atom_substitute_vars(Subg,SubgAtm),
+            RuleInfo = FL_TEXTUAL_INFO_PRED(_Stmt,_File,Line,_BegC,_EndL,_EndC),
+            (integer(Line) ->
+                LineAtm = Line
+            ; LineAtm = unknown
+            ),
+            gui_print_to_window(terminyzer,
+                                [black('    '),
+                                 blue(SubgAtm),
+                                 italic('\n\tin rule on line '),
+                                 green(LineAtm),
+                                 italic(', file '),
+                                 green(File),
+                                 italic(', module '),
+                                 green(Module),
+                                 black('\n')
+                                ])
+        ).
+
+%% Display report in a window
+show_terminyzer_report :-
+        open_gui_window_for_application_if_necessary(terminyzer,
+                                                     'Termination Analysys Report',
+                                                     'Termination Analysys Report',
+                                                     20,70),
+        (PLG_CALL_LOOP(subgoals([])),
+            PLG_ANSWERFLOW(subgoals([]),_,_) ->
+            Message = '\n\n*** Report: no infinite call loops or answer-producing patterns found ***\n',
+            gui_print_to_window(terminyzer,brown(Message))
+        ;
+            call_loop_report,
+            answer_flow_report
+        ).
+        
+
+flora_stop_terminyzer(Arg) :-
+        quit_ergo_terminyzer_mode,
+        flora_stop_monitoring(Arg).
+quit_ergo_terminyzer_mode :-
+        log_all_forest_end,
+        (terminyzer_is_active -> flora_clear_switch(terminyzer_flag(_))
+        ; true
+        ),
+        %% maybe call cleanup_terminyzer/0 instead?
+        (terminyzer_log_file(LogFile), flora_file_op(rm,LogFile) -> true
+        ; true
+        ).
+
+

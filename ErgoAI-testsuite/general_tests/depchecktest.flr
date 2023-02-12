@@ -1,0 +1,14 @@
+
+
+#include "standard.h"
+
+%test :- 
+	(File[exists(depchecktest_old)]@\io -->> File[unlink(depchecktest_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(depchecktest_flora_old,depchecktest_old)]@\io
+	;  File[link(depchecktest_ergo_old,depchecktest_old)]@\io
+        ),
+	flora_set_maxwarnings(50)@\plg(flrutils),
+	file_reopen(temp,w,STDWARN,?_)@\plg(file_io),
+	(compile{depcheck_control} ; true),
+	file_close(STDWARN)@\plg(file_io).

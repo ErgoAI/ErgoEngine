@@ -1,0 +1,42 @@
+
+// importing only the : relationship from projects module
+?X:?C :- ?X:?C@projects.
+?X:?C :- ?X:?C@divisions.
+
+// Note that we use *=> to give types to attributes.
+// These types will be inherited to instances as =>
+// See query.flr for the type-checking rules.
+employee[|name=>\symbol,
+	  id=>id,
+	  salary=>\decimal,
+	  division=>division,
+	  projects=>project
+|].
+?I:id :- ?I:\long, ?I>0, ?I < 10000000.
+
+john:employee[
+    	name->'Doodle Dandy',
+	division->d3,
+	// on purpose left attr with wrong type
+	salary->20000,
+	id->12345,
+	projects->{foobar2000, foobar3000}
+].
+
+// on purpose left mary out of the employee class so that the type checker 
+// will find her
+mary[
+    	name->'Merry Mary',
+	division->d1,
+	salary->23000,
+	id->12345,
+	projects->foobar2000
+].
+
+bob:employee[
+        name->'Bob Doe',
+	division->d2,
+	salary->23050,
+	id->12345,
+	projects->{foobar3000,f1}
+].

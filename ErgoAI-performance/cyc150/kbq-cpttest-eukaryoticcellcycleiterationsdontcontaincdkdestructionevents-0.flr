@@ -1,0 +1,81 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-EukaryoticCellCycleIterationsDontContainCDKDestructionEvents (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyMt, BiochemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, isa('partwiseDisjoint-TypeType', SymmetricBinaryPredicate)).
+istAsserted(BaseKB, iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, EukaryoticCellCycle)).
+istAsserted(BiochemistryMt, 'partwiseDisjoint-TypeType'(TheEukaryoticCellCycle, DegradationOfChemicalCompoundFn(CyclinDependentKinaseMolecule))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Implicit Background Rules
+forwardSentence('partwiseDisjoint-TypeType'(?EVENT_TYPE, ?ITERATION_TYPE)) :- removalSentence(iteratedSubsituationTypeOfSerialCycleType(?CYCLE, ?ITERATION_TYPE)), removalSentence('partwiseDisjoint-TypeType'(?CYCLE, ?EVENT_TYPE)).
+
+// Explicit Background Facts
+istAsserted(BiochemistryMt, 'partwiseDisjoint-TypeType'(EukaryoticCellCycle, DegradationOfChemicalCompoundFn(CyclinDependentKinaseMolecule))).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-EukaryoticCellCycleIterationsDontContainCDKDestructionEvents 0').
+%pretest :- 'partwiseDisjoint-TypeType'(EukaryoticCellCycle, DegradationOfChemicalCompoundFn(CyclinDependentKinaseMolecule)), %write_results('SUCCESS  : $CPTTest-EukaryoticCellCycleIterationsDontContainCDKDestructionEvents 0').
+
+// Debugging
+proof(9706, 0) :- 'partwiseDisjoint-TypeType'(EukaryoticCellCycle, DegradationOfChemicalCompoundFn(CyclinDependentKinaseMolecule)).
+
+proof(9706, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(9706, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(9706, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(9706, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(9706, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(9706, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(9706, 1006) :- iteratedSubsituationTypeOfSerialCycleType(TheEukaryoticCellCycle, EukaryoticCellCycle).
+proof(9706, 1007) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(9706, 1008) :- 'partwiseDisjoint-TypeType'(EukaryoticCellCycle, DegradationOfChemicalCompoundFn(CyclinDependentKinaseMolecule)).
+
+proof(9706, 2000) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(9706, 2001) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(9706, 2002) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiochemistryMt).
+proof(9706, 2003) :- isa('partwiseDisjoint-TypeType', SymmetricBinaryPredicate). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

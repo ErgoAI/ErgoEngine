@@ -1,0 +1,353 @@
+/* File:      extensions/flrerrhandler_mon.P -- performance monitor support
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2015 - 2018.
+**
+*/
+
+
+#include "standard.h"
+
+#define DEFAULT_LETTER_PIXEL_HEIGHT  14
+#define DEFAULT_LETTER_PIXEL_WIDTH   8
+#define INLINE_SPACER   '; '
+
+:- import
+	flora_configuration/2
+   from flrregistry.
+:- import
+        open_gui_window_for_application/5,
+        close_application_window/1,
+        clear_application_window/1,
+        flora_message_line/2,
+	flora_stdmsg_line/1,
+        stdout_color_string/2,
+        gui_print_nogui/1,
+        gui_print_nowindow/1,
+        gui_print_to_window/2
+   from flrprint.
+:- import
+	flora_concat_items/2,
+	flora_concat_atoms/2
+   from flrporting.
+:- import '_$ergo_break'/0 from flora2.
+:- import
+        entered_break/0,
+        resumed_computation/0,
+        ipSocketsAreBusy/0
+   from interprolog.
+:- import
+        check_ergo_gui_busy/1,
+        ergo_gui_mode/0,
+        initialize_java/0
+   from flrutils.
+:- import
+        ipListenerWindow/1,
+        editGtGetResult/3
+   from usermod.
+
+:- dynamic showing_quick_summary/0.
+
+:- export
+	quick_performance_summary/0,
+	heartbeat_monitor/1,
+	performance_monitor/1,
+	extended_monitor/1,
+	ergo_perf_monitor/0,
+	ergo_perf_monitor/2.
+
+?- conset(FL_WALLTIME,0).      %% clear out the walltime 
+
+%% handler for the "pause" action
+break_on_interrupt(_,Reason) :-
+        tripwire_disabled(Reason),
+        !.
+break_on_interrupt(_,Reason) :-
+        (flora_configuration(uimode,studio) -> entered_break; true),
+        flora_stdmsg_nl,
+        (Reason==answersize ->
+            ReasonMsg = 'reaching answer size limit of ',
+            %%current_prolog_flag(max_table_answer_size,Value),
+            previous_prolog_flag(max_table_answer_size,Value),
+            ValueDim = ''
+        ; Reason==goalsize ->
+            ReasonMsg = 'reaching subgoal size limit of ',
+            %%current_prolog_flag(max_table_subgoal_size,Value),
+            previous_prolog_flag(max_table_subgoal_size,Value),
+            ValueDim = ''
+        ; Reason==activegoals ->
+            ReasonMsg = 'reaching active subgoals limit of ',
+            %%current_prolog_flag(max_incomplete_subgoals,Value),
+            previous_prolog_flag(max_incomplete_subgoals,Value),
+            ValueDim = ''
+        ; Reason==timer ->
+            ReasonMsg = 'timeout', Value = '', ValueDim = ''
+        ; Reason==memory ->
+            ReasonMsg = 'reaching memory limit of ',
+            %%current_prolog_flag(max_memory,Value1),
+            previous_prolog_flag(max_memory,Value1),
+            ValueGB is Value1/MB_CONST,
+            fmt_write_string(Value,'%1.1f',arg(ValueGB)),
+            ValueDim = 'GB'
+        ; ReasonMsg = 'unknown reason', Value = '', ValueDim = ''
+        ),
+	flora_message_line('pausing due to ~w~w~w',[ReasonMsg,Value,ValueDim]),
+        %% This does the actual pausing
+	'_$ergo_break',
+        %% If paused due to answersize,goalsize,memory - incr limit by 10-20%
+        (Reason==answersize ->
+            increment_tripwire_limit(max_table_answer_size,1.2,Reason)
+        ; Reason==goalsize ->
+            increment_tripwire_limit(max_table_subgoal_size,1.2,Reason)
+        ; Reason==activegoals ->
+            increment_tripwire_limit(max_incomplete_subgoals,1.2,Reason)
+        ; Reason==memory ->
+            increment_tripwire_limit(max_memory,1.1,Reason)
+        ; true
+        ),
+        (flora_configuration(uimode,studio) -> resumed_computation; true).
+
+%% No previous prolog flag? - don't increment: tripwire must have been canceled
+increment_tripwire_limit(Flag,_Factor,_Reason) :-
+        \+previous_prolog_flag(Flag,_),
+        !.
+increment_tripwire_limit(Flag,Factor,Reason) :-
+        %%current_prolog_flag(Flag,Limit),
+        previous_prolog_flag(Flag,Limit),
+        (Reason == memory ->
+            statistics(total_memory,[AllocMem,UsedMem]),
+            %% normalize all memory values to KBs
+            NewLimit is ceiling(max(UsedMem*Factor*Factor/KB_CONST,
+                                    max(Limit*Factor,
+                                        AllocMem*Factor*0.96/KB_CONST))),
+            NewLimitGBs is NewLimit/MB_CONST,
+            fmt_write_string(NewLimitDisplay,'%1.1fGB',arg(NewLimitGBs))
+        ; 
+            NewLimit is ceiling(Limit * Factor),
+            NewLimitDisplay = NewLimit
+        ),
+        flora_message_line('the new limit for ~w is set to ~w',
+                           [Reason,NewLimitDisplay]),
+        retractall(previous_prolog_flag(Flag,_)),
+        assert(previous_prolog_flag(Flag,NewLimit)),
+        set_prolog_flag(tripwire(Flag),limit(NewLimit)).
+	
+heartbeat_monitor(_Goal) :- ipSocketsAreBusy, !. % no Java callbacks possible
+heartbeat_monitor(_Goal) :-
+	statistics(walltime,[_,Delta]),
+	conget(FL_WALLTIME,Yprev),
+	Y is Yprev + Delta,
+	Y1 is round(Y),
+	conset(FL_WALLTIME,Y1),
+	MonitorStep is round(Y1/Delta),
+	clear_application_window(monitoring),
+	rotating_monitor_prefix(MonitorStep,Prefix),
+	line_ending(Ending),
+	monitor_out([magenta(Prefix),blue(' cpu = '),Y1,'s',Ending]).
+
+performance_monitor(_Goal) :- ipSocketsAreBusy, !. % no Java callbacks possible
+performance_monitor(_Goal) :-
+	clear_application_window(monitoring),
+	line_ending(Ending),
+	basic_monitor_core(_Goal,INLINE_SPACER,rotating,OutList-Tail),
+        Tail = [Ending],
+	monitor_out(OutList).
+
+%% PrefixType: rotating/fixed
+basic_monitor_core(_Goal,Spacer,PrefixType,OutList-Tail) :-
+	statistics(walltime,[_,Delta]),
+	conget(FL_WALLTIME,Tprev),
+	T is Tprev + Delta,
+	T1 is round(T),
+	conset(FL_WALLTIME,T1),
+	statistics(total_memory,[A0,M0]),
+	MemGBs is M0 / GB_CONST,
+	AllocGBs is A0 / GB_CONST,
+	statistics(table_ops,[SubsumCalls,_,VariantCalls,_,_,Answers]),
+	Calls is SubsumCalls+VariantCalls,
+	(PrefixType == rotating ->
+	    MonitorStep is round(T1/Delta),
+	    rotating_monitor_prefix(MonitorStep,Prefix)
+	; fixed_monitor_prefix(PrefixType,Prefix)
+	),
+	fmt_write_string(MemStr,'%1.1f-%1.1fGB%s',args(MemGBs,AllocGBs,Spacer)),
+        (Spacer == INLINE_SPACER ->
+            AlignerCpu = '',
+            AlignerMem = '',
+            AlignerCalls = '',
+            AlignerFacts = ''
+        ; AlignerCpu = '        ',
+            AlignerMem = '     ',
+            AlignerCalls = '         ',
+            AlignerFacts = '      '
+        ),
+        CallsK is Calls/1000,
+        fmt_write_string(CallStr,'%1.1fK',args(CallsK)),
+        AnswersK is Answers/1000,
+        fmt_write_string(AnsStr,'%1.1fK',args(AnswersK)),
+        %% it is an open list so we could quickly append to the end
+	OutList = [magenta(Prefix),
+                   blue('cpu: '),AlignerCpu,T1,'s',Spacer,
+                   blue('memory: '),AlignerMem,MemStr,
+                   blue('calls made: '),AlignerCalls,CallStr,Spacer,
+                   blue('derived facts: '),AlignerFacts,AnsStr
+                  |Tail].
+
+rotating_monitor_prefix(Number,Prefix) :-
+	(flora_configuration(uimode,studio) -> Prefix = ('- ')
+	; Number mod 4 =:= 0 -> Prefix = ('~ ')
+	; Number mod 4 =:= 1 -> Prefix = ('\\ ')
+	; Number mod 4 =:= 2 -> Prefix = ('| ')
+	; Prefix = ('/ ')
+	).
+fixed_monitor_prefix(FixedPrefix,FixedPrefix).
+
+
+extended_monitor_core(_Goal,Spacer,PrefixType) :-
+	basic_monitor_core(_Goal,Spacer,PrefixType,OutList-Tail),
+	%% these stats seem to be not easily explainable
+	%%statistics(idg,[Nodes,Edges]),
+	%%flora_stdfdbk_string('~n    inferential dependencies: ~w facts; ~w edges~n', [Nodes,Edges]),
+	statistics(incomplete_tables,[Subg,SCCs]),
+	statistics(table_ops,[_,SubsumGoals,_,VariantGoals,_,_]),
+	Goals is SubsumGoals+VariantGoals,
+        (Subg \= 0 ->
+            Ratio is SCCs/Subg,
+            fmt_write_string(RatioStr,'%1.4f\n',arg(Ratio))
+        ; flora_concat_items([SCCs,'/0\n'],RatioStr)
+        ),
+        GoalsK is Goals/1000,
+        fmt_write_string(GoalsStr,'%1.1fK',args(GoalsK)),
+        Tail = [
+                '\n    ',blue('total subgoals:      '), GoalsStr,
+                '\n    ',blue('active subgoals:              '), Subg,
+                '\n    ',blue('active recursive components:  '),SCCs,
+                '\n    ',blue('ratio active-components/active-subgoals: '), RatioStr
+                ],
+	monitor_out(OutList).
+
+extended_monitor(_Goal) :- ipSocketsAreBusy, !. % no Java callbacks possible
+extended_monitor(_Goal) :-
+	extended_monitor_core(_Goal,'\n    ','\n *  ').
+
+%% We insist on quick summary being printed on the console, not to the monitor
+%% window. If the latter, sometimes interrupts get stuck with a warning that 
+%% SOCKET_GET0 is interupted. After this all hell breaks loose.
+%% If the summary gets printed on console, this does not seem to be happening.
+quick_performance_summary :-
+        assert(showing_quick_summary),
+	monitor_out(brown('\n\n+++ quick summary: \n')),
+        extended_monitor_core(_Goal,'\n    ','    '),
+        retractall(showing_quick_summary).
+
+ergo_perf_monitor :-
+        ergo_gui_mode,
+        !,
+        check_ergo_gui_busy('setmonitor{}'),
+        (ipListenerWindow(W) -> true
+        ; W = null
+        ),
+        disable_all_tripwires,
+        flora_stdmsg_nl,
+        flora_message_line('setting a monitor cancels any monitor or timer currently in effect'),
+        GT = gt('Monitoring Parameters',
+                [class = 'com.xsb.xj.containers.LabelValueColumn',
+                 label_anchor = west,
+                 updatable],
+                [
+                 gt(_,
+                    [caption = 'Monitor type: ',
+                     comboBox(extended,[extended,performance,heartbeat]),
+                     optional],
+                    []),
+                 gt('',
+                    %% Sampling interval: ______ secs
+                    [caption='Sampling interval:   ',atom,readonly,nonpersistent],
+                    [gt(4,[integer],[]),
+                     gt(' secs',[atom,readonly,nonpersistent],[])]),
+                 %% a spacer
+                 gt('   ',[caption = '',string,readonly,nonpersistent],[])
+                ]),
+        editGtGetResult(W,GT,Result),
+        %% Result comes as 'Monitoring Parameters'(extended, ''(4, secs), '   ')
+        arg(1,Result,Type),
+        arg(2,Result,Interval),
+        ergo_perf_monitor(Interval,Type),
+        enable_all_tripwires.
+ergo_perf_monitor :-
+        ergo_perf_monitor(4,extended).
+
+
+%% MAIN ENTRY
+%% interval - secs; type: heartbeat/performance/extended
+ergo_perf_monitor(Interval,_Type) :-
+	Interval == 0,
+	!,
+	flora_clear_timeout,
+	close_application_window(monitoring),
+	flora_stdmsg_line('execution monitoring is turned off').
+ergo_perf_monitor(Interval,Type) :-
+	integer(Interval), Interval > 0,
+        (initialize_java ; true),
+	conset(FL_WALLTIME,0), %% clear out the walltime 
+	(Type == heartbeat -> Monitor =.. [heartbeat_monitor,_]
+	; Type == performance -> Monitor =.. [performance_monitor,_]
+	; Type == extended -> Monitor =.. [extended_monitor,_]
+	),
+	open_monitor_window(Type),
+	!,
+	flora_set_timeout([repeating(Interval,'@'(Monitor,'\prolog'(flrerrhandler)))]).
+ergo_perf_monitor(Interval,Type) :-
+	flora_abort(['setmonitor{',Interval,',',Type,'}: Interval must be an integer > 0; Type must be heartbeat, performance, or extended.'], FLORA_ABORT_NOTRACE).
+	
+
+open_monitor_window(MonType) :-
+        (MonType == heartbeat -> Rows = 5, Cols = 25
+	; MonType == performance -> Rows = 5, Cols = 80
+	; Rows = 20, Cols = 65
+	),
+	flora_concat_atoms(['Monitor (',MonType,')'],Title),
+        open_gui_window_for_application(monitoring,Title,'Monitor',Rows,Cols).
+
+monitor_out(StringOrList) :-
+	flora_get_break_level(0), %% use monitor window only at break level 1
+        \+ showing_quick_summary,
+        !,
+        gui_print_to_window(monitoring,StringOrList).
+monitor_out(StringOrList) :-
+        %% if showing quick summary, don't print to window but straight stdout
+	flora_get_break_level(0), %% use gui at break level 1
+        !,
+        gui_print_nowindow(StringOrList).
+monitor_out(StringOrList) :-
+        gui_print_nogui(StringOrList).
+
+line_ending(Ending) :-
+	(flora_configuration(uimode,studio) -> Ending = '\n'
+	; Ending = '\r'
+	).
+
+:- import
+        terminyzer_is_active/0,
+        quit_ergo_terminyzer_mode/0
+   from flrterminyzer.
+:- export flora_stop_monitoring/1.
+
+flora_stop_monitoring(Arg) :-
+        (Arg == silent -> true
+        ; terminyzer_is_active ->
+            stdout_color_string('\nTermination analysis is canceled.\n\n',blue),
+            quit_ergo_terminyzer_mode
+        ; stdout_color_string('\nAll monitoring is canceled.\n\n',blue)
+        ),
+        flora_cancel_timeout,
+        %%flora_set_subgoal_size(0,pause),
+        flora_cancel_max_subgoal_size,
+        %%flora_set_answer_size(0,pause),
+        flora_cancel_max_answer_size,
+        %%flora_set_max_active_goals(0,pause).
+        flora_cancel_max_active_goals.
+

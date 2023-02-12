@@ -1,0 +1,45 @@
+#include "flora_terms.flh"
+
+:- compiler_options{omni=on}.
+
+#ifdef PARSING_FLORA
+
+%test :- 
+	(File[exists(omni_old)]@\io -->> File[unlink(omni_old)]@\io;\true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(omni_flora_old,omni_old)]@\io
+	;  File[link(omni_ergo_old,omni_old)]@\io
+        ),
+	tell(temp)@\plg,
+        told@\plg.
+
+#else
+
+exists(?X)^((a(?X);b(?X)), \neg b(?X)).
+
+?- insert{exists(?X)^((aa(?X);bb(?X)), \neg bb(?X))}.
+
+?- insertrule{exists(?X)^((aaa(?X);bbb(?X)), \neg bbb(?X)):- ppp}.
+ppp.
+
+
+%tst1 :- a(?_X), writeln(tst1=?_X)@\plg.
+%tst2 :- aa(?_X), writeln(tst2=?_X)@\plg.
+%tst3 :- aaa(?_X), writeln(tst3=?_X)@\plg.
+
+
+%pretest :- %tst1, %tst2, %tst3.
+
+%test :-
+	(File[exists(omni_old)]@\io -->> File[unlink(omni_old)]@\io;\true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(omni_flora_old,omni_old)]@\io
+	;  File[link(omni_ergo_old,omni_old)]@\io
+        ),
+	tell(temp)@\plg,
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        told@\plg.
+
+#endif

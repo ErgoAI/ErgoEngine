@@ -1,0 +1,52 @@
+//?- setruntime{answersize(30,abstract)}.
+?- setruntime{goalsize(30,abstract)}.
+
+p(?X)[|?M->?V|] :- ?X[|?M->?V|].
+a[|m->v|].
+a[|mm->vv|].
+
+b::a.
+c:b.
+
+b[|\neg mm ->{}|].  // should cancel inheritance of mm to b and c.
+c[\neg m->{}].      // should cancel inheritance of m to c
+
+// THESE WILL CAUSE INFINITE LOOP ON OPEN QUERIES LIKE b[|mm->?|]
+// because of rule 1: p(p(p(p(...))))[|mm->?|] and p(p(p(p(...))))[|m->?|]
+// Terminyzer can't find this problem!
+//b[|\neg mm ->vv|].  // should cancel inheritance of mm to b and c.
+//c[\neg m->v].       // should cancel inheritance of m to c
+
+
+%tst1 :- a[|?M->?V|],
+	(write('tst1: '), write(meth=?M), write(' '), writeln(val=?V))@\plg(),
+	\false.
+%tst1 :- \true.
+
+%tst2 :- p(a)[|?M->?V|],
+	(write('tst2: '), write(meth=?M), write(' '), writeln(val=?V))@\plg(),
+	\false.
+%tst2 :- \true.
+
+%tst3 :- write('tst3: ')@\plg,
+	 \if (b[|mm->?|] \or c[|mm->?|]) \then writeln(failure)@\plg
+         \else writeln(success)@\plg.
+
+%tst4 :- write('tst4: ')@\plg,
+	 \if c[|m->?|] \then writeln(failure)@\plg
+         \else writeln(success)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, !, setsemantics{equality=basic},
+	    %tst3, %tst4.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	!,
+	Method[mustDefine(off)]@\sys,
+	\abolishtables,
+	%pretest,
+	told@\plg().
+
+
+

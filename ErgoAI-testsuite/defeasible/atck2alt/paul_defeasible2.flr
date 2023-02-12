@@ -1,0 +1,66 @@
+
+:- use_argumentation_theory{gcle}.
+?- [gclpe>>gcle].
+
+/*
+  Note: ?X != ?Y will not work because the query
+  ?- \opposes(price(bread,1),?O).
+  won't return anything without explicit grounding of ?X and ?Y.
+*/
+\opposes(price(bread,?X),price(bread,?Y)) :-
+	value(?X),
+	value(?Y),
+	?X != ?Y.
+
+@{an,a} price(bread,1).
+@{bn,b} price(bread,2).
+@{c,cn} price(bread,3).
+
+value(1).
+value(2).
+value(3).
+value(4).
+
+\overrides(a,c).
+\overrides(b,c).
+
+/* Desired conclusions: \naf price(bread,1), \naf price(bread,2), price(bread,3).
+   Intuitive justification:  price(bread,1) and price(bread,2)
+   have unresolved conflict. price(bread,3) is both refuted and rebutted
+   by price(bread,1) and price(bread,2). The latter is true, since neither
+   price(bread,1) nor price(bread,2) is compromised: to be compromised they
+   must be refuted, but they are not. So, price(bread,1) is also defeated.
+
+   status(a,price(bread,1))[competes->?X]@gcle.
+   status(a,price(bread,1))[howDefeated->?X]@gcle.
+*/
+
+%tst1 :- false{price(bread,1)}, false{price(bread,2)}, false{price(bread,3)},
+	 writeln(tst1=ok)@\plg.
+
+%tst2 :- collectset{?X|status(a,price(bread,1))[info->competes(?X)]@gcle} = ?L,
+	 writeln(tst2=?L)@\io.
+
+%tst3 :- collectset{?X|status(b,price(bread,2))[howDefeated->?X]@gcle} = ?L,
+	 writeln(tst3=?L)@\io.
+
+%tst4 :- collectset{?O|status(?I,price(bread,2))[howDefeated->?X]@gcle,
+	               ?O=?I+?X} = ?L,
+         writeln(tst4=?L)@\io.
+
+%tst5 :- collectset{?X|status(c,price(bread,3))[howDefeated->?X]@gcle} = ?L,
+	 writeln(tst5=?L)@\io.
+
+%tst6 :- collectset{?X|status(a,price(bread,1))[howDefeated->?X]@gcle} = ?L,
+	 writeln(tst6=?L)@\io.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	\abolishtables,
+	%pretest,
+	told@\plg.

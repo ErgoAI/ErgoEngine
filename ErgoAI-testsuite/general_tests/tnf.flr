@@ -1,0 +1,26 @@
+#include "standard.h"
+
+%pretest :-
+        (flora_running_as(ergo)@\plg(flrporting) -->> set_omniform_mode(on)@\plg(flrcompiler) ; \true),
+	flora_read_then_parse_file('tnf_data.flr',?_Parselist)@\plg(flrutils),
+	flwritelinelist(?_Parselist)@\plg(flrparser).
+
+
+%test :-
+	(File[exists(tnf_old)]@\io -->> File[unlink(tnf_old)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(tnf_flora_old,tnf_old)]@\io
+	;  File[link(tnf_ergo_old,tnf_old)]@\io
+        ),
+	file_reopen(temp1,w,STDERR,?_)@\plg(file_io),
+	file_reopen(temp2,w,STDWARN,?_)@\plg(file_io),
+	tell(temp)@\plg(),
+        %pretest,
+        told@\plg(),
+	{STDWARN,STDERR}[close]@\io,
+	temp[open(append,?Port0)]@\io,
+	temp1[open(read,?Port1)]@\io,
+	temp2[open(read,?Port2)]@\io,
+	copyIOport({?Port1,?Port2},?Port0)@\plg(file_io),
+	{?Port0,?Port1,?Port2}[close]@\io,
+	File[unlink({temp1,temp2})]@\io.

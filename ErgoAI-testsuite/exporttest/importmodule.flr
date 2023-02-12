@@ -1,0 +1,154 @@
+:- use_rule_structure_db.
+Class2::Class1.
+
+?- [module_foo>>foo], [encap_mod2>>bar].
+
+:- importmodule{foo, bar}.
+
+:- symbol_context{
+      ppp/0, ppp(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)@\@,
+        ppp@\@, ppp(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)@foo,
+        ppp(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)@\@
+   }.
+
+#include "flora_exceptions.flh"
+
+%tst1 :- write('tst1: ')@\plg, ppp@foo, writeln(ok)@\plg,
+	write('tst1-1: ')@\plg, ppp, writeln(ok)@\plg.
+
+:- table{print1/1, print2/1, print3/1}.
+
+%tst2 :- write('tst2: ')@\plg,
+	 qqq(?X)@foo,
+	 print1(?X),
+	 \false.
+%tst2 :- writeln(ok)@\plg, \false.
+%tst2 :- write('tst2-1: ')@\plg,
+	 qqq(?X), 
+	 print2(?X),
+	 \false.
+%tst2 :- writeln(ok)@\plg.
+
+print1(?X) :- write(?X)@\plg, write('/')@\plg.
+print2(?X) :- write(?X)@\plg, write('/')@\plg.
+print3(?X) :- write(?X)@\plg, write('/')@\plg.
+
+%tst3 :- write('tst3: ')@\plg,
+	 ppp(?X1,?X2,?X3,?X4,?X5,?X6,?X7,?X8,?X9,?X10,?X11,?X12,?X13,?X14,?X15,?X16,?X17,?X18)@foo,
+	 write(?X1+?X2+?X3+?X4+?X5+?X6+?X7+?X8+?X9+?X10+?X11+?X12+?X13+?X14+?X15+?X16+?X17+?X18)@\plg,
+	 write('/')@\plg,
+	 \false.
+%tst3 :- writeln(ok)@\plg, \false.
+%tst3 :- write('tst3-1: ')@\plg,
+	 ppp(?X1,?X2,?X3,?X4,?X5,?X6,?X7,?X8,?X9,?X10,?X11,?X12,?X13,?X14,?X15,?X16,?X17,?X18),
+	 write(?X1+?X2+?X3+?X4+?X5+?X6+?X7+?X8+?X9+?X10+?X11+?X12+?X13+?X14+?X15+?X16+?X17+?X18)@\plg,
+	 write('/')@\plg,
+	 \false.
+%tst3 :- writeln(ok)@\plg.
+
+%tst4 :- write('tst4: ')@\plg,
+	 ?O[foo->?X]@foo,
+	 write(?O+?X)@\plg, write('/')@\plg, \false.
+%tst4 :- writeln(ok)@\plg, \false.
+%tst4 :- write('tst4-1: ')@\plg,
+	 ?O[foo->?X],
+	 write(?O+?X)@\plg, write('/')@\plg, \false.
+%tst4 :- writeln(ok)@\plg.
+
+%tst5 :- write('tst5: ')@\plg, ?[?M->?]@foo, (write(?M), write('/'))@\plg, \false.
+%tst5 :- writeln(ok)@\plg, \false.
+%tst5 :- write('tst5-1: ')@\plg, ?[?M->?], (write(?M), write('/'))@\plg, \false.
+%tst5 :- writeln(ok)@\plg.
+
+%tst6 :- write('tst6: ')@\plg, ?P()@foo, (write(?P), write('/'))@\plg, \false.
+%tst6 :- writeln(ok)@\plg, \false.
+%tst6 :- write('tst6-1: ')@\plg, ?P(), (write(?P), write('/'))@\plg, \false.
+%tst6 :- writeln(ok)@\plg.
+
+%tst7 :- write('tst7: ')@\plg, ?P(?)@foo, print3(?P), \false.
+%tst7 :- writeln(ok)@\plg, \false.
+%tst7 :- write('tst7-1: ')@\plg, ?P(?), (write(?P), write('/'))@\plg, \false.
+%tst7 :- writeln(ok)@\plg.
+
+%tst8 :- write('tst8: ')@\plg,
+	?P(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)@foo,
+	(write(?P), write('/'))@\plg,
+	\false.
+%tst8 :- writeln(ok)@\plg, \false.
+%tst8 :- write('tst8-1: ')@\plg,
+	?P(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?),
+	(write(?P), write('/'))@\plg,
+	\false.
+%tst8 :- writeln(ok)@\plg.
+
+%tst9 :- write('tst9: ')@\plg, ?[%?M]@foo, (write(?M), write('/'))@\plg, \false.
+%tst9 :- writeln(ok)@\plg, \false.
+%tst9 :- write('tst9-1: ')@\plg, ?[%?M], (write(?M), write('/'))@\plg, \false.
+%tst9 :- writeln(ok)@\plg.
+
+%tst10 :- write('tst10: ')@\plg, ?[%?M(?)]@foo, (write(?M), write('/'))@\plg, \false.
+%tst10 :- writeln(ok)@\plg, \false.
+%tst10 :- write('tst10-1: ')@\plg,
+	  ?[%?M(?)],
+	  (write(?M), write('/'))@\plg, \false.
+%tst10 :- writeln(ok)@\plg.
+
+%tst11 :- write('tst11: ')@\plg, %?P(?)@foo, (write(?P), write('/'))@\plg, \false.
+%tst11 :- writeln(ok)@\plg, \false.
+%tst11 :- write('tst11-1: ')@\plg, %?P(?), (write(?P), write('/'))@\plg, \false.
+%tst11 :- writeln(ok)@\plg.
+
+%tst12 :- write('tst12: ')@\plg,
+	  catch{yyy(?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X),
+	        FLORA_ABORT_NOTRACE(FLORA_UNDEFINED_EXCEPTION(?,?Msg),?_),
+		writeln(?Msg)@\plg}.
+
+%tst13 :- write('tst13: ')@\plg,
+	  catch{ppp(?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,?X,a,a,?X,?X,?X,?X,?X),
+	        FLORA_ABORT_NOTRACE(FLORA_UNDEFINED_EXCEPTION(?,?Msg),?_),
+		writeln(?Msg)@\plg}.
+
+%tst14 :- write('tst14: ')@\plg,
+	  catch{rrr,
+	        FLORA_ABORT_NOTRACE(FLORA_UNDEFINED_EXCEPTION(?,?Msg),?_),
+		writeln(?Msg)@\plg}.
+
+%tst15 :- write('tst15: ')@\plg,
+	  catch{aaa[moo->?_X],
+	        FLORA_ABORT_NOTRACE(FLORA_UNDEFINED_EXCEPTION(?,?Msg),?_),
+		writeln(?Msg)@\plg}.
+
+%tst16 :- write('tst16: ')@\plg,
+	  ?P[?M{?L..?H}=>?V],
+	  ?V != (?;?),
+	  ?M != (?,?),
+	  ?M != (? - ?),
+	  write(?P/?M/?L/?H/?V)@\plg,
+	  write(' || ')@\plg,
+	  \false.
+%tst16 :- writeln(ok)@\plg.
+
+%tst17 :- 
+	  ?P[|?M{?L..?H}=>?V|],
+	  ?V != (?;?),
+	  ?M != (?,?),
+	  ?M != (? - ?),
+	  (write('tst17: '), writeln(?P/?M/?L/?H/?V))@\plg,
+	  \false.
+%tst17 :- writeln(ok)@\plg.
+
+%tst18 :-
+	  mary[salary(?Y,?M)->?V],
+	  (write('tst18: '), writeln(?Y/?M/?V))@\plg,
+	  \false.
+%tst18 :- writeln(ok)@\plg.
+
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7,
+	    %tst8, %tst9, %tst10, %tst11, %tst12, %tst13, %tst14,
+	    %tst15, %tst16, %tst17, %tst18.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	told@\plg.

@@ -1,0 +1,101 @@
+:- symbol_context{%a(?)@?,a/1,a/0,p/0}.
+// these are here to make sure the compiler does not give an error
+dummy :- \neg p(\#).
+dummy :- \neg p(\#3).
+
+%tst1 :- \unless a(b)@foo ~ \neg ?_X@foo
+         \do writeln('tst1 failed as expected')@\plg().
+%tst1_2 :- \unless %a(b) ~ \neg ?_X
+           \do writeln('tst1_2 failed as expected')@\plg().
+%tst2 :- \neg a(b)@foo ~ \neg ?X@foo, ?Y = foo, a(b)@?Y ~ ?X@foo, ?Z=a(b), \neg ?Z@?Y ~ \neg ?X@foo,
+	a(b)@foo ~ ?XX@?YY,
+	write('tst2 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?XX,?YY))@\plg(flrdecode), nl@\plg().
+%tst3 :- ?_X@?M ~ ?Y@foo, \neg ?Z@foo ~ \neg ?V@?N, ?Z=a, ?Y=a(b),
+	write('tst3 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(${?_X@?M}, ${?V@?N}))@\plg(flrdecode), nl@\plg().
+%tst4 :- \unless a(b)@foo ~ \neg ?_X@bar
+         \do writeln('tst4 failed as expected')@\plg().
+%tst4_2 :- \unless  \neg a(b)@bar ~ %?_X@bar
+           \do writeln('tst4_2 failed as expected')@\plg().
+%tst5 :- a(b)@?M ~ ?X@bar, \neg ?Y@bar ~ \neg a(b)@?MM,
+	write('tst5 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?M,?Y,?MM))@\plg(flrdecode), nl@\plg().
+%tst6 :- ?X@?M ~ ?Y@foo, ?Y= (\neg a(b)), ?X@?M ~ \neg a(b)@foo,
+	write('tst6 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(${?X@?M},?Y))@\plg(flrdecode), nl@\plg().
+%tst6_2 :- ?X@?M ~ ?Y@foo, ?Y= ${\neg a[b]@?K}, ?X@?M ~ \neg a[b]@foo,
+	write('tst6_2 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(${?X@?M},?Y,?K))@\plg(flrdecode), nl@\plg().
+%tst6_3 :- ?X@?M ~ ?Y@foo, ?Y= ${\neg a[b->c]@?K}, ?X@?M ~ \neg a[b->?W]@foo,
+	write('tst6_3 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(${?X@?M},?Y,?K,?W))@\plg(flrdecode), nl@\plg().
+%tst6naf :- ?X@?M ~ ?Y@foo, ?Y= (\naf a(b)), ?X@?M ~ \naf a(b)@foo,
+	write('tst6naf succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(${?X@?M},?Y))@\plg(flrdecode), nl@\plg().
+%tst6naf_2 :- ?X@?M ~ ?Y@foo, ?Y= ${\naf a[b]@?K}, ?X@?M ~ \naf a[b]@foo,
+	write('tst6naf_2 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(${?X@?M},?Y,?K))@\plg(flrdecode), nl@\plg().
+%tst6naf_3 :- ?X@?M ~ ?Y@foo, ?Y= ${\naf a[b->c]@?K}, ?X@?M ~ \naf a[b->c]@foo,
+	write('tst6naf_3 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(${?X@?M},?Y,?K))@\plg(flrdecode), nl@\plg().
+%tst7 :- ?X@?M ~ ?Y@foo, ?Y= (\neg a(b)), ?Y@?Z ~ \neg a(b)@?W, ?W=bar,
+	write('tst7 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(${?X@?M},?Y,?Z,?W))@\plg(flrdecode), nl@\plg().
+%tst8 :- \neg a(b)@?X ~ \neg ?Y@foo, \neg ?Y@?Z ~ \neg a(b)@?W, ?Z=foo,
+	write('tst8 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Y,?W))@\plg(flrdecode), nl@\plg().
+%tst9 :- \unless (\neg a(b)@?_X ~ ?Y@foo, ?Y@?_Z ~ a(b)@?_W) 
+	 \do writeln('tst9 failed as expected')@\plg().
+%tst10 :- \neg a[b->?C]@foo ~ \neg ?X@?Z, \neg ?X ~ ${\neg ?A[?B->cc]@foo},
+	write('tst10 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Z,?A,?B,?C))@\plg(flrdecode), nl@\plg().
+%tst11 :- \neg a[b->?C]@?M ~ ?X@?Z, ?X@?_N ~ \neg ?A[?B->cc]@foo,
+	write('tst11 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Z,?M,?A,?B,?C))@\plg(flrdecode), nl@\plg().
+
+%tst12 :- \neg a(?X)@?_M ~ \neg ?Y@?Z, ?X=dd, ?Z = ff, \neg ?XX@?YY ~ \neg a[b->cc]@foo,
+	write('tst12 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Y,?Z,?XX,?YY))@\plg(flrdecode), nl@\plg().
+
+%tst13 :- insert{\neg p(${\neg a[b->c]})}, \neg p(?X), ?X@?Y ~ \neg a[b->c]@?Z, ?Y=\@,
+	write('tst13 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Y,?Z))@\plg(flrdecode), nl@\plg().
+
+%tst14 :- ?X ~ \neg a[b->c,e->d]@foo, ?M=foo, ?X@?M ~ \neg a[b->c,e->d]@?M,
+	write('tst14 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?M))@\plg(flrdecode), nl@\plg().
+
+// double negation
+%tst15 :- ?X ~ \neg a[b->c,e->d]@foo, ?M=foo, \neg ?X@?M ~ a[b->c,e->d]@foo,
+	write('tst15 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?M))@\plg(flrdecode), nl@\plg().
+
+// double negation
+%tst16 :- ?X ~ \neg a[b->c;e->d]@foo, ?M=foo, \neg ?X@?M ~ a[b->c;e->d]@?M,
+	write('tst16 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?M))@\plg(flrdecode), nl@\plg().
+
+%tst17 :- ?G = ${\neg p}, ?G ~ \neg ?P, writeln(test17=?G+?P)@\io.
+
+%negateLiteral(${\neg ?_G@?_M}, ${?_G@?_M}) :- !.
+%negateLiteral(${?_G@?_M}, ${\neg ?_G@?_M}) :- \true.
+
+%tst18 :- ?G = ${\neg p}, %negateLiteral(?G,?NG), writeln(test18=?G+?NG)@\io.
+
+%tst19 :- ?G = ${\neg ?p@?}, ?p = ${\neg ?pp@?}, ?pp = ${\neg ppp},
+	  ?G ~  \neg ?P, writeln(test19=?P)@\io.
+
+%pretest :- %tst1,%tst2,%tst3,%tst4,%tst5,
+	    %tst6, %tst6_2, %tst6_3,
+	    %tst6naf, %tst6naf_2,  %tst6naf_3, 
+	    %tst7,%tst8,%tst9,%tst10,
+	    %tst11,%tst12, %tst13,%tst14,%tst15,%tst16,
+	    %tst1_2,%tst4_2,
+	    %tst17, %tst18, %tst19.
+
+%test :- tell(temp)@\plg(), 
+	%pretest,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	told@\plg().

@@ -1,0 +1,134 @@
+/* File:      flrundefhook.P
+**
+** Author(s): Guizhen Yang
+**            Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+
+
+/****************************************************************************
+  flora_undefined_predicate_msg/4
+****************************************************************************/
+
+%% Attempt to call a HiLog term as a predicate
+flora_undefined_predicate_msg(WRAP_HILOG,Arity,_PrologModule,Message) :-
+	!,
+	RealArity is Arity - 1,
+	fmt_write_string(Message,
+                         'attempt to call a HiLog term of arity %S as a predicate',
+                         arg(RealArity)).
+
+%% MK: don't think this is right: WRAP_TABLED_HILOG is a predicate
+flora_undefined_predicate_msg(WRAP_TABLED_HILOG,Arity,_PrologModule,Message) :-
+	!,
+	RealArity is Arity - 1,
+	fmt_write_string(Message,
+                         'attempt to call a HiLog term of arity %S as a predicate',
+                         arg(RealArity)).
+
+%% MK: don't think this is right: PRNEG(WRAP_TABLED_HILOG) is a predicate
+flora_undefined_predicate_msg(PRNEG(WRAP_TABLED_HILOG),Arity,_PrologModule,Message) :-
+	!,
+	RealArity is Arity - 1,
+	fmt_write_string(Message,'attempt to call a negated HiLog term of arity %S as a predicate', arg(RealArity)).
+
+%% MK: don't think this is right: WRAP_NONTABLED_HILOG is a predicate
+flora_undefined_predicate_msg(WRAP_NONTABLED_HILOG,Arity,_PrologModule,Message) :-
+	!,
+	RealArity is Arity - 1,
+	fmt_write_string(Message,'attempt to call a HiLog term of arity %S as a predicate', arg(RealArity)).
+
+%% A call to a molecule
+flora_undefined_predicate_msg(PredName,Arity,PrologModule,Message) :-
+	%% Decode the predicate symbol.
+	functor(PCall,PredName,Arity),
+	flora_decode_predicate(PCall,PredicateType,ModuleName,_Prefix,PredSymbol,_),
+	( (PredicateType == flogic ; PredicateType == neg_flogic) ->
+	    %% an F-logic predicate
+	    flora_decode_goal_as_atom(PCall,PCallAtom),
+	    ( '\\isloaded'(ModuleName) ->
+		%% This is very unlikely to happen unless something goes wrong.
+		fmt_write_string(Message,'attempt to call an undefined F-logic molecule of the form %S in module `%S''',
+			         args(PCallAtom, ModuleName))
+	    ; flora_imported_module_registry(Importer,ModuleName) ->
+		fmt_write_string(Message,'module  %S is imported by module %S but %S is nonloaded',
+				args(ModuleName,Importer,ModuleName))
+	    ;
+	        fmt_write_string(Message,'attempt to call an F-logic molecule of the form %S in a nonloaded module `%S''',
+                                 args(PCallAtom, ModuleName))
+	    )
+
+	; (PredicateType == (hilog) ; PredicateType == neg_hilog) ->
+	    %% a HiLog predicate
+	    flora_decode_goal_as_atom(PCall,PCallAtom),
+	    %% RealArity is Arity - 2, % extra one for the caller arg
+	    ( '\\isloaded'(ModuleName) ->
+		fmt_write_string(Message,'attempt to call an undefined HiLog predicate %S',
+				 arg(PCallAtom))
+	    ; flora_imported_module_registry(Importer,ModuleName) ->
+		fmt_write_string(Message,'module  %S is imported by module %S but %S is nonloaded',
+				args(ModuleName,Importer,ModuleName))
+	    ;
+		fmt_write_string(Message,'a call to a HiLog predicate %S in a nonloaded module `%S''',
+				 args(PCallAtom,ModuleName))
+	    )
+	; PredicateType == (prolog) ->
+	    fmt_write_string(Message,'attempt to call an undefined Prolog predicate %S/%S in module `%S''',
+			    args(PredName,Arity,PrologModule))
+
+	; PredicateType == (flora) ->
+	    Arity1 is Arity-1,
+	    ('\\isloaded'(ModuleName) ->
+		fmt_write_string(Message,'attempt to call an undefined predicate %S/%S, which is declared as :- prolog in module `%S''\n\t(internal name: %S/%S)',
+				args(PredSymbol,Arity1,ModuleName,PredName,Arity))
+	    ;  PredSymbol == FL_UNDEFEATED ->
+		fmt_write_string(Message,'module `%S'' was designated to hold an argumentation theory (via the use_argumentation_theory directive), but no argumentation theory was ever loaded into `%S''',
+				 args(ModuleName,ModuleName))
+	    ;  PredSymbol == FL_RULE_ENABLER ->
+		fmt_write_string(Message,'module %S is nonloaded',arg(ModuleName))
+	    ; flora_imported_module_registry(Importer,ModuleName) ->
+		fmt_write_string(Message,'module  %S is imported by module %S but %S is nonloaded',
+				args(ModuleName,Importer,ModuleName))
+	    ; fmt_write_string(Message,'attempt to call predicate %S/%S in a nonloaded module %S',
+			       args(PredSymbol,Arity,ModuleName))
+	    )
+
+	; PredicateType == neg_flora ->
+	    Arity1 is Arity-1,
+	    ('\\isloaded'(ModuleName) ->
+		fmt_write_string(Message,'attempt to call an undefined predicate neg %S/%S, which is declared as :- prolog in module `%S''\n\t(internal name: %S/%S)',
+				args(PredSymbol,Arity1,ModuleName,PredName,Arity))
+	    ; flora_imported_module_registry(Importer,ModuleName) ->
+		fmt_write_string(Message,'module  %S is imported by module %S but %S is nonloaded',
+				args(ModuleName,Importer,ModuleName))
+	    ; fmt_write_string(Message,'attempt to call predicate neg %S/%S in a nonloaded module %S',
+				args(PredSymbol,Arity,ModuleName))
+	    )
+
+	).

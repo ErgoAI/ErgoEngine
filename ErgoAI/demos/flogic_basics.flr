@@ -1,0 +1,72 @@
+/* File:      flogic_basics.flr
+*/
+
+// ===========================================================================
+// SOME SIMPLE EXAMPLES SHOWING SEVERAL F-LOGIC FEATURES 
+// ===========================================================================
+
+:- ignore_depchk{%e(?_,?_)}.
+
+%time_flies_like_an_arrow.	     // a 0-ary PREDICATE (proposition)
+fruit_flies_like_an_apple[].	     // an OBJECT with empty specification []
+
+// :- table tc/2.
+
+%e(a,b). %e(b,a). %e(b,c).		// a binary PREDICATE (graph)
+%e(b,d).
+
+tc(?X,?Y) :- %e(?X,?Y).			// a RULE and ...
+tc(?X,?Y) :- tc(?X,?Z), tc(?Z,?Y).	// ... a (doubly) RECURSIVE RULE
+ 
+person :: object.
+dangerous_hobby :: object.
+john:employee.				// INSTANCE : CLASS 
+employee::person.			// SUBCLASS :: SUPERCLASS
+bob:person.
+tim:person.
+betty:employee.
+
+person[|age{1..1}=>integer, kids=>person|].   // optional SIGNATURE information
+
+mary:employee[			       // a more complex MOLECULE involving
+	age->29,		       // ... a SINGLE-VALUED method
+	kids -> {tim,leo,betty},       // ... a MULTI-VALUED method
+	salary(1998) -> a_lot	       // ... a PARAMETERIZED method
+].
+
+tim[hobbies -> {stamps, snowboard}].	// somebodies hobbies
+betty[hobbies->{fishing,diving}].
+
+snowboard:dangerous_hobby.		// isn't it??
+diving:dangerous_hobby.
+
+?_X[self->?_X].				// define self
+
+
+person[|believes_in ->			// INHERITABLE method
+       {something, something_else}|].	
+
+person[instances -> {?X}] :- ?X:person.  // NON-INHERITABLE method of person
+
+
+// ===========================================================================
+// now ask some QUERIES here (or INTERACTIVELY from the FLORA SHELL)
+// ===========================================================================
+
+?- %time_flies_like_an_arrow.	// ={1..1}=> `yes'
+
+?- fruit_flies_like_a_banana[].	// ={1..1}=> `yes'
+
+?- tc(?X,?Y).			// computes the transitive closure of e(_,_)
+
+?- ?X:person.			// What persons are there?
+?- person[instances -> ?X].	// ...same Q, but asked differently (see above)
+
+?- ?X[believes_in -> ?Y].	// Who believes in ?Y
+
+?- ?X.kids[			   // Whose kids
+     self -> ?K,
+     hobbies -> ?H:dangerous_hobby // ... has dangerous hobbies
+]. 
+
+?- writeln('Thanks for using FLORA!') @ \plg().

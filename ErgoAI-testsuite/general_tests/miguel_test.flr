@@ -1,0 +1,270 @@
+/* Inferring prohibited transactions from RegW:  test file. */
+/* Contains rules representing USA Regulation W on what are affiliates,
+   and about whether related transactions covered by RegW are allowed.
+   The latter specify decision criteria for whether 
+   a transaction is legal. 
+ */
+/* by Isaac Grosof and Benjamin Grosof of Coherent Knowledge Systems */
+/* version history:
+   - v1 8/13/13 5pm PDT
+   - v2 better doc, some todo's   
+ */ 
+/* overall TODOs next:
+1. change legality(..., illegal) (vs. legal) to:  prohibited(by(RegW))(...) 
+   (vs. neg prohibited(by(RegW)) )
+2. represent the regulation that:  a given company's aggregate amount 
+   of covered transactions with its affiliates must not exceed 20% of 
+   its capital stock and surplus. 
+3. represent more of the sufficient conditions that imply an affiliate 
+   relationship.  
+4. more test queries; start with specifying associated objectives for the tests
+   - show interesting cases of crossing threshold due to larger amount that
+     implies prohibitedness
+   - exercise the 20% rule (2.) above.  
+   - in comments, describe in English tersely the justification for prohibition,
+     esp. in terms of affiliates
+   - have some cases that are more unexpected or subtle wrt the basis for
+     affiliate-ness that underlies prohibition of transactions
+ */
+
+:- use_argumentation_theory.
+
+/* ------------------------------------------------------------------------ */
+/* Example Facts */
+
+/* All monetary amounts are in million dollar units */
+ 
+capital(stock(and(surplus)))(d1,100).
+purchase(by(d1))(of(toms_best_bond))(from(tom))(of(amount(3))).
+issued(by)(toms_best_bond,b1).
+purchase(by(d1))(of(freds_best_bond))(from(b1))(of(amount(5))).
+loan(from(d1))(to(a1))(of(amount(9))).
+
+subsidiary(a1,b1).
+subsidiary(b1,c11).
+subsidiary(b1,c12).
+subsidiary(b2,c21).
+subsidiary(b2,c22).
+owns(a1,b1,common,800).
+owns(b1,c11,common,900).
+owns(b1,c12,common,800).
+owns(b2,c21,common,700).
+owns(b2,c22,common,600).
+owns(a1,d1,common,150).
+owns(b1,d1,common,20).
+owns(b2,d1,common,30).
+owns(c11,d1,common,40).
+owns(c12,d1,common,50).
+owns(c21,d1,common,60).
+owns(c22,d1,common,70).
+owns(a1,d2,common,5).
+owns(b1,d2,common,15).
+owns(c11,d2,common,25).
+owns(c22,d2,common,55).
+
+outstanding(stock)(of(company(a1)))(of(security(class(common))))(number(1000)).
+outstanding(stock)(of(company(b1)))(of(security(class(common))))(number(1000)).
+outstanding(stock)(of(company(b2)))(of(security(class(common))))(number(1000)).
+outstanding(stock)(of(company(c11)))(of(security(class(common))))(number(1000)).
+outstanding(stock)(of(company(c12)))(of(security(class(common))))(number(1000)).
+outstanding(stock)(of(company(c21)))(of(security(class(common))))(number(1000)).
+outstanding(stock)(of(company(c22)))(of(security(class(common))))(number(1000)).
+outstanding(stock)(of(company(d1)))(of(security(class(common))))(number(1000)).
+outstanding(stock)(of(company(d2)))(of(security(class(common))))(number(1000)).
+bank(a1).
+bank(b1).
+bank(b2).
+bank(c11).
+bank(c12).
+bank(c21).
+bank(c22).
+bank(d1).
+bank(d2).
+
+/* ------------------------------------------------------------------------ */
+/* What transactions are covered by Reg W. */
+
+
+/* Definition of Covered Transaction. Under section 223.3(h) of Regulation W, a covered transaction includes: 
+•An extension of credit to an affiliate; 
+•A purchase of, or investment in, a security issued by an affiliate; 
+•A purchase of an asset from an affiliate, including an asset subject to recourse or an agreement to repurchase; 
+•The acceptance of a security issued by an affiliate as collateral for an extension of credit to any person or company; and 
+•The issuance of a guarantee [See Footnote 6], acceptance, or letter of credit, including: an 
+endorsement or standby letter of credit, on behalf of an affiliate [See Footnote 7]; a confirmation of a 
+letter of credit issued by an affiliate; and a cross-affiliate netting arrangement. */
+
+covered(transaction(total))(by(?x1))(with(?x2))(of(amount(?x3))) :-
+	bank(?x1),
+	company(?x2),
+	affiliate(of)(?x2,?x1),
+	?x3 = sum{?x4|
+	(
+	    loan(from(?x1))(to(?x2))(of(amount(?x4))) \or
+	    purchase(by(?x1))(of(?x5))(from(?x6))(of(amount(?x4))), issued(by)(?x5,?x2) \or
+            purchase(by(?x1))(of(?x6))(from(?x2))(of(amount(?x4))) \or
+            acceptance(as(collateral))(by(?x1))(of(?x5))(from(?x6))(of(amount(?x4))), issued(by)(?x5,?x2) \or
+            issuance(of(guarantee))(by(?x1))(on(behalf(of(?x2))))(of(amount(?x4))) \or
+            issuance(of(acceptance))(by(?x1))(on(behalf(of(?x2))))(of(amount(?x4))) \or
+            issuance(of(letter(of(credit))))(by(?x1))(on(behalf(of(?x2))))(of(amount(?x4)))
+	    )}.
+	
+/* Limitations on covered transactions */
+/* Quantitative Limitations. A bank may not engage in a new covered transaction with an 
+affiliate if the aggregate amount of covered transactions between the bank and the affiliate would 
+be in excess of 10 percent of the bank’s capital stock and surplus after consummation of the new 
+transaction. Aggregate covered transactions between the bank and all affiliates are limited to 20 
+percent of the bank’s capital stock and surplus. */
+
+prohibited(by(RegW))(covered(transaction)(by(?x1))(with(?x2))(of(any(amount(more(than(?x3))))))) :-
+	bank(?x1),
+	company(?x2),
+	affiliate(of)(?x2,?x1),
+	?x4 = sum{?x5|covered(transaction(total))(by(?x1))(with(?x2))(of(amount(?x5))) \or ?x5=0},
+	?x8 = sum{?x9|(?x12 = collectset{?x13|affiliate(of)(?x13,?x1)},
+	member(?x14,?x12)@\plg(basics), covered(transaction(total))(by(?x1))(with(?x14))(of(amount(?x9))) \or ?x9=0)},
+	capital(stock(and(surplus)))(?x1,?x6),
+	?x7 \is (?x6 * 0.1) - ?x4,
+	?x11 \is (?x6 * 0.2) - ?x8,
+	?x3 \is max(0,min(?x11,?x7)@\plg)@\plg.
+		
+/* Linguistic Knowledge */
+
+@!{rule0} @@{defeasible} company(?x1) :-
+	bank(?x1).
+
+@!{rule2} @@{defeasible} controlled(by)(?x2,?x1) :-
+	controls(?x1,?x2).   
+
+person(?x) :- company(?x).
+	
+/* ------------------------------------------------------------------------ */
+/* General background facts used in affiliates, not specific to examples */
+
+equity(class)(common).
+equity(class)(preferred).
+equity(class)(equity(capital)).
+voting(security(class))(common).
+voting(security(class))(preferred).
+convertible(into)(preferred,common).
+
+/* ------------------------------------------------------------------------ */
+/* Affiliate relationship */
+
+/* A case of affiliate is:  • Any company that controls the bank; */
+
+@!{rule1} @@{defeasible} affiliate(of)(?x1,?x2) :-
+	company(?x1),
+	controls(?x1,?x2),
+	bank(?x2).
+
+/* A case of affiliate is:  • Any company that is controlled by a company that controls the bank;*/
+
+@!{rule3} @@{defeasible} affiliate(of)(?x1,?x2) :-
+	company(?x1),
+	controlled(by)(?x1,?x3),
+	controls(?x3,?x2),
+	bank(?x2).
+
+/* The rules indicate strongly but implicitly that banks are not their own affiliates. Other rules would lead one to conclude otherwise, so this rule is strict, and those other rules are defeasible. */
+
+@!{rule11} @@{strict} \neg affiliate(of)(?x1, ?x1) :-
+	bank(?x1).
+	
+/* A case of affiliate is:  • Any subsidiary of an affiliate of the bank; */
+
+@!{rule20} @@{defeasible} affiliate(of)(?x1,?x2) :-
+	bank(?x2),
+	affiliate(of)(?x3,?x2),
+	subsidiary(?x3,?x1).
+	
+/* ------------------------------------------------------------------------ */
+/* Control of company*/
+
+/* A case of control is: The company or shareholder, directly or indirectly, or acting through one or more other persons, owns, controls, or has power to vote 25 percent or more of any class of voting securities of the other company; */
+/* We assume the company or shareholder can only have power to vote a share if they control it. */
+
+@!{rule22} @@{defeasible} controls(?x1,?x2) :-
+	controls(by(person(?x1)))(of(company(?x2)))(of(security(class(?x3))))(ratio(?x4)),
+	voting(security(class))(?x3),
+	?x4 >= 0.25.
+	
+/* A case of control is: A company or shareholder that owns or controls 25 percent or more of the equity capital of another company controls the other company, unless the company or shareholder presents information to the Board that demonstrates, to the Board's satisfaction, that the company or shareholder does not control the other company. */
+/* I am currently leaving out the presenting information clause, as this is not a complete example. */
+
+@!{rule27} @@{defeasible} controls(?x1,?x2) :-
+	?x3 = equity(capital),
+	controls(by(person(?x1)))(of(company(?x2)))(of(security(class(?x3))))(ratio(?x4)),
+	?x4 >= 0.25.
+
+/* ------------------------------------------------------------------------ */
+/* Control of stock */
+
+/* This rule governs the control of stock through direct ownership and through subsidiaries' control */
+
+@!{rule25a} @@{defeasible} controls(without(conversion))(by(person(?x1)))(of(company(?x2)))(of(security(class(?x3))))(number(?x4)):-
+	person(?x1),
+	company(?x2),
+	equity(class)(?x3),
+	?x5 = sum{?x6|(owns(by(person(?x1)))(of(company(?x2)))(of(security(class(?x3))))(number(?x6)) \or ?x6=0)},
+	?x7 = sum{?x8|(subsidiary(?x1,?x9), controls(without(conversion))(by(person(?x9)))(of(company(?x2)))(of(security(class(?x3))))(number(?x8)) \or ?x8=0)},
+	?x4 \is ?x5 + ?x7.
+
+/* This rule governs the control of one stock class though control of stock that can be converted into the class. */
+	
+@!{rule25b} @@{defeasible} controls(by(person(?x1)))(of(company(?x2)))(of(security(class(?x3))))(number(?x4)):-
+	person(?x1),
+	company(?x2),
+	equity(class)(?x3),
+	?x6 = sum{?x5| (controls(without(conversion))(by(person(?x1)))(of(company(?x2)))(of(security(class(?x3))))(number(?x5)) \or ?x5 = 0)},
+	?x7 = sum{?x8| (convertible(into)(?x9,?x3),	controls(without(conversion))(by(person(?x1)))(of(company(?x2)))(of(security(class(?x9))))(number(?x8)) \or ?x8=0)},
+	?x4 \is ?x6 + ?x7.
+
+/* These rules convert the number of shares owned or control to the ratio of the total outstanding shares that are owned or controlled. */
+/* One could add the person(?x1), etc. conditions in the rules below for cleanliness, but for brevity we have omitted them. */
+	
+@!{rule26a} @@{defeasible} controls(by(person(?x1)))(of(company(?x2)))(of(security(class(?x3))))(ratio(?x4)):-
+	controls(by(person(?x1)))(of(company(?x2)))(of(security(class(?x3))))(number(?x5)),
+	outstanding(stock)(of(company(?x2)))(of(security(class(?x3))))(number(?x6)),
+	?x4 \is ?x5/?x6.
+
+@!{rule26b} @@{defeasible} owns(by(person(?x1)))(of(company(?x2)))(of(security(class(?x3))))(ratio(?x4)):-
+	owns(by(person(?x1)))(of(company(?x2)))(of(security(class(?x3))))(number(?x5)),
+	outstanding(stock)(of(company(?x2)))(of(security(class(?x3))))(number(?x6)),
+	?x4 \is ?x5/?x6.
+
+/* report(controls(by(person(?x1)))(of(company(?x2)))(of(security(class(?x3))))(number(?x4))) will omit the results which are equal to zero, for easier readability. report( ... (ratio(?x4))) has a similar effect. */
+
+@@{strict}
+report(?x(number(?y))) :- ?x(number(?y)) \and ?y != 0.
+
+@@{strict}
+report(?x(ratio(?y))) :- ?x(ratio(?y)) \and ?y != 0.0.
+
+/* This rule is only here to make typing facts easier and more concise */
+
+@!{rule31} @@{defeasible} owns(by(person(?x1)))(of(company(?x2)))(of(security(class(?x3))))(number(?x4)) :-
+	owns(?x1,?x2,?x3,?x4).
+
+/* ------------------------------------------------------------------------ */
+/* Test queries */
+
+%tst1 :- prohibited(by(RegW))(covered(transaction)(by(d1))(with(b1))(of(any(amount(more(than(?_x))))))), ?_x=2.0, nl@\plg, writeln(test1=succeeded)@\plg.
+
+/* expected answer:  2.0 */
+
+%tst2 :- prohibited(by(RegW))(covered(transaction)(by(d1))(with(a1))(of(any(amount(more(than(?_x))))))), ?_x=1.0, writeln(test2=succeeded)@\plg.
+
+/* expected answer: 1.0 */
+
+%tst3 :- prohibited(by(RegW))(covered(transaction)(by(d1))(with(c11))(of(any(amount(more(than(?_x))))))),  ?_x=3.0, writeln(test3=succeeded)@\plg.
+
+/* expected answer: 3.0 */
+
+%tst4 :- \naf prohibited(by(RegW))(covered(transaction)(by(d1))(with(d1))(of(any(amount(more(than(?_x3))))))), writeln(test4=succeeded)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4.
+
+%test :- tell(temp)@\plg(),
+	%pretest,
+	told@\plg.

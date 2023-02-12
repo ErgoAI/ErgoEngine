@@ -1,0 +1,34 @@
+
+p(a).
+p(e).
+//q(3,3).
+
+%tst2(?X) :- p(?X), insert{q(?X,?X)}, q(?X,?X).
+%tst3(?X) :- delete{q(?X,?X)}, \naf q(?X,?X).
+%tst4(?X) :- insert{q(?X,?X)}, q(?X,?X).
+%tst5(?X) :- insert{q(?X,?X)}.
+%tst6(?X) :- p(?X), insert{q(?X,?X)}.
+
+
+?- ['ergo_syslib/fidji-cks'],
+        [fidjiUtils>>myfidji].
+// this should NOT give a floundering error
+//?- fjw(${%tst6(a)@main},\false,j(?Type,?Info))@myfidji, jtr2w(?Type,?Info,main,\false,null,?Child)@myfidji.
+
+
+
+// indicates that the above didn't give a foundering error.
+%test1 :-
+        (fllibshellans(('_$_$_ergo''silent_equal'(?,main)@\plg,'_$_$_ergo''mod''myfidji''fjw'('_$_$_ergo''mod''main''d^nontblflapply'(tst6,a,'_$ctxt'(?,?,?)@\plg)@\plg,\false,j(?C,?B),'_$ctxt'(main,?,?)@\plg)@\plg,'_$_$_ergo''mod''myfidji''jtr2w'(?C,?B,main,\false,null,?A,'_$ctxt'(main,?,?)@\plg)@\plg),['?Type' = ?C,'?Info' = ?B,'?Child' = ?A])@\plg
+        ; // fllibshellans always fails, so we use OR here. The purpose of this
+          // test is to ensure that fllibshellans does not issue
+          // a flounderingerror
+            writeln(test1 = ok)@\plg
+        ).
+
+%pretest :-
+        %test1.
+
+%test :- tell(temp)@\plg,
+         %pretest,
+         told@\plg.

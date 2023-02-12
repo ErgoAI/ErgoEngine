@@ -1,0 +1,61 @@
+/* File:      flrchangemod.P - support for the primitive changemodule{...}
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2017-2018.
+**      Coherent Knowledge Systems, LLC., 2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "flrheader.flh"
+
+/*
+   The main workhorse is that predicate change_module_if_match() defined as
+       :- prolog{change_module_if_match/4}.
+   in flib/flrchange_module. This predicate is loaded into the module
+   FLCHANGEMODULE, ie, \\changemodule by the flora_load_system_module cmd below.
+*/
+
+#define CHANGEMOD_PRED  FLORA_WORKSPACE(FLCHANGEMODULE_NQ,change_module_if_match)
+
+:- import CHANGEMOD_PRED/5 from usermod.
+:- import flora_load_system_module/1 from flrlibman.
+
+:- export
+        flora_changemodule/3.
+
+?- flora_load_system_module(FLCHANGEMODULE).
+
+flora_changemodule(In,ModSpec,Out) :-
+        atom(ModSpec),
+        !,
+        ModSpec \= [],
+        CHANGEMOD_PRED(In,Out,_,ModSpec,_).
+flora_changemodule(In,ModSpec,Out) :-
+        nonvar(ModSpec),
+        ModSpec = (OldMod=NewMod),
+        !,
+        atom(OldMod), atom(NewMod), OldMod \= [], NewMod \= [],
+        CHANGEMOD_PRED(In,Out,OldMod,NewMod,_).
+

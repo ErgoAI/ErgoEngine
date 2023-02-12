@@ -1,0 +1,236 @@
+\chapter[HTTP and Web Services]
+{HTTP and Web Services\\
+  {\Large by Michael Kifer}}
+
+
+This chapter describes the API for issuing HTTP requests to Web servers.
+This facility could be used for reading and querying Web resources and,
+perhaps more importantly, for talking to Web services.
+
+\section{General}
+
+The \ERGO-to-Java API is available in the system module \texttt{\bs{}http}
+and calling anything in this module will load that module. If, however, for
+some reason it is necessary to load this module without executing any
+operations, one can accomplish this by calling 
+%% 
+\begin{itemize}
+\item  \texttt{ensure\_loaded@\bs{}http}. 
+\end{itemize}
+%% 
+
+\section{The HTTP API}
+
+The most important call in the \ERGO Web API is \texttt{http(...)},
+described next. 
+
+%% 
+\begin{itemize}
+\item  \texttt{?URL[http->(?Result,?Warnings)]@\bs{}http} --- a basic
+  request to bring back a Web page or to invoke a RESTfull service via a
+  GET HTTP method. The result from the server is bound to \texttt{?Result}
+  and the errors/warnings from the server, if any, to \texttt{?Warnings}. A
+  result is an atom,
+  which typically is in the HTML, XML, or JSON format.  
+  The warnings are represented as lists of atoms (one per warning)
+  or as an empty list, if no warnings.
+
+  If \texttt{?Result} is a zero-length atom, it means that the request
+  failed for various reasons. Such reasons may or may not be explained as a
+  warning---depending on the server. 
+  %% 
+\item  \texttt{?URL[http(?OptionList)->(?Result,?Warnings)]@\bs{}http} ---
+  a more complex request to a server, which specifies the requirements by
+  passing a list of options. This API call supports GET, POST, PUT, and DELETE
+  HTTP requests and can be used both for RESTfull as well as non-RESTfull Web
+  services. The option list has this form:
+  %% 
+  \begin{quote}
+     \texttt{[}  \emph{option1, option2, ..., optionN} \texttt{]}  
+  \end{quote}
+  %% 
+  where each option either has the form \emph{optionName} = \emph{value}
+  or is a Boolean option of the form \emph{optionName}.   (Currently there
+  is only one Boolean option: \texttt{delete}.) 
+  No \emph{optionName}  can occur in the list more than once, or an error is
+  issued.
+  The following options are supported:
+  %% 
+  \begin{itemize}
+  \item    \texttt{redirect}: the value must be \texttt{true} (default) or
+    \texttt{false}.   Tells the server whether to follow redirection or
+    not.
+    %% 
+\begin{verbatim}
+?- 'https://google.com'[http([redirect=false])->?R]@\http.
+\end{verbatim}
+    %% 
+    This will respond with an HTML document saying ``The document has
+    moved.''
+  \item   \texttt{secure}: the value must be \texttt{false} (default)
+    or a path-name to a local file, which contains certificates.
+    The certificates must be in the PEM format
+    \url{https://support.ssl.com/index.php?/Knowledgebase/Article/View/19/0/der-vs-crt-vs-cer-vs-pem-certificates-and-how-to-convert-them}. Such
+    files typically have the \texttt{.pem} or \texttt{.crt} extension.
+
+    If a file-path is specified, the server is verified with respect to the
+    certificate. If unsuccessful, \texttt{?Result} is a zero-length atom.
+  \item \texttt{timeout}: the value is a positive integer specifying the
+    number of seconds to wait before aborting the request.
+  \item \texttt{useragent}: the name of the user agent to use in the HTTP header
+    when handshaking with the server. Some servers require this, but most
+    do not. Servers have no way of verifying the user agent field.
+    Example:
+    %% 
+\begin{verbatim}
+?- 'http://myurl.my'[http([timeout=7, useragent='My Ergo crawler'])
+                           -> (?Res,?Warn)]@\http.
+\end{verbatim}
+    %% 
+  \item \texttt{header}: The
+    value is either an atom (if just one header needs to be passed) or a
+    list of atoms, to specify several headers at once. Examples:
+    %% 
+\begin{verbatim}
+header='User-Agent: just me'
+header=['Content-Type: application/json','Authorization: Bearer abcdefg']
+\end{verbatim}
+    %% 
+    \item \texttt{auth}: the value must be user/password. This is used if
+      the web site requires authentication. For example,
+      %% 
+\begin{verbatim}
+auth=justme/mypasswd      
+\end{verbatim}
+      %% 
+    \item \texttt{post}, \texttt{put}: the value is an atom, typically in
+      the JSON or XML format.
+      
+      These options, if given,  
+      will contact the server using the HTTP methods POST or PUT, respectively.
+      If none of these options is given (and no \texttt{delete} option),
+      the GET method is used.
+      One cannot specify both of these at once, and the HTTP method must
+      match what the server expects. In case of a mismatch, the server may
+      (or may not) send an error message back, which would then be
+      available in the warnings list mentioned above, or as contents in
+      \texttt{?Result}. Example:
+%% 
+\begin{verbatim}
+?- 'https://myurl.my'[http([auth='me@my'/'my+pw',
+                            post='{"message": "Hello"}'])->?R]@\http.
+\end{verbatim}
+%% 
+    \item \texttt{delete}: this is the only Boolean option, so it is
+      specified just as \texttt{delete}.
+      It tells the server
+      to use the DELETE HTTP method. This option cannot be used together with
+      \texttt{post} or \texttt{put} options.  Example:
+      %% 
+\begin{verbatim}
+?- "https://google.com"^^\iri[http([delete])->?R]@\http.
+\end{verbatim}
+      %% 
+  (will respond with an HTML file saying ``The request method
+  DELETE is inappropriate for the URL'').
+  This example also illustrates the point that the URL can be given as a
+  plain symbol or as an \texttt{\bs{}iri} data type. 
+  \end{itemize}
+  %% 
+\end{itemize}
+%% 
+
+\section{Miscellaneous}
+
+This package includes a number of other useful calls that are often used
+together with the \texttt{http(...)} method.
+
+%% 
+\begin{itemize}
+\item \texttt{?URL[properties->?Props]@\bs{}http} --- returns a list of
+  properties of \texttt{?URL}:
+  \texttt{[}\emph{PageSize},\emph{ModTime},\emph{RedirectedURL}\texttt{]}.
+  Here
+  \emph{PageSize} is the
+  size of the page in bytes, and \emph{ModTime} is the last modification
+  time expressed as the number of seconds since epoch (1900-01-01).   
+  Some servers might not return one or both of the last two parameters, in
+  which case -1 is returned.
+  The last component is the actual URL of the page. If the page at
+  \texttt{?URL} was not redirected then \emph{RedirectedURL} is the same as
+  the original URL. If that page has a redirection then this and all the
+  intermediate redirections are followed  and \emph{RedirectedURL} is the
+  final URL in that chain.
+  
+  This method contacts the network, but it is lighter than
+  \texttt{http(...)} and it retrieves properties only.
+
+  Example:
+  %% 
+\begin{verbatim}
+?- \"http://expedia.com"[properties->?R]@\http.
+?R = [124787, 1509446769, 'http://www.expedia.com']
+\end{verbatim}
+  %% 
+\item \texttt{?URL[properties(Options)->?Props]@\bs{}http} --- 
+  Same as before, but takes a list of options as a parameter. The options
+  are the same as for \texttt{http(...)} but some of them (e.g., put, post,
+  delete) are ignored.  Example:
+  %% 
+\begin{verbatim}
+?- 'http://google.com'[properties([redirect=false])->?R]@\http.
+?R = [-1, -1, 'http://google.com']
+?- 'http://google.com'[properties([redirect=true])->?R]@\http.
+?R = [-1, -1, 'http://www.google.com']
+\end{verbatim}
+  %% 
+\item \texttt{?URL[encoding->?Enc]@\bs{}http} --- sometimes it is necessary
+  to mangle URLs by replacing special characters like '/', ':', etc., so
+  they could be used in various situations, like being sent over the network.
+  This process is known as URL-encoding. The above method
+  returns a list consisting of three components:
+  \texttt{[}\emph{Dir},\emph{File},\emph{Ext}\texttt{]}.
+  \emph{Dir} is the directory portion of the URL in the URL-encoded
+  form, \emph{File} is the file portion (sans the extension; also
+  URL-encoded), \emph{Ext} is the file extension portion.
+  
+  Network is not contacted in order to produce these results, so this
+  method is very fast.
+\item \texttt{?Item[base64encode->?Item2]@\bs{}http} --- base 64 encoding.
+  When sending information over the network, it is necessary to convert
+  some of the special characters into ``benign'' ACSII characters that
+  would not be mangled by the network. This is called \emph{base 64}  
+  \emph{encoding}.  
+  This is similar to URL encoding, but is not specific to URLs. Here
+  \emph{Item} (the source) can be a character list, an atom, and in the Web
+  situation it is most commonly a file specified as
+  \texttt{file(}\emph{Path}\texttt{)}. The output, \emph{Item2}, is always
+  an atom or a variable that will be bound to an atom.    
+  This is used, for example, to upload files to Web services.
+  Note that if the source contains the ASCII character '\bs{}0' then this
+  source cannot be represented as an atom, for otherwise it will be encoded
+  only partially. So, a list-representation or a file should be used.
+\item \texttt{?Item[base64decode->?Item2]@\bs{}http} --- base 64
+  decoding. This is the opposite process, used when receiving information from
+  the networks and decoding it. Here, \emph{Item}--- the source---is always
+  an atom, but \emph{Item2} can be an atom, a variable (that will be bound
+  to an atom), \texttt{file(}\emph{Path}\texttt{)}, or
+  \texttt{list(}\emph{CharlistOrVariable}\texttt{)}.    
+  In case of \texttt{file(}\emph{Path}\texttt{)}, the result of decoding is
+  stored directly to the specified file. The last representation is used when
+  the result of the decoding cannot be represented as an atom because the
+  decoded string contains the ASCII character '\bs{}0' and one does not
+  want to store the result in a file. So, when
+  \emph{Item2} has the form \texttt{list(...)}, it directs the system to
+  decode the source as a list of characters.  
+\end{itemize}
+%% 
+
+
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora-packages"
+%%% End: 

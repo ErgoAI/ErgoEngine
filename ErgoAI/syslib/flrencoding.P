@@ -1,0 +1,135 @@
+/* File:      flrencoding.P  -- set/check the character encoding
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2017-2018,
+**      Coherent Knowledge Systems, 2017-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+
+:- import
+        is_valid_stream/2,
+        file_set_character_set/2
+   from file_io.
+:- import
+        flora_configuration/2
+   from flrregistry.
+:- import
+        flora_abort/2
+   from flrporting.
+
+:- import
+	current_prolog_flag/2,
+	set_prolog_flag/2
+   from curr_sym.
+
+:- import
+        flora_decode_oid_as_atom/2
+   from flrdecode.
+
+:- export
+        flora_set_streams_character_set/1,
+        convert_flora_to_xsb_encoding/2,
+        flora_encoding_for_java/1,
+        flora_encoding/2,
+        flora_encoding/1.
+
+
+%% probably useless, not used
+flora_encoding(Enc) :-
+        var(Enc),
+        !,
+        current_prolog_flag(character_set,Flag),
+        convert_flora_to_xsb_encoding(Enc,Flag).
+flora_encoding(Enc) :-
+        atom(Enc),
+        convert_flora_to_xsb_encoding(Enc,Flag),
+        flora_set_streams_character_set(Flag),
+        set_prolog_flag(character_set,Flag),
+        (flora_configuration(uimode,studio) ->
+            %% this works in Ergo only
+            convert_flora_to_java_encoding(Enc,J_encoding),
+            interprolog:ipPrologEngine(Engine),
+            %% to find current charset:
+            %%       ipPrologEngine(E), java(E,string(Result),getCharset).
+            interprolog:java(Engine,setCharset(string(J_encoding)))
+        ; true
+        ).
+
+flora_encoding(Stream,Enc) :-
+        atom(Enc),
+        is_valid_stream(Stream,_),
+        !,
+        convert_flora_to_xsb_encoding(Enc,XSB_Enc),
+        file_set_character_set(Stream,XSB_Enc).
+flora_encoding(Stream,Enc) :-
+        (\+ atom(Enc) -> 
+            flora_decode_oid_as_atom(Enc,EncAtm),
+            flora_abort(['encoding{Stream,Encoding=',EncAtm,'}: encoding must be an atom'],
+                    FLORA_ABORT_NOTRACE)
+        ; flora_abort(['encoding{Stream=',Stream,',Encoding}: invalid stream'],
+                    FLORA_ABORT_NOTRACE)
+        ).
+            
+
+convert_flora_to_xsb_encoding(utf8,utf_8) :- !.
+convert_flora_to_xsb_encoding('UTF8',utf_8) :- !.
+convert_flora_to_xsb_encoding('UTF-8',utf_8) :- !.
+convert_flora_to_xsb_encoding(cp1252,cp1252) :- !.
+convert_flora_to_xsb_encoding('Cp1252',cp1252) :- !.
+convert_flora_to_xsb_encoding('CP1252',cp1252) :- !.
+convert_flora_to_xsb_encoding(latin1,latin_1) :- !.
+convert_flora_to_xsb_encoding('Latin1',latin_1) :- !.
+convert_flora_to_xsb_encoding('LATIN1',latin_1) :- !.
+convert_flora_to_xsb_encoding(Enc,_) :-
+        flora_abort(['unsupported character encoding, ', Enc],
+                    FLORA_ABORT_NOTRACE).
+
+convert_flora_to_java_encoding(utf8,'UTF-8') :- !.
+convert_flora_to_java_encoding('UTF8','UTF-8') :- !.
+convert_flora_to_java_encoding('UTF-8','UTF-8') :- !.
+convert_flora_to_java_encoding(cp1252,'windows-1252') :- !.
+convert_flora_to_java_encoding('Cp1252','windows-1252') :- !.
+convert_flora_to_java_encoding('CP1252','windows-1252') :- !.
+convert_flora_to_java_encoding(latin1,'ISO-8859-1') :- !.
+convert_flora_to_java_encoding('Latin1','ISO-8859-1') :- !.
+convert_flora_to_java_encoding('LATIN1','ISO-8859-1') :- !.
+convert_flora_to_java_encoding(Enc,_) :-
+        flora_abort(['unsupported character encoding, ', Enc],
+                    FLORA_ABORT_NOTRACE).
+
+%% Not used, probably useless
+flora_set_streams_character_set(Flag) :-
+        set_prolog_flag(character_set,Flag),
+        telling(StreamOut),
+        file_set_character_set(StreamOut,Flag),
+        seeing(StreamIn),
+        file_set_character_set(StreamIn,Flag).
+
+
+flora_encoding_for_java(JEnc) :-
+        flora_encoding(FlrEnc),
+        convert_flora_to_java_encoding(FlrEnc,JEnc).

@@ -1,0 +1,74 @@
+
+%test1 :- ?X = [a,b]^^foo,
+	  write('test01 = ')@\plg,
+	  flora_write_oid(?X)@\plg(flrdecode),
+	   nl@\plg.
+
+%test2 :- ?X = ["a"^^\charlist,"b"^^\charlist]^^foo,
+	  write('test02 = ')@\plg,
+	  flora_write_oid(?X)@\plg(flrdecode),
+	   nl@\plg.
+
+%test3 :- ?V="1:2:3"^^\t, ?X = ["12:33:44"^^\t, ?V^^\t]^^foo,
+	  write('test03 = ')@\plg,
+	  flora_write_oid(?X)@\plg(flrdecode),
+	   nl@\plg.
+
+%test4 :- ?X=123, ?Y="abc"^^moo, ?W="234"^^\integer, ?WW="342"^^\integer,
+	  ?Z=[?X,?Y^^moo, ?W^^\integer, ?WW]^^foo,
+	  write('test04 = ')@\plg,
+	  flora_write_oid(?Z)@\plg(flrdecode),
+	   nl@\plg.
+
+%test5 :- ?X = "abc"^^abc,
+	  write('test05 = ')@\plg,
+	  flora_write_oid(?X)@\plg(flrdecode),
+	   nl@\plg.
+
+%test6 :- ?X = "abc"^^\string,
+	  write('test06 = ')@\plg,
+	  flora_write_oid(?X)@\plg(flrdecode),
+	   nl@\plg.
+
+%test7 :- ?X = ["abc"^^\string,"prq"^^\string]^^foo,
+	  write('test07 = ')@\plg,
+	  flora_write_oid(?X)@\plg(flrdecode),
+	   nl@\plg.
+
+%test8 :- ?X = [1,2]^^foo,
+	  write('test08 = ')@\plg,
+	  flora_write_oid(?X)@\plg(flrdecode),
+	   nl@\plg.
+
+%test9 :- ?X = [1,"prq"^^\string]^^foo,
+	  write('test09 = ')@\plg,
+	  flora_write_oid(?X)@\plg(flrdecode),
+	   nl@\plg.
+
+%test10 :- ?X = ["prq"^^\string, 1]^^foo,
+	   write('test10 = ')@\plg,
+	   flora_write_oid(?X)@\plg(flrdecode),
+	   nl@\plg.
+
+%test11 :- ?X = ["12:33:44"^^\t,"12:33:49"^^\t]^^foo,
+	   write('test11 = ')@\plg,
+	   flora_write_oid(?X)@\plg(flrdecode),
+	   nl@\plg.
+
+%test12 :- ?X = ["12:33:44"^^\t,"2002-11-02T12:33:49"^^\dt]^^foo,
+	   write('test12 = ')@\plg,
+	   flora_write_oid(?X)@\plg(flrdecode),
+	   nl@\plg.
+
+%pretest :- %test1, %test2 \and %test3 \and %test4,
+	    %test5, %test6, %test7, %test8, %test9,
+	    %test10, %test11, %test12.
+
+%test :-
+	tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	Tables[abolish]@\sys,
+	%pretest,
+	told@\plg().

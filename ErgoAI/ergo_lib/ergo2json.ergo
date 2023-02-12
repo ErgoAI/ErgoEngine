@@ -1,0 +1,620 @@
+/* File:      ergo_lib/ergo2json.ergo -- Ergo-JSON adaptor
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2016-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+#include "flora_terms.flh"
+#define ERGO_JSON_OBJ_COUNTER     FLORA_SYMBOL('json_counter')
+
+
+:- compiler_options{expert=on,production=on}.
+:- nontabled_module.
+:- suppress_rule_signatures.
+
+:- symbol_context{
+        parse/0, parse/1,
+        prlg json_facts(?,?,?,?), prlg json_facts(?,?,?,?,?),
+        parse2memory(?), parse2memory(?,?),
+        parse2file(?), parse2file(?,?),
+        object2json/0, object2json/1, object2json/3
+   }.
+
+:- export{
+            ?[parse -> ?],
+            ?[parse(?) -> ?],
+            ?[parse2memory(?)],
+            ?[parse2memory(?,?)],
+            ?[parse2file(?)],
+            ?[parse2file(?,?)],
+            set_options(?),
+            set_option(?),
+            get_option(?,?),
+           ?[json_root->?],
+           ?[forget_roots],
+           ?[add_json_root(?)],
+    	    ensure_loaded
+	 }.
+:- export{
+           ?[term2json->?],
+           ?[object2json->?],
+           ?[object2json(?,?,?) -> ?],
+           ?[object2json(?) -> ?],
+           ?[object2json(?)(?,?,?) -> ?]
+   }.
+
+:- prolog{
+           json_facts_to_memory/1,
+           json_facts_to_file/2,
+           json_facts_to_file_aux/1,
+           json_facts/4, json_facts/5,
+           json_keyval_facts/5,
+           new_json_root/2,
+           term_to_json_aux/3,
+           term_to_json_list/3,
+           term_to_json_list_aux/3,
+           object_to_json_aux/6,
+           object_has_been_seen/2,
+           save_json_root/2,
+           get_json_root_fact/2,
+           process_key_val_pairs/6
+   }.
+
+:- ignore_depchk{insert{?},deleteall{?}}.
+
+?-  // initialize
+	feedback{tempoff},
+        flora_set_counter(ERGO_JSON_OBJ_COUNTER,1)@\prolog(flrporting),
+	%initialize.
+
+%initialize :- 
+	flora_install_dir(?ErgoDir)@\prolog(flrporting),
+	flora_slash(?S)@\prolog(flrporting),
+	\symbol[concat([?ErgoDir,?S,ergo_lib,?S,ergo2json]) -> ?EJdir]@\basetype,
+	Libpath[add(?EJdir)]@\sys,
+	[jsonlib].
+
+
+// calling ensure_loaded@\sql ensures that the module \sql is loaded
+ensure_loaded :- !.
+
+
+// 0-argument version
+?Src[parse -> ?Result] :- ?Src[parse('') -> ?Result].
+
+
+// 1-argument version
+?Src[parse(?Selector) -> ?Result] :-
+        isvar{?Src},
+        !,
+        ergo_parse_json(?Src,?Selector,?Result)@\prolog(jsonlib).
+?Src^^\string[parse(?Selector) -> ?Result] :-
+        !,
+        ergo_parse_json(string(?Src)@\prolog,?Selector,?Result)@\prolog(jsonlib).
+?Src[parse(?Selector) -> ?Result] :-
+        isatom{?Src},
+        !,
+        ergo_parse_json(?Src,?Selector,?Result)@\prolog(jsonlib).
+file(?Src)[parse(?Selector) -> ?Result] :-
+        !,
+        ergo_parse_json(?Src,?Selector,?Result)@\prolog(jsonlib).
+string(?Src)[parse(?Selector) -> ?Result] :-
+        !,
+        ergo_parse_json(string(?Src)@\prolog,?Selector,?Result)@\prolog(jsonlib).
+str(?Src)[parse(?Selector) -> ?Result] :-
+        !,
+        ergo_parse_json(string(?Src)@\prolog,?Selector,?Result)@\prolog(jsonlib).
+// take from URL
+url(?Src)[parse(?Selector) -> ?Result] :-
+        !,
+        ergo_parse_json(url(?Src)@\prolog,?Selector,?Result)@\prolog(jsonlib).
+
+// [duplicate_keys]
+set_options(?Opts) :- ergo_set_options(?Opts)@\prolog(jsonlib).
+set_option(?Opt)   :- ergo_set_option(?Opt)@\prolog(jsonlib).
+get_option(?Name,?Val) :- ergo_get_option(?Name,?Val)@\prolog(jsonlib).
+
+
+
+/************************************************************************
+**                    JSON to facts                                    **
+************************************************************************/
+
+?Src[parse2memory(?Mod)] :- ?Src[parse2memory(?Mod,'')].
+?Src[parse2memory(?Mod,?Selector)] :-
+        isatom{?Mod}, isatom{?Selector},
+        (isloaded{?Mod} -->> \true
+        ; newmodule{?Mod}
+        ),
+        ?Src[parse(?Selector) -> ?JsonTerm],
+        json_facts(?JsonTerm,?Mod,term,?JsonFacts),
+        save_json_root(?JsonFacts,?Mod),
+        json_facts_to_memory(?JsonFacts).
+
+// converts only JSON objects
+?Src[parse2file(?File)] :- ?Src[parse2file(?File,'')].
+?Src[parse2file(?File,?Selector)] :-
+        isatom{?File}, isatom{?Selector},
+        ?Src[parse(?Selector) -> ?JsonTerm],
+        json_facts(?JsonTerm,?,to_file,?JsonFacts),
+        get_json_root_fact(?JsonFacts,?OidFact),
+        json_facts_to_file([?OidFact|?JsonFacts],?File).
+
+// converts only JSON objects
+// +Arglist,+Mod,+OutMode,-Result,-Oid
+// OutMode: string/term
+json_facts(json(?ArgList),?Mod,?OutMode,?Result) :-
+        !,
+        json_facts(json(?ArgList),?Mod,?OutMode,?Result_pre,?),
+        flatten(?Result_pre,?Result)@\prolog(basics).
+json_facts(?ArgList,?,?,?) :-
+        \symbol[toType(?ArgList)->?ArgListAtm]@\basetype,
+        nl(2)@\io,
+        warning(['only JSON object-terms can be converted to Ergo facts;\n\t\t offending term: ', ?ArgListAtm])@\sys,
+        \false.
+
+
+// +Arglist,+Mod,-Result,-Oid
+json_facts(json(?ArgList),?Mod,?OutMode,?Result,?Oid) :-
+        !,
+        // JSON object case
+        new_json_oid(?OutMode,?Oid),
+        json_keyval_facts(?Oid,?ArgList,?Mod,?OutMode,?Result).
+// JSON list case
+json_facts([],?,?,[],[]) :- !.
+json_facts([?Arg|?Rest],?Mod,?OutMode,
+           [?Result|?RestResults],[?ArgOid|?RestOids]) :-
+        !,
+        json_facts(?Arg,?Mod,?OutMode,?Result,?ArgOid),
+        json_facts(?Rest,?Mod,?OutMode,?RestResults,?RestOids).
+// JSON number/string case
+json_facts(?Arg,?,?,[],?Arg) :-
+        (isnumber{?Arg} ; isatom{?Arg}),
+        !.
+json_facts(?Arg,?,?,[],?ArgOut) :-
+        (?Arg = true() -->> ?ArgOut = \true
+        ; ?Arg = false() -->> ?ArgOut = \false
+        ),
+        !.
+json_facts(?Arg,?,?,[],\@?) :-
+        ?Arg = \@?,
+        !.
+
+// +Oid,+KeyValList,-FactList
+// Converts list of keyval pairs into facts
+json_keyval_facts(?_Oid,[],?,?,[]) :- !.
+json_keyval_facts(?Oid,[?Key=?Val|?Rest],?Mod,?OutMode,
+                  [?HOut,?ValResult|?RestOut]) :-
+        json_facts(?Val,?Mod,?OutMode,?ValResult,?ValOid),
+        (?OutMode == term -->> ?HOut = ${?Oid[?Key->?ValOid]@?Mod}
+        ;
+          convert_oid(?ValOid,?ValOidAtm),
+          // current module when saving to file
+          \symbol[concat([?Oid,'[''',?Key,''' -> ',?ValOidAtm,']'])->?HOut]@\basetype
+        ),
+        json_keyval_facts(?Oid,?Rest,?Mod,?OutMode,?RestOut).
+
+convert_oid(?ValOid,?ValOidAtm) :-
+        (islist{?ValOid} -->>
+          convert_oid_list(?ValOid,?ValOidList),
+          ?ValOidList[show->?ValOidAtm]@\show
+        ; isatom{?ValOid},
+          // nest two may be impossible: json vals are unlikely
+          // to have string/iri prefix chars
+          \+ isiri{?ValOid},
+          \+ isstring{?ValOid},
+          \+ ?ValOid[startsWith('\\##')]@\basetype
+          -->>
+          ?ValOid2 \is ''''||?ValOid||'''', ?ValOid2[show->?ValOidAtm]@\show
+        ; ?ValOid[show->?ValOidAtm]@\show
+        ).
+convert_oid_list([],[]) :- !.
+convert_oid_list([?Fst|?Rest],[?FstOut|?RestOut]) :-
+        convert_oid(?Fst,?FstOut),
+        convert_oid_list(?Rest,?RestOut).
+
+
+new_json_oid(?OutMode,?Oid) :-
+        (?OutMode == term -->> newoid{?Oid}
+        ;
+          (flora_increment_counter(ERGO_JSON_OBJ_COUNTER,1,?Cnt,?),
+           flora_concat_items(['\\##',?Cnt],?Oid)
+          )@\prolog(flrporting)
+        ).
+
+
+json_facts_to_memory([]) :- !.
+json_facts_to_memory([?F|?FactList]) :-
+        insert{?F},
+        json_facts_to_memory(?FactList).
+
+json_facts_to_file(?FactList,?File) :-
+        telling(?Stream)@\io,
+        tell(?File)@\io,
+        json_facts_to_file_aux(?FactList),
+        // compile time reset
+        PRINTLN(':- new_global_oid_scope.')@\prolog,
+        // runtime reset
+        PRINTLN('?- new_global_oid_scope.')@\prolog,
+        told@\io,
+        tell(?Stream)@\io.
+json_facts_to_file_aux([]) :- !.
+json_facts_to_file_aux([?F|?FactList]) :-
+        write(?F)@\io,
+        PRINTLN('.')@\prolog,
+        json_facts_to_file_aux(?FactList).
+
+
+/***************************************************************************
+**                   Exporting Ergo objects to JSON
+***************************************************************************/
+
+// JSON representation of HiLog terms
+// +Term[term2json -> -Json]
+?Term[term2json -> ?Json] :-
+        caller{?Mod},
+        term_to_json_aux(?Term,?Json_pre,?Mod),
+        // need to optimize here so as to not scan ?Json_pre twice
+        flatten(?Json_pre,?Json_pre2)@\prolog(basics),
+	flora_concat_items(?Json_pre2,?Json)@\prolog(flrporting).
+
+/*
+   Convert term, including reified term, to Json.
+   TODO: extend to aggregates (tedious)
+   TODO: use diff lists here to optimize large terms?
+*/
+term_to_json_aux(?Term,?Json,?Mod) :-
+        (isvar{?Term} -->> ?Json = ['{"variable":"', ?Term, '"}']
+        ; ?Term =.. [hilog(?functor)|?Args] -->>
+            ?Json = ['{', '"functor":', ?functor_json, ',',
+                     '"arguments":', ?args_json, '}'],
+            term_to_json_aux(?functor,?functor_json,?Mod),
+            term_to_json_list(?Args,?args_json,?Mod)
+        ; ?Term =.. [hilog(?functor,?TermMod)|?Args] -->>
+          (?TermMod == '\\json' -->> ?RealMod = ?Mod
+          ; ?RealMod = ?TermMod
+          ),
+          flora_double_backslash(?RealMod,?ModBslash)@\prolog(flrporting),
+          ?Json = ['{', '"predicate":', ?functor_json, ',',
+                    '"module":"', ?ModBslash, '",',
+                    '"arguments":', ?args_json, '}'],
+          term_to_json_aux(?functor,?functor_json,?Mod),
+          term_to_json_list(?Args,?args_json,?Mod)
+        ; ?Term =.. [flogic(?Type,?TermMod)|?Args] -->>
+          (?TermMod == '\\json' -->> ?RealMod = ?Mod
+          ; ?RealMod = ?TermMod
+          ),
+          flora_double_backslash(?RealMod,?ModBslash)@\prolog(flrporting),
+          ?Json = ['{', '"frametype":"', ?Type, '",',
+                    '"module":"', ?ModBslash, '",',
+                    '"arguments":', ?args_json, '}'],
+          term_to_json_list(?Args,?args_json,?Mod)
+        ; ?Term = FL_DATATYPE(?,?)@\prolog -->>
+          ?Term[typeName->?TypNm, toSymbol->?TypSym]@\basetype,
+          flora_double_backslash(?TypNm,?TypNmEsc)@\prolog(flrporting),
+          flora_escape_2quotes_backslash_in_atom(?TypSym,?TypSymEsc)@\plg(flrporting),
+          ?Json = ['{', '"datatype":"', ?TypNmEsc, '",',
+                    '"literal":"', ?TypSymEsc, '"}']
+        ; ?Term = (?,?) -->> // (...,...,...) - commalist
+          commalist2list(?Term,?List)@\plg(flrauxil),
+          term_to_json_list(?List,?JList,?Mod),
+          ?Json = ['{"commalist":',?JList,'}']
+        ;  isatom{?Term} -->>
+                flora_double_backslash(?Term,?TermBslash)@\prolog(flrporting),
+                ?Json = ['"',?TermBslash,'"']
+        ;  isnumber{?Term} -->> ?Json = ?Term
+        ;  islist{?Term} -->> term_to_json_list(?Term,?Json,?Mod)
+        ; ?Term = FLLIBDELAYEDLITERAL(?Builtin,?_FileN,?_Line,?Args)@\prolog -->>
+          ?Json = ['{', '"prolog":"', ?Builtin, '",',
+                    '"module":"', usermod, '",',
+                    '"arguments":', ?args_json, '}'],
+          term_to_json_list(?Args,?args_json,?Mod)
+        ; ?Term =.. [prologlit(?TermMod), ?functor|?Args] -->>
+          flora_escape_2quotes_backslash_in_atom(?functor,?functorEsc)@\plg(flrporting),
+          ?Json = ['{', '"prolog":"', ?functorEsc, '",',
+                    '"module":"', ?TermMod, '",',
+                    '"arguments":', ?args_json, '}'],
+          term_to_json_list(?Args,?args_json,?Mod)
+        ;
+          // use @\show instead
+          flora_decode_oid_as_atom_substitute_vars(?Term,?TermAtom)@\prolog(flrdecode),
+          sysabort(['[term-to-JSON conversion]: term not convertible to JSON, ',
+                     ?TermAtom])@\sys
+        ).
+
+term_to_json_list(?Term,['[', ?Json, ']'],?Mod) :-
+        term_to_json_list_aux(?Term,?Json,?Mod).
+
+term_to_json_list_aux([],[],?) :- !.
+term_to_json_list_aux([?H|?Term],[?JH|?Json],?Mod) :-
+        term_to_json_aux(?H,?JH,?Mod),
+        (?Term == [] -->> ?Json = []
+        ;
+           ?Json = [',',?Json1],
+           term_to_json_list_aux(?Term,?Json1,?Mod)
+        ).
+
+// take an oid and produce the JSON representation of its properties, isa, sub
+// +Obj[object2json -> -Json]
+?Obj[object2json -> ?Json] :-
+        caller{?Mod},
+        object_to_json_aux_atom(?Obj,?Json,?Mod,\true,\true,\true).
+// Filter-args are reified in flrarguments.P -- no need to reify explicitly
+?Obj[object2json(?keyFilter,?valFilter,?classFilter) -> ?Json] :-
+        caller{?Mod},
+        object_to_json_aux_atom(?Obj,?Json,?Mod,?keyFilter,?valFilter,?classFilter).
+// these two are used when object is in a different module, not the current one
+?Obj[object2json(?Mod) -> ?Json] :-
+        object_to_json_aux_atom(?Obj,?Json,?Mod,\true,\true,\true).
+?Obj[object2json(?Mod)(?keyFilter,?valFilter,?classFilter) -> ?Json] :-
+        caller{?Mod},
+        object_to_json_aux_atom(?Obj,?Json,?Mod,?keyFilter,?valFilter,?classFilter).
+
+object_to_json_aux_atom(?Obj,?Json,?Mod,?keyFilter,?valFilter,?classFilter) :-
+        object_to_json_aux(?Obj,?Json_pre,?Mod,?keyFilter,?valFilter,?classFilter),
+        // need to optimize here so as to not scan ?Json_pre twice
+        flatten(?Json_pre,?Json_pre2)@\prolog(basics),
+	flora_concat_items(?Json_pre2,?Json)@\prolog(flrporting),
+        deleteall{object_has_been_seen(?,?)}.
+
+object_to_json_aux(?Obj,['[',?Result,']'],?Mod,?keyFilter,?valFilter,?classFilter) :-
+        islist{?Obj},
+        !,
+        object_to_json_aux_list(?Obj,?Result,?Mod,
+                                ?keyFilter,?valFilter,?classFilter).
+object_to_json_aux(?Obj, ['{','"\\\\self":', ?OidJson,
+                              //',"\\\\isa":', ?isa_json,
+                              ?IsaPart,
+                              //',"\\\\sub":', ?super_json,
+                              ?SuperPart,
+                              ?Json,'}'],
+                   ?Mod,
+                   ?keyFilter,
+                   ?valFilter,
+                   ?classFilter) :-
+        term_to_json_aux(?Obj,?OidJson,?Mod),
+        (variables{?classFilter,[?supvar]} -->> ?real_classFilter = ?classFilter
+        ;  ?real_classFilter = \true
+        ),
+        ?isa = setof{?sup| immediate_isa(?Obj,?sup,?Mod)@\sub,
+                           ?sup = ?supvar, ?real_classFilter},
+        (?isa == [] -->> ?IsaPart = ''
+        ; ?IsaPart = [',"\\\\isa":', ?isa_json]
+        ),
+        term_to_json_list(?isa,?isa_json,?Mod),
+        ?super = setof{?sup| immediate_sub(?Obj,?sup,?Mod)@\sub,
+                             ?sup = ?supvar, ?real_classFilter},
+        (?super == [] -->> ?SuperPart = ''
+        ; ?SuperPart = [',"\\\\sub":', ?super_json]
+        ),
+        term_to_json_list(?super,?super_json,?Mod),
+        (variables{?keyFilter,[?keyvar]} -->> ?real_keyFilter = ?keyFilter
+        ;  ?real_keyFilter = \true
+        ),
+        (variables{?valFilter,[?valvar]} -->> ?real_valFilter = ?valFilter
+        ;  ?real_valFilter = \true
+        ),
+        (object_has_been_seen(?Obj,?Mod) -->> ?key_val_pairs = []
+        ; get_option(duplicate_keys,true) -->>
+            ?key_val_pairs = setof{?pair| ?Obj[?key->?val]@?Mod,
+                                          ?key = ?keyvar, ?real_keyFilter,
+                                          ?val = ?valvar, ?real_valFilter,
+                                          ?pair=(?key,?val)}
+        ; // ?Obj[?key->?] - important: ?key must be bound for internal setof
+          ?key_val_pairs =
+                   setof{?pair| ?Obj[?key->?]@?Mod,
+                                ?key = ?keyvar, ?real_keyFilter,
+                                ?vallist =
+                                   setof{?val|?Obj[?key->?val]@?Mod,
+                                              ?val = ?valvar, ?real_valFilter},
+                                ?vallist \== [],
+                                ?pair=(?key,?vallist)}
+        ),
+        (object_has_been_seen(?Obj,?Mod) -->> \true
+        ; insert{object_has_been_seen(?Obj,?Mod)}
+        ),
+        (?key_val_pairs == [] -->>  ?Json = []
+        ;  process_key_val_pairs(?key_val_pairs,?Json_pre,?Mod,?keyFilter,?valFilter,?classFilter),
+           ?Json = [','|?Json_pre]
+        ).
+
+//object_to_json_aux_list([],[],?,?,?,?) :- !.
+object_to_json_aux_list([?Obj|?TailObj],?Out,?Mod,?keyFilter,?valFilter,?classFilter) :-
+        object_to_json_aux(?Obj,?Result,?Mod,?keyFilter,?valFilter,?classFilter),
+        (?TailObj == [] -->>
+            ?Out = [?Result]
+        ;
+            ?Out = [?Result,','|?TailResult],
+            object_to_json_aux_list(?TailObj,?TailResult,?Mod,?keyFilter,?valFilter,?classFilter)
+        ).
+
+process_key_val_pairs([],[],?,?,?,?) :- !.
+process_key_val_pairs([(?key,?val)|?key_val_pairs],
+                      [?key_json,?val_json|?Json],
+                      ?Mod,
+                      ?keyFilter,?valFilter,?classFilter) :-
+        (get_option(recursive_export,true) -->>
+                        object_to_json_aux(?val,?val_json_pre,?Mod,
+                                           ?keyFilter,?valFilter,?classFilter)
+        ; term_to_json_aux(?val,?val_json_pre,?Mod)
+        ),
+        (isatom{?key} -->> ?key_json = ['"',?key,'":'], ?val_json=?val_json_pre
+        ; term_to_json_aux(?key,?key_json_pre,?Mod),
+          ?key_json = ['"\\\\keyval":[',?key_json_pre,','],
+          ?val_json = [?val_json_pre,']']
+        ),
+        (?key_val_pairs == [] -->> ?Json = []
+        ; ?Json = [','| ?Json_pre],
+          process_key_val_pairs(?key_val_pairs,?Json_pre,?Mod,
+                                ?keyFilter,?valFilter,?classFilter)
+        ).
+        
+save_json_root(?JsonFacts,?Mod) :-
+        ?JsonFacts = [?TopFact|?],
+        ?Oid[?->?]@?Mod ~ ?TopFact,
+        ergo_insert_json_root(?Mod,?Oid)@\prolog(jsonlib).
+
+get_json_root_fact(?JsonFacts,?OidFact) :-
+        ?JsonFacts = [?TopFact|?],
+        ?TopFact[contains('[')->[?Beg,?]]@\basetype,
+        ?TopFact[substring(0,?Beg)->?Oid]@\basetype,
+        ?OidFact \is '?- \@[add_json_root(' || ?Oid || ')]@' || \@.
+
+?Mod[json_root->?Oid] :- ergo_json_root(?Mod,?Oid)@\prolog(jsonlib).
+?Mod[forget_roots] :- ergo_forget_json_roots(?Mod)@\prolog(jsonlib).
+?Mod[add_json_root(?Oid)] :- ergo_insert_json_root(?Mod,?Oid)@\prolog(jsonlib).
+
+
+
+/*
+  Testing:
+      ergo> newmodule{foo}.
+      ergo> ?[parse2memory(foo)]@\json, ?L=setof{?P|?P=${?[?->?]@foo}, ?P}.
+      {"aaa":1, "bbb":{"ccc":[1,2,{"111":3,"ppp":4}], "ddd":"ppp"}}
+
+      ?L = [${\#  (_$_$_ergo'dyn_skolem41958)[aaa->1]@foo},
+            ${\#  (_$_$_ergo'dyn_skolem41958)[bbb->\#  (_$_$_ergo'dyn_skolem41959)]@foo},
+            ${\#  (_$_$_ergo'dyn_skolem41959)[ccc->[1, 2, \#  (_$_$_ergo'dyn_skolem41960)]]@foo},
+            ${\#  (_$_$_ergo'dyn_skolem41959)[ddd->ppp]@foo},
+            ${\#  (_$_$_ergo'dyn_skolem41960)['111'->3]@foo},
+            ${\#  (_$_$_ergo'dyn_skolem41960)[ppp->4]@foo}]
+
+      
+
+      ergo> ?[parse2file('foo.ergo')]@\json.
+      {"aaa":1, "bbb":{"ccc":[1,2,{"111":3,"ppp":4}], "ddd":"ppp"}}
+
+          \##1[aaa->1].
+          \##1[bbb->\##2].
+          \##2[ccc->[1, 2, \##3]].
+          \##3[111->3].
+          \##3[ppp->4].
+          \##2[ddd->ppp].
+          :- new_global_oid_scope.
+          ?- new_global_oid_scope.
+
+  ---------------------------------------------------
+      ergo> insert{{a,b}:{c,d}, {c,d}::{e,f}, {e,f}::{h,k}, h[|www->1|],k[|ppp->kk|]}.
+      ergo> a[object2json -> ?Json]@\json.
+
+          ?Json = '{"\\\\self":"a","\\\\isa":["c","d"],"\\\\sub":[],"ppp":"kk","www":1}'
+
+      ergo> a[object2json -> ?Json]@\json, string(?Json)[parse->pretty(?Res)]@\json, writeln(?Res)@\io.
+            {
+                "\\self": "a",
+                "\\isa": [
+                    "c",
+                    "d"
+                ],
+                "\\sub": [],
+                "ppp": "kk",
+                "www": 1
+            }
+
+
+      ergo> c[object2json -> ?Json]@\json.
+  
+          ?Json = '{"\\\\self":"c","\\\\isa":[],"\\\\sub":["e","f"]}'
+
+     // handling of complex terms as methods
+      ergo> insert{{a,b}:{c,d}, {c,d}::{e,f}, {e,f}::{h,k}, h[|www->1|],k[|ppp->kk:d[prop1->abc,prop2->3], eee(123)->kkk|]}.
+      ergo> a[object2json -> ?Json]@\json, string(?Json)[parse->pretty(?Res)]@\json, writeln(?Res)@\io.
+
+     {
+        "\\self": "a",
+        "\\isa": [
+            "c",
+            "d"
+        ],
+        "\\sub": [],
+        "ppp": "kk",
+        "www": 1,
+        "\\keyval": [   <<----- handles eee(123)->kkk, where eee(123) is nonatom
+            {
+                "functor": "eee",
+                "arguments": [
+                    123
+                ]
+            },
+            "kkk"
+        ]
+    }
+
+    // using filters in selecting which objects/keys to show:
+      ergo> insert{{a,b}:{c,d}, {c,d}::{e,f}, {e,f}::{h,k}, h[|www->1|],k[|ppp->kk, eee(123)->kkk|]}.
+      ergo> a[object2json(isatomic{?},isnumber{?},null) -> ?Json]@\json, string(?Json)[parse->pretty(?Res)]@\json, writeln(?Res)@\io.
+      ergo> string(a.object2json(isatomic{?},isnumber{?},null))[parse->pretty(?Res)]@\json, writeln(?Res)@\io.
+
+        {
+            "\\self": "a",
+            "\\isa": [
+                "c",
+                "d"
+            ],
+            "\\sub": [],
+            "www": 1
+        }
+
+
+
+  -----------------------------------------------------------
+      ergo> p(o)(${a},b,?L,[pp(ii),2,3,?L])[term2json -> ?X]@\json.
+
+            ?X = '{"functor":{"functor":"p","arguments":["o"]},"arguments":[{"predicate":"a","module":"main","arguments":[]},"b",{"variable":"h0"},[{"functor":"pp","arguments":["ii"]},2,3,{"variable":"h0"}]]}'
+
+  -----------------------------------------------------------
+
+      ergo> demo{family_obj}.
+      ergo> kati[object2json -> ?Json]@\json.
+           ?Json = '{"\self":"kati","\isa":["female"],"\sub":[],"ancestor":"hermann","ancestor":"johanna","ancestor":"rita","ancestor":"wilhelm","brother":"bernhard","brother":"karl","daughter":"eva","father":"hermann","mother":"johanna","parent":"hermann","parent":"johanna","sister_in_law":"christina","uncle":"franz","uncle":"heinz"}'
+
+      // same pretty printed:
+      ergo> demo{family_obj}.
+      ergo> set_option(duplicate_keys=true)@\json.
+      ergo> kati[object2json -> ?Json]@\json, string(?Json)[parse->pretty(?Res)]@\json, writeln(?Res)@\io.
+      ergo> string(kati.object2json)[parse->pretty(?Res)]@\json, writeln(?Res)@\io.
+        {
+            "\\self": "kati",
+            "\\isa": [
+                "female"
+            ],
+            "\\sub": [],
+            "ancestor": "hermann",
+            "ancestor": "johanna",
+            "ancestor": "rita",
+            "ancestor": "wilhelm",
+            "brother": "bernhard",
+            "brother": "karl",
+            "daughter": "eva",
+            "father": "hermann",
+            "mother": "johanna",
+            "parent": "hermann",
+            "parent": "johanna",
+            "sister_in_law": "christina",
+            "uncle": "franz",
+            "uncle": "heinz"
+        }
+
+        ?Json = '{"\\\\self":"kati","\\\\isa":["female"],"\\\\sub":[],"ancestor":"hermann","ancestor":"johanna","ancestor":"rita","ancestor":"wilhelm","brother":"bernhard","brother":"karl","daughter":"eva","father":"hermann","mother":"johanna","parent":"hermann","parent":"johanna","sister_in_law":"christina","uncle":"franz","uncle":"heinz"}'
+
+
+  -----------------------------------------------------------------
+  
+
+*/

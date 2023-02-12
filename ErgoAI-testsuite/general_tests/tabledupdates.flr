@@ -1,0 +1,116 @@
+
+:- compiler_options{expert=on}.
+
+:- symbol_context{
+         p/0
+     }.
+
+#include "flora_exceptions.flh"
+
+:- ignore_depchk{%p(?_)}.
+
+a:c[b->?X] :- d[e->?X].  
+d[e->f].
+d[e->g].
+d[e->h].
+%p(a).
+r(?X) :- %p(?X).
+
+c[|p -> q, r->u|].
+
+?- insert{o[m->v]}, o[m->v].
+
+
+%test1 :- write('tst1: ')@\plg(),
+	delete{o[m->v]},
+	\if o[m->v]
+        \then writeln(failed)@\plg()
+        \else writeln(passed)@\plg().
+
+%test2 :- write('tst2: ')@\plg(),
+	insert{o[m->v]},
+	\if o[m->v]
+        \then writeln(passed)@\plg()
+        \else writeln(failed)@\plg().
+
+%test3 :- write('tst3: ')@\plg(),
+	a[b->f],
+	delete{d[e->f]}, refresh{a[b->f]},
+	\if a[b->f]
+        \then writeln(failed)@\plg()
+        \else writeln(passed)@\plg().
+
+%test4 :- write('tst4: ')@\plg(),
+	\if a:?_X \then writeln(passed)@\plg() \else writeln(failed)@\plg().
+
+%test5 :- write('tst5: ')@\plg(),
+	// "a" should have inherited from "c"
+	\if a[p->?_X, r->?_Y]
+        \then writeln(passed)@\plg()
+	\else writeln(failed)@\plg().
+
+
+%test6 :- write('tst6: ')@\plg(),
+	// after this nothing about "a" is supported by the rules
+	a[b->?_X], deleteall{d[e->?_Y]}, refresh{a:c[e->?_Z]},
+	\if a[b->?_X]
+        \then  writeln(failed)@\plg()
+        \else writeln(passed)@\plg().
+
+%test7 :- write('tst7: ')@\plg(),
+	a:?X, atom(?X)@\plg,
+	\if (a:?X, \+ flora_builtin_class(?X)@\plg(flrdatatype))
+        \then  writeln(failed)@\plg()
+        \else writeln(passed)@\plg().
+
+%test8 :- write('tst8: ')@\plg(),
+	// stuff inherited from "c" should no longer be valid,
+	// since a:c is no longer true
+	refresh{a[p->?_X, r->?_Y]},
+	\if a[p->?_X, r->?_Y]
+        \then  writeln(failed)@\plg()
+        \else writeln(passed)@\plg().
+
+%test9 :- write('tst9: ')@\plg(),
+	\if catch{\naf w[q->r],FLORA_ABORT_NOTRACE(FLORA_UNDEFINED_EXCEPTION(?_,?_),?_),\true} // should succeed
+	\then  writeln(passed)@\plg()
+        \else  writeln(failed)@\plg().
+
+%test10 :- write('tst10: ')@\plg(),
+	insert{w[q->r]},
+	\if \naf w[q->r]  // now should fail
+	\then  writeln(failed)@\plg()
+        \else  writeln(passed)@\plg().
+
+%test11 :- write('tst11: ')@\plg(),
+	insert{q(a),q(b)}, q(a), delete{q(a)},
+	\if q(a) // should fail
+	\then  writeln(failed)@\plg()
+        \else  writeln(passed)@\plg().
+
+%test12 :- write('tst12: ')@\plg(),
+          \naf q(a), // should succeed and get tabled
+	  insert{q(a)},
+          \if q(a)
+          \then writeln(passed)@\plg()
+          \else writeln(failed)@\plg().
+
+%test13 :- write('tst13: ')@\plg(),
+          \if \naf q(a)  // should fail
+          \then writeln(failed)@\plg()
+          \else writeln(passed)@\plg().
+
+%test14 :- write('tst14: ')@\plg(), r(?_X), deleteall{%p(a)},
+          refresh{r(?_Y)}, \if r(?_Z) \then writeln(failed)@\plg()
+          \else writeln(passed)@\plg().
+
+%pretest :- %test1, %test2, %test3, %test4, %test5, %test6, %test7,
+	    !,
+	    abolish_all_tables@\plg,
+            %test8, %test9, %test10,
+	    !,
+	    abolish_all_tables@\plg,
+	    %test11, %test12, %test13, %test14.
+
+
+

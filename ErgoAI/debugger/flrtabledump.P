@@ -1,0 +1,289 @@
+/* File:      flrtabledump.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2011-2018;
+**      Vulcan, Inc., 2011-2013;
+**      Coherent Knowledge Systems, LLC, 2014-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+:- ensure_loaded('flrtruthvalue.P').
+
+:- import table_dump/2 from dump_table.
+:- import
+	get_scc_dumpfile/1,
+	print_incomplete_tables/0
+   from tables.
+:- import memberchk/2 from basics.
+
+:- import flora_unwrap_negation/2 from flrnegation.
+:- import
+	%%convert_to_body_literal/2,
+	convert_to_head_literal/2
+   from flrcanon.
+:- import
+	flora_generalize_last/2
+   from flrtrim.
+:- import
+	flora_match_substring/3,
+	flora_abort/2,
+	flora_file_op/2 
+   from flrporting.
+
+:- import
+	%%flora_escape_atom/2,
+	flora_display_symbol/2,
+	%%flora_display_schema/1,
+	flora_decode_oid_as_atom_substitute_vars/2
+   from flrdecode.
+
+/*
+:- import
+	flora_hide_this_show/1,
+	flora_hide_this_hide/1
+   from usermod.
+*/
+
+:- export
+	flora_dump_incomplete_tables/1,
+	flora_dump_incomplete_tables/2,
+	flora_dump_incomplete_tables_after_exception/1,
+	flora_dump_incomplete_tables_after_exception/2,
+	flora_dump_tables/2,
+	flora_dump_tables/4.
+
+
+flora_dump_tables(File,AtomicGoal) :-
+	flora_dump_tables(File,AtomicGoal,summary,hide).
+%% Option: summary/subgoal/answers. Answers is the most detailed.
+%% HideNonuserTablesOption: hide/show
+flora_dump_tables(File,AtomicGoal,Option,HideNonuserTablesOption) :-
+	atom(File),
+	!,
+	(memberchk(Option,[subgoals,subgoal,goal]) ->
+	    Options1 = [output(false),details(subgoals)]
+	; memberchk(Option,[summary,sum]) ->
+	    Options1 = [output(false),summary(true)]
+	; memberchk(Option,[answers,answer]) ->
+	    Options1 = [output(false),details(answers)]
+	;
+	    flora_decode_oid_as_atom_substitute_vars(Option,OptionDecoded),
+	    flora_abort(['\\tabledump: invalid option in argument 3, ',OptionDecoded],FLORA_ABORT_NOTRACE)
+	),
+	convert_to_head_literal(AtomicGoal,AtomicGoalH),
+	flora_generalize_last(AtomicGoalH,FinalGoal),
+	tell(File),
+	convert_tabledump_to_flora(FinalGoal,Options1,HideNonuserTablesOption),
+	told.
+flora_dump_tables(_File,_AtomicGoal,_Option,_HideOpt) :-
+	flora_abort('\\tabledump: argument 1 must be a file name or `userout'' (for standard output)', FLORA_ABORT_NOTRACE).
+
+convert_tabledump_to_flora(AtomicGoal,Options,HideNonuserTablesOption) :-
+	( table_dump(AtomicGoal,[results(TblDescriptor)|Options]),
+	    nonvar(TblDescriptor),
+	    write_one_table_record(TblDescriptor,HideNonuserTablesOption),
+	    file_io:flush_output,
+	    fail
+	; true
+	).
+
+
+write_answers_for_subgoals([]) :- !.
+write_answers_for_subgoals([First|Rest]) :-
+	(First = Subgoal - times_called(Calls)
+		    - answers(Answers) - AnsList - Status
+	;
+	    First = Subgoal - times_called(Calls) - answers(Answers) - Status
+	),
+	%%flora_write_oid(Subgoal),
+	write_according_to_display_mode(Subgoal),
+	write('['),
+	write_rule_id(Subgoal),
+	write('total_answers->'), write(Answers),
+	write(', total_calls->'), write(Calls),
+	write(', status->'), write(Status),
+	(nonvar(AnsList) ->
+	    write(', answers(true)->{'),
+	    \+(\+ write_plain_list_of_answers(AnsList,t)),
+	    write('}'),
+	    write(', answers(undefined)->{'),
+	    \+(\+ write_plain_list_of_answers(AnsList,u)),
+	    write('}')
+	; true
+	),
+	write(']'),
+	(Rest == [] -> true
+	;
+	    write(', '),
+	    write_answers_for_subgoals(Rest)
+	).
+
+%% Type: t/u
+write_plain_list_of_answers([],_) :- !.
+write_plain_list_of_answers([H-Type|Tail],Type) :-
+	!,
+	write_according_to_display_mode(H),
+	(Tail==[], ! ; write(',')),
+	write_plain_list_of_answers(Tail,Type).
+write_plain_list_of_answers([_|Tail],Type) :-
+	write_plain_list_of_answers(Tail,Type).
+
+write_rule_id(Goal) :-
+	flrtrim:flora_bind_last(Goal,FL_CONTEXT(_,_CalledRule,CallerRuleId)),
+	nonvar(CallerRuleId),
+	!,
+	write('in_rule_body->'), write_according_to_display_mode(CallerRuleId), write(', ').
+	%%write('derived_by->'), write_according_to_display_mode(CalledRule), write(', ').
+write_rule_id(_).
+
+%% dump incomplete tables then read them and write to File
+flora_dump_incomplete_tables(File) :-
+	flora_dump_incomplete_tables(File,hide).
+%% HideNonuserTablesOption: hide/show
+flora_dump_incomplete_tables(File,HideNonuserTablesOption) :-
+	flora_file_op(tmpfilename,TmpFile),
+	tell(TmpFile),
+	print_incomplete_tables,
+	told,
+	flora_dump_incomplete_tables1(TmpFile,File,HideNonuserTablesOption),
+	flora_file_op(rm,TmpFile).
+
+%% Assume InFile has a dump of incomplete tables.
+%% Read it, convert to flora format and put the result in OutFile
+flora_dump_incomplete_tables1(InFile,OutFile,HideNonuserTablesOption) :-
+	see(InFile),
+	tell(OutFile),
+	convert_incomplete_tables_to_flora(HideNonuserTablesOption),
+	told,
+	seen.
+
+convert_incomplete_tables_to_flora(HideNonuserTablesOption) :-
+	repeat,
+	read(SCCrecord),
+	(SCCrecord == end_of_file, !
+	;
+	    nonvar(SCCrecord),
+	    SCCrecord = Goal - scc(SN,SN2),
+	    (HideNonuserTablesOption == hide -> \+ irrelevant_goal(Goal)
+	    ; true %% show all tables
+	    ),
+	    write_according_to_display_mode(Goal),
+	    write('[scc->'),
+	    write((SN,SN2)),
+	    flora_display_symbol(terminator,Terminator),
+	    write(']'), writeln(Terminator),
+	    fail
+	),
+	!.
+
+write_one_table_record(TblDescriptor,HideNonuserTablesOption) :-
+	(
+	  TblDescriptor = (summary = Goal - subgoals(NSG)
+			  - total_times_called(NC) - total_answers(R))
+	;
+	  TblDescriptor = (details = Goal - subgoals(NSG) - details(AnsList))
+	),
+	!,
+	NSG =\= 0,
+
+	(HideNonuserTablesOption == hide -> \+ irrelevant_goal(Goal)
+	; true %% show all tables
+	),
+
+	/*
+	%% This hides too much. Better do it on a case-by-case basis
+	%% hide whatever the debugger hides
+	convert_to_body_literal(Goal,GoalB),
+	functor(GoalB,FunctorB,_Arity),
+	\+ hide_debug_goal(FunctorB,_Arity),
+	*/
+	
+	write_according_to_display_mode(Goal),
+	write('[total_subgoals->'),
+	write(NSG),
+	write(', '),
+	(nonvar(R)
+	-> write('total_subgoal_answers->'), write(R),
+	    write(', total_times_called->'), write(NC)
+	;
+	    write('subgoal_details->{'),
+	    \+ (\+ write_answers_for_subgoals(AnsList)),
+	    write('}')
+	),
+	flora_display_symbol(terminator,Terminator),
+	write(']'), writeln(Terminator).
+
+%% get incomplete tables from the file that was used to dump the SCCs on abort
+%% then convert to flora and dump into the DumpFile.
+%% Requires that the user calls
+%% ?- set_prolog_flag(exception_pre_action,print_incomplete_tables)
+%% before the abort
+flora_dump_incomplete_tables_after_exception(DumpFile) :-
+	flora_dump_incomplete_tables_after_exception(DumpFile,hide).
+%% HideNonuserTablesOption: hide/show
+flora_dump_incomplete_tables_after_exception(DumpFile,HideNonuserTablesOption) :-
+	get_scc_dumpfile(InFile),
+	flora_dump_incomplete_tables1(InFile,DumpFile,HideNonuserTablesOption),
+	flora_file_op(rm,InFile).
+
+/*
+%% Hiding rules taken from the debugger
+hide_debug_goal(X,Y) :-
+	flora_hide_this_hide(pref(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,0), !
+	;
+	flora_hide_this_hide(match(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,_), !.
+
+hide_debug_goal(X,Y) :-
+	flora_hide_this_show(pref(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,0), !
+	;
+	flora_hide_this_show(match(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,_), !
+	;
+	flora_hide_this_show(propermatch(X1/Y)), atom(X),atom(X1), flora_match_substring(X1,X,_), X1 \= X, !.
+*/
+
+%% Hide FLLIBMODOBJ/6
+irrelevant_goal(FLLIBMODOBJ(_,_,_,_,_,_)) :- !.
+irrelevant_goal(floundered_undefined(_)) :- !.
+irrelevant_goal(brat_undefined) :- !.
+irrelevant_goal(Goal) :-
+	    functor(Goal,Functor,_Arity),
+	    (
+	      %% not a flora predicate
+	      \+ flora_match_substring(FLORA_MODULE_PREFIX,Functor,_), !
+	    ;
+	      %% a negation FL_TABLED_NAF_CALL.
+	      %% These calls are duplicated by positive calls.
+	      %% We ignore FL_TABLED_NAF_CALL because it is
+	      %% too confusing to show that to the user.
+	      flora_unwrap_negation(Goal,Unwrapped), Goal \== Unwrapped, !
+	    ).
+
+
+write_according_to_display_mode(Goal) :-
+	flora_decode_oid_as_atom_substitute_vars(Goal,FloraGoal),
+	write(FloraGoal).
+
+#include "extensions/tabledump_ergo.P"

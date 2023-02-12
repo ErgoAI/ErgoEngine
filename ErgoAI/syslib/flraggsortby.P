@@ -1,0 +1,137 @@
+/* File:      flraggsortby.P
+**
+** Author(s): Muchael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2010-2018;
+**      and Vulcan, Inc., 2010-2013.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_errors.flh"
+#include "flora_exceptions.flh"
+
+:- import member/2 from basics.
+:- import parsort/4 from machine.
+
+:- import flora_decode_oid_list_as_atom_list_substitute_vars/2 from flrdecode.
+:- import flora_abort/2 from flrporting.
+%%:- import ground_memberchk/1 from flrauxil.
+
+
+
+/**************************************************************************
+  fllibbagsortby(+Var,+GrpByList,+SortSpec,+Goal,-Set)
+  fllibsetsortby(+Var,+GrpByList,+SortSpec,+Goal,-Set)
+  fllibsortby(+Var,+GrpByList,+SortSpec,+NoDupls,+Goal,-Set)
+
+     Var:       aggregate variable
+     Varlist:   group-by variables
+     SortSpec:  Sort specification.
+                asc
+                desc
+                ([spec(i1),spec(i2),...,spec(iN)], -- spec for answers
+		 [spec(j1),spec(j2),...,spec(jK)]) -- spec for grouping
+		 where spec=asc/desc
+		or
+		 spec
+		or
+		(spec,spec)
+     NoDupls:   0 - do not eliminate duplicates; 1 - do eliminate them
+**************************************************************************/
+
+FLLIBBAGSORTBY(Var,GrpByList,SortSpec,Goal,Set) :-
+	%% 0 - do not eliminate duplicates
+	FLLIBSORTBY(FL_BAG,Var,GrpByList,SortSpec,0,Goal,Set).
+FLLIBSETSORTBY(Var,GrpByList,SortSpec,Goal,Set) :-
+	%% 1 - eliminate duplicates
+	FLLIBSORTBY(FL_SET,Var,GrpByList,SortSpec,1,Goal,Set).
+
+%% If group-by vars are absent, can just give one list as the sort-spec
+%% or asc/desc.
+%% (GroupSortSpec,AnswerSortSpec) is also accepted
+FLLIBSORTBY(_Type,Var,[],SortSpec,NoDupls,Goal,Set) :-
+	!,
+	findall(Var,Goal,Bag),
+	(is_list(SortSpec) -> AnswerSortSpec = SortSpec
+	; (SortSpec == asc ; SortSpec == desc) -> AnswerSortSpec = SortSpec
+	; SortSpec = (_,AnswerSortSpec)
+	),
+	parsort(Bag,AnswerSortSpec,NoDupls,Set).
+
+/*
+FLLIBSORTBY(Type,Var,GrpByList,_SortSpec,_NoDupls,Goal,_Set) :-
+	ground_memberchk(GrpByList),
+	!,
+	flora_decode_oid_list_as_atom_list_substitute_vars([Var,GrpByList,Goal],
+							   [VarA,GrpByListA,GoalA]),
+	flora_abort(['In ',Type,'{',VarA,GrpByListA,'|',GoalA,'}',GROUPING_VAR_GROUND],
+		    FLORA_ABORT_NOTRACE).
+*/
+
+
+FLLIBSORTBY(_Type,Var,GrpByList,SortSpec,NoDupls,Goal,Set) :-
+	!,
+	findall(flora_result(Var,GrpByList),Goal,Matches),
+	findall(Grp,member(flora_result(_,Grp),Matches),GL),
+	( (SortSpec == asc ; SortSpec == desc)
+	-> AnswerSortSpec = SortSpec, GroupSortSpec = SortSpec
+	; SortSpec = (AnswerSortSpec,GroupSortSpec)
+	),
+	parsort(GL,GroupSortSpec,1,Groups), %% no duplicates for group-by vars
+	member(GrpByList,Groups),
+	findall(D,member(flora_result(D,GrpByList),Matches),Bag),
+	parsort(Bag,AnswerSortSpec,NoDupls,Set).
+
+/*
+  parsort(+L1, +SortSpec, +ElimDupl, ?L2)      module: machine
+
+parsort/4 is a very general sorting routine. The list L1 may consist
+of elements of any form. SortSpec is the atom asc, the atom desc, or a
+list of terms of the form asc(I) or desc(I) where I is an integer
+indicating a sort argument position. The elements of list L1 are
+sorted into order according to the sort specification. asc indicates
+ascending order based on the entire term; desc indicates descending
+order. For a sort specification that is a list, the individual
+elements indicate subfields of the source terms on which to sort. For
+example, a specification of [asc(1)] sorts the list in ascending order
+on the first subfields of the terms in the list. [desc(1),asc(2)]
+sorts into descending order on the first subfield and within equal
+first subfields into ascending order on the second subfield. The order
+is determined by the standard predicate compare. If ElimDupl is
+nonzero, merging of multiple occurring elements takes place (i.e.,
+duplicate (whole) terms are eliminated in the output). If ElimDupl is
+zero, then no merging takes place. A SortSpec of [] is equivalent to
+asc. The time to perform the sorting is O(nlogn) where n
+is the length of list L1. The sorting of elements in L1 is not
+guaranteed to be stable. parsort/4 must be imported from module
+machine.
+
+Examples:
+
+  | ?- parsort([f(3,1),f(3,2),f(2,1),f(2,2),f(1,3),f(1,4),f(3,1)],
+	       [asc(1),desc(2)],1,L).
+
+  L = [f(1,4),f(1,3),f(2,2),f(2,1),f(3,2),f(3,1)];
+*/

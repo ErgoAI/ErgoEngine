@@ -1,0 +1,449 @@
+/* File:      flrdynmod.P
+**
+** Author(s): Guizhen Yang 
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2021;
+**      and Vulcan, Inc., 2008-2013.
+**      Coherent Knowledge Systems, LLC, 2014-2021.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "flora_exceptions.flh"
+#include "flora_tabling_methods.flh"
+#include "flora_var_attributes.flh"
+
+#define UNINSTANTIATED_LIT_ERROR   ': attempt to call an uninstantiated literal'
+#define NONPREDICATE_CALL          ': attempt to call a non-predicate'
+#define NONNEGATABLE_CALL          ': \\neg-ating a non-\\neg-atable predicate'
+
+
+:- import
+	length/2,
+	memberchk/2,
+	append/3
+   from basics.
+
+:- import
+	flora_check_module_name/1,
+	flora_module_predicate/4,
+	flora_modularize_atom/3,
+	flora_decode_predicate/7,
+	is_flora_callable_literal/1,
+	negate_predicate/2
+   from flrwrapper.
+
+:- import
+	flora_decode_oid_as_atom_substitute_vars/2
+   from flrdecode.
+
+:- import
+	flora_abort/2,
+	flora_increment_counter/4
+   from flrporting.
+
+:- import flora_prlgdef/2 from flrprolog.
+
+:- import 
+        convert_to_body_literal/2,
+        flora_check_dynmod_type_consistency/1,
+        is_ws_distributive/3,
+        is_caller_distributive/3,
+        is_caller_distributive/4
+    from flrcanon.
+
+:- import FLLIBUNIVEQFORM/2 from usermod.
+
+:- import
+	flora_temp_protect_call/2,
+	flora_temp_unprotect_call/1
+    from flrundefined.
+
+:- import
+	flora_modular_prolog_registry/3,
+	flora_in_debug_mode/1,
+	flora_debug_module_registry/1
+   from flrregistry.
+
+:- import
+	flora_add_last/3,
+	flora_replace_last/3,
+	flora_bind_last/2
+   from flrtrim.
+
+:- import flora_add_undef_export_call/2,
+	  flora_remove_undef_export_call/1
+   from flrexport.
+
+%% ***** TABLING ANY OF THESE CAN INCREASE MEMORY REQUIREMENTS A LOT!!! ****
+%% Tabling this INCREASES time, if FLLIBMODLIT/4 is also tabled
+%%:- table get_libmod_callable/5 as AUXILIARY_TABLING_TYPE.
+%% Tabling this only increases time
+%%:- table FLLIBMODLIT/4 as AUXILIARY_TABLING_TYPE.
+%% This table can save significant time (WHICH BENCHMARK?)
+%% when the number of metaops is large.
+%%:- table fllibmodobj_internal/5 as AUXILIARY_TABLING_TYPE.
+
+/*********************************************************************
+  This file is for the following dynamic module references:
+  FLLIBMODLIT and FLLIBMODOBJ.
+
+  FLLIBMODLIT is used when the compiler encounters literal@Variable
+  where literal is F-logic or HiLog
+  FLLIBMODOBJ is used when compiler finds term@Variable inside a predicate,
+  e.g., f(g@V)
+*********************************************************************/
+
+
+/*********************************************************************
+  FLLIBMODLIT(+Functor,+Args,+ModuleName,+Context)
+  Functor is either an F-logic/HiLog wrapper or FL_LIBMOD or FL_NEGLIBMOD
+*********************************************************************/
+FLLIBMODLIT(F,Arg,ModuleName,Context) :-
+	%% If module is a variable, we must protect the call
+	%% from undefinedness checks
+	(var(ModuleName) -> ProtectCall = true ; true),
+	(
+          var(Arg) ->
+	    flora_decode_oid_as_atom_substitute_vars(Arg,ArgAtm),
+            (ModuleName==FL_INVALIDMODULE ->
+	        flora_abort([ArgAtm,UNINSTANTIATED_LIT_ERROR],FLORA_ABORT_NOTRACE)
+            ;
+	        flora_abort([ArgAtm,'@',ModuleName,UNINSTANTIATED_LIT_ERROR],FLORA_ABORT_NOTRACE)
+            )
+
+        ; Arg=FL_TRANSACTIONAL(NA), var(NA) ->
+            (ModuleName==FL_INVALIDMODULE ->
+	        flora_abort([CH_PERCENT,NA,UNINSTANTIATED_LIT_ERROR],FLORA_ABORT_NOTRACE)
+            ;
+	        flora_abort([CH_PERCENT,NA,'@',ModuleName,UNINSTANTIATED_LIT_ERROR],FLORA_ABORT_NOTRACE)
+            )
+
+	;
+	  flora_check_module_name(ModuleName),
+	  flora_check_dynmod_type_consistency(FLLIBMODLIT(F,Arg,ModuleName,Context)),
+	  get_libmod_callable(F,Arg,ModuleName,Context,P),
+	  %% Assign an Id for use by both the export & the undefinedness check.
+	  (nonvar(ProtectCall) ->
+	      %% New Id for protecting calls. Unique Id is used because
+	      %% several calls to the same method/predicate may be in
+	      %% progress at the same time, so we don't want to inadvertantly
+	      %% unprotect a call that might still need to be protected
+	      %% the same Id is also used for the export call.
+	      flora_increment_counter(FLORA_SYMBOL('protect_undef_call'),1,_,IdExport),
+	      flora_add_undef_export_call(P,IdExport),
+	      %% Protect call P from undefinedness check
+	      (  flora_in_debug_mode(_),
+		  flora_debug_module_registry(ModuleName)
+	      ->  IdUndef = IdExport,
+		  flora_temp_protect_call(P,IdUndef)
+	      ;   
+		  IdUndef = 0
+	      )
+	  ;
+	      IdExport = 0,
+	      IdUndef = 0
+	  ),
+	  %% Whether P succeeds or fails we must remove the temporary
+	  %% skeleton from the set of facts protected from undefinedness
+	  %% checking in flrundefined.P so that undefinedness could be
+	  %% checked again for P.
+	  %% Likewise remove the predicate from the export undef registry.
+	  %% It can happen that Id is not equal to 0 but IdUndef is.
+	  (
+	    call(P),
+	    (IdExport > 0 ->  flora_remove_undef_export_call(IdExport)
+	    ;   true
+	    ),
+	    (IdUndef > 0 ->  flora_temp_unprotect_call(IdUndef)
+	    ;   true
+	    )
+	  ; 
+	    %% do not put a cut in front of fail: it is wrong
+	    IdExport > 0, flora_remove_undef_export_call(IdExport), fail
+	  ; 
+	    %% do not put a cut in front of fail: it is wrong
+	    IdUndef > 0, flora_temp_unprotect_call(IdUndef), fail
+	  )
+	).
+
+
+/*********************************************************************
+  FLLIBMODOBJ(+HeadBodyContext,+Functor,+Args,+ModuleName,+Context,-Predicate)
+
+  HeadBodyContext = FL_HEAD/FL_BODY
+  This is used as follows: if we have a nested reification of a module'd
+  literal, and either the module or the predicate/molecule part is a variable
+  then FLLIBMODOBJ constructs the actual literal at run time.
+  For instance, ?- p(?P@foo) is translated into
+  ?- libmodobj(?P,foo,?Result), p(?Result).
+*********************************************************************/
+:- import FLLIBDELAYEDLITERAL/4 from usermod.
+:- import del_attr/2 from machine.
+FLLIBMODOBJ(FL_HEAD,F,Arg,ModuleName,Context,Pout) :-
+	var(ModuleName),
+	!,
+	FLLIBUNIVEQFORM(Pout,FLLIBMODLIT(F,Arg,ModuleName,Context)).
+FLLIBMODOBJ(_,F,Arg,ModuleName,Context,Pout) :-
+	var(Arg),
+	!,
+	FLLIBUNIVEQFORM(Pout,FLLIBMODLIT(F,Arg,ModuleName,Context)).
+FLLIBMODOBJ(FL_BODY,F,Arg,ModuleName,Context,Pout) :-
+	var(ModuleName),
+	!,
+	%% delay the evaluation if Module or Predicate are unbound
+	FLLIBDELAYEDLITERAL(FL_DELAYQUANT,NULL,NULL,
+			    [wish,(nonvar(ModuleName); nonvar(Pout)),
+			     (FLLIBUNIVEQFORM(Pout,FLLIBMODLIT(F,Arg,ModuleName,Context)),del_attr(ModuleName,FLWHENATTRIBUTE),del_attr(Pout,FLWHENATTRIBUTE))]).
+FLLIBMODOBJ(_Ctxt,F,Arg,ModuleName,Context,Pout) :-
+	fllibmodobj_internal(F,Arg,ModuleName,Context,Pout).
+
+%% This one is used to compute a BODY LIBMODOBJ from a LIBMODLIT
+FLLIBMODOBJ(FLLIBMODLIT(F,Arg,ModuleName,Context),Pout) :-
+	!,
+	FLLIBMODOBJ(FL_BODY,F,Arg,ModuleName,Context,Pout).
+%% If not a FLLIBMODLIT - do nothing
+FLLIBMODOBJ(Goal,Goal).
+
+fllibmodobj_internal(F,Arg,ModuleName,Context,Pout) :-
+        flora_check_module_name(ModuleName),
+	flora_check_dynmod_type_consistency(FLLIBMODLIT(F,Arg,ModuleName,Context)),
+	%% Use a different var, NewContext, here. Not Context.
+	%% We don't want to bind FL_CONTEXT info in a reified term.
+	get_libmod_callable(F,Arg,ModuleName,NewContext,P),
+	(P =FLLIBMODLIT(F,_NArg,ModuleName,NewContext) ->
+	    Pout = FLLIBMODLIT(F,Arg,ModuleName,NewContext)
+	;
+	    convert_to_body_literal(P,Pout1),
+	    FLLIBUNIVEQFORM(Pout,Pout1)
+        ).
+
+
+/*********************************************************************
+  get_libmod_callable(+Functor,+Args,+ModuleName,+Context,-Callable)
+
+  This is common part of FLLIBMODLIT and FLLIBMODOBJ. Takes a term and
+  a module and returns a callable structure (molecule or a predicate).
+  The input can also be already callable. In this case just return in.
+*********************************************************************/
+get_libmod_callable(FL_LIBMOD,(FL_NEG_Atm(Arg)),ModuleName,Context,P) :-
+	adjust_caller_info(Context,RealContext),
+	get_libmod_callable(FL_NEGLIBMOD,Arg,ModuleName,RealContext,P),
+	!.
+get_libmod_callable(FL_LIBMOD,WRAP_HILOG(FL_NEG_Atm,Arg),ModuleName,Context,P) :-
+	adjust_caller_info(Context,RealContext),
+	get_libmod_callable(FL_NEGLIBMOD,Arg,ModuleName,RealContext,P),
+	!.
+get_libmod_callable(FL_NEGLIBMOD,(FL_NEG_Atm(Arg)),ModuleName,Context,P) :-
+	adjust_caller_info(Context,RealContext),
+	get_libmod_callable(FL_LIBMOD,Arg,ModuleName,RealContext,P),
+	!.
+get_libmod_callable(FL_PLGLIBMOD,[ModPlgFun|Args],ModuleName,_Context,P) :-
+	!,
+	flora_modularize_atom(ModPlgFun,ModuleName,ModularizedFun),
+	P =.. [ModularizedFun|Args].
+get_libmod_callable(FL_NEGPLGLIBMOD,[ModPlgFun|Args],ModuleName,_Context,P) :-
+	!,
+	flora_modularize_atom(ModPlgFun,ModuleName,ModularizedFun),
+	negate_predicate(ModularizedFun,NegModularizedFun),
+	P =.. [NegModularizedFun|Args].
+get_libmod_callable(F,Arg,ModuleName,ContextIn,P) :-
+	adjust_caller_info(ContextIn,Context),
+        ( is_list(Arg),
+	  F == FL_LIBMOD,
+	  ModuleName == FL_INVALIDMODULE ->
+	  flora_abort([Arg,NONPREDICATE_CALL],FLORA_ABORT_NOTRACE)
+	; functor(Arg,Fun,Arity), flora_prlgdef(Fun,Arity) ->
+	    (F == FL_NEGLIBMOD ->
+                (Arg = (Arg1,Arg2) -> % distribute through conjunction
+                    get_libmod_callable(F,Arg1,ModuleName,ContextIn,P1),
+                    get_libmod_callable(F,Arg2,ModuleName,ContextIn,P1),
+                    P = (P1;P2)
+                ; Arg = (Arg1;Arg2) -> % distribute through conjunction
+                    get_libmod_callable(F,Arg1,ModuleName,ContextIn,P1),
+                    get_libmod_callable(F,Arg2,ModuleName,ContextIn,P1),
+                    P = (P1,P2)
+                ; 
+                  flora_decode_oid_as_atom_substitute_vars(Arg,ArgAtm),
+                  flora_abort([ArgAtm,NONNEGATABLE_CALL],FLORA_ABORT_NOTRACE)
+                )
+	    ; P = Arg
+	    )
+	; is_list(Arg) ->  %% Term@?WS
+	    %% This case is compiled as FLLIBMODLIT(F,Args,WS,Context)
+	    %% so the caller is already accounted for.
+	    %% P is now made into a Flora wrapper
+	    (memberchk(F,[FLBodyPREFIX(WRAP_TABLED_HILOG),WRAP_TABLED_HILOG]),
+		Arg = [PredSym|PredArgs],
+		length(PredArgs,Len),
+		Arity is Len-1, %% 1 - context arg
+		flora_modular_prolog_registry(PredSym,Arity,ModuleName)
+	    ->
+		flora_modularize_atom(PredSym,ModuleName,ModularizedPred),
+		P =.. [ModularizedPred|PredArgs]
+	    %% This case is probably unreachable: negated prolog predicates
+	    %% are all builtin and global
+	    ; memberchk(F,[FLNEGBodyPREFIX(WRAP_TABLED_HILOG),
+			   FLNEGPREFIX(WRAP_TABLED_HILOG)]),
+		Arg = [PredSym|PredArgs],
+		length(PredArgs,Len),
+		Arity is Len-1, %% 1 - context arg
+		flora_modular_prolog_registry(PredSym,Arity,ModuleName)
+	    ->
+		flora_modularize_atom(PredSym,ModuleName,ModularizedPred),
+		negate_predicate(ModularizedPred,NegModularizedPred),
+		P =.. [NegModularizedPred|PredArgs]
+	    ;
+		flora_module_predicate(F,Arg,ModuleName,P_pre),
+                flora_replace_last(P_pre,_varcontext,P),
+		flora_bind_last(P, Context)
+	    )
+	; is_libmodlit_control(Arg, [_Wrap,_A,_PredModule,_C]) ->
+	  flora_bind_last(Arg, Context),
+	  P = Arg
+	%% is_caller_distributive/3
+        ; is_caller_distributive(Arg, _, _) ->
+	    %% here we could be a bit smarter by propagating
+	    %% \neg through call(...) (call(...) is caller-distributive)
+	    (F == FL_NEGLIBMOD -> fail   %% should possibly abort
+	    ; apply_caller_info(Arg,Context,P)
+	    )
+	%% is_caller_distributive/4
+        ; is_caller_distributive(Arg, _, _, _) ->
+	    (F == FL_NEGLIBMOD -> fail   %% should possibly abort
+	    ; apply_caller_info(Arg,Context,P)
+	    )
+	%% is_ws_distributive/3
+        ; is_ws_distributive(Arg,Op,ArgList) ->
+	  distribute_workspace(F,ArgList,ModuleName,Context,ArgListOut),
+	  (F == FL_NEGLIBMOD -> dual_connective(Op,Op1)
+	  ; Op1 = Op
+	  ),
+	  is_ws_distributive(P,Op1,ArgListOut)
+	; %% ?Var, ?Var@?M, or %?Var@..., Var bound to compound
+	  %% F is FL_LIBMOD, FL_NEGLIBMOD, or FL_TRANSLIBMOD
+	  flora_decode_predicate(Arg,_,PredModName,Wrapper,_,_,Args) ->
+	  ( %% if already a hilog or flogic predicate -- use it
+	      nonvar(PredModName) ->
+	      %% Always replace the caller info so as to unbind the
+	      %% tracing part of Context properly.
+	      flora_replace_last(Arg,Context,P1),
+	      (F == FL_NEGLIBMOD -> negate_predicate(P1,P)
+	      ; P = P1
+	      )
+	  ; ModuleName==FL_INVALIDMODULE ->
+	      ( F == FL_NEGLIBMOD, Wrapper == FLLIBNAFDELAY ->
+                  flora_decode_oid_as_atom_substitute_vars(Arg,ArgAtm),
+                  flora_abort([ArgAtm,NONNEGATABLE_CALL],FLORA_ABORT_NOTRACE)
+	      ; F == FL_NEGLIBMOD ->
+		  (nonvar(PredModName) -> negate_predicate(Arg,P)
+		  ;
+                      flora_decode_oid_as_atom_substitute_vars(Arg,ArgAtm),
+                      flora_abort([ArgAtm,NONNEGATABLE_CALL],FLORA_ABORT_NOTRACE)
+		  )
+	      ; P = Arg
+	      )
+	  ; %% else, HiLog - construct it
+	      (F == FL_LIBMOD -> WrapToUse = FLBodyPREFIX(WRAP_TABLED_HILOG)
+	      ; F == FL_NEGLIBMOD -> WrapToUse = FLNEGBodyPREFIX(WRAP_TABLED_HILOG)
+	      ; F == FL_TRANSLIBMOD -> WrapToUse = FLBodyPREFIX(WRAP_NONTABLED_HILOG)
+	      ),
+	      ( atom(Arg) ->
+		  flora_add_last([Arg],AugmentedArgs,Context),
+		  ( var(ModuleName) ->
+		      P = FLLIBMODLIT(WrapToUse,AugmentedArgs,ModuleName,Context)
+		  ;
+		      flora_module_predicate(WrapToUse,AugmentedArgs,ModuleName,P)
+		  )
+	      ; Wrapper == WRAP_HILOG -> %% Note: should be WRAP_HILOG (as in HiLog term) here
+		  flora_add_last(Args,AugmentedArgs,Context),
+		  ( var(ModuleName) ->
+		      P = FLLIBMODLIT(WrapToUse,AugmentedArgs,ModuleName,Context)
+		  ;
+		      flora_module_predicate(WrapToUse,AugmentedArgs,ModuleName,P)
+		  )
+	      ;
+		  %% ?Var@..., neg ?Var@..., or %?Var@...
+		  %% where Var bound to a prolog predicate
+		  P = Arg
+	      )
+	  )
+	),
+	!.
+	
+
+%% Specifically for FLLIBMODLIT
+is_libmodlit_control(FLLIBMODLIT(W,A,M,C), [W,A,M,C]).
+
+distribute_workspace(_F,[],_Mod,_Context,[]) :- !.
+distribute_workspace(F,[H|L],Mod,Context,[FLLIBMODLIT(F,H,Mod,Context)|NL]) :-
+        distribute_workspace(F,L,Mod,Context,NL).
+
+distribute_caller_info([],_Context,[]) :- !.
+distribute_caller_info([H|OpArgList],Context,[Hout|OpArgListOut]) :-
+	adjust_caller_info(Context,RealContext),
+	apply_caller_info(H,RealContext,Hout),
+	distribute_caller_info(OpArgList,Context,OpArgListOut).
+
+apply_caller_info(Goal,Context,GoalOut) :-
+	is_ws_distributive(Goal,Op,GoalArgs),
+	!,
+	distribute_caller_info(GoalArgs,Context,ArgsOut),
+	is_ws_distributive(GoalOut,Op,ArgsOut).
+apply_caller_info(Goal,Context,GoalOut) :-
+	is_caller_distributive(Goal,Op,GoalArgs,OtherArgs),
+	!,
+	distribute_caller_info(GoalArgs,Context,ArgsOut),
+	is_caller_distributive(GoalOut,Op,ArgsOut,OtherArgs).
+apply_caller_info(Goal,Context,GoalOut) :-
+	is_caller_distributive(Goal,Op,GoalArgs),
+	!,
+	distribute_caller_info(GoalArgs,Context,ArgsOut),
+	is_caller_distributive(GoalOut,Op,ArgsOut).
+apply_caller_info(Goal,Context,GoalOut) :-
+	(flora_decode_predicate(Goal,_,Module,_,_,_,_), nonvar(Module),
+	    flora_bind_last(Goal,Context)
+	->
+	    GoalOut = Goal
+	; GoalOut = Goal
+	).
+
+%%% adjust_caller_info(+DefaultContext,-RealContext)
+%%   In the context
+%%   FL_CONTEXT(CallerMod,CalledRuleId,ThisRuleId), unbind CalledRuleId
+%% replace the Id of the rule being called,
+%% as they would be different for different literals
+%% The lack of this replacement was the source of a very subtle,
+%% hard-to-find bug
+:- import FL_CONTEXT/2 from usermod.
+adjust_caller_info(Context,RealContext) :-
+	Context = FL_CONTEXT(Module,CalledId,CallerId),
+	RealContext = FL_CONTEXT(Module,RealCalledId,CallerId),
+	(var(CalledId) -> RealCalledId = CalledId
+	; RealCalledId = _
+	).
+
+
+dual_connective(FL_AND_CONNECTIVE,FL_OR_CONNECTIVE).
+dual_connective(FL_OR_CONNECTIVE,FL_AND_CONNECTIVE).

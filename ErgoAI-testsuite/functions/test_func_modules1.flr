@@ -1,0 +1,12 @@
+\udf func1(?x) := ?y \if pred1(?x,?y).
+p(?x):-q(func1(?x))@bar.
+pred1(c,a).
+
+%pretest1 :- compileadd{test_func_modulebar}, [+test_func_modulebar>>bar].
+%test1 :- p(?x), writeln(?x)@\plg.
+
+%test :-
+	tell(temp)@\plg,
+	%pretest1,
+	%test1,
+	told@\plg.

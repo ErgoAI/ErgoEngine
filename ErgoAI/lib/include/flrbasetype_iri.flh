@@ -1,0 +1,80 @@
+/* File:      include/flrbasetype_iri.flh
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2014.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- export{
+	?[scheme->?],
+	?[user->?],
+	?[host->?],
+	?[port->?],
+	?[path->?],
+	?[query->?],
+	?[fragment->?]}.
+
+// fixup for \iri plain atom representation
+?D[toSymbol->?V] :-
+    (atom(?D)@\prolog ; is_charlist(?D)@\prolog),
+    flora_make_datatype(\iri,(?D),?IRI)@\prolog(flrdatatype_parse),
+    flora_printable_type_representation(?IRI,[?_TName,?V])@\prolog(flrdatatype),
+    !.
+
+// uri
+?D^^\uri[scheme->?V] :- scheme(?D,?V)@\prolog(flrdatatype), !.
+?D^^\uri[user->?V] :- user(?D,?V)@\prolog(flrdatatype), !.
+?D^^\uri[host->?V] :- host(?D,?V)@\prolog(flrdatatype), !.
+?D^^\uri[port->?V] :- port(?D,?V)@\prolog(flrdatatype), !.
+?D^^\uri[path->?V] :- path(?D,?V)@\prolog(flrdatatype), !.
+?D^^\uri[query->?V] :- query(?D,?V)@\prolog(flrdatatype), !.
+?D^^\uri[fragment->?V] :- fragment(?D,?V)@\prolog(flrdatatype), !.
+\uri[isTypeOf(?_V^^\uri)] :- !.
+
+
+?D[scheme->?V] :-
+    (atom(?D)@\prolog ; is_charlist(?D)@\prolog),
+    flora_make_datatype(\iri,(?D),?iri)@\prolog(flrdatatype_parse),
+    scheme(?iri,?V)@\prolog(flrdatatype), !.
+?D[user->?V] :-
+    (atom(?D)@\prolog ; is_charlist(?D)@\prolog),
+    flora_make_datatype(\iri,(?D),?iri)@\prolog(flrdatatype_parse),
+    user(?iri,?V)@\prolog(flrdatatype), !.
+?D[host->?V] :-
+    (atom(?D)@\prolog ; is_charlist(?D)@\prolog),
+    flora_make_datatype(\iri,(?D),?iri)@\prolog(flrdatatype_parse),
+    host(?iri,?V)@\prolog(flrdatatype), !.
+?D[port->?V] :-
+    (atom(?D)@\prolog ; is_charlist(?D)@\prolog),
+    flora_make_datatype(\iri,(?D),?iri)@\prolog(flrdatatype_parse),
+    port(?iri,?V)@\prolog(flrdatatype), !.
+?D[path->?V] :-
+    (atom(?D)@\prolog ; is_charlist(?D)@\prolog),
+    flora_make_datatype(\iri,(?D),?iri)@\prolog(flrdatatype_parse),
+    path(?iri,?V)@\prolog(flrdatatype), !.
+?D[query->?V] :-
+    (atom(?D)@\prolog ; is_charlist(?D)@\prolog),
+    flora_make_datatype(\iri,(?D),?iri)@\prolog(flrdatatype_parse),
+    query(?iri,?V)@\prolog(flrdatatype), !.
+?D[fragment->?V] :-
+    (atom(?D)@\prolog ; is_charlist(?D)@\prolog),
+    flora_make_datatype(\iri,(?D),?iri)@\prolog(flrdatatype_parse),
+    fragment(?iri,?V)@\prolog(flrdatatype), !.

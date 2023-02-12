@@ -1,0 +1,211 @@
+/* File:      ergo_pkgs/evidential_probability/ep_prolog.P
+**                            -- Evidential probability handling
+**
+** Author(s): Theresa Swift
+**
+** Contact:   terry.swift@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, 2018-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+%% Fix in case intervening don't have pct.
+
+:- compiler_options([xpp_on]).
+#include "./ergo_ep.flh"
+
+:- export
+	ep_prolog/5,
+	test_pct/5,
+	turn_on_ep_debug/0,
+	turn_off_ep_debug/0.
+
+:- import ('\\flimport')/1 from flora2.
+
+:- '\\flimport' sub/3 as flora_sub(_,_,_) from '\\sub'.
+:- '\\flimport' immediate_sub/3 as flora_immediate_sub(_,_,_) from '\\sub'.
+:- '\\flimport' pct/5 as pct(_,_,_,_,_) from ERGOEVIDENTIALPROB.
+
+:- import between/3,member/2 from basics.
+:- import reverse/2 from basics.
+
+:- dynamic precluded/3.
+:- dynamic ep_debugging/1.
+%?- turn_on_ep_debug.
+
+test_pct(A,B,C,D,E):- pct(A,B,C,D,E),writeln(pct(A,B,C,D,E)).
+
+par(X,Y,Mod):- flora_immediate_sub(X,Y,Mod).
+
+ep_prolog(Target,Obj,1,1,Mod):-
+	flora_sub(Obj,Target,Mod),
+	!.
+ep_prolog(Target,Obj,Lower,Upper,Mod):-
+	%% TODO: the abolish below dumps core
+	abolish_table_pred(shortest_path(_,_,_,_,_)),
+	retractall(precluded(_,_,_)),
+	set_up_paths(Target,Obj,Mod),
+	sharpen_support(Target,Obj,Cands,Mod),
+	abstract_strength(Cands,Lower,Upper).
+   	
+set_up_paths(Target,Obj,Mod):-
+	shortest_path(Target,Obj,_,_,Mod),!.
+
+sharpen_support(Target,Obj,Cands,Mod):- 
+   sharpen_by_specificity(Target,Obj,Mod),
+   sharpen_by_precision(Target,Obj,Cands,Mod),
+   ep_debug(remaining_after_precision(Cands)).
+
+%--------
+
+sharpen_by_specificity(Target,Obj,Mod):- 
+   get_max_iteration(Target,Obj,Max,Mod),
+   (between(1,Max,Iteration),
+    ep_debug(calling_sharpen_by_specificity_1(Target,Obj,Iteration,Mod)),
+    get_leaf_set(Target,Obj,Iteration,Leaves,Mod),
+    ep_debug(leafSet(Leaves)),
+    sharpen_by_specificity_intervening(Target,Obj,Leaves,Iteration,Mod),
+    fail
+   ; 
+%    write_precluded,
+    findall(Ref,support_candidate(Target,Obj,Ref,_L,_U,Mod),Refs),sort(Refs,Refsort),
+    ep_debug(remaining_after_specificity(Refsort))).
+
+% Quadratic
+sharpen_by_specificity_intervening(Target,Obj,Leaves,Iteration,Mod):- 
+    (Cand = Obj ; support_candidate_dist(Target,Obj,Cand,Iteration,Mod)),
+    member(Leaf,Leaves),
+    \+ precluded(Leaf,specificity,_),
+    ancestor(Cand,Leaf,Mod),
+    check_for_conflicts(Target,Cand,Leaf,Iteration,Mod).
+
+check_for_conflicts(Target,From,To,Iteration,Mod):- 
+   (conflicts(Target,From,To,Mod) ->
+%       writeln(conflicts(Target,From,To,Mod)),
+       assert(precluded(To,specificity,Iteration))
+    ; true).
+
+%write_precluded:- 
+%    writeln('--------'),
+%    precluded(A,B,C),writeln(precluded(A,B,C)),
+%    fail.
+%write_precluded:-     writeln('--------').
+
+%--------
+
+% assumes after specifity -- O(n^2) for now, and somewhat inefficient.
+sharpen_by_precision(Target,Obj,OutCands,Mod):- 
+   findall(cand(L,U,R),support_candidate(Target,Obj,R,L,U,Mod),Cands),
+   sort(Cands,SCands),
+   ep_debug(specificity_cands(SCands)),
+   sharpen_by_precision_1(SCands,OutCands,F), F = [].
+
+sharpen_by_precision_1([],T,T).
+sharpen_by_precision_1([H|T],In,Out):- 
+   sharpen_by_precision_2(H,T,Tout,In,Mid),
+   sharpen_by_precision_1(Tout,Mid,Out).
+
+sharpen_by_precision_2(Elt,[],[],[Elt|T],T):-!.
+sharpen_by_precision_2(Elt,[H|T],[H|T],Out,Out):- 
+   more_precise(H,Elt),!.
+sharpen_by_precision_2(Elt,[H|T],T1,In,Out):- 
+   more_precise(Elt,H),!,
+   sharpen_by_precision_2(Elt,T,T1,In,Out).
+sharpen_by_precision_2(Elt,[H|T],[H|T1],In,Out):-
+   sharpen_by_precision_2(Elt,T,T1,In,Out).
+
+more_precise(cand(L1,U1,_),cand(L2,U2,_)):-     L1 >= L2, U1 =< U2.	
+
+%--------
+
+conflicts(Targ,One,Two,Mod):- 
+     pct(Targ,One,L1,U1,Mod),
+     pct(Targ,Two,L2,U2,Mod),!,
+   ((L1  < L2, U1 < U2) ; (L2 < L1 , U2 < U1)).
+
+%--------
+
+abstract_strength(Conds,Lower,Upper):- 
+   abstract_strength(Conds,1,Lower,0,Upper).
+
+abstract_strength([],Lower,Lower,Upper,Upper).
+abstract_strength([cand(NewLow,NewUp,_)|T],Lowin,Lower,Upin,Upper):- 
+   (NewLow < Lowin -> Lowmid = NewLow ; Lowmid = Lowin),
+   (NewUp > Upin -> Upmid = NewUp ; Upmid = Upin),
+   abstract_strength(T,Lowmid,Lower,Upmid,Upper).
+
+get_leaf_set(Target,Obj,It,Leaves,Mod):- 
+	findall(C,(get_residual(shortest_path(Target,Obj,C,It,Mod),[]),\+ precluded(C,specificity,_)),Leaves).
+
+get_max_iteration(Target,Obj,Max,Mod):-
+	findall(D,get_residual(shortest_path(Target,Obj,_,D,Mod),_),Ds),
+	sort(Ds,Dss),
+	reverse(Dss,DssRev),DssRev = [Max|_].
+
+% state-dependent current support
+support_candidate(Target,Obj,Reference,L,U,Mod):- 
+   get_residual(shortest_path(Target,Obj,Reference,_,Mod),_),
+   \+ precluded(Reference,_,_),
+   pct(Target,Reference,L,U,Mod).
+
+% state-dependent current support based on distance
+support_candidate_dist(Target,Obj,Reference,Dist,Mod):- 
+   get_residual(shortest_path(Target,Obj,Reference,D,Mod),_),
+   \+ precluded(Reference,_,_),
+   D < Dist.
+
+% shortest_path(+Target,+Obj,-Class,-Dist,+Mod)
+:- export '__$$$ep_min'/3.  %% to pacify the compiler
+:- table shortest_path(_,_,_,lattice('__$$$ep_min'/3),_) as opaque.
+shortest_path(Target,Obj,Class,1,Mod):-
+   par(Obj,Class,Mod),
+   pct(Target,Class,_L,_U,Mod).
+shortest_path(Target,Obj,Class,N,Mod):-
+   shortest_path(Target,Obj,C1,M,Mod),
+   par(C1,Class,Mod),
+   pct(Target,Class,_L,_U,Mod),
+   N is M + 1.
+
+:- table ancestor/3 as opaque.
+ancestor(From,To,Mod):-
+   par(From,To,Mod).
+ancestor(From,To,Mod):-
+   ancestor(From,Mid,Mod),
+   par(Mid,To,Mod).
+
+'__$$$ep_min'(X,Y,M):- (X < Y -> M = X ; M = Y).
+
+ep_debug(Term):- (ep_debugging(on) -> writeln(Term) ; true).
+
+turn_on_ep_debug:- retractall(ep_debugging(_)),assert(ep_debugging(on)).
+turn_off_ep_debug:- retractall(ep_debugging(_)),assert(ep_debugging(off)).
+
+end_of_file.
+
+/*
+conflicts(Targ,One,Two,Mod):- 
+  writeln(cheking_conflicts(Targ,One,Two,Mod)),
+     get_rel_interval(Targ,One,L1,U1,Mod),
+     get_rel_interval(Targ,Two,L2,U2,Mod),
+  writeln(cheking_conflicts(Targ,One,Two,Mod,[L1,U1],[L2,U2])),
+     (U1 == U2,L1 == L2 -> 
+             true , ep_debug(same)
+       ; 
+%             ep_debug(here(L1,L2,U2,U1)),
+             \+ (L1 =< L2,U2 =< U1),
+%             ep_debug(here(L2,L1,U1,U2)),
+      	     \+ (L2 =< L1,U1 =< U2)).
+
+get_rel_interval(Targ,C,L,U,Mod):- pct(Targ,C,L,U,Mod).
+*/

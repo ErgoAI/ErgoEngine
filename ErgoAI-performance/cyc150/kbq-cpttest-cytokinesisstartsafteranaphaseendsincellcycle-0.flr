@@ -1,0 +1,159 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-CytokinesisStartsAfterAnaphaseEndsInCellCycle (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, genls(EquivalenceRelation, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(equals, EquivalenceRelation)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(immediatelyAfterInSituationType, startsAfterEndOfInSituationType)).
+istAsserted(UniversalVocabularyMt, commutativeInArgs(endTogetherInSituationType, 2, 3)).
+istAsserted(UniversalVocabularyMt, isa(predicateIntersection, PartiallyCommutativePredicate)).
+istAsserted(UniversalVocabularyMt, isa(endTogetherInSituationType, PartiallyCommutativePredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, isa(Telophase, MitosisSubprocessType)).
+istAsserted(BiologyMt, immediatelyAfterInSituationType(Mitosis, Telophase, Anaphase)).
+istAsserted(BiologyMt, uniqueFirstProperSubEventTypes(MitoticPhaseOfCellCycle, Mitosis)).
+istAsserted(BiologyMt, superEventTypes(Mitosis, MitoticPhaseOfCellCycle)).
+istAsserted(BiologyMt, superEventTypes(MitoticPhaseOfCellCycle, EukaryoticCellCycle)).
+istAsserted(UniversalVocabularyMt, isa(superEventTypes, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, predicateIntersection(uniqueFirstProperSubEventTypes, firstProperSubEventTypes, uniqueProperSubEventTypes)).
+istAsserted(BiologyMt, uniqueProperSubEventTypes(EukaryoticCellCycle, MitoticPhaseOfCellCycle)).
+istAsserted(BiologyMt, startsDuringInSituationType(MitoticPhaseOfCellCycle, Cytokinesis, Telophase)).
+istAsserted(UniversalVocabularyMt, genlPreds('coveringOfEventType-Nonoverlapping', coveringOfEventType)).
+istAsserted(BiologyMt, 'coveringOfEventType-Nonoverlapping'(Mitosis, [Prophase, Prometaphase, Metaphase, Anaphase, Telophase])).
+istAsserted(BiologyMt, coveringOfEventType(MitoticPhaseOfCellCycle, [Mitosis, Cytokinesis])).
+istAsserted(BiologyMt, coveringOfEventType(EukaryoticCellCycle, [G1Phase, SPhase, G2Phase, Mitosis, Cytokinesis])).
+istAsserted(UniversalVocabularyMt, relationAllInstance(superEventTypes, MitosisSubprocessType, Mitosis)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(BiologyMt, endTogetherInSituationType(Mitosis, Anaphase, AnaphaseB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(mostGeneralCoveringOfEventType, coveringOfEventType)).
+istAsserted(BiologyMt, mostGeneralCoveringOfEventType(Anaphase, [AnaphaseA, AnaphaseB])).
+istAsserted(BiologyMt, 'coveringOfEventType-Nonoverlapping'(Anaphase, [AnaphaseA, AnaphaseB])).
+
+// Implicit Background Rules
+forwardSentence(genlPreds(?PRED, ?GENLPRED1)) :- removalSentence(predicateIntersection(?PRED, ?XGENLPRED2, ?GENLPRED1)).
+forwardSentence(genlPreds(?PRED, ?GENLPRED1)) :- removalSentence(predicateIntersection(?PRED, ?GENLPRED1, ?XGENLPRED2)).
+forwardSentence(superEventTypes(?PHASE, Mitosis)) :- removalSentence(isa(?PHASE, MitosisSubprocessType)).
+forwardSentence(superEventTypes(?COLL, Mitosis)) :- removalSentence(isa(?COLL, MitosisSubprocessType)).
+forwardSentence(startsAfterEndOfInSituationType(?SIT_TYPE, ?SUBSIT_TYPE3, ?SUBSIT_TYPE2)) :- removalSentence(startsDuringInSituationType(?SIT_TYPE, ?SUBSIT_TYPE3, ?SUBSIT_TYPE1)), removalSentence(startsAfterEndOfInSituationType(?SIT_TYPE, ?SUBSIT_TYPE1, ?SUBSIT_TYPE2)).
+forwardSentence(startsAfterEndOfInSituationType(?SUPER_TYPE, ?LATER_TYPE, ?EARLIER_TYPE)) :- removalSentence(equals(?DIFF, 1)), removalSentence('coveringOfEventType-Nonoverlapping'(?SUPER_TYPE, ?LIST)), removalSentence(memberOfList(?LATER_TYPE, ?LIST)), removalSentence(evaluate(?POSITIONOFITEMINLISTFN_1, PositionOfItemInListFn(?LATER_TYPE, ?LIST))), removalSentence(memberOfList(?EARLIER_TYPE, ?LIST)), removalSentence(evaluate(?POSITIONOFITEMINLISTFN, PositionOfItemInListFn(?EARLIER_TYPE, ?LIST))), removalSentence(evaluate(?DIFF, DifferenceFn(?POSITIONOFITEMINLISTFN_1, ?POSITIONOFITEMINLISTFN))).
+forwardSentence(uniqueProperSubEventTypes(?SUPER_TYPE, ?SUB_TYPE)) :- removalSentence(coveringOfEventType(?SUPER_TYPE, ?LIST)), removalSentence(memberOfList(?SUB_TYPE, ?LIST)).
+forwardSentence(startsAfterEndOfInSituationType(?SUPER_TYPE, ?LATER_TYPE, ?EARLIER_TYPE)) :- removalSentence(equals(?DIFFERENCEFN, 1)), removalSentence('coveringOfEventType-Nonoverlapping'(?SUB_TYPE, ?SUB_LIST)), removalSentence(coveringOfEventType(?SUPER_TYPE, ?LIST)), removalSentence(memberOfList(?SUB_TYPE, ?LIST)), removalSentence(memberOfList(?LATER_TYPE, ?SUB_LIST)), removalSentence(memberOfList(?EARLIER_TYPE, ?SUB_LIST)), removalSentence(evaluate(?DIFFERENCEFN, DifferenceFn(PositionOfItemInListFn(?LATER_TYPE, ?SUB_LIST), PositionOfItemInListFn(?EARLIER_TYPE, ?SUB_LIST)))).
+forwardSentence(startsAfterEndOfInSituationType(?SUPER, ?SUB_SIT_TYPE_1, ?SUB_SIT_TYPE_2)) :- removalSentence(assertedSentence(startsAfterEndOfInSituationType(?SIT_TYPE, ?SUB_SIT_TYPE_1, ?SUB_SIT_TYPE_2))), removalSentence(assertedSentence(superEventTypes(?SIT_TYPE, ?SUPER))), removalSentence(uniqueProperSubEventTypes(?SUPER, ?SIT_TYPE)).
+forwardSentence(startsDuringInSituationType(?SUPER, ?SUB_SIT_TYPE_1, ?SUB_SIT_TYPE_2)) :- removalSentence(assertedSentence(startsDuringInSituationType(?SIT_TYPE, ?SUB_SIT_TYPE_1, ?SUB_SIT_TYPE_2))), removalSentence(assertedSentence(superEventTypes(?SIT_TYPE, ?SUPER))), removalSentence(uniqueProperSubEventTypes(?SUPER, ?SIT_TYPE)).
+forwardSentence(endTogetherInSituationType(?SUPER, ?SUB_SIT_TYPE_1, ?SUB_SIT_TYPE_2)) :- removalSentence(assertedSentence(endTogetherInSituationType(?SIT_TYPE, ?SUB_SIT_TYPE_1, ?SUB_SIT_TYPE_2))), removalSentence(assertedSentence(superEventTypes(?SIT_TYPE, ?SUPER))), removalSentence(uniqueProperSubEventTypes(?SUPER, ?SIT_TYPE)).
+forwardSentence(immediatelyAfterInSituationType(?SUPER, ?SUB_SIT_TYPE_1, ?SUB_SIT_TYPE_2)) :- removalSentence(assertedSentence(immediatelyAfterInSituationType(?SIT_TYPE, ?SUB_SIT_TYPE_1, ?SUB_SIT_TYPE_2))), removalSentence(assertedSentence(superEventTypes(?SIT_TYPE, ?SUPER))), removalSentence(uniqueProperSubEventTypes(?SUPER, ?SIT_TYPE)).
+forwardSentence(startsDuringInSituationType(?SUPER, ?SUB1, ?SUB2)) :- removalSentence(startsDuringInSituationType(?TYPE, ?SUB1, ?SUB2)), removalSentence(superEventTypes(?TYPE, ?SUPER)).
+forwardSentence(startsDuringInSituationType(?TYPE, ?SUB1, ?SUB3)) :- removalSentence(startsDuringInSituationType(?TYPE, ?SUB1, ?SUB2)), removalSentence(startsDuringInSituationType(?SUB2, ?SUB1, ?SUB3)).
+forwardSentence(startsDuringInSituationType(?TYPE, ?SUB1, ?SUB3)) :- removalSentence(startsDuringInSituationType(?TYPE, ?SUB1, ?SUB2)), removalSentence(superEventTypes(?SUB3, ?TYPE)), removalSentence(superEventTypes(?SUB2, ?SUB3)).
+forwardSentence(immediatelyAfterInSituationType(?SCRIPT, ?SCENE_LATE, ?OTHER)) :- removalSentence(endTogetherInSituationType(?SCRIPT, ?OTHER, ?SCENE_EARLY)), removalSentence(immediatelyAfterInSituationType(?SCRIPT, ?SCENE_LATE, ?SCENE_EARLY)).
+forwardSentence(immediatelyAfterInSituationType(?SUPER_SUPER_TYPE, ?OTHER, ?LASTINLISTFN)) :- removalSentence(coveringOfEventType(?SUPER_TYPE, ?LIST)), removalSentence(evaluate(?LASTINLISTFN, LastInListFn(?LIST))), removalSentence(immediatelyAfterInSituationType(?SUPER_SUPER_TYPE, ?OTHER, ?SUPER_TYPE)).
+
+// Explicit Background Facts
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-CytokinesisStartsAfterAnaphaseEndsInCellCycle 0').
+%pretest :- startsAfterEndOfInSituationType(EukaryoticCellCycle, Cytokinesis, Anaphase), %write_results('SUCCESS  : $CPTTest-CytokinesisStartsAfterAnaphaseEndsInCellCycle 0').
+
+// Debugging
+proof(2928, 0) :- startsAfterEndOfInSituationType(EukaryoticCellCycle, Cytokinesis, Anaphase).
+
+proof(2928, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(2928, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(2928, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(2928, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(2928, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(2928, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(2928, 1006) :- superEventTypes(Telophase, Mitosis).
+proof(2928, 1007) :- genlPreds(uniqueFirstProperSubEventTypes, uniqueProperSubEventTypes).
+proof(2928, 1008) :- superEventTypes(Telophase, Mitosis).
+proof(2928, 1009) :- startsAfterEndOfInSituationType(Mitosis, Telophase, Anaphase).
+proof(2928, 1010) :- uniqueProperSubEventTypes(MitoticPhaseOfCellCycle, Mitosis).
+proof(2928, 1011) :- startsAfterEndOfInSituationType(MitoticPhaseOfCellCycle, Telophase, Anaphase).
+proof(2928, 1012) :- startsAfterEndOfInSituationType(EukaryoticCellCycle, Telophase, Anaphase).
+proof(2928, 1013) :- startsAfterEndOfInSituationType(MitoticPhaseOfCellCycle, Cytokinesis, Anaphase).
+proof(2928, 1014) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(2928, 1015) :- startsDuringInSituationType(EukaryoticCellCycle, Cytokinesis, Telophase).
+proof(2928, 1016) :- endTogetherInSituationType(MitoticPhaseOfCellCycle, Anaphase, AnaphaseB).
+proof(2928, 1017) :- endTogetherInSituationType(EukaryoticCellCycle, Anaphase, AnaphaseB).
+proof(2928, 1018) :- immediatelyAfterInSituationType(EukaryoticCellCycle, Telophase, Anaphase).
+proof(2928, 1019) :- immediatelyAfterInSituationType(MitoticPhaseOfCellCycle, Telophase, Anaphase).
+proof(2928, 1020) :- startsDuringInSituationType(MitoticPhaseOfCellCycle, Cytokinesis, Mitosis).
+proof(2928, 1021) :- startsDuringInSituationType(EukaryoticCellCycle, Cytokinesis, MitoticPhaseOfCellCycle).
+proof(2928, 1022) :- startsDuringInSituationType(EukaryoticCellCycle, Cytokinesis, Mitosis).
+proof(2928, 1023) :- immediatelyAfterInSituationType(MitoticPhaseOfCellCycle, Telophase, AnaphaseB).
+proof(2928, 1024) :- immediatelyAfterInSituationType(EukaryoticCellCycle, Telophase, AnaphaseB).
+proof(2928, 1025) :- startsAfterEndOfInSituationType(EukaryoticCellCycle, Cytokinesis, Anaphase).
+
+proof(2928, 2000) :- admittedArgument(1, 1, equals).
+proof(2928, 2001) :- admittedArgument(1, 2, equals).
+proof(2928, 2002) :- equals(1, 1).
+proof(2928, 2003) :- evaluate(AnaphaseB, LastInListFn([AnaphaseA, AnaphaseB])).
+proof(2928, 2004) :- evaluate(1, DifferenceFn(5, 4)).
+proof(2928, 2005) :- evaluate(1, DifferenceFn(PositionOfItemInListFn(Telophase, [Prophase, Prometaphase, Metaphase, Anaphase, Telophase]), PositionOfItemInListFn(Anaphase, [Prophase, Prometaphase, Metaphase, Anaphase, Telophase]))).
+proof(2928, 2006) :- evaluate(4, PositionOfItemInListFn(Anaphase, [Prophase, Prometaphase, Metaphase, Anaphase, Telophase])).
+proof(2928, 2007) :- evaluate(5, PositionOfItemInListFn(Telophase, [Prophase, Prometaphase, Metaphase, Anaphase, Telophase])).
+proof(2928, 2008) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(2928, 2009) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(2928, 2010) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiologyMt).
+proof(2928, 2011) :- genlPreds(immediatelyAfterInSituationType, startsAfterEndOfInSituationType).
+proof(2928, 2012) :- genlPreds('coveringOfEventType-Nonoverlapping', coveringOfEventType).
+proof(2928, 2013) :- genlPreds(mostGeneralCoveringOfEventType, coveringOfEventType).
+proof(2928, 2014) :- genlPreds(uniqueFirstProperSubEventTypes, uniqueProperSubEventTypes).
+proof(2928, 2015) :- isa(predicateIntersection, PartiallyCommutativePredicate).
+proof(2928, 2016) :- isa(endTogetherInSituationType, PartiallyCommutativePredicate).
+proof(2928, 2017) :- isa(Telophase, MitosisSubprocessType).
+proof(2928, 2018) :- memberOfList(Anaphase, [Prophase, Prometaphase, Metaphase, Anaphase, Telophase]).
+proof(2928, 2019) :- memberOfList(Telophase, [Prophase, Prometaphase, Metaphase, Anaphase, Telophase]).
+proof(2928, 2020) :- memberOfList(Mitosis, [G1Phase, SPhase, G2Phase, Mitosis, Cytokinesis]).
+proof(2928, 2021) :- memberOfList(Mitosis, [Mitosis, Cytokinesis]).
+proof(2928, 2022) :- superEventTypes(Telophase, MitoticPhaseOfCellCycle).
+proof(2928, 2023) :- superEventTypes(Mitosis, EukaryoticCellCycle).
+proof(2928, 2024) :- superEventTypes(MitoticPhaseOfCellCycle, EukaryoticCellCycle).
+proof(2928, 2025) :- superEventTypes(Telophase, MitoticPhaseOfCellCycle).
+proof(2928, 2026) :- superEventTypes(Telophase, Mitosis).
+proof(2928, 2027) :- superEventTypes(Telophase, Mitosis).
+proof(2928, 2028) :- superEventTypes(Mitosis, MitoticPhaseOfCellCycle).
+proof(2928, 2029) :- superEventTypes(Mitosis, EukaryoticCellCycle). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

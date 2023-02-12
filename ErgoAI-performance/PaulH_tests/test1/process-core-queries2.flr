@@ -1,0 +1,116 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+\"urn:uuid:a3cff929-3fcd-44b7-b711-f7d7fd88ffe6"[silk#strict] .
+builtin(list(?_)) .
+\"urn:uuid:0795034d-fb92-469a-b5ce-11eb2fd8704c"[silk#strict] .
+builtin(resource) .
+\"urn:uuid:0075e336-4680-4a06-9d85-78aaa89f5d80"[silk#strict] .
+builtin(inverse(arity)) .
+\"urn:uuid:027a32e9-7900-4b3f-b9db-744d0e68acfe"[silk#strict] .
+builtin(inverse(transfers(thru))) .
+\"urn:uuid:d714fee2-55a5-4373-b9d9-b1136ed2cfbe"[silk#strict] .
+builtin(inverse(dichotomy)) .
+\"urn:uuid:df33cbdf-bc24-4be1-bded-7a84bf8c4e84"[silk#strict] .
+@!{\"urn:uuid:df33cbdf-bc24-4be1-bded-7a84bf8c4e84"} criticism([("1 not 2 args"^^\string), ?r(?x)]) :- arity(?r, (2)) and ?r(?x) .
+\"urn:uuid:d1cfaded-49b0-4591-878a-5dcf391633ed"[silk#strict] .
+@!{\"urn:uuid:d1cfaded-49b0-4591-878a-5dcf391633ed"} criticism([("2 args not 1"^^\string), ?r(?x, ?y)]) :- arity(?r, (1)) and ?r(?x, ?y) .
+\"urn:uuid:e934d436-da11-4cfe-91b1-bc60fc212a19"[silk#strict] .
+@!{\"urn:uuid:e934d436-da11-4cfe-91b1-bc60fc212a19"} criticism([("missing arity"^^\string), ?r]) :- relation(?r) and ?r != relation and not arity(?r, ?_) .
+\"urn:uuid:40776463-00e6-4cb7-b40f-65cec576460d"[silk#strict] .
+@!{\"urn:uuid:40776463-00e6-4cb7-b40f-65cec576460d"} criticism([("missing inverse"^^\string), ?r]) :- signature(?r, [?_, ?l]) and ?l != list(?_) and not inverse(?r, ?_) and not symmetric(?r) and not builtin(inverse(?r)) .
+\"urn:uuid:02bf32a0-9809-4952-ab40-26a1b78309db"[silk#strict] .
+@!{\"urn:uuid:02bf32a0-9809-4952-ab40-26a1b78309db"} criticism([("missing signature"^^\string), ?r]) :- relation(?r) and ?r != relation and not signature(?r, ?_) and not builtin(?r) .
+\"urn:uuid:3084cc48-37ec-42bf-9b60-7a3a39e45138"[silk#strict] .
+@!{\"urn:uuid:3084cc48-37ec-42bf-9b60-7a3a39e45138"} criticism([("self-referential signature"^^\string), ?r]) :- signature(?r, ?l) and %silkb#listMember(?l, ?r)@builtin and silk#listLength(?l, ?n) and ?n  >  (1) .
+\"urn:uuid:89bc1d83-0eea-454e-81d3-701d51a98fd0"[silk#strict] .
+@!{\"urn:uuid:89bc1d83-0eea-454e-81d3-701d51a98fd0"} criticism([("distinct domain/range but reflexive"^^\string), ?r(?x, ?y)]) :- signature(?r, [?x, ?y]) and reflexive(?r) and ?x != ?y .
+\"urn:uuid:ff549427-e5f2-453b-a1fa-b8ced50b1765"[silk#strict] .
+@!{\"urn:uuid:ff549427-e5f2-453b-a1fa-b8ced50b1765"} criticism([("distinct domain/range but symmetric"^^\string), ?r(?x, ?y)]) :- signature(?r, [?x, ?y]) and symmetric(?r) and ?x != ?y .
+\"urn:uuid:9b9b59d5-ba2a-4892-9a9d-5eeb4b308c16"[silk#strict] .
+@!{\"urn:uuid:9b9b59d5-ba2a-4892-9a9d-5eeb4b308c16"} criticism([("arity"^^\string), ?r, [?x, ?y]]) :- relation(?r) and arity(?r, ?x) and arity(?r, ?y) and ?x != ?y .
+\"urn:uuid:4e6acc94-465e-4ac3-9c02-129966911262"[silk#strict] .
+@!{\"urn:uuid:4e6acc94-465e-4ac3-9c02-129966911262"} criticism([("disjoint directly"^^\string), ?r1, ?r2]) :- more(specific)(?r1, ?r2) and disjoint(?r1, ?r2) .
+\"urn:uuid:cd847dd8-6109-4a13-b881-aa595371be2b"[silk#strict] .
+@!{\"urn:uuid:cd847dd8-6109-4a13-b881-aa595371be2b"} criticism([("disjoint equivalent"^^\string), ?r1, ?r2]) :- equivalent(?r1, ?r2) and disjoint(?r1, ?r2) .
+\"urn:uuid:d836607b-178f-4bc1-864f-d1b15236ddce"[silk#strict] .
+@!{\"urn:uuid:d836607b-178f-4bc1-864f-d1b15236ddce"} criticism([("signature symmetry"^^\string), ?r, [?x, ?y]]) :- signature(?r, [?x, ?y]) and symmetric(?r) and disjoint(?x, ?y) .
+\"urn:uuid:4ff50bea-b0f2-49c5-9786-71689293a8b1"[silk#strict] .
+@!{\"urn:uuid:4ff50bea-b0f2-49c5-9786-71689293a8b1"} criticism([("disjoint generalizations"^^\string), ?r1, [?r2, ?r3]]) :- more(specific)(?r1, ?r2) and disjoint(?r2, ?r3) and more(specific)(?r1, ?r3) .
+\"urn:uuid:0fdc0f4f-c47a-4b01-b4b8-d7f1700ac18f"[silk#strict] .
+@!{\"urn:uuid:0fdc0f4f-c47a-4b01-b4b8-d7f1700ac18f"} criticism([("signature reflexivity"^^\string), ?r, [?x, ?y]]) :- signature(?r, [?x, ?y]) and reflexive(?r) and disjoint(?x, ?y) .
+\"urn:uuid:a52ee4ca-286b-43df-87b4-fb3ca06b46dd"[silk#strict] .
+@!{\"urn:uuid:a52ee4ca-286b-43df-87b4-fb3ca06b46dd"} criticism([("signature disjoint unary"^^\string), ?r, [?x, ?y]]) :- signature(?r, [?x]) and signature(?r, [?y]) and disjoint(?x, ?y) .
+\"urn:uuid:f76d8f55-2119-41af-8e2d-5a53c589e5d2"[silk#strict] .
+@!{\"urn:uuid:f76d8f55-2119-41af-8e2d-5a53c589e5d2"} criticism([("signature disjoint domain"^^\string), ?r, [?x, ?y]]) :- signature(?r, [?x, ?_]) and signature(?r, [?y, ?_]) and disjoint(?x, ?y) .
+\"urn:uuid:43a869c9-64ee-45d0-9c65-b328e4a4bf94"[silk#strict] .
+@!{\"urn:uuid:43a869c9-64ee-45d0-9c65-b328e4a4bf94"} criticism([("signature disjoint range"^^\string), ?r, [?x, ?y]]) :- signature(?r, [?_, ?x]) and signature(?r, [?_, ?y]) and disjoint(?x, ?y) .
+\"urn:uuid:ba97b140-627f-47d3-bd48-f1b6fef2c8d2"[silk#strict] .
+@!{\"urn:uuid:ba97b140-627f-47d3-bd48-f1b6fef2c8d2"} criticism([("signature inverse"^^\string), ?r1, [?x, ?y]]) :- signature(?r1, [?x, ?_]) and inverse(?r1, ?r2) and signature(?r2, [?y, ?_]) and disjoint(?x, ?y) .
+\"urn:uuid:829fd656-1eb5-41dc-9535-e2981b4a4f87"[silk#strict] .
+@!{\"urn:uuid:829fd656-1eb5-41dc-9535-e2981b4a4f87"} criticism([("signature inverse"^^\string), ?r1, [?x, ?y]]) :- signature(?r1, [?_, ?x]) and inverse(?r1, ?r2) and signature(?r2, [?_, ?y]) and disjoint(?x, ?y) .
+\"urn:uuid:89e894df-4571-4cc0-bd6a-9a2c939a2980"[silk#strict] .
+@!{\"urn:uuid:89e894df-4571-4cc0-bd6a-9a2c939a2980"} criticism([("functionality"^^\string), ?r1, ?r2]) :- nonfunctional(?r1) and more(specific)(?r1, ?r2) and functional(?r2) .
+\"urn:uuid:b04f0696-741a-4eeb-af85-8c70042d40fe"[silk#strict] .
+@!{\"urn:uuid:b04f0696-741a-4eeb-af85-8c70042d40fe"} criticism([("symmetry"^^\string), ?r1, ?r2]) :- symmetric(?r1) and more(specific)(?r1, ?r2) and antisymmetric(?r2) .
+\"urn:uuid:89e937a6-c83d-4561-b387-4b1042d768ef"[silk#strict] .
+@!{\"urn:uuid:89e937a6-c83d-4561-b387-4b1042d768ef"} criticism([("reflexivity"^^\string), ?r1, ?r2]) :- reflexive(?r1) and more(specific)(?r1, ?r2) and irreflexive(?r2) .
+\"urn:uuid:830a1700-a45e-4ed3-abd1-3d6512b396a9"[silk#strict] .
+@!{\"urn:uuid:830a1700-a45e-4ed3-abd1-3d6512b396a9"} inconsistency([("false but true"^^\string), false(?r(?x))]) :- false(?r(?x)) and ?r(?x) .
+\"urn:uuid:026408a4-41f7-4321-a5f2-54187fe28d9e"[silk#strict] .
+@!{\"urn:uuid:026408a4-41f7-4321-a5f2-54187fe28d9e"} inconsistency([("false but true"^^\string), false(?r(?x, ?y))]) :- false(?r(?x, ?y)) and ?r(?x, ?y) .
+\"urn:uuid:27b07ad7-47c1-494d-bbf1-46730b5f7357"[silk#strict] .
+@!{\"urn:uuid:27b07ad7-47c1-494d-bbf1-46730b5f7357"} inconsistency([("false but true"^^\string), false(?r(?x, ?y, ?z))]) :- false(?r(?x, ?y, ?z)) and ?r(?x, ?y, ?z) .
+\"urn:uuid:f330f958-d9ff-4030-891c-2a3bf4084ce9"[silk#strict] .
+@!{\"urn:uuid:f330f958-d9ff-4030-891c-2a3bf4084ce9"} inconsistency([("disjoint unary"^^\string), [?r1, ?r2], [?x]]) :- disjoint(?r1, ?r2) and ?r1(?x) and ?r2(?x) .
+\"urn:uuid:7c01d48e-b450-48c8-90bf-a68909b3c387"[silk#strict] .
+@!{\"urn:uuid:7c01d48e-b450-48c8-90bf-a68909b3c387"} inconsistency([("disjoint binary"^^\string), [?r1, ?r2], [?x, ?y]]) :- disjoint(?r1, ?r2) and ?r1(?x, ?y) and ?r2(?x, ?y) .
+\"urn:uuid:5eb3d9a3-1744-4378-a336-f5fcb090da4b"[silk#strict] .
+allow(lattice(relation)) .
+\"urn:uuid:99137131-9618-4596-b13e-bc430d10373f"[silk#strict] .
+allow(more(specific)) .
+\"urn:uuid:4150e6a4-1baf-4c78-a444-43f35acf567c"[silk#strict] .
+allow(conjunctively) .
+\"urn:uuid:fba09820-ee11-4007-b60f-9edaa9f2f857"[silk#strict] .
+allow(intersection) .
+\"urn:uuid:f1e7351d-ae65-44b4-a592-d1f458e07621"[silk#strict] .
+allow(covering) .
+\"urn:uuid:f618e215-7523-42a2-9915-e177f9191bdc"[silk#strict] .
+allow(partition) .
+\"urn:uuid:93ef3ee6-f807-43f9-b23c-be38e3bb8208"[silk#strict] .
+allow(union) .
+\"urn:uuid:5538bf3c-8963-490c-93a9-c6ec757b0644"[silk#strict] .
+allow(pairwise) .
+\"urn:uuid:e164bbfc-0e66-4040-a406-0e68143bdbf2"[silk#strict] .
+allow(symmetric) .
+\"urn:uuid:09873a04-682d-4af8-a191-c819ae07c887"[silk#strict] .
+allow(inverse) .
+\"urn:uuid:dea5b404-74e0-46c3-af10-989f8926c231"[silk#strict] .
+allow(reflexive) .
+\"urn:uuid:348c7fc0-72bc-4a83-b49a-39bb0de74b64"[silk#strict] .
+allow(arity) .
+\"urn:uuid:105bcdd9-2dba-425c-bab9-a6c830e68008"[silk#strict] .
+allow(transitive) .
+\"urn:uuid:a080a60a-1d1a-4034-9c92-4fafefa3a2fa"[silk#strict] .
+allow(disjoint) .
+\"urn:uuid:accd69bb-bfea-4805-8f40-240089be1e40"[silk#strict] .
+allow(irreflexive) .
+\"urn:uuid:1d833800-f00f-4a72-b2e1-d71ae4122448"[silk#strict] .
+allow(antisymmetric) .
+\"urn:uuid:26e819e8-d103-4eb0-9c0a-417191458d65"[silk#strict] .
+allow(binary(equivalence)) .
+\"urn:uuid:b4807760-86de-4834-ab49-f49f1138cd70"[silk#strict] .
+allow(functional) .
+\"urn:uuid:5c6f734c-c089-42d0-bb86-d373769e7efb"[silk#strict] .
+allow(transfers(thru)) .
+\"urn:uuid:302ede38-0cd6-4509-80b8-afbcc5d506d7"[silk#strict] .
+allow(signature) .
+\"urn:uuid:90f8a4b0-8089-4af8-9a70-6a1494987f1d"[silk#strict] .
+allow(dichotomy) .
+\"urn:uuid:a49d5bb0-5e9e-45e8-82e6-33649accfe1a"[silk#strict] .
+allow(trichotomy) .
+\"urn:uuid:c1837f27-62b6-40bb-bf4c-d425fd341475"[silk#strict] .
+allow(antitransitive) .
+\"urn:uuid:960b42b0-dd7c-4e2a-bf18-dcdc99d7f210"[silk#strict] .
+allow(equivalent) .
+\"urn:uuid:488f8adb-4a5e-418d-8c68-910bfad415f4"[silk#strict] .
+allow(complement) .

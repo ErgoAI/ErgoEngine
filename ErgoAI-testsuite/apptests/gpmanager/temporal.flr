@@ -1,0 +1,220 @@
+:- use_rule_structure_db.
+
+:- ignore_depchk{abort(?_)@?_,
+	         %base_before(?_,?_)}.
+:- symbol_context{
+      date/0, fall/0, spring/0, summer1/0, summer2/0
+   }.
+
+fall(?_Year)   : semester.
+spring(?_Year) : semester.
+summer1(?_Year) : semester.
+summer2(?_Year) : semester.
+pastsemester: semester.
+futuresemester: semester.
+anysemester: semester.
+
+date(?_Year,?_Month): date.    //Year,Month are numeric
+pastdate: date.
+futuredate: date.
+
+
+/********************************************************************
+**   Time manipulation
+********************************************************************/
+%base_before(pastdate, date(?_Y2,?_M2)) :- !.
+%base_before(date(?_Y1,?_M1), futuredate) :- !.
+
+%base_before(date(?_Y,?M1), date(?_Y,?M2)) :- !,
+	integer(?M1)@\plg(), integer(?M2)@\plg(), ?M1 < ?M2.
+%base_before(date(?Y1,?_), date(?Y2,?_)) :- !,
+	integer(?Y1)@\plg(), integer(?Y2)@\plg(), ?Y1 < ?Y2.
+%base_before(spring(?_Y),summer1(?_Y)) :- !.
+%base_before(summer1(?_Y),summer2(?_Y)) :- !.
+%base_before(summer2(?_Y),fall(?_Y)) :- !.
+// futuresemester is an imaginary future semester
+%base_before(fall(?_Y),futuresemester) :- !.
+%base_before(spring(?_Y),futuresemester) :- !.
+%base_before(summer1(?_Y),futuresemester) :- !.
+%base_before(summer2(?_Y),futuresemester) :- !.
+// pastsemester is an imaginary past semester
+%base_before(pastsemester,fall(?_Y)) :- !.
+%base_before(pastsemester,spring(?_Y)) :- !.
+%base_before(pastsemester,summer1(?_Y)) :- !.
+%base_before(pastsemester,summer2(?_Y)) :- !.
+%base_before(pastsemester,futuresemester) :- !.
+// anysemester is in any semester interval
+// It is used when we want to get an answer that is true of all semesters
+%base_before(fall(?_Y),anysemester) :- !.
+%base_before(spring(?_Y),anysemester) :- !.
+%base_before(summer1(?_Y),anysemester) :- !.
+%base_before(summer2(?_Y),anysemester) :- !.
+%base_before(anysemester,fall(?_Y)) :- !.
+%base_before(anysemester,spring(?_Y)) :- !.
+%base_before(anysemester,summer1(?_Y)) :- !.
+%base_before(anysemester,summer2(?_Y)) :- !.
+
+// semester in Y1 is before semester in Y2 if Y1 < Y2
+%base_before(?S1,?S2) :-
+	?S1=?_(?Y1), ?S2=?_(?Y2),
+	integer(?Y1)@\plg(), integer(?Y2)@\plg(), ?Y1 < ?Y2,
+	?S1:semester, ?S2:semester.
+
+// This is good for both dates and semesters
+?Date[before->?Date2] :- %base_before(?Date,?Date2).
+?Date[before->?Date2] :- ?Date[before->?Z], %base_before(?Z,?Date2).
+// After is inverse of before
+?Date[after->?Date2] :- ?Date2[before->?Date].
+
+?_Date[sameOrBefore->?_Date]  :- !.
+?Date[sameOrBefore->?Date2] :- !, ?Date[before->?Date2].
+?_Date[sameOrAfter->?_Date]   :- !.
+?Date[sameOrAfter->?Date2]  :- !, ?Date[after->?Date2].
+
+?Date[between -> [?Date1,?Date2]] :-
+	?Date[sameOrAfter->?Date1, sameOrBefore->?Date2].
+
+date(?_Y,1)[inSemester->spring(?_Y)].
+date(?_Y,2)[inSemester->spring(?_Y)].
+date(?_Y,3)[inSemester->spring(?_Y)].
+date(?_Y,4)[inSemester->spring(?_Y)].
+date(?_Y,5)[inSemester->spring(?_Y)].
+date(?_Y,6)[inSemester->summer1(?_Y)].
+date(?_Y,7)[inSemester->summer1(?_Y)].
+date(?_Y,7)[inSemester->summer2(?_Y)].
+date(?_Y,8)[inSemester->summer2(?_Y)].
+date(?_Y,9)[inSemester->fall(?_Y)].
+date(?_Y,10)[inSemester->fall(?_Y)].
+date(?_Y,11)[inSemester->fall(?_Y)].
+date(?_Y,12)[inSemester->fall(?_Y)].
+// Nonexisting future semester
+futuredate[inSemester->futuresemester].
+pastdate[inSemester->pastsemester].
+
+// Semester for which the qualifying exam was taken
+date(?_Y,6)[qualsSemester->spring(?_Y)] :- !.
+date(?_Y,5)[qualsSemester->spring(?_Y)] :- !.
+date(?Y,?M)[qualsSemester->fall(?Y)] :- date(?Y,?M)[inSemester->fall(?Y)], !.
+
+date(?Y,1)[qualsSemester->fall(?Y1)] :- ?Y1 \is ?Y-1.
+
+futuredate[isWeaklyValid] :- !.
+pastdate[isWeaklyValid] :- !.
+date(?Y,?M)[isWeaklyValid] :- date(?Y,?M)[isValid].
+futuresemester[isWeaklyValid] :- !.
+pastsemester[isWeaklyValid] :- !.
+anysemester[isWeaklyValid] :- !.
+?S(?Y)[isWeaklyValid] :- ?S(?Y)[isValid].
+
+// If the date has "future" in it, we just fail.
+// If it is of the form date(Year,Month) with valid components then succeed.
+// Otherwise, issue an error.
+futuredate[isValid] :- !, \false.
+pastdate[isValid] :- !, \false.
+date(?Y,?M)[isValid] :-
+	integer(?Y)@\plg(), integer(?M)@\plg(), ?Y >= 1980, ?M > 0, ?M < 13, !.
+?D[isValid] :-
+	?D: date, abort(('Invalid date specification: ',?D))@\sys.
+
+?D[isDate] :- ?D:date[isWeaklyValid].
+?S[isSemester] :- ?S:semester[isWeaklyValid].
+
+futuresemester[isValid] :- !, \false.
+pastsemester[isValid] :- !, \false.
+anysemester[isValid] :- !, \false.
+?S(?Y)[isValid] :- ?S(?Y): semester, integer(?Y)@\plg(), ?Y >= 1980.
+?S(?Y)[isValid] :-
+	?S(?Y):semester, \+ (integer(?Y)@\plg() ; ?Y < 1980),
+	abort(('Invalid semester specification: ',?S(?Y)))@\sys.
+
+
+futuredate[%print] :- !, write('none')@\plg().
+pastdate[%print] :- !, write('epoch')@\plg().
+date(?Y,?M)[%print] :-
+	date(?Y,?M)[isValid], format('~w/~w', [?M,?Y])@\plg(format).
+
+futuresemester[%print] :- !, write('none')@\plg().
+pastsemester[%print] :- !, write('epoch')@\plg().
+anysemester[%print] :- !, write('any semester')@\plg().
+?SemSymb(?Year)[%print] :- !,
+	?SemSymb(?Year)[printable_name->?Name],
+	write(?Name)@\plg().
+
+?Date[%println] :- (?Date:date; ?Date:semester), ?Date[%print], nl@\plg().
+
+semesterName(fall, 'Fall') :- !.
+semesterName(spring, 'Spring') :- !.
+semesterName(summer1, 'Summer I') :- !.
+semesterName(summer2, 'Summer II') :- !.
+
+?SemSymb(?Year)[printable_name->?Name] :-
+	?SemSymb(?Year):semester,
+	semesterName(?SemSymb,?SemName),
+	flora_concat_items([?SemName,' ',?Year], ?Name)@\plg(flrporting).
+
+
+// This skips summers
+fall(?Year)[next->spring(?Year1)] :- !, isnonvar{?Year}, ?Year1 \is ?Year + 1.
+spring(?_Year)[next->fall(?_Year)] :- !.
+
+fall(?_Year)[prev->spring(?_Year)] :- !.
+spring(?Year)[prev->fall(?Year1)] :- !, isnonvar{?Year}, ?Year1 \is ?Year - 1.
+
+
+// minus with skipping summer
+?_Semester[minus(0) ->?_Semester] :- !.
+?Semester[minus(1) ->?Semester1] :- !, ?Semester[prev->?Semester1].
+?Semester[minus(?N)-> ?SemN] :-
+	integer(?N)@\plg(),
+	?N>0,
+	?M \is ?N-1,
+	!,
+	?Semester[prev->?Sem1],
+	?Sem1[minus(?M) -> ?SemN].
+
+// plus with skipping summer
+?_Semester[plus(0) ->?_Semester] :- !.
+?Semester[plus(1) ->?Semester1] :- !, ?Semester[next->?Semester1].
+?Semester[plus(?N)-> ?SemN] :-
+	integer(?N)@\plg(),
+	?N>0,
+	?M \is ?N-1,
+	!,
+	?Semester[next->?Sem1],
+	?Sem1[plus(?M) -> ?SemN].
+
+
+
+// This does not skip summer
+fall(?Year)[next1->spring(?Year1)] :- !, ?Year1 \is ?Year + 1.
+spring(?_Year)[next1->summer1(?_Year)] :- !.
+summer1(?_Year)[next1->summer2(?_Year)] :- !.
+summer2(?_Year)[next1->fall(?_Year)] :- !.
+
+spring(?Year)[prev1->fall(?Year1)] :- !, ?Year1 \is ?Year - 1.
+summer1(?_Year)[prev1->spring(?_Year)] :- !.
+summer2(?_Year)[prev1->summer1(?_Year)] :- !.
+fall(?_Year)[prev1->summer2(?_Year)] :- !.
+
+// minus without skipping summer
+?_Semester[minus1(0) ->?_Semester] :- !.
+?Semester[minus1(1) ->?Semester1] :- !, ?Semester[prev1->?Semester1].
+?Semester[minus1(?N)-> ?SemN] :-
+	integer(?N)@\plg(),
+	?N>0,
+	?M \is ?N-1,
+	!,
+	?Semester[prev1->?Sem1],
+	?Sem1[minus1(?M) -> ?SemN].
+
+// plus without skipping summer
+?_Semester[plus1(0) ->?_Semester] :- !.
+?Semester[plus1(1) ->?Semester1] :- !, ?Semester[next1->?Semester1].
+?Semester[plus1(?N)-> ?SemN] :-
+	integer(?N)@\plg(),
+	?N>0,
+	?M \is ?N-1,
+	!,
+	?Semester[next1->?Sem1],
+	?Sem1[plus1(?M) -> ?SemN].
+

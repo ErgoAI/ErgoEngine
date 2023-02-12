@@ -1,0 +1,597 @@
+/*
+  THIS FILE IS IN THE PUBLIC DOMAIN.
+  
+  IT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+  IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+  OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+  OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+/*
+  Demonstration of Regulation W - small rulebase
+  Proprietary info, confidential to Coherent Knowledge Systems, LLC
+  Authors:
+       - Benjamin Grosof
+       - Isaac Grosof
+       - Janine Bloomfield
+       - Miguel Calejo
+       - Michael Kifer
+*/
+
+/*
+  This file contains a fictional demo scenario, plus 
+  non-fictional rules representing USA Regulation W on:
+  what are affiliates,
+  whether a particular transaction is covered by RegW, and 
+  whether that transaction is allowed.
+  The latter specify decision criteria for whether a transaction is in
+  compliance with law.
+  
+  Regulation W, set forth in Section 23 of the Federal Reserve Code
+  (PART 223-TRANSACTIONS BETWEEN MEMBER BANKS AND THEIR AFFILIATES)
+  concerns activities between a bank and its affiliate that could expose
+  the bank to the risks of its affiliates including loans, investments,
+  purchases, and other transactions. The Regulation limits the amount of
+  these so-called "covered transactions" based on the aggregate amount
+  of the bank's covered transactions with that particular affiliate and
+  the aggregate amount of the bank's covered transactions with all affiliates. 
+*/
+
+/*
+  To interpret Regulation W for a particular situation then, the following
+  questions must be answered using the precise definitions and descriptions
+  in Regulation W:
+  
+    1.	Is the company or individual that the transaction would be with 
+    :   an "affiliate" of the bank?
+    2.	Is the transaction contemplated a "covered transaction"?
+    3.	Is the amount of the transaction permitted?
+*/
+
+:- iriprefix{regw= "http://coherentknowledge.com/part-223-transactions-between-member-banks-and-their-affiliates-regulation-w/"}.
+:- iriprefix{fibof = "http://www.omg.org/spec/FIBO/FIBO-Foundation/20120501/ontology/"}.
+:- iriprefix{fibob = "http://www.omg.org/spec/FIBO/FIBO-BE/20120501/ontology/"}.
+:- iriprefix{fibotest = "http://www.omg.org/spec/FIBO/FIBO-Foundation/20120501/ontology/TestBodyCorporate#"}.
+:- iriprefix{edmc = "http://www.edmcouncil.org/semanticrepository/ontologies/"}.
+
+:- symbol_context{
+                   asset_purchase/0, asset_purchase/5,
+                   purchase/0,purchase/1,
+                   transaction/?,loan/?,
+                   acceptance/?
+                 }.
+
+:- ergotext{'regwdemo.ergotxt'}.
+
+:- use_argumentation_theory.
+
+
+// defaultOrigin(regw#"").  /* for navigate-to-source */
+
+/* ------------------------------------------------------------------------ */
+/* Demo Scenario (FICTIONAL!!) */
+
+/*  All monetary amounts are in million dollar units.
+    All shares amounts are in millions.
+*/
+
+/*
+   A Fictional example:
+   Pacific Bank wants to loan $23 million dollars to the Maui Sunset Hotel
+   group to open a new location on the island. 
+   It is also the case that Maui Sunset is advised by Hawaii Bank, 
+   an affiliate of Pacific Bank.
+   Pacific Bank has previously made other loans to various counterparties.  
+   Question examples:
+   Is the proposed transaction (the loan) allowed under Regulation W?
+   Who wholly owns and controls whom, in the FIBO sense?
+   
+   Example queries in ErgoText:
+   
+     \(RegW prohibits the proposed transaction between ?Bank and ?Company
+       for amount $?Amount million\).
+
+     \(The proposed transaction between ?Bank and ?Company
+       for amount $?Amount million is not prohibited by RegW\).
+
+     \(The proposed transaction between ?Bank and ?Company is not covered: 
+        the transaction id is ?Id and the amount is $?Amount million\).
+      
+     \(Who is a legally formalized organization (?Organization)?\).
+
+     \(The proposed transaction by ?Bank with ?Company for $?Amount million
+       is exempt from being covered by RegW\)
+
+     \(The limit imposed by RegW on the proposed transactions 
+      of ?Bank with ?Company is $?Amount million\)
+
+     \(Who (?Owner) wholly owns (?Owned) and controls whom, in the FIBO sense?\).
+
+    \(Who is a formal organization (?Organization), in the FIBO sense?\).
+
+   ## The queries below are paraphrases of some of the above queries.
+
+    \(What proposed transactions between ?Bank and ?Company
+      for amount $?Amount million are not prohibited by RegW?\).
+
+    \(What proposed transactions
+      between ?Bank and ?Company for amount $?Amount million
+      are exempt from being covered according to RegW?\).
+*/
+
+
+/* Example Facts */
+
+\('Pacific Bank' is a subsidiary of 'Americas Bank'\).
+\('Hawaii Bank' is a subsidiary of 'Americas Bank'\).
+\('Alaska Bank' is a subsidiary of 'Americas Bank'\).
+\('Kotzebue Bank' is a subsidiary of 'Alaska Bank'\).  
+
+\('Pacific Bank' is a RegW affiliate of 'Americas Bank'\).
+
+\('Maui Sunset' is advised by 'Hawaii Bank'\).
+\('ProRail' is advised by  'Alaska Bank'\).
+
+/*
+  update fact, that could comment out and see what happens; 
+  that corresponds to regwdemo-v*-pre.ergo rather than regwdemo-v*-all.ergo
+*/   
+\(Flixado is a listed company on exchange NYSE\).
+\(BigRail is a listed company on exchange NYSE\).
+
+\('Pacific Bank' made previous loan=1001 to 'Hawaii Bank' in the amount=145\).
+\('Pacific Bank' made previous loan=1002 to 'Alaska Bank' in the amount=245\).
+\('Pacific Bank' made previous loan=1003 to 'Kotzebue Bank' in the amount=100\).
+// will turn out:  not covered by RegW
+\('Pacific Bank' made previous loan=1012 to 'Bank of Corn' in the amount=50\).
+
+// will turn out:  not covered by RegW
+\('Pacific Bank' proposed loan transaction 1011 to 'Iridium Bike'
+   in the amount of $20 million\).
+\('Pacific Bank' proposed loan transaction 1101 to 'Maui Sunset'
+   in the amount of $23 million\).
+
+// \('Pacific Bank' proposed to purchase asset=common_stock(Flixado)
+//    from company='Alaska Bank' in the amount=90; transaction id=1202\).
+\('Pacific Bank' proposed to purchase asset=common_stock(BigRail)
+   from company=ProRail in the amount=130; transaction id=1014\).
+
+\('Pacific Bank' has capital stock and surplus of $2500 million\).
+
+// banks are companies
+bank :: company.
+
+\('Pacific Bank' is a bank\).
+\('Hawaii Bank' is a bank\).
+\('Alaska Bank' is a bank\).
+\('Kotzebue Bank' is a bank\).
+\('Maui Sunset' is a company\).
+\('ProRail' is a company\).
+
+
+/*----------------------------------------------------------------------------*/
+/* exemption - covered relationship */
+
+@!{ruleE3[textit->'A proposed transaction is exempt from RegW if it is not covered by RegW']} @@{strict}
+\(The  proposed transaction by ?Bank with ?Company for $?Amount million is
+   exempt from being covered by RegW\) :-
+	\neg \(The proposed transaction ?_Id by ?Bank with ?Company
+                of $?Amount million is a RegW covered transaction\).
+
+
+
+/*----------------------------------------------------------------------------*/
+/* Affiliate relationship */
+
+/*
+   A case of affiliate is:
+   Any company that is controlled by a company that controls the bank;
+*/
+@!{rule102a1[url->regw#"#se12.3.223_12_3"]} @@{defeasible} 
+\(?Affiliate is a RegW affiliate of ?Company\) :-
+        \(?Affiliate and ?Company are controlled by the same company\).
+
+@!{rule102a2} @@{defeasible} 
+\(?Affiliate1 and ?Affiliate2 are controlled by the same company\) :-
+	\(?Affiliate1 is controlled by ?Company\),
+        \(?Affiliate2 is controlled by ?Company\).
+
+/*
+  A case of an affiliate is:
+  Any company, including a real estate investment trust, that is sponsored
+  and advised on a contractual basis by the bank or an affiliate of the bank.
+*/	
+@!{rule102b[url->regw#"#se12.3.223_12"]} @@{defeasible}
+\(?Affiliate is a RegW affiliate of ?Company\) :-
+        \(?Affiliate is advised by ?Company\)
+       \or 
+        (
+          \(?Affiliate2 is a RegW affiliate of ?Company\),
+          \(?Affiliate is advised by ?Affiliate2\)
+        ).
+
+/* No company is an affiliate of itself. */
+@!{rule102c[textit->'a company is an affiliate']} @@{strict}
+\neg \(?Affiliate is a RegW affiliate of ?Affiliate\) :- ?Affiliate:company.  
+
+/*
+  The affiliate relationship is between a bank and a company. 
+      - Possible extension: expand to capture more of RegW.
+*/
+@!{rule102d1[textit->'a RegW affiliate is a bank']} @@{defeasible} 
+\(?Company is a bank\)    :- \(?Company is a RegW affiliate of ?\).
+@!{rule102d2} @@{defeasible} 
+\(?Company is a company\) :- \(? is a RegW affiliate of ?Company\).
+
+/* ------------------------------------------------------------------------ */
+/* Controls relationship */
+
+/* A company is controlled by another company when the first company is 
+   a subsidiary of the second company.
+*/
+@!{rule103a} @@{defeasible} 
+\(?Company1 is controlled by ?Company2\) :-
+        \(?Company1 is a subsidiary of ?Company2\). 
+
+/* A company is controlled by another company when the first company 
+   is a subsidiary of a subsidiary of the second company.
+*/
+@!{rule103b} @@{defeasible} 
+\(?Company1 is controlled by ?Company2\) :-
+	\(?Company1 is a subsidiary of ?Company3\),
+	\(?Company3 is a subsidiary of ?Company2\). 
+
+/* ------------------------------------------------------------------------ */
+/* What transactions are covered by Reg W.
+   
+   Definition of Covered Transaction:
+   
+   Under section 223.3(h) of Regulation W, a covered transaction includes: 
+    o An extension of credit to an affiliate; 
+    o A purchase of, or investment in, a security issued by an affiliate; 
+    o A purchase of an asset from an affiliate, including an asset subject
+    :    to recourse or an agreement to repurchase; 
+    o The acceptance of a security issued by an affiliate as collateral
+    :    for an extension of credit to any person or company; and 
+    o The issuance of a guarantee [See Footnote 6], acceptance,
+    :    or letter of credit, including: an endorsement or standby letter
+    :    of credit, on behalf of an affiliate [See Footnote 7]; a confirmation
+    :    of a letter of credit issued by an affiliate; and a cross-affiliate
+    :    netting arrangement.
+*/
+@!{rule104a[textit->'A transaction between a bank and an affiliate is covered by RegW if the transaction is a loan, a purchase of an affiliate asset, a guarantee, an acceptance, or a letter of credit']} @{'general case of covered transaction'}
+\(Transaction id=?Id by bank ?Bank with ?Affiliate in the amount
+   of $?Amount million is covered\) :-
+	\(?Affiliate is a RegW affiliate of ?Bank\),
+	(
+          \(?Bank gave loan=?Id to ?Affiliate in the amount=?Amount\)
+         \or
+          \(Bank ?Bank purchased (transaction=?Id) from another party
+             an asset issued by affiliate ?Affiliate in the amount
+             of $?Amount million\)
+         \or
+          \(There is an asset purchase id=?Id of ?Asset common stock
+             by ?Bank from ?Affiliate of $?Amount million\)
+         \or
+          \(Bank ?Bank accepted (transaction=?Id) from another party
+             an asset issued by affiliate ?Affiliate as collateral in
+             the amount of $?Amount million\)
+         \or
+          \(Bank ?Bank issued guarantee with id=?Id on behalf of
+             affiliate ?Affiliate in the amount of $?Amount million\)
+         \or
+          \(Bank ?Bank issued acceptance with id=?Id on behalf of
+             affiliate ?Affiliate in the amount of $?Amount million\)
+         \or
+          \(Bank ?Bank issued letter_of_credit with id=?Id on behalf
+             of affiliate ?Affiliate in the amount of $?Amount million\)
+        ).
+
+/*
+  Possible extension:  be more precise about case of purchase of asset issued.
+    - e.g., when the asset is not necessarily issued by the seller 
+*/
+@!{rule104b[textit->'A transaction between a bank and an affiliate is covered by RegW if the transaction is a loan, a purchase of an affiliate asset, a guarantee, an acceptance, or a letter of credit (Case 2)']}  @{'general case of covered transaction'}
+\(The previous transaction with id=?Id by ?Bank with ?Affiliate
+   of $?Amount million is a RegW covered transaction\) :-
+	\(?Affiliate is a RegW affiliate of ?Bank\),
+	(
+          \(?Bank made previous loan=?Id to ?Affiliate in the amount=?Amount\)
+         \or
+          (\(There is a previous transaction=purchase in the amount
+              of ?Amount with id=?Id between ?Bank and ?Company
+              involving asset ?Asset\),
+            issued_by(?Asset,?Affiliate))
+         \or
+          \(There is a previous asset purchase id=?Id of ?Asset common
+             stock by ?Bank from ?Affiliate of ?Amount million\)
+         \or
+          (\(There is a previous transaction=acceptance(collateral)
+              in the amount of ?Amount with id=?Id between ?Bank and
+              ?Company involving asset ?Asset\),
+            issued_by(?Asset,?Affiliate))
+         \or
+          \(There is a previous transaction=issuance_of(guarantee) in
+             the amount of ?Amount with id=?Id between ?Bank and
+             ?Affiliate involving asset ?Asset\)
+         \or
+          \(There is a previous transaction=issuance_of(acceptance) in
+             the amount of ?Amount with id=?Id between ?Bank and
+             ?Affiliate involving asset ?Asset\)
+         \or
+          \(There is a previous transaction=issuance_of(letter_of_credit)
+             in the amount of ?Amount with id=?Id between ?Bank and
+             ?Affiliate involving asset ?Asset\)
+	).
+
+@!{rule104c[textit->'The total of previous RegW covered transactions is the sum of the amounts of all these previous covered transactions']} @@{defeasible}
+\(The total of previous RegW covered transactions by ?Bank
+   with ?Affiliate is $?Amount million\) :-
+	\(?Affiliate is a RegW affiliate of ?Bank\),
+        ?Amount = sum{?PreviousAmount| \(The previous transaction with id=?_Id
+                                          by ?Bank with ?Affiliate of
+                                          $?PreviousAmount million is a RegW
+                                          covered transaction\)
+                     }. 
+
+@!{rule104d[textit->'A transaction between a bank and an affiliate is covered by RegW if the transaction is a loan, a purchase of an affiliate asset, a guarantee, an acceptance, or a letter of credit (Case 3)']} @{'general case of covered transaction'}
+\(The proposed transaction ?Id by ?Bank with ?Affiliate of $?Amount million
+   is a RegW covered transaction\) :-
+	\(?Affiliate is a RegW affiliate of ?Bank\),
+	(
+          \(?Bank proposed loan transaction ?Id to ?Affiliate
+             in the amount of $?Amount million\)
+         \or
+          \(Bank ?Bank proposed purchase (transaction=?Id) from ?Company
+             an asset issued by affiliate ?Affiliate in the amount
+             of $?Amount million\)
+         \or
+          \(?Bank proposed to purchase asset=?Asset
+             from company=?Affiliate in the amount=?Amount;
+             transaction id=?Id\)
+         \or
+          \(Bank ?Bank proposed acceptance (transaction=?Id) from ?Company
+             asset ?Asset issued by affiliate ?Affiliate as collateral
+             in the amount of $?Amount million\)
+         \or
+          \(Bank ?Bank proposed issuance of guarantee (transaction=?Id)
+             on behalf of affiliate ?Affiliate
+             in the amount of $?Amount million\)
+         \or
+          \(Bank ?Bank proposed issuance of acceptance (transaction=?Id)
+             on behalf of affiliate ?Affiliate
+             in the amount of $?Amount million\)
+         \or
+          \(Bank ?Bank proposed issuance of letter_of_credit
+             (transaction=?Id) on behalf of affiliate ?Affiliate
+             in the amount of $?Amount million\)
+        ).
+
+/*
+  An exemption (exception) case to a covered transaction is:
+  - the purchase of an asset that has a ready market.
+  
+  In general, if an exemption case exists, it overrides the general case
+  and the transaction is exempt from Regulation W
+*/
+
+\overrides('exemption case for covered transaction',
+            'general case of covered transaction').  
+
+@!{rule104e[textit->'A transaction of a bank with an affiliate is exempt if it is an asset purchase of a stock by a bank and the asset has market value']} @{'exemption case for covered transaction'}
+\neg \(Transaction id=?Id by bank ?Bank with ?Affiliate in the amount
+        of $?Amount million is covered\) :-
+	\(?Affiliate is a RegW affiliate of ?Bank\),
+	\(There is an asset purchase id=?Id of ?Asset common stock
+           by ?Bank from ?Affiliate of $?Amount million\),
+	\(The asset ?Asset has a ready market\).
+
+@!{rule104f} @{'exemption case for covered transaction'}
+\neg \(The proposed transaction ?Id by ?Bank with ?Affiliate
+        of $?Amount million is a RegW covered transaction\) :-
+	\(?Affiliate is a RegW affiliate of ?Bank\),
+	\(?Bank proposed to purchase asset=?Asset from company=?Affiliate
+           in the amount=?Amount; transaction id=?Id\),
+	\(The asset ?Asset has a ready market\).
+
+@!{rule104g} @{'exemption case for covered transaction'}
+\neg \(The proposed transaction ?Id by ?Bank with ?Affiliate
+        of $?Amount million is a RegW covered transaction\) :-
+	\(?Affiliate is a RegW affiliate of ?Bank\),
+	\(There is a previous asset purchase id=?Id of ?Asset common
+           stock by ?Bank from ?Affiliate of ?Amount million\),
+	\(The asset ?Asset has a ready market\).
+
+/*
+  Possible extension:
+     : add an exception to the above ready-market exemption
+     : if the asset is issued by the affiliate seller.
+*/
+
+
+
+/*
+   What has a ready market:
+   
+    - If a company is listed on the New York Stock Exchange (NYSE),
+    : then the common stock of that company has a ready market.
+*/
+@!{rule201} @@{defeasible}
+\(The common stock of ?Company has a ready market as an asset\) :-
+	\(?Company is a listed company on exchange NYSE\).
+
+
+// Limitations on covered transactions
+/*
+  Quantitative Limitations.
+    : A bank may not engage in a new covered transaction with an 
+    : affiliate if the aggregate amount of covered transactions between
+    : the bank and the affiliate would be in excess of 10 percent of the bank's
+    : capital stock and surplus after consummation of the new transaction.
+    : Aggregate covered transactions between the bank and all affiliates
+    : are limited to 20 percent of the bank's capital stock and surplus.
+*/
+@!{rule105a1}@@{defeasible}
+\(RegW prohibits the proposed transaction ?Id by ?Bank with ?Affiliate
+   of $?Amount million\) :-
+	\(The proposed transaction ?Id by ?Bank with ?Affiliate
+           of $?Amount million is a RegW covered transaction\),
+	\(RegW imposes a limit of $?Limit million for any covered proposed
+           transaction by bank ?Bank with affiliate ?Affiliate\),
+        ?Amount > ?Limit.
+
+/*
+  Possible extension: add rule(s) about \neg prohibited by RegW(...), e.g.:
+      - when the transaction is not a covered transaction
+      - when not prohibited explicitly
+*/
+
+@!{rule105b1} @@{defeasible}
+\(RegW imposes a limit of $?Limit million for any covered proposed
+   transaction by bank ?Bank with affiliate ?Affiliate\) :-
+	\(Aggregate limit imposed by RegW on transactions by ?Bank
+           with ?_AnyAffiliate for any covered proposed transaction
+           is $?AggrLimit million\),
+	\(Individual limit imposed by RegW on transactions by ?Bank
+           with ?Affiliate for any covered proposed transaction
+           is $?IndividLimit million\),
+	?Limit \is max(0,min(?AggrLimit,?IndividLimit)).
+
+@!{rule105c11} @@{defeasible}
+\(Individual limit imposed by RegW on transactions by ?Bank with ?Company
+   for any covered proposed transaction is $?Amt million\) :-
+	\(The total of previous RegW covered transactions by ?Bank with
+           ?Company is $?AmtTotal million\),
+	\(Threshold for individual affiliate for ?Bank is $?Threshold million\),
+	?Amt \is max(0,?Threshold-?AmtTotal).
+
+
+@!{rule105c31} @@{strict}
+\(Threshold for individual affiliate for ?Bank is $?Amount million\) :-
+	\(?Bank has capital stock and surplus of $?Surplus million\),
+	\(Threshold percentage for individual affiliate
+           is ?Percentage percent\),
+	?Amount \is ?Surplus * ?Percentage/100.
+
+\(Threshold percentage for individual affiliate is 10 percent\).
+
+@!{rule105d1} @@{defeasible}
+\(Aggregate limit imposed by RegW on transactions by ?Bank with ?_AnyAffiliate
+   for any covered proposed transaction is $?Amt million\) :-
+        \(The aggregated total of previous RegW covered transactions
+           by ?Bank with all affiliates is $?AmtTotal million\),
+        \(The maximum threshold for aggregate RegW covered transactions
+           by ?Bank with all affiliates is $?Threshold million\),
+	?Amt \is max(0,?Threshold-?AmtTotal).
+
+@!{rule105d2} @@{defeasible}
+\(The aggregated total of previous RegW covered transactions
+   by ?Bank with all affiliates is $?Amt million\) :-
+	\(?Bank is a bank\),
+	?Amt = sum{?PrevAmount|
+                    ?BankAffiliate = setof{?Affiliate|
+                                            \(?Affiliate is a RegW affiliate
+                                               of ?Bank\)},
+                    ?Company \in ?BankAffiliate,
+                    \(The total of previous RegW covered transactions
+                       by ?Bank with ?Company is $?PrevAmount million\)
+                  }.
+
+@!{rule105d3} @@{defeasible}
+\(The maximum threshold for aggregate RegW covered transactions
+   by ?Bank with all affiliates is $?Amount million\) :-
+	\(?Bank has capital stock and surplus of $?Surplus million\),
+	\(Threshhold percentage for aggregate affiliates
+           is ?Percentage percent\),
+	?Amount \is ?Surplus * ?Percentage/100.
+
+\(Threshhold percentage for aggregate affiliates is 20 percent\).
+
+
+/*
+  Imported OWL axioms from FIBO, translated into Ergo - with
+  names shortened for readability
+*/
+owl#inverseOf(fibof#hasLocation, fibof#locationOf).
+rdfs#domain(fibof#locationOf, fibof#Location). 
+rdf#type(fibof#Address, owl#Class).
+owl#inverseOf(fibob#whollyOwnsAndControls, fibob#whollyOwnedAndControlledBy).
+rdfs#subClassOf(fibob#BodyCorporate, fibob#FormalOrganization).
+rdfs#subClassOf(fibob#BankingAffiliate, fibob#BodyCorporate).
+rdfs#subPropertyOf(fibob#whollyOwnedAndControlledBy,
+                    fibob#majorityOwnedAndControlledBy).
+rdfs#range(fibob#whollyOwnedAndControlledBy, fibob#FormalOrganization).
+rdfs#domain(fibof#hasJurisdiction, fibof#Location).
+owl#disjointWith(edmc#Broad_Based_Index_Credit_Default_Swap_Contract,
+                  edmc#Narrow_Based_Index_Credit_Default_Swap_Contract).
+
+
+/* test data */
+fibotest#FrankfurtBank[fibob#whollyOwnedAndControlledBy->fibotest#AtlasBank].
+rdf#type(fibotest#Transaction1001,
+          edmc#Broad_Based_Index_Credit_Default_Swap_Contract).
+
+
+/* semantics of OWL - specified as general Rulelog axioms */
+
+?s:?c :- rdf#type(?s,?c).  
+?x[?p -> ?y] :- 
+	owl#inverseOf(?p,?q),
+	?y[?q -> ?x].
+?c1::?c2 :- rdfs#subClassOf(?c1,?c2).
+?x[?p -> ?y] :- 
+	owl#subPropertyOf(?q,?p),
+	?x[?q -> ?y].
+?[|?p => ?r|] :- rdfs#range(?p,?r).
+?v:?r  :- rdfs#range(?p,?r), ?[?p->?v].
+?d[|?p => ?|] :- rdfs#domain(?p,?d).
+\neg ?x:?c :- 
+	owl#disjointWith(?c,?d),
+	?x:?d.
+owl#disjointWith(?d,?c) :- 
+	owl#disjointWith(?c,?d).
+
+
+/*
+  Ontology mappings between textual terminology and w.r.t. FIBO OWL vocabulary
+*/
+
+?co:fibob#BodyCorporate :- ?co:company. 
+?sub[fibob#whollyOwnedAndControlledBy->?parent] :-
+        \(?sub is a subsidiary of ?parent\).
+
+\(?org is a legally formalized organization\) :-
+        ?org:fibob#FormalOrganization.
+
+
+/* Linguistic and other "common sense" Knowledge */
+
+@!{rule101a1[textit->'An entity is controlled by another if that second entity controls the first']} @@{strict} 
+\(?x2 is controlled by ?x1\) :- controls(?x1,?x2).   
+
+loan :: transaction.
+// MK: what is the difference between purchase and asset_purchase?
+purchase :: transaction.
+asset_purchase :: transaction.
+acceptance(collateral) :: transaction.
+issuance_of(guarantee) :: transaction.
+issuance_of(acceptance) :: transaction.
+issuance_of(letter_of_credit) :: transaction.
+
+
+@!{rule101c[textit->'If a bank gave a loan then it is a transaction']} @@{defeasible}
+transaction(by=?Bank,with=?Affiliate,amount=?Amt) :-
+	\(?Bank gave loan to ?Affiliate in the amount=?Amt\).
+
+@!{rule101d[textit->'There is a previous transaction between a bank and an affiliate if the bank gave a previous loan to that affiliate']} @@{defeasible}
+\(There is a previous transaction by ?Bank with ?Affiliate of $?Amt million\) :-
+	\(?Bank made previous loan=?_Id to ?Affiliate in the amount=?Amt\).
+
+@!{rule101e[textit->'There is a transaction by a bank and an affiliate if the bank proposed a loan to that affiliate']} @@{defeasible}
+\(There is a transaction by ?Bank with ?Affiliate of $?Amt million\) :-
+	\(?Bank proposed loan transaction ?_Id to ?Affiliate
+           in the amount of $?Amt million\).
+

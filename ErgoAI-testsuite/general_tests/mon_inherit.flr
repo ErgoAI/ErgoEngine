@@ -1,0 +1,59 @@
+
+/* This demo shows various cases of monotonic inheritance */
+
+?- setsemantics{class_expressions=on}.
+
+
+a[|b  {1..1}=> c|],   a[bs   => e].
+a[|b1  {1..1}=> c1,  bs1 => e1|].
+aa[|b  {1..1}=> d,   bs1 => d2|].
+ssss[|bbb{1..1}=>(), qqq=>()|].
+
+aaa::a.
+aa:aaa.
+s1:ssss.
+s2::ssss.
+
+// b c, b1 c1
+%tst1 :- 
+	writeln('tst1: ')@\plg(),
+	aa[?T{1..1}=>?X],
+	flora_decode_oid_list_as_atom_list_substitute_vars([?T,?X],[?TA,?XA])@\plg(flrdecode),
+	(write(?TA), write(' '), writeln(?XA))@\io, \false.
+%tst1 :- \true.
+
+// b c, b1 c1
+%tst2 :- 
+	writeln('tst2: ')@\plg(),
+	aaa[|?U{1..1}=>?Y|],
+	flora_decode_oid_list_as_atom_list_substitute_vars([?U,?Y],[?UA,?YA])@\plg(flrdecode),
+	(write(?UA), write(' '), writeln(?YA))@\plg, \false.
+%tst2 :- \true.
+
+// bs1 e1
+%tst3 :- 
+	writeln('tst3: ')@\plg(),
+	aa[?SM=>?V], true{\naf(aa[?SM{1..1}=>?V])},
+	isatom{?SM},
+	flora_decode_oid_list_as_atom_list_substitute_vars([?SM,?V],[?SMA,?VA])@\plg(flrdecode),
+	(write(?SMA), write(' '), writeln(?VA))@\plg, \false.
+%tst3 :- \true.
+
+%tst4 :- write('tst4: ')@\plg(),
+	 \if s1[bbb{1..1}=>(), qqq=>()]
+         \then writeln(ok)@\plg()
+         \else writeln(fail)@\plg().
+
+%tst5 :- write('tst5: ')@\plg(),
+	 \if s2[|bbb{1..1}=>(), qqq=>()|]
+         \then writeln(ok)@\plg()
+         \else writeln(fail)@\plg().
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().

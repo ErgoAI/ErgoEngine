@@ -1,0 +1,26 @@
+\udf father(?x) := ?y \if father(?x,?y).
+father(mary,tom).
+father(tom,bob).
+father(john,sam).
+father(sam,alex).
+
+p(?x,?y) : P.
+
+\udf foo := p(a,b).
+\udf foo(1) := p(a,b).
+
+grandfather(?z,?w):-father(father(?z),?w).
+
+%tst1 :- ?x = foo, ?x : P, writeln(tst1=ok)@\plg.
+%tst2 :- foo : P, writeln(tst2=ok)@\plg. 
+%tst3 :- ?x = foo(1), ?x : P, writeln(tst3=ok)@\plg.
+%tst4 :- foo(1) : P, writeln(tst4=ok)@\plg. 
+
+%tst5 :- grandfather(mary,?y), writeln(test5=father(mary)+?y)@\plg.
+%tst6 :- grandfather(john,?y), writeln(test6=father(john)+?y)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6.
+
+%test :- tell(temp)@\plg,
+	 %pretest,
+	 told@\plg.

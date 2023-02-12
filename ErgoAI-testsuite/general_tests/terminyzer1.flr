@@ -1,0 +1,61 @@
+@!{fact1} p(a).
+@!{fact2} q(b).
+@!{fact3} s(f1(b)).
+@!{rule1} r(?X) :- r(?X).
+@!{rule2} p(f1(?X)) :- q(?X).
+@!{rule3} q(f2(?X)) :- p(?X).
+@!{rule4} r(?X) :- p(?X), s(?X).
+
+// generates the logforest trace
+%build_log :-
+        writeln('Building the log...')@\plg,
+	logforest('terminyzer1_xsblog')@\plg(flrterminyzer),
+	setruntime{answersize(100,abort)},
+	//\logforest('terminyzer1_floralog','terminyzer1_xsblog'),
+	catch{r(?_X),?,\true},
+	//\nologforest,
+	//\halt.
+        log_all_forest_flush@\plg(tables),
+	setruntime{answersize(0,abort)},
+        writeln('Done building the log...')@\plg.
+
+?- %build_log.
+
+// the following is regression test
+%test :-
+        /*
+	(File[exists(terminyzer1_xsblog)]@\io -->> File[unlink(terminyzer1_xsblog)]@\io; \true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(terminyzer1_xsblog_flora,terminyzer1_xsblog)]@\io
+	;  File[link(terminyzer1_xsblog_ergo,terminyzer1_xsblog)]@\io
+        ),
+        */
+ 	tell(temp)@\plg(),
+	terminyzer('terminyzer1_xsblog','terminyzer_summary.flr')@\prolog(flrterminyzer),
+	Method[mustDefine(on)]@\sys,
+	terminyzer('terminyzer1_xsblog','terminyzer_summary.flr')@\prolog(flrterminyzer),
+	Method[mustDefine(off)]@\sys,
+	told@\plg(),
+	open(file(temp)@\plg,append,?Port1)@\plg,
+	open(file('terminyzer_summary.flr')@\plg,read,?Port2)@\plg,
+	copyIOport(?Port2,?Port1)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	flora_file_op(unlink,'terminyzer_summary.flr')@\plg(flrporting),
+	flora_file_op(unlink,'terminyzer1_xsblog')@\plg(flrporting).
+
+
+// the following is the auto-repair version which terminates
+/*
+@!{fact1} p(a).
+@!{fact2} q(b).
+@!{fact3} s(f1(b)).
+@!{rule1} r(?X) :- wish(ground(?X))^r(?X).
+@!{rule2} p(f1(?X)) :- wish(ground(?X))^q(?X).
+@!{rule3} q(f2(?X)) :- wish(ground(?X))^p(?X).
+@!{rule4} r(?X) :- wish(ground(?X))^p(?X), s(?X).
+
+?- setruntime{answersize(20,abort)}.
+?- wish(ground(?X))^r(?X).
+?- \halt.
+*/

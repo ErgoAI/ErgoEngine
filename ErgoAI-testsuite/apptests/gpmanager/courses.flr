@@ -1,0 +1,229 @@
+:- use_rule_structure_db.
+/********************************************************************
+**    General Knowledge about Courses  
+********************************************************************/
+
+:- symbol_context{
+      %print_course_instructors/2, args/2
+   }.
+
+#include "modules.flh"
+#include "standard.h"
+
+#define GPMODULE gpm
+
+:- export{%print_course_offerings(?_),
+	  %print_course_instructors(?_),
+	  %print_course_instructors(?_,?_),
+	  ?_[url->?_],
+	  ?_[offerings->?_],
+	  ?_[getOffering(?_)->?_],
+	  ?_[need_grad -> ?_],
+	  ?_[need_ug->?_],
+	  ?_[assigned_ug->?_],
+	  ?_[assigned_grad->?_],
+	  ?_[semester->?],
+	  ?_[name->?],
+	  ?_[instructors->?_],
+	  ?_[%printHeader(?)],
+	  ?_[%printOffering(?)],
+	  ta_deficit(?,?,?,?),
+	  ?:?}.
+
+proficiency_course(cse303).
+proficiency_course(cse304).
+proficiency_course(cse305).
+proficiency_course(cse306).
+proficiency_course(cse307).
+proficiency_course(cse310).
+proficiency_course(cse320).
+proficiency_course(cse328).
+proficiency_course(cse373).
+
+graduate_course(?C) :- str_sub('cse5',?C,0)@\plg().
+graduate_course(?C) :- str_sub('cse6',?C,0)@\plg().
+
+course[|name       ->  '',
+       crosslisted -> {},
+       offerings   -> {},
+       skills      -> '',
+       remarks     -> ''
+|].
+
+?Ofr:offering :- ?_:course[offerings -> ?Ofr].
+
+offering[|semester      ->  fall(none),
+	  instructors   -> {},
+	  name          ->  '',
+	  skills        ->  '',
+	  enrollment    ->  0,
+	  enrolled587   ->  0,
+	  waiting       ->  0,
+	  need_grad     ->  0,
+	  need_ug       ->  0,
+	  assigned_grad -> 0,  // this is derived or inherited
+	  assigned_ug   ->  0,  // this is derived or inherited
+	  ug_tas        -> {},
+          remarks       ->  ''
+|].
+
+?Offering[assigned_grad->?GNum] :-
+	?Offering:offering[semester->?Sem],
+	?Crs[getOffering(?Sem)->?Offering],
+	?GNum = sum{ ?Load | ?_[taught->?_[course->?Crs,semester->?Sem,
+				        \naf lecturer, load->?Load]]@PPLMODULE}.
+?Offering[assigned_ug->?UNum] :-
+	?Offering:offering,
+	?UNum = count{ ?UgTA | ?Offering[ug_tas -> ?UgTA]}.
+
+
+?Course[%printHeader(?OfferingName)] :- 
+	?Course: course[name -> ?Name],
+	\if ?OfferingName == ''
+	\then format('~w    ~w~n', [?Course,?Name])@\plg(format)
+	\else format('~w    ~w: ~w~n',[?Course,?Name,?OfferingName])@\plg(format),
+	?Course[crosslisted->->?CL],
+	\if ?CL \== []
+        \then (
+	    write('    Cross-listed:  ')@\plg(),
+	    %print_crosslisted(?CL)
+	),
+	\if %nonempty(${?Course[url->?U]@ \@})@GPMODULE
+        \then (
+            write('    URL:  ')@\plg(),
+	    writeln(?U)@\plg()
+	).
+
+?Course[%printSkills(?OfferingSkills)] :-
+	?Course[skills->?Skills],
+        write('    Required special skills: ')@\plg(),
+        \if ?Skills == ''
+        \then writeln(?OfferingSkills)@\plg()
+        \else \if ?OfferingSkills == ''
+        \then writeln(?Skills)@\plg()
+        \else
+            format('~w, ~w~n',[?Skills,?OfferingSkills])@\plg(format).
+
+
+// Full instructor list for a course offering
+%print_course_instructors(?Offering) :- 
+	?Offering[instructors ->-> ?InstL],
+	write('    Instructor(s): ')@\plg(),
+	%print_instructor_list(?InstL,full)@GPMODULE,
+	nl@\plg().
+// Print a list of instructor IDs in a course offering according to Option,
+// which can be full/name/id
+%print_course_instructors(?Offering,?Option) :- 
+	?Offering[instructors ->-> ?InstL],
+	%print_instructor_list(?InstL,?Option)@GPMODULE.
+
+
+?Course[%printOffering(?Offering)] :- 
+	%print_course_instructors(?Offering),
+	?Offering[semester    ->   ?Sem,
+		 enrollment  ->   ?E,
+		 enrolled587 ->   ?E587,
+		 waiting     ->   ?W,
+		 need_grad   ->   ?GNeed,
+		 need_ug     ->   ?UNeed,
+		 assigned_grad -> ?GradNum,
+		 assigned_ug ->   ?UGNum,
+	         remarks     ->   ?Rem,
+		 ug_tas      ->-> ?UgTAL
+        ],
+	?GradTArecL = collectset{
+          ?Tchng|
+           ?Stud[taught->?TArecord[course->?Course,semester->?Sem, \naf lecturer]
+	       ]@PPLMODULE,
+	   ?Tchng=?Stud/?TArecord
+        },
+	format('        Enrolled in course: ~w~n', [?E])@\plg(format),
+	\if proficiency_course(?Course)
+        \then
+	    format('        Enrolled in CSE587: ~w~n', [?E587])@\plg(format),
+	fmt_write('        Waiting list:       %d\n    Grad TAs: %.4S / need: %.4S\n',
+	           args(?W,?GradNum,?GNeed))@\io,
+        %printGradTArecList(?GradTArecL),
+	\if (?UNeed > 0; ?UGNum > 0)
+	\then fmt_write('    UG TAs:   %.4S / need: %.4S\n',
+		        args(?UGNum,?UNeed))@\io,
+	ta_counts(undergraduate,?UGCountOld)@GPMODULE,
+	?UGCountNew \is ?UGCountOld+?UGNum,
+	delete{ta_counts(undergraduate,?_)@GPMODULE},
+	insert{ta_counts(undergraduate,?UGCountNew)@GPMODULE},
+	ta_counts(graduate,?GCountOld)@GPMODULE,
+	?GCountNew \is ?GCountOld+?GradNum,
+	delete{ta_counts(graduate,?_)@GPMODULE},
+	insert{ta_counts(graduate,?GCountNew)@GPMODULE},
+	%printUGTAlist(?UgTAL),
+        \if ?Rem \== ''
+        \then format('    Remarks: ~w~n', [?Rem])@\plg(format),
+	nl@\plg(),
+	?GDeficit \is ?GNeed - ?GradNum,
+	?UGDeficit \is ?UNeed - ?UGNum,
+	?Deficit \is ?GDeficit + ?UGDeficit,
+	\if ?Deficit > 0.1
+        \then insert{ta_deficit(?Course,?Offering,?GDeficit,?UGDeficit)}.
+       
+       
+%printUGTAlist([]) :- !.
+%printUGTAlist([?T|?Rest]) :-
+	format('        ~w~n', [?T])@\plg(format),
+	%printUGTAlist(?Rest).
+	
+%printGradTArecList([]) :- !.
+%printGradTArecList([?Stud/?Rec|?Rest]) :-
+	?Stud[last->?L, first->?F, email->?Email]@PPLMODULE,
+	\if (?Rec[load->?Load]@PPLMODULE, ?Load < 1) \then
+           fmt_write_string(?LoadRemark, '%.3S -- ',?Load)@\io
+        \else ?LoadRemark='',
+	\unless (
+	    %nonempty(${?Rec[remarks->?Rem]@PPLMODULE})@GPMODULE,
+	    flora_concat_atoms(['[',?Rem,']'],?Remarks)@\plg(flrporting) // bracketize
+	)
+        \do ?Remarks = '',
+	format('        ~w~w, ~w (~w) ~w~n',
+	          [?LoadRemark,?L,?F,?Email,?Remarks])@\plg(format),
+	%printGradTArecList(?Rest).
+
+%print_crosslisted([]) :- !, nl@\plg().
+%print_crosslisted([?C|?Rest]) :-
+	write(?C)@\io,
+	write(' ')@\plg(),
+	%print_crosslisted(?Rest).
+
+// Lists the courses with their assigned TAs and instructors
+%print_course_offerings(?Sem) :-
+	?CrsL = collectset{?CrsOff|
+                            ?C:course[offerings->?Offer[semester->?Sem]],
+                            ?CrsOff = ?C-?Offer},
+	keysort(?CrsL,?SortedCL)@\plg(),
+	%print_course_offerings_internal(?SortedCL).
+
+%print_course_offerings_internal([]) :- nl@\plg(), !.
+%print_course_offerings_internal([?Crs-?Offering|?Rest]) :-
+	?Offering[name->?OfferingName, skills->?OfferingSkills],
+	?Crs[%printHeader(?OfferingName)],
+	?Crs[%printSkills(?OfferingSkills)],
+	%print_course_instructors(?Offering),
+	nl@\plg(),
+	%print_course_offerings_internal(?Rest).
+
+%print_all_courses :-
+	?CrsL = collectset{?C| ?C:course},
+	sort(?CrsL,?SortedCL)@\plg(),
+	%print_course_list_internal(?SortedCL).
+
+%print_course_list_internal([]) :- nl@\plg(), !.
+%print_course_list_internal([?Crs|?Rest]) :-
+	?Crs[%printHeader('')],
+	?Crs[%printSkills('')],
+	nl@\plg(),
+	%print_course_list_internal(?Rest).
+
+?Course[getOffering(?Semester) -> ?Offering] :-
+	?Course[offerings->?Offering[semester->?Semester]].
+
+
+#include "course_list.flr"
+

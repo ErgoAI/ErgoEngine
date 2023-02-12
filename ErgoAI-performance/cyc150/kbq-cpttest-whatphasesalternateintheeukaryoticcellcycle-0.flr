@@ -1,0 +1,105 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhatPhasesAlternateInTheEukaryoticCellCycle (query 0)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_.28derived_from.29_Biology_Chapter_12_Review
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, genls(TheEukaryoticCellCycle, TheCellCycle)).
+istAsserted(UniversalVocabularyMt, isa(phasesAlternateInCycleType, PartiallyCommutativePredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, transitiveViaArgInverse(phasesAlternateInCycleType, genls, 1)).
+
+// Explicit Background Facts
+istAsserted(BiologyMt, phasesAlternateInCycleType(TheEukaryoticCellCycle, InterphaseOfEukaryoticCellCycle, MitoticPhaseOfCellCycle)).
+istAsserted(UniversalVocabularyMt, commutativeInArgs(phasesAlternateInCycleType, 2, 3)).
+istAsserted(BiologyMt, phasesAlternateInCycleType(TheCellCycle, CellEnlargementEvent, CellDivision)).
+
+// Explicit Background Rules
+backwardSentence(phasesAlternateInCycleType(?SPEC, ?SUB_SIT_1, ?SUB_SIT_2)) :- mtVisible(UniversalVocabularyMt), naf backchainForbidden(phasesAlternateInCycleType), phasesAlternateInCycleType(?SIT, ?SUB_SIT_1, ?SUB_SIT_2), genls(?SPEC, ?SIT).
+backwardSentence(not(genls(?SPEC, ?SIT))) :- mtVisible(UniversalVocabularyMt), naf backchainForbidden(genls), phasesAlternateInCycleType(?SIT, ?SUB_SIT_1, ?SUB_SIT_2), not(phasesAlternateInCycleType(?SPEC, ?SUB_SIT_1, ?SUB_SIT_2)).
+backwardSentence(not(phasesAlternateInCycleType(?SIT, ?SUB_SIT_1, ?SUB_SIT_2))) :- mtVisible(UniversalVocabularyMt), naf backchainForbidden(phasesAlternateInCycleType), genls(?SPEC, ?SIT), not(phasesAlternateInCycleType(?SPEC, ?SUB_SIT_1, ?SUB_SIT_2)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-WhatPhasesAlternateInTheEukaryoticCellCycle 0').
+%pretest :- phasesAlternateInCycleType(TheEukaryoticCellCycle, ?OTHER_PHASE, ?PHASE), %write_results('SUCCESS  : $CPTTest-WhatPhasesAlternateInTheEukaryoticCellCycle 0').
+
+// Debugging
+proof(7283, 0) :- phasesAlternateInCycleType(TheEukaryoticCellCycle, InterphaseOfEukaryoticCellCycle, MitoticPhaseOfCellCycle).
+proof(7283, 1) :- phasesAlternateInCycleType(TheEukaryoticCellCycle, InterphaseOfEukaryoticCellCycle, MitoticPhaseOfCellCycle).
+proof(7283, 2) :- phasesAlternateInCycleType(TheEukaryoticCellCycle, MitoticPhaseOfCellCycle, InterphaseOfEukaryoticCellCycle).
+proof(7283, 3) :- phasesAlternateInCycleType(TheEukaryoticCellCycle, MitoticPhaseOfCellCycle, InterphaseOfEukaryoticCellCycle).
+proof(7283, 4) :- phasesAlternateInCycleType(TheEukaryoticCellCycle, CellEnlargementEvent, CellDivision).
+proof(7283, 5) :- phasesAlternateInCycleType(TheEukaryoticCellCycle, CellEnlargementEvent, CellDivision).
+proof(7283, 6) :- genls(TheEukaryoticCellCycle, TheCellCycle).
+proof(7283, 7) :- genls(TheEukaryoticCellCycle, TheCellCycle).
+proof(7283, 8) :- phasesAlternateInCycleType(TheCellCycle, CellDivision, CellEnlargementEvent).
+proof(7283, 9) :- phasesAlternateInCycleType(TheCellCycle, CellDivision, CellEnlargementEvent).
+proof(7283, 10) :- phasesAlternateInCycleType(TheCellCycle, CellDivision, CellEnlargementEvent).
+proof(7283, 11) :- genls(TheEukaryoticCellCycle, TheCellCycle), phasesAlternateInCycleType(TheCellCycle, CellDivision, CellEnlargementEvent).
+proof(7283, 12) :- phasesAlternateInCycleType(TheEukaryoticCellCycle, CellDivision, CellEnlargementEvent).
+
+proof(7283, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(7283, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(7283, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(7283, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(7283, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(7283, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(7283, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(7283, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(7283, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(7283, 2002) :- admittedArgument(SecondFn(43, MinuteFn(2, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(7283, 2003) :- admittedArgument(SecondFn(43, MinuteFn(2, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(7283, 2004) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(7283, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(7283, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BiologyMt).
+proof(7283, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(7283, 2008) :- genls(TheEukaryoticCellCycle, TheCellCycle).
+proof(7283, 2009) :- isa(phasesAlternateInCycleType, PartiallyCommutativePredicate).
+proof(7283, 2010) :- phasesAlternateInCycleType(TheEukaryoticCellCycle, CellEnlargementEvent, CellDivision). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

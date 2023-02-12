@@ -1,0 +1,50 @@
+
+a[b->c].
+%phase1 :- insertrule{c[d->e] :- a[b->c]},
+	insertrule{c[%d] :- h},
+	insertrule{c[d] :- h},
+	insertrule{%p(s) :- a[b->c]},
+	insertrule{p(s,r) :- a[b->c]}.
+
+%tst1 :- write('tst1: ')@\plg(), ?X[d->e], writeln(?X)@\plg().
+%tst2 :- write('tst2: ')@\plg(), p(?X,?Y), writeln(?X+?Y)@\plg().
+%tst3 :- write('tst3: ')@\plg(), %p(?X), writeln(?X)@\plg().
+
+%phase2 :- deleterule{c[d->e] :- ?_X1},
+	deleterule{c[%d] :- ?_X2},
+	deleterule{c[d] :- ?_X3},
+	deleterule{%p(s) :- ?_X4},
+	deleterule{p(s,r) :- ?_X5}.
+
+%tst4 :- write('tst4: ')@\plg(),
+	\if c[d->e]
+        \then writeln(failed)@\plg()
+        \else writeln(succeeded)@\plg().
+%tst5 :- write('tst5: ')@\plg(),
+	\if c[%d]
+        \then writeln(failed)@\plg()
+        \else writeln(succeeded)@\plg().
+%tst6 :- write('tst6: ')@\plg(),
+	\if c[d]
+        \then writeln(failed)@\plg()
+        \else writeln(succeeded)@\plg().
+%tst7 :- write('tst7: ')@\plg(),
+	\if %p(s)
+        \then writeln(failed)@\plg()
+        \else writeln(succeeded)@\plg().
+%tst8 :- write('tst8: ')@\plg(),
+	\if p(s,r)
+        \then writeln(failed)@\plg()
+        \else writeln(succeeded)@\plg().
+
+%pretest :- %phase1, %tst1, %tst2, %tst3,
+	   %phase2, %tst4, %tst5, %tst6, %tst7, %tst8.
+
+%test :- tell(temp)@\plg(),
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        %pretest,
+        told@\plg().
+
+

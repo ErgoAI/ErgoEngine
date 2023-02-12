@@ -1,0 +1,206 @@
+// Examples of using textit{...} to produce complex textifications.
+
+// To understand these examples, one must understand the textit{...}
+// primitive, including the 4-argument conditional textit.
+
+
+// Example: treat stuff in DSV_MODULE as facts for the purpose of justification
+\trivialJustification(?,${?@DSV_MODULE}).
+
+// goals like x \is y, where x != y.
+textit{?X \is ?Y, '%s = %s', [?X,?Y], ?X \== ?Y}.
+// Ignore goals like x \is x
+textit{?_X \is ?_Y, '\\IGNORE', [], ?_X == ?_Y}.
+
+// textification for ::
+textit{?X :: ?Y,
+        '%s is a kind of %s',
+        [?StrippedX,?StrippedY],
+        strip_prefix_if_needed([?X,?Y],[?StrippedX,?StrippedY])
+        }.
+
+// NAF
+textit{\naf ?X, 'it is false that %s', [?XX], 
+        (
+          flora_rename_vars_meaningfully(?X)@\plg(flrdecode),
+          %textify(?X,?XX)@\why
+        )
+      }.
+
+/*
+// A more advanced treatment of NAF: distinguishes false/true from undefined
+// case of true/false
+textit{?G, 'it is false that exist %s such that %s', [?V,?XX], 
+        (
+          ?G ~ \naf ?X,
+          \+undefined{?G},
+          variables{?X,?V}, ?V !== [], // nonground: has variables
+          !,
+          flora_rename_vars_meaningfully([?V,?X])@\plg(flrdecode),
+          %textify(?X,?XX)@\why
+        )
+      }.
+// case of undefined or ground query
+textit{?G, 'it is false that %s', [?XX], 
+        (
+          ?G ~ \naf ?X,
+          flora_rename_vars_meaningfully(?X)@\plg(flrdecode),
+          %textify(?X,?XX)@\why
+        )
+      }.
+*/
+
+// Time before
+textit{?D1[lessThan(?D2)]@\basetype, 'date/time %s precedes %s',
+        [?D1,?D2]
+      }.
+
+// If-then and if-then-else
+textit{\if ?C \then ?T,
+        'either (%s) and (%s) or not (%s)',
+        [?CT,?TT,?CT],
+        (
+          flora_rename_vars_meaningfully([?C,?T])@\plg(flrdecode),
+          %textify(?C,?CT)@\why, %textify(?T,?TT)@\why
+        )
+      }.
+
+textit{\if ?C \then ?T \else ?E,
+        'either (%s) and (%s) or not (%s), but (%s)',
+        [?CT,?TT,?CT,?ET],
+        (
+          flora_rename_vars_meaningfully([?C,?T,?E])@\plg(flrdecode),
+          %textify(?C,?CT)@\why, %textify(?T,?TT)@\why, %textify(?E,?ET)@\why
+        )
+      }.
+
+
+// aggregates
+textit{fllibsumdistinct(?AggrVar,[],?Cond,?Result)@\plg,
+        '%s is the sum of unique %s''s such that (%s)',
+        [?Result,?AggrVar,?CondT],
+        (
+          flora_rename_vars_meaningfully(?Cond)@\plg(flrdecode),
+          %textify(?Cond,?CondT)@\why
+        )
+      }.
+
+
+textit{fllibavgdistinct(?AggrVar,[],[],?Cond,?Result)@\plg,
+        '%s is the average of unique %s''s such that (%s)',
+        [?Result,?AggrVar,?CondT],
+        (
+          flora_rename_vars_meaningfully(?Cond)@\plg(flrdecode),
+          %textify(?Cond,?CondT)@\why
+        )
+      }.
+
+textit{fllibcountdistinct(?AggrVar,[],[],?Cond,?Result)@\plg,
+        '%s is the number of unique %s''s such that (%s)',
+        [?Result,?AggrVar,?CondT],
+        (
+          flora_rename_vars_meaningfully(?Cond)@\plg(flrdecode),
+          %textify(?Cond,?CondT)@\why
+        )
+      }.
+
+textit{fllibmin(?AggrVar,[],[],?Cond,?Result)@\plg,
+        '%s is the smallest %s such that (%s)',
+        [?Result,?AggrVar,?CondT],
+        (
+          flora_rename_vars_meaningfully(?Cond)@\plg(flrdecode),
+          %textify(?Cond,?CondT)@\why
+        )
+      }.
+
+textit{fllibmax(?AggrVar,[],[],?Cond,?Result)@\plg,
+        '%s is the largest %s such that (%s)',
+        [?Result,?AggrVar,?CondT],
+        (
+          flora_rename_vars_meaningfully(?Cond)@\plg(flrdecode),
+          %textify(?Cond,?CondT)@\why
+        )
+      }.
+
+// aggregates with duplication control
+// need to textify ?_UniqLst.
+textit{fllibsum(?AggrVar,[],?_UniqLst,?Cond,?Result)@\plg,
+        '%s is the sum of %s''s such that (%s)',
+        [?Result,?AggrVar,?CondT],
+        (
+          flora_rename_vars_meaningfully(?Cond)@\plg(flrdecode),
+          %textify(?Cond,?CondT)@\why
+        )
+      }.
+
+textit{fllibavg(?AggrVar,[],?_UniqLst,?Cond,?Result)@\plg,
+        '%s is the average of %s''s such that (%s)',
+        [?Result,?AggrVar,?CondT],
+        (
+          flora_rename_vars_meaningfully(?Cond)@\plg(flrdecode),
+          %textify(?Cond,?CondT)@\why
+        )
+      }.
+
+textit{fllibcount(?AggrVar,[],?_UniqLst,?Cond,?Result)@\plg,
+        '%s is the number of %s''s such that (%s)',
+        [?Result,?AggrVar,?CondT],
+        (
+          flora_rename_vars_meaningfully(?Cond)@\plg(flrdecode),
+          %textify(?Cond,?CondT)@\why
+        )
+      }.
+
+
+/***** Utilities ******/
+
+// strip_prefix_if_needed(+List,-StrippedList)
+strip_prefix_if_needed([],[]) :- !.
+strip_prefix_if_needed([?H|?Tail],[?StrippedH|?StrippedTail]) :-
+        (irisplit{?H,?,?StrippedH,\@}-->>\true
+        ; ?StrippedH=?H
+        ),
+        strip_prefix_if_needed(?Tail,?StrippedTail).
+
+
+/*
+**  %textit_plumbing(#in,-out)
+**     ?in can be bound or unbound; out must be unbound.
+
+** This primitive is used in sophisticated conditional textits like
+
+   textit{?fundTransfer[Roundand#_is_in_a_round_thousand_dollar_amount],
+          'funds transfer %s is in a round thousand dollar amount',
+          [?fundTransfer_0],
+          (%textit_plumbing(?fundTransfer, ?fundTransfer_0))
+   }
+   Here ?fundTransfer usually comes as a HiLog term something(transferId) and
+   "something" must be stripped. The %textit_plumbing primitive takes
+   care of a number of other situations like when ?fundTransfer is unbound.
+
+** Unifies variables and quasi-variables (ie things like '_$VAR'(varname))
+** If ?in is neither a variable nor a quasi-var, assume ?in is a HiLog
+** term. Strips this h-term's functor and returns the arglist.
+** The latter can be customized via %custom_obj_textification(?in,?out)
+** If ?in is a obj:class test or cl::sup test, then execute it.
+*/
+%textit_plumbing(?in,?out) :-
+        // ?in is assumed to be either var, quasivar, or a HiLog term
+        (isvar{?in} -->> ?in = ?out
+        ; is_quasi_var(?in)@\plg(flrauxil) -->> ?in = ?out
+          // ?in is a HiLog term
+        ; %custom_obj_textification(?in,?out) -->> \true
+          // no custom textification
+        ; isatom{?in} -->> ?in = ?out // a quick common case
+        ; ?in = ?(?out) -->> \true  // a quick common case
+        ; ?in =.. [hilog(?)|?out] -->> \true
+        ; ?in ~ ?:? -->> ?in
+        ; ?in ~ ?::? -->> ?in
+        ; sysabort(['Invalid variable binding in conditional textification, ', ?in.show@\show])@\sys
+        ).
+        
+
+
+?- setdisplaymode{explanation}.
+
+?- use_unsorted_explanations@\why.

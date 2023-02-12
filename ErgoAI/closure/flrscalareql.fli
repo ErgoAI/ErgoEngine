@@ -1,0 +1,49 @@
+/*******************************************************************************
+  file: closure/flrscalareql.fli - DEPRECATED
+  				   A template for the scalar axiom trailer
+
+  Author(s): Guizhen Yang
+
+  Contact:   flora-users@lists.sourceforge.net
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+*******************************************************************************/
+
+
+%% this trailer is DEPRECATED since we decided not to infer
+%% equality for scalar attributes
+
+#include "flora_wspredicates.flh"
+
+
+WRAP_DIFFOBJEQL(X,Y,FL_CONTEXT(Caller,_,_)) :-
+	inferred_fd(O,M,X,FL_CONTEXT(Caller,_,_)), inferred_fd(O,M,Y,FL_CONTEXT(Caller,_,_)), X \= Y.
+
+WRAP_DIFFOBJEQL(X,Y,FL_CONTEXT(Caller,_,_)) :-
+	inferred_ifd(O,M,X,FL_CONTEXT(Caller,_,_)), inferred_ifd(O,M,Y,FL_CONTEXT(Caller,_,_)), X \= Y.
+
+WRAP_DIFFOBJEQL(X,Y,FL_CONTEXT(Caller,_,_)) :-
+	WRAP_DIFFOBJEQL(O1,O2,FL_CONTEXT(Caller,_,_)),
+	inferred_fd(O1,M,X,FL_CONTEXT(Caller,_,_)),
+	inferred_fd(O2,M,Y,FL_CONTEXT(Caller,_,_)),
+	X \= Y.
+
+WRAP_DIFFOBJEQL(X,Y,FL_CONTEXT(Caller,_,_)) :-
+	WRAP_DIFFOBJEQL(O1,O2,FL_CONTEXT(Caller,_,_)),
+	inferred_ifd(O1,M,X,FL_CONTEXT(Caller,_,_)),
+	inferred_ifd(O2,M,Y,FL_CONTEXT(Caller,_,_)),
+	X \= Y.

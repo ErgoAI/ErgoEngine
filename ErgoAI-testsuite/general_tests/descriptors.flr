@@ -1,0 +1,150 @@
+:- use_argumentation_theory.
+?- newmodule{foo}.
+?- [descriptors_moo>>moo].
+
+?- Method[mustDefine(off,${ppp7(?)@?})]@\sys.
+
+:- symbol_context{bbb456(?)@?}.
+
+@!{rule1[defeasible,tag->tag1,foo->1,bar->2]} ppp(?X) :- qqq(?X).
+@!{rule2[strict,tag->tag1,foo->1,bar->3]} ppp2(?X) :- qqq(?X).
+@!{rule4[strict,tag->tag2,foo->2,bar->2]} ppp4(?X) :- qqq(?X).
+@!{\@![strict,tag->tag2,foo->2,bar->3]} ppp5(?X) :- qqq(?X).
+@!{\@![strict,tag->tag2,foo->1,bar->2]} ppp7(?X) :- qqq(?X).
+qqq(a).
+
+// this one is here just to make sure it parses. The key element here are the parens around the head in the body
+@!{aaa123} (bbb456).
+@!{aaa124} (bbb456(?)) :- abc.
+@!{aaa125} @@{defeasible} @{ppp} (bbb456(?)) :- abc.
+
+%add1 :- insert{@!{rule3[defeasible,tag->tag2,foo->2,bar->3]} ppp8(?X) :- qqq(?X)}.
+%add2 :- insert{@!{rule33[defeasible,tag->tag1,foo->1,bar->3]} ppp8(?X) :- qqq(?X)}.
+%add3 :- insertrule{@!{\@![defeasible,tag->tag1,foo->1,bar->2]} ppp9(?X) :- qqq(?X)}.
+%add4 :- insertrule{@!{rule11[defeasible,tag->tag1,foo->2,bar->3]} ppp6(?X) :- qqq(?X)}.
+%add5 :- insertrule{@!{rule12[defeasible,tag->tag1,foo->2,bar->1]} ppp6(?X) :- qqq(?X)}.
+
+%addfoo :- 
+	insert{(@!{rule3f[defeasible,tag->tag2,foo->2,bar->3]} ppp8(?X) :- qqq(?X))@foo, qqq(b)@foo},
+	insert{(@!{rule33g[defeasible,tag->tag1,foo->1,bar->3]} ppp8(?X) :- qqq(?X))@foo},
+	insert{(@!{rule33f[defeasible,tag->tag1,foo->1,bar->3]} ppp8(?X) :- qqq(?X))@foo},
+	insertrule{(@!{\@![defeasible,tag->tag1,foo->1,bar->2]} ppp9(?X) :- qqq(?X))@foo},
+	insertrule{(@!{rule11f[defeasible,tag->tag1,foo->2,bar->3]} ppp6(?X) :- qqq(?X))@foo},
+	insertrule{(@!{\@![tag->tag2,foo->2,bar->3]} ppp1(?X) :- qqq(?X))@foo},
+	insertrule{(@!{rule12f[defeasible,tag->tag1,foo->2,bar->1]} ppp6(?X) :- qqq(?X))@foo}.
+
+// this is here just to test the compiler
+?- @!{rule1}.
+
+
+// deletes  rule11
+%del1 :- deleterule{@!{?_X[defeasible,tag->tag1,foo->2,bar->3]} ?_H :- ?}.
+// deletes  rule12
+%del2 :- deleterule{@!{?_X[tag->tag1,foo->2,bar->1]} ?_H :- ?}.
+// deletes ppp9/1
+%del3 :- deleterule{@!{?_X[foo->1,bar->2]} ?_H :- ?}.
+
+// deletes  rule11 in foo
+%delfoo1 :- delete{(@!{?_X[defeasible,tag->tag1,foo->2,bar->3]} ?_H :- ?)@foo}.
+// deletes  rule12 in foo
+%delfoo2 :- deleterule{(@!{?_X[tag->tag1,foo->2,bar->1]} ?_H :- ?)@foo}.
+// deletes ppp9/1 in foo
+%delfoo3 :- deleterule{(@!{?_X[foo->1,bar->2]} ?_H :- ?)@foo}.
+
+%tst1 :- @!{?R[tag->tag1,foo->1]}, write('test1 = ')@\plg, 
+	 writeln(?R)@\plg,
+	 \false.
+%tst1 :- \true.
+%tst2 :- @!{?R[tag->tag2,foo->2,bar->3]}, write('test2 = ')@\plg, 
+	 writeln(?R)@\plg,
+	 \false.
+%tst2 :- \true.
+%tst3 :- //%add1,
+	 @!{?R[tag->tag2,foo->2,bar->3]}, write('test3 = ')@\plg, 
+	 writeln(?R)@\plg,
+	 \false.
+%tst3 :- \true.
+%tst4 :- //%add2, %add3,
+         @!{?R[tag->tag1,foo->1]}, write('test4 = ')@\plg, 
+	 writeln(?R)@\plg,
+	 \false.
+%tst4 :- \true.
+%tst5 :- //%add4, %add5,
+         @!{?R[foo->2,bar->3]}, write('test5 = ')@\plg, 
+	 writeln(?R)@\plg,
+	 \false.
+%tst5 :- \true.
+%tst6 :- @!{?R[foo->2,defeasible,bar->3]}, write('test6 = ')@\plg, 
+	 writeln(?R)@\plg,
+	 \false.
+%tst6 :- \true.
+%tst7 :- ppp6(?), %del1, %del2,
+	 write('test7 = ')@\plg, 
+	 \if ppp6(?) \then writeln(wrong)@\plg \else writeln(ok)@\plg.
+%tst8 :- ppp7(?), ppp9(?), %del3,
+	 write('test8 = ')@\plg, 
+	 \if ((\naf ppp7(?)); ppp9(?))
+         \then writeln(wrong)@\plg \else writeln(ok)@\plg.
+
+%tst9 :- // like test 5
+         @!{?R[tag->tag1,foo->1]@foo}, write('test9 = ')@\plg, 
+	 writeln(?R)@\plg,
+	 \false.
+%tst9 :- \true.
+%tst10 :- // like test 3
+         @!{?R[tag->tag2,foo->2,bar->3]@foo}, write('test10 = ')@\plg, 
+	 writeln(?R)@\plg,
+	 \false.
+%tst10 :- \true.
+%tst11 :- // like test 7
+          ppp6(?)@foo, %delfoo1, %delfoo2,
+	  !,
+	  write('test11 = ')@\plg, 
+	  \if ppp6(?)@foo \then writeln(wrong)@\plg \else writeln(ok)@\plg.
+%tst12 :- // like test 8
+          \naf ppp7(?)@foo, ppp9(?)@foo, %delfoo3,
+	  write('test12 = ')@\plg, 
+	  \if ((\naf ppp7(?)@foo), ppp9(?)@foo)
+	  \then writeln(wrong)@\plg \else writeln(ok)@\plg.
+
+%tst13 :- // like test 3
+         @!{?R[tag->tag2,foo->2,bar->3]@moo}, write('test13 = ')@\plg, 
+	 writeln(?R)@\plg,
+	 \false.
+%tst13 :- \true.
+%tst14 :- // like test 5
+         @!{?R[tag->tag1,foo->1]@moo}, write('test14 = ')@\plg, 
+	 writeln(?R)@\plg,
+	 \false.
+%tst14 :- \true.
+
+%pretest :-
+	%tst1, %tst2,
+	%add1,
+	%tst3,
+	%add2, %add3,
+	%tst4,
+	%add4, %add5,
+	%tst5,
+	%tst6, %tst7, %tst8,
+	/*
+          Due to newmodule{}, below, XSB crashes claiming that we are
+          backtracking over the tables being abolished. This happens
+          only if we run this test immediately after 'makeflora base'
+        */
+	newmodule{bar},    // just to test, if it crashes XSB
+        erasemodule{bar},  // crashes XSB
+	//
+	// foo-tests
+	%addfoo,
+	%tst9, %tst10, %tst11, %tst12,
+	// moo-tests
+	%tst13, %tst14.
+
+%test :- tell(temp)@\plg,
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        told@\plg.
+
+

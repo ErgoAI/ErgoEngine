@@ -1,0 +1,501 @@
+/* File:      flrhooks.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2021.
+**      Coherent Knowledge Systems, LLC, 2018-2021.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_prefix.flh"
+#include "flora_exceptions.flh"
+
+#define MIN_PRIORITY 0
+#define MAX_PRIORITY 10000
+
+#define HOOK_REGISTRY_PRED  FLORA_SYMBOL('hook_registry')
+
+
+:- import
+        flora_abort/1,
+        flora_abort/2
+   from flrporting.
+:- import
+	reverse/2,
+        %%subset/2,
+	member/2,
+	length/2
+   from basics.
+
+:- import flora_backtrace_enabled/0 from flrshell_loop_handler.
+
+:- import flora_module_registry/1 from flrregistry.
+:- import flora_decode_goal_as_atom/2 from flrdecode.
+:- import flora_decode_predicate/6 from flrwrapper.
+
+:- import
+        xsb_error_get_message/2
+   from error_handler.
+
+:- export
+	flora_add_hook/5,
+	flora_delete_hook/4,
+	flora_delete_all_hooks/3,
+	flora_delete_all_hooks/1,
+	flora_call_hooks/6,
+	flora_show_all_hooks/0.  %% for debugging
+	
+
+:- dynamic
+	%% Arg1: Action (that triggers the hook)
+        %% Arg2: Module where hook is defined (may not always be bound)
+	%% Arg3: before hook list
+        %% Arg4: after hook list
+	%% Hook list has the form [Priority-Hook,Priority-Hook,...]
+	HOOK_REGISTRY_PRED/4.
+
+/****************************************************************************
+** A regular before/after hook is a predicate that must have at
+** least 3 arguments.
+** Arg1 - bound to Module in which the hook ** is being called
+** Arg2 - is used to pass parameters into the hook.
+**        If the hook has no input parameters, leaves this argument unbound.
+** Arg3 - output from the hooks
+** Arg4 - in around-hooks only: used to pass bindings from the before-part
+**        of the hook to the after-part.
+** An around-hook is a pair of hooks: (before-hook, after-hook).
+** These hooks are predicates that must have at least 4 arguments.
+****************************************************************************/
+
+%% List of actions for which hooks can be defined
+%% Hooks are all Prolog predicates, so this feature is not exposed to the user.
+action_list(INSERTFACT).
+action_list(DELETEFACT).
+action_list(FINDFACT).
+
+action_list(INSERTRULE).    %% also for inserting latent queries
+action_list(DELETERULE).    %% also for deleting latent queries
+
+action_list(EXITFLORA).
+action_list(LOADTOMODULE).
+action_list(QUERYHOOK).      %% before/after each query
+action_list(ALERTHOOK).      %% before/after every goal call; checkd
+                             %% for alerts on that goal
+action_list(CONSTRAINTHOOK). %% called after each update transaction
+
+hook_type(before).
+hook_type(after).
+hook_type(around).
+hook_type(instead).
+
+
+/*
+  flora_add_hook(+Module,+Action,+HookType,+Priority,+Hook)
+
+  Insert Hook to be called before or after Action with given Priority.
+  Higher priority value means that the hook will be closer to the head of
+  the list of hooks and thus will be executed earlier.
+  Module - the module to which the hook is attached.
+
+   A hook is a HiLog or Prolog predicate pred(?Module,?InputVar,...)
+   MUST have unbound arguments 1 & 2 & 3.
+   An around hook MUST have arguments 1,2,3,4 unbound
+
+   Arg1 is bound to argument #1 in flora_call_hooks.
+         It is the Module where the hook belongs or unbound var (=all modules)
+   Arg2 to argument #3 is flora_call_hooks. It is input argument to the hook.
+   Arg3 - result passed from the hooks back to the caller.
+          Binds Argument 5 of flora_call_hooks/6
+   Arg4 - in an around-hook only:  used internally to pass info between
+          the before-part of the hook and the after-part.
+*/
+flora_add_hook(Module,Action,HookType,Priority,Hook) :-
+	check_parameters(Module,Action,HookType,Priority),
+	check_hook(Hook,HookType),
+	fail.
+
+flora_add_hook(Module,Action,before,Priority,Hook) :-
+	wrap_hook(Hook,before,WrappedHook),
+	(HOOK_REGISTRY_PRED(Action,Module,BeforeList,AfterList) ->
+	    (member(_-WrappedHook,BeforeList) -> 
+		flora_decode_goal_as_atom(Hook,PrintableHook),
+		flora_abort(['before-hook ', PrintableHook,
+                             ' for action ', Action,
+                             ' already exists in Module ', Module],
+			    FLORA_ABORT_NOTRACE)
+	    ; true
+	    ),
+	    keysort([Priority-WrappedHook|BeforeList],AscendList),
+	    reverse(AscendList,NewBeforeList),
+	    NewAfterList = AfterList
+	;
+	    NewBeforeList = [Priority-WrappedHook],
+	    NewAfterList  = []
+	),
+	retractall(HOOK_REGISTRY_PRED(Action,Module,_,_)),
+	assert(HOOK_REGISTRY_PRED(Action,Module,NewBeforeList,NewAfterList)).
+
+flora_add_hook(Module,Action,after,Priority,Hook) :-
+	wrap_hook(Hook,after,WrappedHook),
+	(HOOK_REGISTRY_PRED(Action,Module,BeforeList,AfterList)
+	->
+	    (member(_-WrappedHook,AfterList) -> 
+		flora_decode_goal_as_atom(Hook,PrintableHook),
+		flora_abort(['after-hook ', PrintableHook,
+                             ' for action ', Action,
+                             ' already exists in module ', Module],
+			    FLORA_ABORT_NOTRACE)
+	    ; true
+	    ),
+	    keysort([Priority-WrappedHook|AfterList],AscendList),
+	    reverse(AscendList,NewAfterList),
+	    NewBeforeList = BeforeList
+	; 
+	    NewBeforeList = [],
+	    NewAfterList  = [Priority-WrappedHook]
+	),
+	retractall(HOOK_REGISTRY_PRED(Action,Module,_,_)),
+	assert(HOOK_REGISTRY_PRED(Action,Module,NewBeforeList,NewAfterList)).
+
+%% Argument #4 in both parts of the around-hook must be an unbound
+%% variable through which we pass parameters from before-part to the
+%% after-part of the hook.
+flora_add_hook(Module,Action,around,Priority,(BeforeHook,AfterHook)) :-
+	%% connect AroundLink of before-hook and after-hook
+	get_hook_args(BeforeHook,[_,_,_,AroundLink|_]),
+	get_hook_args(AfterHook,[_,_,_,AroundLink|_]),
+	wrap_hook(BeforeHook,around,BeforeHookWrapped),
+	wrap_hook(AfterHook,around,AfterHookWrapped),
+	(HOOK_REGISTRY_PRED(Action,Module,BeforeList,AfterList)
+	->
+	    (member(_-BeforeHookWrapped,BeforeList),
+		member(_-AfterHookWrapped,AfterList) -> 
+		flora_decode_goal_as_atom(BeforeHook,BeforePrintableHook),
+		flora_decode_goal_as_atom(AfterHook,AfterPrintableHook),
+		flora_abort(['the around-hook (',
+			     BeforePrintableHook, ',', AfterPrintableHook,
+			     ') for action ', Action,
+                             ' already exists in module ', Module],
+			    FLORA_ABORT_NOTRACE)
+	    ; true
+	    ),
+	    keysort([Priority-BeforeHookWrapped|BeforeList],AscendBeforeList),
+	    keysort([Priority-AfterHookWrapped|AfterList],AscendAfterList),
+	    reverse(AscendBeforeList,NewBeforeList),
+	    reverse(AscendAfterList,NewAfterList)
+	; 
+	    NewBeforeList = [Priority-BeforeHookWrapped],
+	    NewAfterList  = [Priority-AfterHookWrapped]
+	),
+	retractall(HOOK_REGISTRY_PRED(Action,Module,_,_)),
+	assert(HOOK_REGISTRY_PRED(Action,Module,NewBeforeList,NewAfterList)).
+
+
+check_parameters(Module,Action,HookType,Priority) :-
+	(\+ flora_module_registry(Module) ->
+	    flora_abort(['attempt to insert ', HookType,
+			 ' hook for action ', Action,
+			 ' for nonexistent module ', Module],
+			FLORA_ABORT_NOTRACE)
+	; \+ hook_type(HookType) ->
+	    flora_abort(['attempt to insert a hook of unknown type ',
+			 HookType, ': must be before/after/around'],
+			FLORA_ABORT_NOTRACE)
+	; \+ action_list(Action) ->
+	    flora_abort(['attempt to insert ', HookType,
+			 ' hook for action ', Action, 
+			 ' that does not support hooks'],
+			FLORA_ABORT_NOTRACE)
+	; (\+ integer(Priority) ; Priority > MAX_PRIORITY ; Priority < MIN_PRIORITY) -> 
+	    flora_abort(['hook priority must be an integer in the interval [',
+			 MIN_PRIORITY, '..', MAX_PRIORITY,']'],
+			FLORA_ABORT_NOTRACE)
+	; true
+	).
+
+check_hook(Hook,around) :-
+	!,
+	( Hook = (BeforeHook,AfterHook), !
+	; flora_decode_goal_as_atom(Hook,PrintableHook),
+	    flora_abort(['invalid around hook ', PrintableHook,
+			 ': must have the form (BeforeHook,AfterHook)'],
+			FLORA_ABORT_NOTRACE)
+	),
+	get_and_check_hook_args(BeforeHook,around,BeforeArgList),
+	get_and_check_hook_args(AfterHook,around,AfterArgList),
+	BeforeArgList = [Arg1Before,Arg2Before,Arg3Before,Arg4Before|_],
+	AfterArgList  = [Arg1After,Arg2After,Arg3After,Arg4After|_],
+	( var(Arg1Before), var(Arg1After),  Arg1Before\==Arg1After,
+	  var(Arg2Before), var(Arg2After), Arg2Before\==Arg2After,
+	  var(Arg3Before), var(Arg3After), Arg3Before\==Arg3After,
+	  var(Arg4Before), var(Arg4After), Arg4Before\==Arg4After
+        -> true
+	; flora_decode_goal_as_atom(Hook,PrintableHook),
+	    flora_abort(['invalid around hook ', PrintableHook,
+			 ': must have the form (BeforeHook,AfterHook) where both parts are predicates with distinct unbound variables in the first four arguments.'],
+			FLORA_ABORT_NOTRACE)
+	).
+
+%% A hook is a HiLog or Prolog predicate pred(?Module,?InputVar,...) with
+%% unbound 1st & 2nd argument. An around hook must have arguments 1,2,3 unbound
+check_hook(Hook,HookType) :-
+	get_and_check_hook_args(Hook,HookType,ArgList),
+	ArgList = [Arg1,Arg2,Arg3|_], % here we are dealing with before/after hooks
+	( var(Arg1), var(Arg2), var(Arg3) -> true
+	; flora_decode_goal_as_atom(Hook,PrintableHook),
+	    flora_abort(['invalid ', HookType, ' hook ', PrintableHook,
+			 ': must be a predicate with distinct unbound variables in the first three arguments'],
+			FLORA_ABORT_NOTRACE)
+	).
+
+%% Takes into account whether the hook is Prolog or HiLog
+%% Checks that there are enough arguments (2 for before/after, 3 for around)
+get_and_check_hook_args(Hook,HookType,ArgList) :-
+	flora_decode_goal_as_atom(Hook,PrintableHook),
+	(get_hook_args(Hook,ArgList) -> true
+	;
+	    flora_abort(['invalid ', HookType, ' hook ', PrintableHook,
+			 ': must be a Prolog or a HiLog predicate '],
+			FLORA_ABORT_NOTRACE)
+	),
+	((HookType=before ; HookType=after), length(ArgList,Len), Len<3  ->
+	    flora_abort(['invalid ', HookType, ' hook ', PrintableHook,
+			 ': must be a predicate with at least three arguments'],
+			FLORA_ABORT_NOTRACE)
+	; HookType=around, length(ArgList,Len), Len<4  ->
+	    flora_abort(['invalid ', HookType, ' hook ', PrintableHook,
+			 ': must be a predicate with at least four arguments'],
+			FLORA_ABORT_NOTRACE)
+	;
+	    true
+	).
+
+get_hook_args(Hook,ArgList) :-
+	flora_decode_predicate(Hook,Type,_,_,_,ArgList),
+	(Type = (prolog) ; Type = (hilog)),
+        !.
+
+
+%% The Hook is wrapped in before(...), after(...), or around(...)
+wrap_hook(Hook,Wrapper,WrappedHook) :-
+	(Wrapper == before -> WrappedHook = before(Hook)
+	; Wrapper == after -> WrappedHook = after(Hook)
+	; WrappedHook = around(Hook)
+	).
+
+%% A hook can be before(H), after(H), or around(H)
+unwrap_hook(WrappedHook, UnwrappedHook) :-
+	arg(1,WrappedHook,UnwrappedHook).
+
+
+/*
+  flora_delete_hook(+Module,+Action,+HookType,+Hook)
+
+  Delete Hook from the list of before/after/around hooks for Action.
+*/
+flora_delete_hook(Module,Action,HookType,Hook) :-
+	%% MIN_PRIORITY is chosen arbitrarily - any number will do
+	check_parameters(Module,Action,HookType,MIN_PRIORITY),
+	check_hook(Hook,HookType),
+	( HOOK_REGISTRY_PRED(Action,Module,BeforeHooks,AfterHooks) ->
+	  retractall(HOOK_REGISTRY_PRED(Action,Module,_,_)),
+	  (HookType == before ->
+	      wrap_hook(Hook,before,WrappedHook),
+	      remove_hook_from_list(WrappedHook,BeforeHooks,NewBeforeHooks),
+	      NewAfterHooks = AfterHooks
+	  ; HookType == after ->
+	      wrap_hook(Hook,after,WrappedHook),
+	      remove_hook_from_list(WrappedHook,AfterHooks,NewAfterHooks),
+	      NewBeforeHooks = BeforeHooks
+	  ; HookType == around ->
+	      Hook = (Before,After),
+	      wrap_hook(Before,around,WrappedBefore),
+	      wrap_hook(After,around,WrappedAfter),
+	      remove_hook_from_list(WrappedBefore,BeforeHooks,NewBeforeHooks),
+	      remove_hook_from_list(WrappedAfter,AfterHooks,NewAfterHooks)
+	  )
+	%% no registry entry
+	;   NewBeforeHooks = [], NewAfterHooks = []
+	),
+	assert(HOOK_REGISTRY_PRED(Action,Module,NewBeforeHooks,NewAfterHooks)).
+
+
+remove_hook_from_list(_Hook,[],[]).
+remove_hook_from_list(Hook,[_-Hook|HookList],HookList) :- !.
+remove_hook_from_list(Hook,[Pair|Rest1],[Pair|Rest2]) :-
+	remove_hook_from_list(Hook,Rest1,Rest2).
+
+/***************************************************
+**  flora_delete_all_hooks(+Module,+Action,+HookType)
+**
+**  Delete all before/after hooks for Action.
+****************************************************/
+flora_delete_all_hooks(Module,Action,HookType) :-
+	check_parameters(Module,Action,HookType,MIN_PRIORITY),
+	fail.
+flora_delete_all_hooks(Module,Action,_HookType) :-
+	\+ HOOK_REGISTRY_PRED(Action,Module,_,_),
+	!.
+flora_delete_all_hooks(Module,Action,HookType) :-
+	HOOK_REGISTRY_PRED(Action,Module,BeforeHooks,AfterHooks),
+	retractall(HOOK_REGISTRY_PRED(Action,Module,_,_)),
+	(HookType == before -> 
+	    remove_all(before(_),BeforeHooks,NewBeforeHooks),
+	    NewAfterHooks = AfterHooks
+	; HookType == after -> 
+	    remove_all(after(_),AfterHooks,NewAfterHooks),
+	    NewBeforeHooks = BeforeHooks
+	; HookType == around -> 
+	    remove_all(before(_),BeforeHooks,NewBeforeHooks),
+	    remove_all(after(_),AfterHooks,NewAfterHooks)
+	),
+	assert(HOOK_REGISTRY_PRED(Action,Module,NewBeforeHooks,NewAfterHooks)).
+
+
+remove_all(_Hook,[],[]).
+remove_all(Hook,[_-Hook|HookList],NewHookList) :-
+	!,
+	remove_all(Hook,HookList,NewHookList).
+remove_all(Hook,[H|HookList],[H|NewHookList]) :-
+	remove_all(Hook,HookList,NewHookList).
+
+/***************************************************
+**  flora_delete_all_hooks(+Module)
+**
+**  Delete all hooks for Module
+****************************************************/
+flora_delete_all_hooks(Module) :-
+	retractall(HOOK_REGISTRY_PRED(_Action,Module,_,_)).
+
+
+/*
+  flora_call_hooks(+Module,+Action,+Arg,+HookType,-ResultFromHooks,-AroundHookLink)
+
+  Call all before/after hooks for Action according to their priority.
+  The higher priority number means that that hook will be called earlier.
+  Arg is the parameter that will be passed to the hook. There is always only one
+  parameter (but it can be a complex term).
+
+  ResultFromHooks - the result returned from hooks. May be returned unbound
+  AroundHookLink  - used (reserved) only for around hooks for passing info
+                    from the before-part of the hook to the after-part.
+  Note: an around-hook has a before- and an after-part.
+*/
+flora_call_hooks(Module,Action,_Arg,_HookType,_,_) :-
+	\+ HOOK_REGISTRY_PRED(Action,Module,_,_),
+	!.
+flora_call_hooks(Module,Action,InputArg,HookType,ResultFromHooks,AroundLinkList) :-
+	HOOK_REGISTRY_PRED(Action,Module,BeforeList,AfterList),
+        /*
+        (var(Before) -> true
+        ; subset(Before,BeforeList)
+        ),
+        !,   %% precaution to prevent backtracking - probably unnecessary
+        (var(After) -> true
+        ; subset(After,AfterList)
+        ),
+        */
+        !,   %% precaution to prevent backtracking - probably unnecessary
+	(HookType == before -> HookList = BeforeList
+	; HookType == after -> HookList = AfterList
+	),
+	call_hooklist(HookList,Module,InputArg,Action,HookType,ResultFromHooks,AroundLinkList).
+
+call_hooklist([],_Module,_Arg,_Action,_HookType,_ResultFromHooks,_).
+call_hooklist([_Priority-Hook|HookList],Module,InputArg,Action,HookType,ResultFromHooks,AroundLinkList) :-
+        (Hook = around(_) ->
+            AroundLinkList = [AroundLink|AroundLinkListRest],
+            call_one_hook(Hook,Module,InputArg,Action,HookType,ResultFromHooks,AroundLink)
+        ; AroundLinkList = AroundLinkListRest,
+            call_one_hook(Hook,Module,InputArg,Action,HookType,ResultFromHooks,_)
+        ),
+	call_hooklist(HookList,Module,InputArg,Action,HookType,ResultFromHooks,AroundLinkListRest).
+
+
+%% Call one hook with args. Hook MUST be a HiLog predicate with
+%% unbound arguments 1,2,3.
+%% An around-hook must have arguments 1,2,3,4 unbound.
+%%
+%% Arg1 - bound to Arg1 of flora_call_hooks.
+%%        It must be the module of the hook or be unbound (=all modules)
+%% Arg2 - gets bound to Arg #3 is flora_call_hooks/6, the input arg of the hook
+%% Arg3 - return argument from hooks. Binds Arg5 of flora_call_hooks/6
+%% Arg4 - in around-hooks only: the around-hook link
+%%
+%% Hooks, if they succeed, they must succeed deterministically unless
+%% an error happens. Or they can fail.
+%% But call_one_hook/7 always suceeds regardless of whether some hooks
+%% succeed or fail.
+call_one_hook(Hook,Module,InputArg,Action,HookType,ResultFromHooks,AroundLink) :-
+	unwrap_hook(Hook,UnwrappedHook),
+	%% bind the hook's arguments:
+        %%      arg#1 to Module, arg#2 to InputArg, arg#3 to ResultFromHooks
+        (Hook = around(_) ->
+            get_hook_args(UnwrappedHook,[Module,InputArg,ResultFromHooks,AroundLink|_])
+	; get_hook_args(UnwrappedHook,[Module,InputArg,ResultFromHooks|_])
+        ),
+	!,
+	( catch(call(UnwrappedHook),
+		Exception,
+		hook_error_handler(Exception,Action,HookType,UnwrappedHook))
+        -> true
+	;  true
+	).
+
+
+hook_error_handler(Exception,Action,HookType,Hook) :-
+	flora_decode_goal_as_atom(Hook,PrintableHook),
+	(Exception = FLORA_ABORT_NOTRACE(FLORA_DB_EXCEPTION(Msg),_Trace) -> true
+	; Exception = FLORA_ABORT_NOTRACE(Msg,_Trace) -> true
+	; xsb_error_get_message(Exception,Msg) -> true
+        ; Msg = Exception
+	),
+        (flora_backtrace_enabled ->
+            flora_abort(['problem executing the `', Action, ''' ',
+                        HookType, '-hook\n\t\t', PrintableHook, ': ', Msg])
+	; flora_abort(['problem executing the `', Action, ''' ',
+                      HookType, '-hook\n\t\t', PrintableHook, ': ', Msg],
+                      FLORA_ABORT_NOTRACE)
+        ).
+
+
+%% debugging
+flora_show_all_hooks :-
+	PRINTLN('Flora hooks:'),
+	show_all_hooks1.
+show_all_hooks1 :-
+	HOOK_REGISTRY_PRED(Action,Module,Before,_),
+	PRINT('    before hooks in module '),
+	PRINT(Module), PRINT(' for action '), PRINT(Action), PRINT(': '),
+	flora_decode_goal_as_atom(Before,PrintableBefore),
+	PRINTLN(PrintableBefore),
+	fail.
+show_all_hooks1 :-
+	HOOK_REGISTRY_PRED(Action,Module,_,After),
+	PRINT('    after hooks in module '),
+	PRINT(Module), PRINT(' for action '), PRINT(Action), PRINT(': '),
+	flora_decode_goal_as_atom(After,PrintableAfter),
+	PRINTLN(PrintableAfter),
+	fail.
+show_all_hooks1.

@@ -1,0 +1,37 @@
+/* This demo uses information about the employee class from module2
+** and the two pieces of info get evaluated as one.
+** FLORA shell command line to envoke this program:
+** ?- [module1 >> module1].
+*/
+
+
+john:employee.
+
+john[salary(1990) -> 20].
+john[salary(1991) -> 40].
+john[salary(1992) -> 60].
+john[salary(1993) -> 70].
+john[salary(1994) -> 70].
+john[salary(1995) -> 80].
+john[salary(1996) -> 70].
+john[salary(1997) -> 50].
+john[salary(1998) -> 80].
+
+?- nl@\plg,writeln('Loading module2 ...')@\plg, [module2 >> module2].
+
+?- nl@\plg,write('Max John''s salary:')@\plg, ?Z = max{?X|john[salary(?Year)->?X]}.
+
+?- nl@\plg,write('Max John''s salary before 1996:')@\plg, 
+   ?Z = max{?X|john[salary(?Year) ->?X], ?Year < 1996}.
+
+?- nl@\plg,write('Max Mary''s salary:')@\plg, ?Z = max{?X|mary[salary(?Year)->?X] @ module2}.
+
+?- nl@\plg,write('Number of years when John''s salary was less than max of the previous years:')@\plg,
+   ?Z=count{?Year|john.salary(?Year) < max{?X|john[salary(?Y2)->?X], ?Y2<?Year} }.
+
+?- nl@\plg,write('Number of years when John earned less than Mary:')@\plg,
+   ?Z=count{?Year|john.salary(?Year) < mary.salary(?Year) @ module2}.
+
+?- nl@\plg,write('Avg salary per person:')@\plg,
+   ?Z= avg{?X[?Who]|?Who[salary(?Year)->?X]; ?Who[salary(?Year)->?X] @ module2}.
+

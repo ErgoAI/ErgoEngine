@@ -1,0 +1,34 @@
+#include "standard.h"
+
+%pretest :-
+	set_test_mode(cranial)@\plg(flrtesting),
+	(compile{cranial_data} -->> \true
+        ; \true
+        ).
+/*
+	flora_read_then_parse_file('cranial_data.flr',?_X,?_Y)@\plg(flrutils),
+	(flora_running_as(flora2)@\plg(flrporting) -->> \true
+	; to_Cranial_list(?_X,?_Heads,?_H2Bs)@\plg(flrparser),
+	  flwrite_cranial(?_Heads,?_H2Bs)@\plg(flrparser)
+        ).
+*/
+
+
+%test :-
+	(File[exists(cranial_old)]@\io -->> File[unlink(cranial_old)]@\io;\true),
+	(flora_running_as(flora2)@\plg(flrporting) -->>
+	    File[link(cranial_flora_old,cranial_old)]@\io
+	;  File[link(cranial_ergo_old,cranial_old)]@\io
+        ),
+	file_reopen(temp1,w,STDERR,?_)@\plg(file_io),
+	file_reopen(temp2,w,STDWARN,?_)@\plg(file_io),
+	tell(temp)@\plg(),
+        %pretest,
+        told@\plg(),
+	{STDWARN,STDERR}[close]@\io,
+	temp[open(append,?Port0)]@\io,
+	temp1[open(read,?Port1)]@\io,
+	temp2[open(read,?Port2)]@\io,
+	copyIOport({?Port1,?Port2},?Port0)@\plg(file_io),
+	{?Port0,?Port1,?Port2}[close]@\io,
+	File[unlink({temp1,temp2})]@\io.

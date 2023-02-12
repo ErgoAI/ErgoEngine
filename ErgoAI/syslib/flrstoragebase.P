@@ -1,0 +1,448 @@
+/* File:      flrstoragebase.P - access to base facts
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2020.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+%% This file exists in order to isolate Flora's access to base facts
+%% and make it possible to easily switch the access methods
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "trie_defs.h"
+
+:- export
+	flora_adaptive_assert/1,
+	flora_adaptive_retract/1,
+	flora_db_insert_base/2,
+	flora_db_insert_base_fast/2, %% for loading of facts only
+	flora_db_delete_base/2,
+	flora_db_insert_base_bt/2,
+	flora_db_delete_base_bt/2,
+	flora_db_find_base/2,
+	flora_db_find_base/3,
+	flora_db_delete_all/1,
+	flora_new_db_storage/1,
+	flora_db_commit/1,
+	flora_db_reclaim_space/1,
+	flora_storage_fast_insert_fact/3,
+	flora_storage_find_fact/2,
+	flora_storage_find_fact/3.
+
+:- import
+	incr_assert/1,
+	incr_assert/3,
+	%%incr_retractall/1,
+	incr_retract/1
+   from increval.
+:- import predicate_property/2 from curr_sym.
+:- import assert/3 from assert.
+
+:- import
+	storage_insert_fact_bt/5,
+	storage_insert_fact/3,
+	storage_delete_fact_bt/5,
+	storage_delete_fact/3,
+	incr_storage_insert_fact_bt/3,
+	incr_storage_insert_fact/3,
+	incr_storage_delete_fact_bt/3,
+	incr_storage_delete_fact/3
+   from storage.
+:- import
+	storage_find_fact/2,
+	storage_find_fact/3,
+	storage_reclaim_space/1,
+	storage_delete_all/1,
+	storage_handle/4,
+	storage_commit/1
+   from storage.
+
+:- import trie_intern_deterministic/4 from intern.
+
+:- import
+	flora_refresh_tables/1
+   from flrtables.
+
+:- import flora_abort/1 from flrporting.
+
+:- import flora_call_hooks/6 from flrhooks.
+
+:- import
+	flora_storage_module/2,
+	flora_is_fld_storage/1,
+	flora_is_fdb_storage/1
+   from flrwrapper.
+
+:- import
+	flora_trailer_registry/2,
+	flora_module_registry/2,
+	flora_module_registry/3
+   from flrregistry.
+
+:- import
+	flora_increment_update_counter/0
+   from flrupdatecounter.
+
+:- import
+	flora_query_permitted_during_pause/0
+   from usermod.
+
+
+%% Generalize the last argument before inserting/querying the database exported
+flora_db_insert_base(StorageName,Call) :-
+	generalize_fact_context(Call),
+	flora_storage_module(StorageName,Module),
+	%% Hooks get Call as an argument.
+	%% Call is used by around-hooks to pass info from
+	%% before hooks to after hooks
+	call_if_fdb_storage(StorageName,
+			    flora_call_hooks(Module,INSERTFACT,Call,before,_ResultFromHooks,AroundHookLink)),
+	flora_storage_insert_fact(StorageName,Call,_ResultFlag),
+	(flora_module_registry(Module,FL_CHANGED) -> true
+	; flora_is_fld_storage(StorageName) -> true
+	; retractall(flora_module_registry(Module,_,_)),
+	    assert(flora_module_registry(Module,FL_CHANGED,'NULL'()))
+	),
+	call_if_fdb_storage(StorageName,
+			    flora_call_hooks(Module,INSERTFACT,Call,after,_ResultFromHooks,AroundHookLink)).
+
+%% exported
+/*
+   Logic for interacting with DB interface:
+      delete from database is in the after-hook
+      If Call is in memory or in DB:
+          Since we are calling flora_db_delete_base, we must have queried
+	    Call before and the result was true. So, we first delete
+	    from memory and then the afterhook deletes from DB, if any.
+      If Call is not in memory or in DB, we don't even get here.
+          This is because flora_db_delete_base is called only after
+	  we queried that Call is true. (Such a query will also check the DB.)
+*/
+flora_db_delete_base(StorageName,Call) :-
+	generalize_fact_context(Call),
+	flora_storage_module(StorageName,Module),
+	call_if_fdb_storage(StorageName,
+			    flora_call_hooks(Module,DELETEFACT,Call,before,_ResultFromHooks,AroundHookLink)),
+	%%may or may not be present in main memory.
+	flora_storage_delete_fact(StorageName,Call,_ResultFlag),
+	(flora_module_registry(Module,FL_CHANGED) -> true
+	; flora_is_fld_storage(StorageName) -> true
+	; retractall(flora_module_registry(Module,_,_)),
+	    assert(flora_module_registry(Module,FL_CHANGED,'NULL'()))
+	),
+	call_if_fdb_storage(StorageName,
+			    flora_call_hooks(Module,DELETEFACT,Call,after,_ResultFromHooks,AroundHookLink)).
+
+%% exported
+flora_db_insert_base_bt(StorageName,Call) :-
+	generalize_fact_context(Call),
+	flora_storage_module(StorageName,Module),
+	call_if_fdb_storage(StorageName,
+			    flora_call_hooks(Module,INSERTFACT,Call,before,_ResultFromHooks,AroundHookLink)),
+	flora_storage_insert_fact_bt(StorageName,Call,_ResultFlag),
+	(flora_module_registry(Module,FL_CHANGED) -> true
+	; flora_is_fld_storage(StorageName) -> true
+	; retractall(flora_module_registry(Module,_,_)),
+	    assert(flora_module_registry(Module,FL_CHANGED,'NULL'()))
+	),
+	call_if_fdb_storage(StorageName,
+			    flora_call_hooks(Module,INSERTFACT,Call,after,_ResultFromHooks,AroundHookLink)).
+
+%% exported
+flora_db_delete_base_bt(StorageName,Call) :-
+	generalize_fact_context(Call),
+	flora_storage_module(StorageName,Module),
+	call_if_fdb_storage(StorageName,
+			    flora_call_hooks(Module,DELETEFACT,Call,before,_ResultFromHooks,AroundHookLink)),
+	flora_storage_delete_fact_bt(StorageName,Call,_ResultFlag),
+	(flora_module_registry(Module,FL_CHANGED) -> true
+	; flora_is_fld_storage(StorageName) -> true
+	; retractall(flora_module_registry(Module,_,_)),
+	    assert(flora_module_registry(Module,FL_CHANGED,'NULL'()))
+	),
+	call_if_fdb_storage(StorageName,
+			    flora_call_hooks(Module,DELETEFACT,Call,after,_ResultFromHooks,AroundHookLink)).
+
+
+%% Used to search database of facts
+%% exported
+flora_db_find_base(StorageName,Call) :-
+	generalize_fact_context(Call),
+	flora_storage_module(StorageName,Module),
+	call_if_fdb_storage(StorageName,
+			    flora_call_hooks(Module,FINDFACT,Call,before,_ResultFromHooks,AroundHookLink)),
+	flora_storage_find_fact(StorageName,Call),
+	call_if_fdb_storage(StorageName,
+			    flora_call_hooks(Module,FINDFACT,Call,after,_ResultFromHooks,AroundHookLink)).
+
+%% Like flora_db_find_base/2, but also returns the actual stored fact.
+%% StoredFact may be different from Call.
+flora_db_find_base(StorageName,Call,StoredFact) :-
+	generalize_fact_context(Call),
+	flora_storage_module(StorageName,Module),
+	call_if_fdb_storage(StorageName,
+			    flora_call_hooks(Module,FINDFACT,Call,before,_ResultFromHooks,AroundHookLink)),
+	flora_storage_find_fact(StorageName,Call,StoredFact),
+	call_if_fdb_storage(StorageName,
+			    flora_call_hooks(Module,FINDFACT,Call,after,_ResultFromHooks,AroundHookLink)).
+
+
+/***** Backtrackable insert ***********/
+%% Inserts facts. On backtracking, the fact is deleted.
+flora_storage_insert_fact_bt(StorageName,Fact,Inserted) :-	
+	flora_storage_module(StorageName,Module),
+	(
+	  unwrap_fact(Fact,FactOut), Fact = FactOut, %% non-stealth
+	  flora_trailer_registry(Module,FL_TABLING(FL_INCREMENTAL)),
+	  flora_is_fdb_storage(StorageName)
+	->
+	  flora_query_permitted_during_pause,
+	  incr_storage_insert_fact_bt(StorageName,Fact,Inserted)
+	;
+	  %% if stealth fact, insert it non-incrementally
+	  unwrap_fact(Fact,FactOut),
+	  storage_insert_fact_bt(StorageName,FactOut,Inserted,
+				 true,
+				 %% Refresh on backtracking. Forward refresh
+				 %% is done after this statement.
+				 flora_refresh_tables(FactOut)
+				),
+	  call_if_fdb_storage(StorageName,
+			      flora_refresh_tables(FactOut)
+			     )
+	),
+	call_if_fdb_storage(StorageName,
+			    flora_increment_update_counter()
+			   ).
+
+/***** Nonbacktrackable insert ***********/
+flora_storage_insert_fact(StorageName,Fact,Inserted) :-	
+	flora_storage_module(StorageName,Module),
+	(
+	  unwrap_fact(Fact,FactOut), Fact = FactOut, %% non-stealth
+	  flora_trailer_registry(Module,FL_TABLING(FL_INCREMENTAL)),
+	  flora_is_fdb_storage(StorageName)
+	->
+	  flora_query_permitted_during_pause,
+	  incr_storage_insert_fact(StorageName,Fact,Inserted)
+	;
+	  %% if stealth fact, insert it non-incrementally
+	  unwrap_fact(Fact,FactOut),
+	  storage_insert_fact(StorageName,FactOut,Inserted),
+	  call_if_fdb_storage(StorageName,
+			      flora_refresh_tables(FactOut)
+			     )
+	),
+	call_if_fdb_storage(StorageName,
+			    flora_increment_update_counter()
+			   ).
+
+
+/********  Backtrackable delete *************/
+%% Doesn't remove anything, but instead "marks" for deletion.
+%% On backtracking: unmarks facts that are marked for deletion
+flora_storage_delete_fact_bt(StorageName,Fact,Deleted) :-
+	flora_storage_module(StorageName,Module),
+	(
+	  unwrap_fact(Fact,FactOut), Fact = FactOut, %% non-stealth
+	  flora_trailer_registry(Module,FL_TABLING(FL_INCREMENTAL)),
+	  flora_is_fdb_storage(StorageName)
+	->
+	  flora_query_permitted_during_pause,
+	  incr_storage_delete_fact_bt(StorageName,Fact,Deleted)
+	;
+	  %% if stealth fact, delete non-incrementally
+	  unwrap_fact(Fact,FactOut),
+	  storage_delete_fact_bt(StorageName,FactOut,Deleted,
+				 true,
+				 %% Refresh on backtracking. Forward refresh is
+				 %% done after this statement.
+				 flora_refresh_tables(FactOut)
+				),
+	  call_if_fdb_storage(StorageName,
+			      flora_refresh_tables(FactOut)
+			     )
+	),
+	call_if_fdb_storage(StorageName,
+			    flora_increment_update_counter()
+			   ).
+
+%% Nonbacktrackable delete
+flora_storage_delete_fact(StorageName,Fact,Deleted) :-
+	flora_storage_module(StorageName,Module),
+	(
+	  unwrap_fact(Fact,FactOut), Fact = FactOut, %% non-stealth
+	  flora_trailer_registry(Module,FL_TABLING(FL_INCREMENTAL)),
+	  flora_is_fdb_storage(StorageName)
+	->
+	  flora_query_permitted_during_pause,
+	  incr_storage_delete_fact(StorageName,Fact,Deleted)
+	;
+	  %% if stealth fact, delete non-incrementally
+	  unwrap_fact(Fact,FactOut),
+	  storage_delete_fact(StorageName,FactOut,Deleted),
+	  call_if_fdb_storage(StorageName,
+			      flora_refresh_tables(FactOut)
+			     )
+	),
+	call_if_fdb_storage(StorageName,
+			    flora_increment_update_counter()
+			   ).
+
+%% deletes the whole trie
+%% exported
+flora_db_delete_all(StorageName) :-
+	storage_delete_all(StorageName).
+
+%%flora_new_db_storage(StorageName) :-
+%%        storage_handle(StorageName,NON_INCREMENTAL_TRIE,_,_).
+flora_new_db_storage(StorageName) :-
+	storage_handle(StorageName,INCREMENTAL_TRIE,_,_).
+
+
+%% Find fact in storage
+flora_storage_find_fact(StorageName,Fact) :- 
+	unwrap_fact(Fact,FactOut),
+	storage_find_fact(StorageName,FactOut).
+
+%% StoredFact is the fact as it is stored in the DB.
+%% May be different from Fact, which unifies with StoredFact.
+flora_storage_find_fact(StorageName,Fact,StoredFact) :- 
+	unwrap_fact(Fact,FactOut),
+	storage_find_fact(StorageName,FactOut,StoredFact).
+
+
+%% Commit changes to the storage trie associated with StorageName
+%% (only if storage has been changed)
+%% exported
+flora_db_commit(StorageName) :- storage_commit(StorageName).
+
+%% Reclaims space by removing nodes from the backtrackable insert/keypair trie
+%% which were marked for deletion. This should be done only at the top 
+%% level of a query.
+%% This is exported
+flora_db_reclaim_space(StorageName) :- storage_reclaim_space(StorageName).
+
+
+%% Call Goal, if StorageName is FDB storage (and not FLD storage)
+call_if_fdb_storage(StorageName,Goal) :-
+	flora_is_fdb_storage(StorageName),
+	!,
+	Goal.
+call_if_fdb_storage(_StorageName,_Goal).
+
+
+/******************************************************************************
+    The following are used only for loading facts and for update
+    management in flrnegation.P
+******************************************************************************/
+%% IncrFlag INCREMENTAL_TRIE/NON_INCREMENTAL_TRIE
+flora_storage_fast_insert_fact(StorageName,IncrFlag,Fact) :-
+	storage_handle(StorageName,IncrFlag,Handle,_),
+	trie_intern_deterministic(Fact,Handle,_Leaf,_).
+
+flora_db_insert_base_fast(StorageName,Call) :-
+	generalize_fact_context(Call),
+	flora_storage_fast_insert_fact(StorageName,INCREMENTAL_TRIE,Call).
+
+%% In assert this means: use better register allocation. Assert last.
+#define CONSERVE_REGISTERS  3
+%% Tell assert on which argument to index. This actually has no effect,
+%% as the ':- index' directive takes precedence
+#define INDEXED_ARG         1
+
+%% We need to make these adaptive ops depend on whether the rule is
+%% in an incremental module or not
+flora_adaptive_assert(Rule) :-
+	Rule = (H:- _),
+	!,
+	(predicate_property(H,opaque) ->
+	    assert(Rule,CONSERVE_REGISTERS,INDEXED_ARG)
+	; predicate_property(H,incremental) ->
+	    flora_query_permitted_during_pause,
+	    incr_assert(Rule,CONSERVE_REGISTERS,INDEXED_ARG)
+	; predicate_property(H,dynamic) ->
+	    assert(Rule,CONSERVE_REGISTERS,INDEXED_ARG)
+	; (predicate_property(H,unloaded) ; \+predicate_property(H,_)) ->
+	    functor(H,F,A),
+	    %% Inserting new predicate as opaque.
+	    %% Incremental updates seem to go through opaque dynamic preds.
+	    (dynamic F/A as opaque),
+	    assert(Rule,CONSERVE_REGISTERS,INDEXED_ARG)
+	).
+flora_adaptive_assert(Fact) :-
+	(predicate_property(Fact,opaque) -> assert(Fact)
+	; predicate_property(Fact,incremental) ->
+	    flora_query_permitted_during_pause,
+	    incr_assert(Fact)
+	;
+	    functor(Fact,F,A),
+	    %% Inserting new predicate as opaque.
+	    %% Incremental updates seem to go through opaque dynamic preds.
+	    (dynamic F/A as opaque),
+	    assert(Fact)
+	).
+
+flora_adaptive_retract(Rule) :-
+	Rule = (H:- _),
+	!,
+	(predicate_property(H,opaque) -> retract(Rule)
+	; predicate_property(H,incremental) ->
+	    flora_query_permitted_during_pause,
+	    incr_retract(Rule)
+	;
+	    flora_abort(['internal error: deletion of a rule whose head is not opaque or dynamic: ', Rule])
+	).
+
+flora_adaptive_retract(Fact) :-
+	(predicate_property(Fact,opaque) -> retract(Fact)
+	; predicate_property(Fact,incremental) ->
+	    flora_query_permitted_during_pause,
+	    incr_retract(Fact)
+	;
+	    flora_abort(['internal error: deletion of a fact that is not opaque or dynamic: ', Fact])
+	).
+
+
+unwrap_fact(WRAP_STEALTHLIT(FactOut),FactOut) :-
+	nonvar(FactOut),
+	!.
+unwrap_fact(FactOut,FactOut).
+
+generalize_fact_context(WRAP_STEALTHLIT(Call)) :-
+	nonvar(Call),
+	!,
+	generalize_fact_context(Call).
+
+
+generalize_fact_context(Call) :-
+	callable(Call),
+	functor(Call,_,N),
+	N>0,
+	!,
+	machine:set_arg(Call,N,_).
+generalize_fact_context(_).

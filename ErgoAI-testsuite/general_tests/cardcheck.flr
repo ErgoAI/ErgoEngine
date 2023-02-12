@@ -1,0 +1,48 @@
+c [| m(p) {1..1} => d |].
+cc::c.
+d:c.
+{1,2} :p.
+{1,2,3}:d.
+d[m(1) ->1].
+d[m(2) ->{2,4}].
+
+cc[|hh -> {}|].
+cc[|m(1) -> 11|].
+cc[|m(2) -> {22,33}|].
+
+%tst1 :- write('test1 = ')@\plg,
+	Cardinality[check(d[m(?X) {?L..?H}=>?]@main)]@\tpck,
+	writeln(?X+?L+?H)@\plg.
+%tst2 :- write('test2 = ')@\plg,
+	 Cardinality[check(d[m(2) {?L..?H}=>?]@main)]@\tpck,
+	 writeln(?L+?H)@\plg.
+%tst3 :- write('test3 = ')@\plg,
+	 \if Cardinality[check(d[m(p) {?..?}=>?]@main)]@\tpck
+         \then writeln(fail)@\plg \else writeln(ok)@\plg.
+
+
+%tst4 :- write('test4 = ')@\plg,
+	 Cardinality[check(cc[|m(?X) {?L..?H}=>?|]@main)]@\tpck,
+	 writeln(?X+?L+?H)@\plg.
+%tst5 :- write('test5 = ')@\plg,
+	 Cardinality[check(cc[|m(2) {?L..?H}=>?|]@main)]@\tpck,
+	 writeln(?L+?H)@\plg.
+%tst6 :- write('test6 = ')@\plg,
+	 \if Cardinality[check(cc[|m(p) {?..?}=>?|]@main)]@\tpck
+         \then writeln(fail)@\plg \else writeln(ok)@\plg.
+
+%tst7 :- write('test7 = ')@\plg, Type[check(?[?->?],?Res)]@\typecheck,
+	 writeln(?Res)@\io.
+%tst8 :- write('test8 = ')@\plg, Type[check(?[?=>?],?Res)]@\typecheck,
+	 writeln(?Res)@\io.
+
+%pretest :- %tst1, %tst2 \and %tst3 \and %tst4,
+	    %tst5, %tst6, %tst7, %tst8.
+
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\prolog.

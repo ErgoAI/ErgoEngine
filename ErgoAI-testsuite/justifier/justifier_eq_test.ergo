@@ -1,0 +1,359 @@
+
+:- setsemantics{equality=basic}.
+:- compiler_options{omni=on}.
+
+:- symbol_context{
+                   salary/?,
+                   spouse/?,
+                   father/?,
+                   wages/?,
+                   mmm/0,
+                   %nnn/1,
+                   mate/1
+                 }.
+
+john:employee.
+{mary,bob}:individual.
+employee::person.	
+person :: human.
+
+employee:=:worker.
+john:=:father(mary).
+seniority:=:age.
+kids:=:children.
+person:=:individual.
+year:=:shana.
+mary:=:miriam.
+
+human[| age{1..1}=>MyInteger::Number |].
+person[|kids=>individual|]. 
+
+person[|believes_in -> something, =>spouse(person)|].
+
+employee[|believes_in -> salary, salary(year) => MyInteger|].
+mary[believes_in -> nothing, seniority->33].
+2015:year.
+leapyear::shana.
+
+r(1,{miriam,john}).
+r(2,{john,bob,sally}).
+r(3,4).
+p(?X,?Z) :- r(?X,?Y), ?Y[believes_in->?Z].
+
+/******************** Inheritance Queries to justify *************************/
+
+//InhQ1(?X)     :- ?X:human.
+%tst1 :- john:human, ${john:human}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test1=?EA)@\plg.
+
+//InhQ2         :- employee::human.
+%tst2 :- ${employee::human}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test2=?EA)@\plg.
+
+//InhQ3(?X,?A)  :- mary[believes_in->?X, age->?A].   // should be 'nothing'
+%tst3 :- ${mary[believes_in->?, age->?]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test3=?EA)@\plg.
+
+//InhQ4(?X)     :- father(mary)[believes_in->?X].    // should be 'salary'
+// Not a good explanation:
+//    (true(${father(mary)[believes_in->salary]@main}), [(true(${father(mary)[believes_in->salary]@main},equality axiom), [])])
+%tst4 :- ${father(mary)[believes_in->?]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test4=?EA)@\plg.
+
+//InhQ5(?X)     :- john[believes_in->?X].            // 'salary'
+// Not a good explanation:
+//    (true(${john[believes_in->salary]@main}), [(true(${john[believes_in->salary]@main},equality axiom), [])])
+%tst5 :- ${john[believes_in->?]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test5=?EA)@\plg.
+
+//InhQ6(?X)     :- bob[believes_in->?X].             // 'something'
+// Not a good explanation:
+//    (true(${bob[believes_in->something]@main}), [(true(${bob[believes_in->something]@main},equality axiom), [])])
+%tst6 :- ${bob[believes_in->?]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test6=?EA)@\plg.
+ 
+//InhQ7         :- worker[|age{1..1}=>MyInteger, children=>person|]. 
+%tst7 :- ${worker[|age{1..1}=>MyInteger,children=>person|]}[why(full,withtext)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test7=?EA)@\plg.
+
+//InhQ8         :- john[age{1..1}=>MyInteger, children=>person].
+%tst8 :- ${john[age{1..1}=>MyInteger,children=>person]}[why(full,withtext)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test8=?EA)@\plg.
+ 
+//InhQ9         :- father(mary)[age{1..1}=>MyInteger, children=>person].
+%tst9 :- ${father(mary)[age{1..1}=>MyInteger,children=>person]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test9=?EA)@\plg.
+
+//InhQ10        :- worker[|age{1..1}=>Number, kids=>human|]. 
+%tst10 :- ${worker[|age{1..1}=>Number,kids=>human|]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test10=?EA)@\plg.
+
+//InhQ11        :- father(mary)[age{1..1}=>Number, children=>human].
+%tst11 :- ${father(mary)[age{1..1}=>Number,children=>human]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test11=?EA)@\plg.
+
+//InhQ12        :- john[salary(leapyear) => Number, kids=>individual].
+%tst12 :- john[salary(leapyear)=>Number,kids=>individual],
+        ${john[salary(leapyear)=>Number,kids=>individual]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test12=?EA)@\plg.
+
+//InhQ13        :- worker[|salary(leapyear)=>Number, children=>person|].
+%tst13 :- ${worker[|salary(leapyear)=>Number,children=>person|]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test13=?EA)@\plg.
+
+
+//InhQ14(?X,?Y) :- p(?X,?Y).
+%tst14 :- ${p(1,wages)}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test14=?EA)@\plg.
+
+
+
+wilhelm:male[spouse->rita:female].
+franz:male[mother->rita,father->wilhelm].
+heinz:male[mother->rita,father->wilhelm].
+hermann:male[mother->rita,father->wilhelm,spouse->johanna:female].
+bernhard:male[mother->johanna,father->hermann].
+karl:male[mother->johanna,father->hermann,spouse->christina:female].
+kati:female[mother->johanna,father->hermann].
+albert:male[mother->monique:female,father->bernhard].
+eva:female[mother->catherine,father->bernhard].
+
+bernhard:=:bernie.
+kati:=:kathy.
+kathy:=:catherine.
+mother:=:mom.
+father:=:dad.
+dad:=:daddie.
+spouse:=:mate.
+
+@!{spouse[textit->'spouse is a symmetric relation']}
+?X[spouse->?Y] :- ?Y[spouse->?X].
+@!{father[textit->'father is a parent']}
+?X[parent->?Y] :- ?X[dad->?Y].
+@!{mother[textit->'mother is a parent']}
+?X[parent->?Y] :- ?X[mom->?Y].
+
+@!{ancestor[textit->'ancestor is a parent']}
+?X[ancestor->?Y] :- ?X[parent->?Y].
+@!{ancestor2[textit->'ancestor is an ancestor of a parent']}
+?X[ancestor->?Y] :- ?X.ancestor.parent=?Y.
+
+?X:illegitimate :- ?X[daddie->?F, mom->?M], \naf ?F[mate -> ?M].
+
+/************* Rule Queries to justify ***************************************/
+   
+//RuleQ1(?X)     :- ?X:illegitimate.
+%tst15 :- ${eva:illegitimate}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test15=?EA)@\plg.
+
+//RuleQ2(?X,?Y)  :- ?X[ancestor->?Y]. // slow: almost 200 secs; not used
+%tst16 :- ${?[ancestor->?]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test16=?EA)@\plg.
+
+//RuleQ3(?Y)     :- catherine[ancestor->?Y].
+%tst17 :- ${catherine[ancestor->?]}[why(full,withtext)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test17=?EA)@\plg.
+
+//RuleQ4(?Y)     :- bernie[ancestor->?Y].
+%tst18 :- ${bernie[ancestor->?]}[why(full,withtext)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test18=?EA)@\plg.
+
+//RuleQ5(?X)     :- father :=: ?X.
+%tst19 :- ${father:=:daddie}[why(full,withtext)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test19=?EA)@\plg.
+
+//RuleQ6(?X)     :- kati :=: catherine.
+%tst20 :- ${kati:=:catherine}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test20=?EA)@\plg.
+
+
+
+/******************* Omnis **************************************************/
+
+ppp(?X) \or qqq(?X) :- rrr(?X), \naf ttt(?X).
+rrr({kati,bernhard,daddie}).
+ttt(bernie).
+\neg qqq(catherine).
+
+:-use_argumentation_theory.
+@{r1} forall(?X1)^(bird(?X1)==>b1(?X1)).
+forall(?X1)^(b1(?X1)==>exists(?X2)^(worm(?X2),eat(?X1,?X2))).
+forall(?X1)^(penguin(?X1)==>birdie(?X1)).
+@{r2} forall(?X1)^(penguin(?X1)==>b2(?X1)).
+forall(?X1)^(b2(?X1)==>\neg exists(?X2)^(worm(?X2),eat(?X1,?X2))).
+\overrides(r2,r1).
+\opposes(r2,b2(?_X1),r1,b1(?_X1)).
+penguin(tweety).
+bird(sam).
+bird:=: birdie.
+sam:=:samuel.
+
+
+exist(?Sn1,?Sn2)^senator(?St,{?Sn1,?Sn2}) :- state(?St).
+state(NY).
+state(AL).
+state(TX).
+
+/*******   Omni Queries ****************************************************/
+
+//OmniQ1(?X)       :- ppp(?X).
+%tst21 :- ${ppp(kathy)}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test21=?EA)@\plg.
+
+//OmniQ2(?X1,?X2)  :- worm(?X1),eat(?X2,?X1).
+%tst22 :-
+        setruntime{unsafe_naf(ignoreonce)},
+        ${worm(?X1),eat(?_X2,?X1)}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test22=?EA)@\plg.
+
+//OmniQ3(?X1,?X2)  :- \neg (worm(?X1),eat(?X2,?X1)).
+%tst23 :-
+        setruntime{unsafe_naf(ignoreonce)},
+        ${\neg (worm(?X1),eat(?_X2,?X1))}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test23=?EA)@\plg.
+
+    
+
+/********************** Negative info ***************************************/
+
+a1 :=: b1.
+a2 :=: b2.
+\neg a1 :=: a2.
+
+student::person.
+student:=:pupil.
+\neg employee[|salary(person) => person|].
+\neg employee[|=>spouse(student)|].
+\neg foo[=>spouse(student)].
+foo:moo.
+
+moo:=:moo1.
+salary:=:wages.
+human:=:humanoid.
+
+/*********************** Negative Inheritance Queries ************************/
+
+//NegQ1 :- \neg b1 :=: b2.
+%tst24 :- ${\neg b1:=:b2}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test24=?EA)@\plg.
+
+//NegQ2 :- \neg worker[|wages(humanoid) => person|].
+%tst25 :- ${\neg worker[|wages(humanoid)=>person|]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test25=?EA)@\plg.
+
+//NegQ3 :- \neg employee[|wages(individual) => worker|].
+%tst26 :- ${\neg employee[|wages(individual)=>worker|]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test26=?EA)@\plg.
+
+//NegQ4 :- \neg person[|salary(person) => employee|].  // counter-inheritance
+%tst27 :- ${\neg person[|salary(person)=>employee|]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test27=?EA)@\plg.
+
+//NegQ5 :- \neg worker[|=>spouse(humanoid)|].
+%tst28 :- ${\neg worker[|=>spouse(humanoid)|]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test28=?EA)@\plg.
+
+//NegQ6 :- \neg person[|=>mate(pupil)|].               // counter-inheritance
+%tst29 :- ${\neg person[|=>mate(pupil)|]}[why(full,withtext)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test29=?EA)@\plg.
+
+//NegQ7 :- miriam[=>mate(person)].
+%tst30 :- ${miriam[=>mate(person)]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test30=?EA)@\plg.
+
+//NegQ8 :- \neg foo[=>mate(person)].
+%tst31 :- ${\neg foo[=>mate(person)]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test31=?EA)@\plg.
+
+//NegQ9 :- \neg moo1[|=>spouse(individual)|].          // counter-inheritance
+%tst32 :- ${\neg moo1[|=>spouse(individual)|]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test32=?EA)@\plg.
+
+
+
+/*********************** Transactional ************************************/
+
+:- ignore_depchk{%TrQ5(?)}.
+:- symbol_context{%nnn(?)@?}.
+
+?- newmodule{w}.
+?- insert{%pp({1,2,3,4})@w, %ww(a,2), %ww(b,4)}.
+%abc(?X) :- %ww(?,?X), %pp(?X)@w.
+
+person[|=>%meth(person)|].
+mary[=>%mmm(person)].
+mmm:=:nnn.
+a:=:b.
+
+//TrQ1     :-     individual[|=>%meth(employee)|].
+%tst33 :- ${individual[|=>%meth(employee)|]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test33=?EA)@\plg.
+
+//TrQ2     :-     worker[|=>%meth(worker)|].
+%tst34 :- ${worker[|=>%meth(worker)|]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test34=?EA)@\plg.
+
+//TrQ3     :-     john[=>%meth(employee)].
+%tst35 :- ${john[=>%meth(employee)]}[why(full,withtext)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test35=?EA)@\plg.
+
+//TrQ4     :-     mary[=>%nnn(employee)].
+%tst36 :- ${mary[=>%nnn(employee)]}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test36=?EA)@\plg.
+
+//%TrQ5(?X) :-     %abc(?X).
+%tst37 :- ${%abc(2)}[why(full)->?E]@\why,
+        ?E[show->?EA]@\show,
+        writeln(test37=?EA)@\plg.
+
+
+/****************************************************************************/
+
+%pretest :-
+        %tst1,  %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9,
+        %tst10, %tst11, %tst12, %tst13, %tst14, %tst15,
+        //%tst16,  // works but too slow for the testsuite: almost 200 secs
+        %tst17, %tst18, %tst19,
+        %tst20, %tst21, %tst22, %tst23, %tst24, %tst25, %tst26,
+        %tst27, %tst28, %tst29,
+        %tst30, %tst31, %tst32, %tst33, %tst34, %tst35, %tst36, %tst37.
+
+%test :- tell(temp)@\plg,
+	%pretest,
+	told@\plg.

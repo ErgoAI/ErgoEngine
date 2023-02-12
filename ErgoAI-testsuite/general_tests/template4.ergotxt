@@ -1,0 +1,36 @@
+
+template(dynrule,\(dynamic rule ?X ?Y ?Z ?W\), (?X,?Y :- ?Z,?W)).
+template(body,\(insert rule ?X ?Y ?Z ?W\), insertrule{?X,?Y :- ?Z,?W}).
+template(body,\(delete rule ?X ?Y ?Z ?W\), deleterule{?X,?Y :- ?Z,?W}).
+template(body,\(insert facts ?X ?Y ?Z\), insert{?X(?Y),?Y(?Z)}).
+template(body,\(delete facts ?X ?Y ?Z\), delete{?X(?Y),?Y(?Z)}).
+template(insdel,\(chain facts ?X ?Y ?Z\), (?X(?Y),?Y(?Z))).
+template(insdel,\(?X has ?Y\), (?X[has->?Y],d[e->f])).
+template(rule,\(Id=?Id Tag=?Tag | ?X has ?Y\), (@!{?Id[p->?OO]} @{?Tag} ?X[has->?Y])).
+// Note: frames not allowed in the left template
+//template(rule,\(@!(?Id) ?Id[p->kkk] ?Tag ?X has ?Y\), (@!{?Id[p->?OO]} @{?Tag} ?X[has->?Y])).
+//pppp :- qqq.
+template(body,
+	\(?Y is the average salary in department ?X\),
+	(department(?X), ?Y= avg{?V|?X[employee->?[salary->?V]]})).
+template(head,\(?X.abc is a ?Y\), ?X[abc->?Y:?]).
+template(body,\(?X.abc is a ?Y\), ?X[abc->?Y:?]).
+template(headbody,\(?XXXX is a ?YYYY\), ?XXXX[cde->?YYYY:?]).
+template(headbody,\(?XXXX is a member of ?YYYY\), ?XXXX:?YYYY).
+template(query,\(what(?What) does ?X have?\), (?- ?X[has->?What])).
+
+template(latentquery,
+	\(Id=?I | what(?What) does ?X have?\),
+	//@!{?Id} !- ?X[has->?What]).
+	@!{?I} !- ?X[has->?What]).
+
+template(head,\(aaa is a ?YYYY\), aaa[cde->?YYYY:?]).
+
+template(rule,\(if ?X has ?Y then ?X likes ?Y\), (?X[likes->?Y] :- ?X[has->?Y])).
+template(body,\(?X likes ?Y\), ?X[likes->?Y]).
+
+template(latentquery,
+	\(Id=?I | what(What) does ?X have?\),
+	//@!{?Id} !- ?X[has->?What]).
+	@!{?I} !- ?X[has->What]).
+

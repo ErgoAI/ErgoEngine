@@ -1,0 +1,110 @@
+/* File:      flrimportedcalls.P - import statements that everyone needs
+**
+** Author(s): kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+
+
+?- import 
+      FLORA_NAF_PREDICATE/1,  %% not needed - just a precaution
+      FLORA_NAF_PREDICATE/4
+   from flrnegation.
+?- import
+       FLLIBREFRESH/2,
+       flora_abolish_table_call/1,
+       flora_abolish_table_call_carefully/1
+   from flrtables.
+?- import
+       FLLIBCATCH/3,
+       FLLIBTHROW/1,
+       FLLIBSETRUNTIME/1
+   from flrerrhandler.
+
+?- import FLLIBEXPORT/1 from flrexport.
+?- import
+       FLLIBPREFIXDEF/3,
+       FLLIBPREFIXDEF/2,
+       FLLIBPREFIXPRIMITIVE/3
+   from flrprefixdef.
+
+%% These two are not strictly necessary, because flrutils.P and prolog2hilog
+%% are loaded in the beginning
+?- import flora_abort/0, flora_abort/1 from flrporting.
+?- import P2H_PREDICATE/4 from prolog2hilog.
+
+?- import FLLIBNEWOID/1 from flrnewoid.
+
+?- import flora_warning_line/2 from flrprint.
+
+?- import
+        '\\optimize'/1,
+	'\\optimize'/2,
+	'\\resetoptimization'/1,
+	'\\resetoptimization'/2
+   from flroptimize.
+
+?- import
+	flora_db_find_base/2,
+	flora_db_insert_base/2,
+	flora_db_delete_base/2,
+	flora_db_insert_base_bt/2,
+	flora_db_delete_base_bt/2
+   from flrstoragebase.
+
+?- import FLLIBRECORDSENSORS/2 from FLDELAYSUPPORTMOD.
+
+?- import
+        FL_ISBASEFACT/1
+   from flrstorageutils.
+
+?- import
+        FL_ISSKOLEM/1
+   from flrnewoid.
+
+?- import
+    	flora_datatype_name/2
+   from flrdatatype.
+
+?- import {}/1 from clpr.
+
+?- import
+        flora_defeasible_module_registry/2,
+	flora_useudf_directive/5,
+	flora_defined_udf_registry/6,
+	flora_used_udf_registry/4
+   from flrregistry.
+
+:- import flora_load_library/1 from flrlibman.
+
+
+:- ensure_loaded(flrudf).
+:- ensure_loaded(flrgateway).
+
+?- flora_load_library(FLLIBLOAD).
+?- flora_load_library(FLLIBTRUTHVALUE).

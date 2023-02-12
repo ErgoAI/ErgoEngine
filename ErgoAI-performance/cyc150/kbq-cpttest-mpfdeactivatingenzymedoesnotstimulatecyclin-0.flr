@@ -1,0 +1,118 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-MPFDeactivatingEnzymeDoesNotStimulateCyclin (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyMt, BiochemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, 'functionCorrespondingPredicate-Canonical'(TotalityOfSubEventsOfTypeFn, iterativeSubEventTypesTotality, 3)).
+istAsserted(BaseKB, termOfUnit(TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF))), TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF))))).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+
+// Implicit Background Rules
+forwardSentence(?PRED(?ARG1, ?ARG2, ?NART)) :- naf impPred(?PRED), removalSentence('functionCorrespondingPredicate-Canonical'(?FUNC, ?PRED, 3)), removalSentence(termOfUnit(?NART, ?FUNC(?ARG1, ?ARG2))).
+
+// Explicit Background Facts
+istAsserted(BiochemistryMt, iterativeSubEventTypesTotality(EukaryoticCellCycle, BiochemicalSynthesisFn(MoleculeFn(Cyclin)), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle)).
+istAsserted(MolecularBiologyMt, startsAfterStartOfInSituationType(EukaryoticCellCycle, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF))), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle)).
+
+// Explicit Background Rules
+backwardSentence(not('causes-SubSitTypeSubSitType'(?SIT_TYPE, ?LATE_SUB, ?BETWEEN))) :- mtVisible(BaseKB), naf backchainForbidden('causes-SubSitTypeSubSitType'), iterativeSubEventTypesTotality(?SIT_TYPE, ?LATE_SUB, ?LATER), iterativeSubEventTypesTotality(?SIT_TYPE, ?EARLY_SUB, ?EARLIER), startsAfterStartOfInSituationType(?SIT_TYPE, ?LATER, ?EARLIER), 'causes-SubSitTypeSubSitType'(?SIT_TYPE, ?BETWEEN, ?EARLY_SUB).
+backwardSentence(not(iterativeSubEventTypesTotality(?SIT_TYPE, ?LATE_SUB, ?LATER))) :- mtVisible(BaseKB), naf backchainForbidden(iterativeSubEventTypesTotality), iterativeSubEventTypesTotality(?SIT_TYPE, ?EARLY_SUB, ?EARLIER), 'causes-SubSitTypeSubSitType'(?SIT_TYPE, ?LATE_SUB, ?BETWEEN), 'causes-SubSitTypeSubSitType'(?SIT_TYPE, ?BETWEEN, ?EARLY_SUB), startsAfterStartOfInSituationType(?SIT_TYPE, ?LATER, ?EARLIER).
+backwardSentence(not(startsAfterStartOfInSituationType(?SIT_TYPE, ?LATER, ?EARLIER))) :- mtVisible(BaseKB), naf backchainForbidden(startsAfterStartOfInSituationType), iterativeSubEventTypesTotality(?SIT_TYPE, ?LATE_SUB, ?LATER), iterativeSubEventTypesTotality(?SIT_TYPE, ?EARLY_SUB, ?EARLIER), 'causes-SubSitTypeSubSitType'(?SIT_TYPE, ?LATE_SUB, ?BETWEEN), 'causes-SubSitTypeSubSitType'(?SIT_TYPE, ?BETWEEN, ?EARLY_SUB).
+backwardSentence(not(iterativeSubEventTypesTotality(?SIT_TYPE, ?EARLY_SUB, ?EARLIER))) :- mtVisible(BaseKB), naf backchainForbidden(iterativeSubEventTypesTotality), iterativeSubEventTypesTotality(?SIT_TYPE, ?LATE_SUB, ?LATER), 'causes-SubSitTypeSubSitType'(?SIT_TYPE, ?LATE_SUB, ?BETWEEN), 'causes-SubSitTypeSubSitType'(?SIT_TYPE, ?BETWEEN, ?EARLY_SUB), startsAfterStartOfInSituationType(?SIT_TYPE, ?LATER, ?EARLIER).
+backwardSentence(not('causes-SubSitTypeSubSitType'(?SIT_TYPE, ?BETWEEN, ?EARLY_SUB))) :- mtVisible(BaseKB), naf backchainForbidden('causes-SubSitTypeSubSitType'), iterativeSubEventTypesTotality(?SIT_TYPE, ?LATE_SUB, ?LATER), iterativeSubEventTypesTotality(?SIT_TYPE, ?EARLY_SUB, ?EARLIER), startsAfterStartOfInSituationType(?SIT_TYPE, ?LATER, ?EARLIER), 'causes-SubSitTypeSubSitType'(?SIT_TYPE, ?LATE_SUB, ?BETWEEN).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-261671', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-261671', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-FirstOrderCollection-261672', FirstOrderCollection)).
+istAsserted(UniversalVocabularyMt, genls('HYP-FirstOrderCollection-261672', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261671', MtTimeDimFn(Now)), genls('HYP-FirstOrderCollection-261672', EnzymeActivationEvent)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261671', MtTimeDimFn(Now)), 'causes-SubSitTypeSubSitType'(EukaryoticCellCycle, 'HYP-FirstOrderCollection-261672', DegradationOfChemicalCompoundFn(ActivatedFormOfEnzymeFn(MoleculeFn(MPF))))).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-261671', MtTimeDimFn(Now)), 'causes-SubSitTypeSubSitType'(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)), 'HYP-FirstOrderCollection-261672')).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261671')).
+//REMOVED TITLE('KBQ  : $CPTTest-MPFDeactivatingEnzymeDoesNotStimulateCyclin 0').
+%pretest :- neg 'causes-SubSitTypeSubSitType'(EukaryoticCellCycle, 'HYP-FirstOrderCollection-261672', BiochemicalSynthesisFn(MoleculeFn(Cyclin))), %write_results('SUCCESS  : $CPTTest-MPFDeactivatingEnzymeDoesNotStimulateCyclin 0').
+
+// Debugging
+proof(10363, 0) :- 'causes-SubSitTypeSubSitType'(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)), 'HYP-FirstOrderCollection-261672').
+proof(10363, 1) :- 'causes-SubSitTypeSubSitType'(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)), 'HYP-FirstOrderCollection-261672').
+proof(10363, 2) :- iterativeSubEventTypesTotality(EukaryoticCellCycle, BiochemicalSynthesisFn(MoleculeFn(Cyclin)), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle).
+proof(10363, 3) :- iterativeSubEventTypesTotality(EukaryoticCellCycle, BiochemicalSynthesisFn(MoleculeFn(Cyclin)), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle).
+proof(10363, 4) :- iterativeSubEventTypesTotality(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)), TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)))).
+proof(10363, 5) :- iterativeSubEventTypesTotality(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)), TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)))).
+proof(10363, 6) :- startsAfterStartOfInSituationType(EukaryoticCellCycle, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF))), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle).
+proof(10363, 7) :- startsAfterStartOfInSituationType(EukaryoticCellCycle, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF))), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle).
+proof(10363, 8) :- iterativeSubEventTypesTotality(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)), TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)))), startsAfterStartOfInSituationType(EukaryoticCellCycle, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF))), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle).
+proof(10363, 9) :- iterativeSubEventTypesTotality(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)), TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)))), startsAfterStartOfInSituationType(EukaryoticCellCycle, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF))), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle).
+proof(10363, 10) :- iterativeSubEventTypesTotality(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)), TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)))), iterativeSubEventTypesTotality(EukaryoticCellCycle, BiochemicalSynthesisFn(MoleculeFn(Cyclin)), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle), startsAfterStartOfInSituationType(EukaryoticCellCycle, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF))), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle).
+proof(10363, 11) :- iterativeSubEventTypesTotality(EukaryoticCellCycle, BiochemicalSynthesisFn(MoleculeFn(Cyclin)), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle), iterativeSubEventTypesTotality(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)), TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)))), startsAfterStartOfInSituationType(EukaryoticCellCycle, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF))), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle).
+proof(10363, 12) :- iterativeSubEventTypesTotality(EukaryoticCellCycle, BiochemicalSynthesisFn(MoleculeFn(Cyclin)), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle), iterativeSubEventTypesTotality(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)), TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)))), 'causes-SubSitTypeSubSitType'(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)), 'HYP-FirstOrderCollection-261672'), startsAfterStartOfInSituationType(EukaryoticCellCycle, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF))), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle).
+proof(10363, 13) :- not('causes-SubSitTypeSubSitType'(EukaryoticCellCycle, 'HYP-FirstOrderCollection-261672', BiochemicalSynthesisFn(MoleculeFn(Cyclin)))).
+
+proof(10363, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(10363, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(10363, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(10363, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(10363, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(10363, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(10363, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(10363, 1007) :- iterativeSubEventTypesTotality(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)), TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF)))).
+proof(10363, 1008) :- startsAfterStartOfInSituationType(EukaryoticCellCycle, TotalityOfSubEventsOfTypeFn(EukaryoticCellCycle, ActivationOfEnzymeOfTypeFn(MoleculeFn(MPF))), ContinuousPeriodOfCyclinProductionInEukaryoticCellCycle).
+
+proof(10363, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-261671', 1, genlMt).
+proof(10363, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-261671', 2, genlMt).
+proof(10363, 2002) :- admittedArgument(SecondFn(13, MinuteFn(35, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(10363, 2003) :- admittedArgument(SecondFn(13, MinuteFn(35, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(10363, 2004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261671'), UniversalVocabularyMt).
+proof(10363, 2005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261671'), BaseKB).
+proof(10363, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261671'), BiochemistryMt).
+proof(10363, 2007) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261671'), MolecularBiologyMt).
+proof(10363, 2008) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-261671'), MtSpace('Hypothesis-HypotheticalContext-261671', MtTimeDimFn(Now))). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

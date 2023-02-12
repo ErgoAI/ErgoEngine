@@ -1,0 +1,78 @@
+/*******************************************************************************
+  file: closure/flrnoeqltrailer.fli - A template file to generate trailers that
+  				      have no equality maintenance and NO
+				      behavioral inheritance.
+  				      Inheritance of signatures is supported.
+  Author(s): Guizhen Yang
+
+  Contact:   flora-users@lists.sourceforge.net
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+*******************************************************************************/
+
+%%%%% THIS CONTAINS ONLY THE AXIOMS THAT DIFFER FROM THE INHERITANCE VERSION
+
+#include "flora_wspredicates.flh"
+#include "flora_porting.flh"
+
+:- import flora_warning_line/2 from flrprint.
+:- import flora_funct_arity/2 from flrwrapper.
+:- import flora_runtime_switch_registry/2 from flrregistry.
+
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_MODULE_NAME'.
+
+
+#include "flrnoeqltrailer_neg.inc"
+
+#define DELAY_REG  2
+:- import xwam_state/2 from machine.
+
+/***************************************************************************
+  Note that all programs rules are translated with with a 'derived_' prefix.
+  These rules are bridged to the trailer using wrapper predicates with a
+  'inferred_' (FLTRAILERPREFIX) prefix.
+***************************************************************************/
+
+
+/*****************************************************************************
+  closure for X[Y->Z], X[|Y->Z|], X[Y->{}]
+*****************************************************************************/
+WRAP_IMVD(C,M,V,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FLTRAILERPREFIX(WRAP_IMVD)(C,M,V,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_MVD(O,M,V,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FLTRAILERPREFIX(WRAP_MVD)(O,M,V,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_MVDDEF(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FLTRAILERPREFIX(WRAP_MVDDEF)(O,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_MVDDEF(O,M,FL_CONTEXT(Caller,_,_)) :-
+	nonvar(M),
+	WRAP_MVD(O,M,_V,FL_CONTEXT(Caller,_,_)).
+	%% Should have a cut here when XSB will allow
+
+
+/*****************************************************************************
+  binary attributes (tabled methods)
+*****************************************************************************/
+WRAP_METH(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FLTRAILERPREFIX(WRAP_METH)(O,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+%% WRAP_IMETH/3
+WRAP_IMETH(C,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FLTRAILERPREFIX(WRAP_IMETH)(C,M,FL_CONTEXT(Caller,Id1,Id2)).
+

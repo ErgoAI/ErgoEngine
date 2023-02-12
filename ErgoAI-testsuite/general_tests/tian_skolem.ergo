@@ -1,0 +1,33 @@
+
+//#define SKOLEMIZE_THEN_DIRECTIONALIZE
+
+// allow defeasible rules
+:-use_argumentation_theory.
+
+:- compiler_options{omni=on}.
+
+@{bird_rule}
+worm_eater(?X)      :- ?X:bird.
+@{penguin_rule}
+\neg worm_eater(?X) :- ?X:penguin.
+
+#ifdef SKOLEMIZE_THEN_DIRECTIONALIZE
+forall(?X)^(     worm_eater(?X) ==>      \##1(?X):worm, eat(?X,\##1(?X))).
+forall(?X)^(\neg worm_eater(?X) ==> \neg (\##1(?X):worm, eat(?X,\##1(?X)))).
+#else
+forall(?X)^(     worm_eater(?X) ==>      exists(?W)^(?W:worm, eat(?X,?W))).
+forall(?X)^(\neg worm_eater(?X) ==> \neg exists(?W)^(?W:worm, eat(?X,?W))).
+#endif
+
+
+\overrides(penguin_rule,bird_rule).
+
+Fred:penguin.
+Sam:bird.
+penguin::bird.
+{bird,worm}::animal.
+
+// worm-eating animal: should be Sam
+query1(?X) :- ?X:animal, ?W:worm, eat(?X,?W).
+// non-worm-eating animal: should be Fred
+query2(?X) :- ?X:animal, \naf exists(?W)^(?W:worm, eat(?X,?W)).

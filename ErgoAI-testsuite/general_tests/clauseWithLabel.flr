@@ -1,0 +1,172 @@
+
+?- newmodule{w}.
+
+@{aa1,mm1} p1 :- q1.
+@{aa1} p1a :- q1a.
+@qqq @mm2 @!{mm2[b->c]} p2 :- q2.
+p3 :- q3.
+
+@{"fooo"^^string} Top[val=>mooo].
+@{"ed"^^\string} Top[|val=>boo|].
+@{"ed"^^\string} Top[|val->string|].
+
+?- insertrule{(@{aa_dyn1,mm_dyn1} p_dyn1 :- q_dyn1),
+	       (@{qqq,mm22} @!{mm22[b->c,c->p]} p_dyn2 :- q_dyn2),
+	       (p_dyn3 :- q_dyn3)}.
+
+?- insertrule{@!{neg_rr_foo} @{\#1,foo,neg_rr_foo} \neg rr[d(\#1)] :- rr, qq},
+	insertrule{\neg e[f->?X] :- p(?X)},
+	insertrule{((@!{neg_ppp} \neg ppp(?X) :- p(?X)),
+	             (@!{neg_qqq} @{foo} \neg qqq(\#1,?X) :- rrr(?X))@w,
+		     (@!{neg_pppp} @{aaa3,foo} \neg pppp :- rr)
+		   )@w,
+		   (@!{neg_qqqw} @{foo123} \neg qqq(\#1,?X) :- rrr(?X)@w),
+		   (@!{neg_qqqwtr} @{foo123} \neg qqqtr(\#1,?X) :- %rrr(?X)@w)
+	       }.
+?- insertrule{(\neg c[d] :- h, qq)@w},
+	insertrule_a{(@!{foo_tc} @{foo}tc(?X,?Y) :- %e(?X,?Y)@\@)@w},
+	insertrule_a{(@!{def_tc} tc(?X,?Y) :- tc(?X,?Z),%e(?Z,?Y)@\@)@w}.
+
+@aaa5 @mm222 @!{mm222[b->d]} \neg aaa(a) :- \neg bbb(b),c.
+@!{mm2222[b->d,c->{e,d}]} @{p(aa)} eee(a) :- \neg bbb,c(d,k).
+
+%tst1 :- 
+        write('tst1: ')@\plg(),
+	?Res = collectset{?O| clause{@{?Id,foo}?P,(?L,qq)},
+	                      ?O = out(?Id,?P,?L)
+	                 },
+	flora_write_goal_substitute_vars(?Res)@\plg(flrdecode), nl@\plg.
+%tst2 :- 
+        write('tst2: ')@\plg(),
+	//?Res = collectset{?O| clause{@{aaa6,?Y} @!{mm2[c->?X]}?P,?L},
+	                      //?O = out(?X,?Y,?P,?L)
+	?Res = collectset{?O| member(?id,[mm2,mm222])@\plg(basics),
+	                      clause{@{aaa5,?Y} @!{?id}?P,?L},
+	                      ?O = out(?Y,?P,?L)
+                         },
+	flora_write_goal_substitute_vars(?Res)@\plg(flrdecode), nl@\plg.
+%tst3 :-
+        write('tst3: ')@\plg(),
+	//?Res = collectset{?O| clause{@{?Id,?Y} @!{mm2[c->?X]} ?P,?L},
+	                      //?O = out(?Id,?X,?Y,?P,?L)
+	?Res = collectset{?O| member(?id,[mm2,mm22,mm222])@\plg(basics),
+	                      clause{@{qqq,?Y} @!{?id} ?P,?L},
+	                      ?O = out(?Y,?P,?L)
+                         },
+	flora_write_goal_substitute_vars(?Res)@\plg(flrdecode), nl@\plg.
+%tst4 :- // ?Y@ \@ matches only singleton goals.
+        write('tst4: ')@\plg(),
+	?Res = collectset{?O| clause{@{?}?X,?Y@ \@},
+	                      ?O = out(?X,?Y)
+                         },
+	flora_write_goal_substitute_vars(?Res)@\plg(flrdecode), nl@\plg.
+// clause with metafacts does not work for querying other modules
+%tst5 :-
+        write('tst5: ')@\plg(),
+	?Res = collectset{?O| clause{@{?,?M}tc(?,?)@w,?Y},
+	                      ?O = out(?M,?Y)
+                         },
+	flora_write_goal_substitute_vars(?Res)@\plg(flrdecode), nl@\plg.
+%tst6 :- // ?Y@w matches only singleton goals.
+        write('tst6: ')@\plg(),
+	?Res = collectset{?O| clause{@{?M}?X,?Y@w},
+	                      ?O = out(?M,?X,?Y)
+                         },
+	flora_write_goal_substitute_vars(?Res)@\plg(flrdecode), nl@\plg.
+%tst7 :-
+        write('tst7: ')@\plg(),
+	// seems that %?Y@w has no effect!!!
+	?Res = collectset{?O| clause{@{foo123}?X,%?Y@w},
+	                      ?O = out(?M1,?X,?Y)
+                         },
+	flora_write_goal_substitute_vars(?Res)@\plg(flrdecode), nl@\plg.
+%tst8 :-
+        write('tst8: ')@\plg(),
+	//?Res = collectset{?O| clause{@{foo} @!{?M1[?->?]}?X,?Y},
+	?Res = collectset{?O| clause{@{foo} @!{?M1}?X,?Y},
+	                      ?O = out(?M1,?X,?Y)
+                         },
+	flora_write_goal_substitute_vars(?Res)@\plg(flrdecode), nl@\plg.
+%tst9 :-
+        write('tst9: ')@\plg(),
+	?Res = collectset{?O| clause{@{mm1}?X,?Y},
+	                      ?O = out(?X,?Y)
+                         },
+	flora_write_goal_substitute_vars(?Res)@\plg(flrdecode), nl@\plg.
+%tst10 :-
+        write('tst10: ')@\plg(),
+	?Res = collectset{?O| clause{@{?mm}?X,?Y}, ?mm=mm1,
+	                      ?O = out(?X,?Y)
+                         },
+	flora_write_goal_substitute_vars(?Res)@\plg(flrdecode), nl@\plg.
+%tst11 :-
+        write('tst11: ')@\plg(),
+	?Res = collectset{?O| clause{@{mm1}?X,?Y},
+	                      ?O = out(?X,?Y)
+                         },
+	flora_write_goal_substitute_vars(?Res)@\plg(flrdecode), nl@\plg.
+%tst12 :-
+        write('tst12: ')@\plg(),
+	?Res = collectset{?O| clause{@{mm1,aa1}?X,?Y},
+	                      ?O = out(?X,?Y)
+                         },
+	flora_write_goal_substitute_vars(?Res)@\plg(flrdecode), nl@\plg.
+// this won't work due to a limitation of the new clause{...}
+%tst13 :-
+        write('tst13: ')@\plg(),
+	?Res = collectset{?O| clause{?X@w,?Y},
+	                      ?O = out(?X,?Y)
+                         },
+	flora_write_goal_substitute_vars(?Res)@\plg(flrdecode), nl@\plg.
+
+%tst14 :-
+        write('tst14: ')@\plg(),
+	clause{@{?X} Top[|?=>?V|],?B},
+	flora_write_goal_substitute_vars((?X,?V,?B))@\plg(flrdecode), nl@\plg.
+
+%tst15 :-
+        write('tst15: ')@\plg(),
+	clause{@{?X} Top[?=>mooo],?B},
+	flora_write_goal_substitute_vars((?X,?B))@\plg(flrdecode), nl@\plg.
+
+%tst16 :-
+        write('tst16: ')@\plg(),
+	clause{@{?X} Top[|val->string|],?B},
+	flora_write_goal_substitute_vars((?X,?B))@\plg(flrdecode), nl@\plg.
+
+%tst17 :-
+	write('tst17: ')@\plg(),
+	?L= setof{?G| @!{?X[tag->mm1,module->main,file->?F,type->?T]},
+	             ?G=?X+?F+?T},
+	writeln(?L)@\io.
+
+%tst18 :-
+	write('tst18: ')@\plg(),
+	?L= setof{?G| @!{?X[tag->mm1,module->main,file->?F,type->?T,tag->?A]},
+	             ?G=?X+?F+?T+?A},
+	writeln(?L)@\io.
+
+%tst19 :-
+	write('tst19: ')@\plg(),
+	?L= setof{?G| @!{?X[tag->mm1,module->?M,file->?F,type->?T,tag->?A]},
+	             ?G=?X+?F+?T+?A+?M},
+	writeln(?L)@\io.
+
+
+%pretest :-
+	%tst1, %tst2, %tst3, %tst4,
+	//%tst5,
+	%tst6, %tst7, %tst8, %tst9, %tst10,
+	%tst11, %tst12,
+	//%tst13,
+	%tst14, %tst15, %tst16,
+	%tst17, %tst18, %tst19.
+
+%test :- tell(temp)@\plg(),
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        %pretest,
+        told@\plg().
+
+

@@ -1,0 +1,297 @@
+/***************************************************************************
+  file: genincludes/flrexportcheck.fli - A template for generating include file
+  				         for checking whether a call to a
+					 particular predicate is authorized.
+  Author(s): Vishal Chowdhary, Michael Kifer
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+***************************************************************************/
+
+/***************************************************************************
+   Basic mechanism: flora_check_export_registry/3 either fails or gives
+   the "unexported" error.
+   If it fails then all the clauses in this file fail and control goes to
+   the actual program clause that match.
+***************************************************************************/
+
+#include "flora_wspredicates.flh"
+
+:-import length/2,ith/3 from basics.
+
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_MODULE_NAME'.
+
+#include "flrexportcheck_neg.inc"
+
+FLBodyPREFIX(WRAP_ISA)(X,Y,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_ISA(X,Y,FWContext)).
+
+FLBodyPREFIX(WRAP_SUB)(X,Y,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_SUB(X,Y,FWContext)).
+
+FLBodyPREFIX(WRAP_METH)(X,Y,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_METH(X,Y,FWContext)).
+
+FLBodyPREFIX(WRAP_IMETH)(X,Y,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_IMETH(X,Y,FWContext)).
+
+FLBodyPREFIX(WRAP_BOOLSIG)(X,Y,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_BOOLSIG(X,Y,FWContext)).
+
+FLBodyPREFIX(WRAP_IBOOLSIG)(X,Y,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_IBOOLSIG(X,Y,FWContext)).
+
+FLBodyPREFIX(WRAP_TRANSIG)(X,Y,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TRANSIG(X,Y,FWContext)).
+
+FLBodyPREFIX(WRAP_ITRANSIG)(X,Y,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_ITRANSIG(X,Y,FWContext)).
+
+FLBodyPREFIX(WRAP_MVD)(X,Y,Z,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+	flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_MVD(X,Y,Z,FWContext)).
+
+FLBodyPREFIX(WRAP_IMVD)(X,Y,Z,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_IMVD(X,Y,Z,FWContext)).
+
+FLBodyPREFIX(WRAP_MVDDEF)(X,Y,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_MVDDEF(X,Y,FWContext)).
+
+FLBodyPREFIX(WRAP_IMVDDEF)(X,Y,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_IMVDDEF(X,Y,FWContext)).
+
+FLBodyPREFIX(WRAP_MVDSIG)(X,Y,Z,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_MVDSIG(X,Y,Z,FWContext)).
+
+FLBodyPREFIX(WRAP_MVDCON)(W,X,Y,Z,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+	flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_MVDSIG(X,Y,Z,FWContext)).	
+
+FLBodyPREFIX(WRAP_MVDSIGDEF)(X,Y,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_MVDSIGDEF(X,Y,FWContext)).
+
+FLBodyPREFIX(WRAP_IMVDSIG)(X,Y,Z,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_IMVDSIG(X,Y,Z,FWContext)).
+
+FLBodyPREFIX(WRAP_IMVDCON)(W,X,Y,Z,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME', WRAP_IMVDSIG(W,X,_Y,FWContext)).
+
+FLBodyPREFIX(WRAP_IMVDSIGDEF)(X,Y,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_IMVDSIGDEF(X,Y,FWContext)).
+
+FLBodyPREFIX(WRAP_MVDINC)(X,Y,Z,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_MVDINC(X,Y,Z,FWContext)).
+
+FLBodyPREFIX(WRAP_IMVDINC)(X,Y,Z,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_IMVDINC(X,Y,Z,FWContext)).
+
+FLBodyPREFIX(WRAP_MVDTOLIST)(X,Y,Z,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_MVDTOLIST(X,Y,Z,FWContext)).
+
+FLBodyPREFIX(WRAP_IMVDTOLIST)(X,Y,Z,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_IMVDTOLIST(X,Y,Z,FWContext)).
+
+FLBodyPREFIX(WRAP_TRAN)(X,Y,FWContext) :- 
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TRAN(X,Y,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,X19,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,X19,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,FWContext)).
+
+FLBodyPREFIX(WRAP_NONTABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_NONTABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,X19,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,X19,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,FWContext)).
+
+FLBodyPREFIX(WRAP_TABLED_HILOG)(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,FWContext) :-
+	FWContext = FL_CONTEXT(Caller,_,_),
+        flora_check_export_registry(Caller, 'FLORA_THIS_MODULE_NAME',  WRAP_TABLED_HILOG(X01,X02,X03,X04,X05,X06,X07,X08,X09,X10, X11,X12,X13,X14,X15,X16,X17,X18,X19,X20,X21,FWContext)).

@@ -1,0 +1,83 @@
+/* This module should be loaded using: [mod1 >> mod1].
+** It is used in conjunction with module mod2.flr.
+*/
+#include "flora_exceptions.flh"
+?- [encap_mod2 >> encap_mod2].
+
+/********** teaches exported as updatable ****************/
+
+?- write('test 1, query ')@\plg(), 
+   ?T=encap_mod2,mary[teaches(spring,1999) -> ?V]@?T, 
+   writeln('succeeded, as expected')@\plg().
+
+?- write('test 2, insertion')@\plg(), 
+   insert{mary[teaches(spring,1999)->cse632]@encap_mod2}, 
+   writeln('succeeded, as expected')@\plg().
+
+?- write('test 3, query')@\plg(), 
+   ?Y= encap_mod2, ?A= ${mary[teaches(spring,1999) -> ?B]@?Y}, ?A,
+   writeln('succeeded, as expected')@\plg().
+
+?- write('test 4, deletion')@\plg(), 
+   delete{mary[teaches(spring,1999)->cse532]@encap_mod2}, 
+   writeln('succeeded, as expected')@\plg().
+
+?- write('test 5, query')@\plg(), 
+   ?Y= encap_mod2, ?A@?M ~ mary[teaches(spring,1999) -> ?B]@?Y, ?A, 
+   writeln('succeeded, as expected')@\plg().
+
+?- write('test 6, query')@\plg(), 
+   mary[teaches(spring,1999) -> ?C]@encap_mod2, 
+   writeln('succeeded, as expected')@\plg().
+
+/********** teaches exported as updatable ****************/
+
+
+
+/******** simple predicate exported as updatable *********/
+
+?- write('test 11, query')@\plg(), 
+   ?A=p(?X), ?A@encap_mod2, 
+   writeln('succeeded, as expected')@\plg().
+
+/******** simple predicate exported as updatable *********/
+
+
+
+/******* salary only exported as read module *************/
+
+?- write('test 21, query')@\plg(), 
+   mary[salary(1999,?F)->?G]@encap_mod2,
+   writeln('succeeded, as expected')@\plg().
+
+?- write('test 22, insertion')@\plg(), 
+   catch{insert{mary[salary(1999,4)->5580]@encap_mod2}, FLORA_NOT_EXPORTED_EXCEPTION(?Predicate,?ErrorMsg), writeln(?ErrorMsg)@\plg()},
+   writeln('failed, as expected')@\plg().
+
+?- write('test 23, query')@\plg(), 
+   mary[salary(1999,?P)->?Q]@encap_mod2,
+   writeln('succeeded, as expected')@\plg().
+
+/******* salary only exported as read module *************/
+
+
+
+
+
+/******* students only exported update module that to for module 3*************/
+
+?- write('test 31, deletion')@\plg(), 
+   catch{insert{mary[students(spring)->vishal]@encap_mod2}, FLORA_NOT_EXPORTED_EXCEPTION(?Predicate1,?ErrorMsg1), writeln(?ErrorMsg1)@\plg()},
+   writeln('failed, as expected')@\plg().
+
+
+?- write('test 32, query')@\plg(), 
+   catch{mary[students(spring)->?R]@encap_mod2, FLORA_NOT_EXPORTED_EXCEPTION(?Predicate2,?ErrorMsg2), writeln(?ErrorMsg2)@\plg()},
+   writeln('failed, as expected')@\plg().
+
+/******* students only exported update module that to for module 3*************/
+
+
+
+?- insert{vishal@encap_mod1}.
+?- vishal.

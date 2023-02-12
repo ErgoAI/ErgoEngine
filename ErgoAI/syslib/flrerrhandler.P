@@ -1,0 +1,721 @@
+/* File:      flrerrhandler.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018;
+**      and Vulcan, Inc., 2011-2013.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+#include "flag_defs_xsb.h"
+
+#define KB_CONST   1024
+%% 1024^2
+#define MB_CONST   1048576
+%% 1024^3
+#define GB_CONST   1073741824
+
+%% These wrappers do HiLog/Prolog conversion.
+
+:- import P2H_PREDICATE/4 from prolog2hilog.
+:- import
+        flora_running_as/1,
+        flora_abort/2
+   from flrporting.
+:- import
+        flora_clear_timeout/0,
+        flora_clear_all_timeouts/0,
+        flora_runtime_limits_registry/3
+   from flrregistry.
+:- import flora_get_break_level/1 from flora2.
+
+:- import sys_main_memory/1 from shell.
+
+:- import
+        timed_call_cancel/0,
+        timed_call_modify/1
+   from standard.
+
+%%:- import member/2 from basics.
+
+:- import
+	current_predicate/2,
+	current_prolog_flag/2,
+	set_prolog_flag/2
+   from curr_sym.
+:- import flora_decode_goal_as_atom/2 from flrdecode.
+
+:- import conget/2, conset/2 from gensym.
+:- import
+        %%flora_warning_line/1,
+	flora_stdmsg_nl/0,
+        flora_message_line/1
+   from flrprint.
+
+:- import
+        check_terminyzer_not_active/1
+   from flrterminyzer.
+
+:- import
+        max_memory_user_handler/0,
+        max_table_subgoal_size_user_handler/0,
+        max_table_answer_size_user_handler/0,
+        max_incomplete_subgoals_user_handler/0
+   from usermod.
+
+:- export
+	FLLIBCATCH/3,
+	FLLIBTHROW/1,
+	FLLIBSETRUNTIME/1.
+:- export
+        setof_option/1,
+        unsafe_naf_warning_enabled/0.
+
+:- export
+	set_initial_memory_cap/0,
+	ignore_interrupt/1,
+	fail_on_interrupt/1,
+	break_on_interrupt/2,
+	abort_on_interrupt/2.
+
+:- export
+	flora_set_gc_margin/1,
+	flora_set_memory_limit/2,
+	flora_clear_memory_limit/0,
+        flora_cancel_timeout/0,
+	flora_set_timeout/1.
+
+:- export
+	flora_set_subgoal_size/2,
+	flora_subgoal_size/2,
+        flora_cancel_max_subgoal_size/0,
+	flora_set_answer_size/2,
+	flora_answer_size/2,
+        flora_cancel_max_answer_size/0,
+        flora_set_max_active_goals/2,
+	flora_max_active_goals/2,
+        flora_cancel_max_active_goals/0,
+	flora_set_unification_mode/1,
+	flora_unification_mode/1.
+
+:- export
+        flora_restore_runtime_limits/0,
+        insert_goal_in_time_handlers/2,
+        report_work/1.
+
+%% for max_memory, max_table_answer_size, max_table_subgoal_size
+:- dynamic previous_prolog_flag/2.
+:- dynamic setof_option/1.
+
+FLLIBCATCH(Goal, Error, Handler) :-
+	P2H_CONVERSION(ErrorPrlg,Error),
+	catch(Goal,ErrorPrlg,Handler).
+
+FLLIBTHROW(Error) :-
+	P2H_CONVERSION(ErrorPrlg,Error),
+	throw(ErrorPrlg).
+
+%%%%% FLLIBSETRUNTIME/1
+%% to clear ignoreonce, call FLLIBSETRUNTIME([unsafe_naf(ignoreonce_done)])
+%% in flranswer.P
+FLLIBSETRUNTIME([unsafe_naf(Opt)]) :-
+        !,
+        set_unsafe_naf_option(Opt).
+FLLIBSETRUNTIME([setof(Opt)]) :-
+        !,
+        set_setof_option(Opt).
+%% tripwire-related runtime options
+FLLIBSETRUNTIME(Options) :-
+        disable_all_tripwires,
+        setruntime_options_main(Options),
+        enable_all_tripwires.
+
+%% runtime monitor (java)
+setruntime_options_main([]) :- !, setruntime_widget.
+setruntime_options_main([Option|Rest]) :-
+	set_runtime_option(Option),
+        (Rest == [] -> true
+	; setruntime_options_main(Rest)
+        ).
+
+set_runtime_option(timeout(0)) :-
+	!,
+	flora_clear_timeout.
+set_runtime_option(timeout(Opt1)) :-
+	flora_set_timeout([Opt1]).
+set_runtime_option(timeout(Opt1,Opt2)) :-
+	flora_set_timeout([Opt1,Opt2]).
+set_runtime_option(goalsize(TermSize,Action)) :-
+	flora_set_subgoal_size(TermSize,Action).
+set_runtime_option(answersize(TermSize,Action)) :-
+	flora_set_answer_size(TermSize,Action).
+set_runtime_option(activegoals(TermSize,Action)) :-
+	flora_set_max_active_goals(TermSize,Action).
+set_runtime_option(unification(Mode)) :-
+	flora_set_unification_mode(Mode).
+set_runtime_option(memory(GBLimit)) :-
+	flora_set_memory_limit(GBLimit,abort).
+set_runtime_option(memory(GBLimit,Action)) :-
+        (flora_running_as(ergo) -> flora_set_memory_limit(GBLimit,Action)
+        ; 
+	    flora_abort('setruntime{memory(...,Action)} is Ergo only option',
+                        FLORA_ABORT_NOTRACE)
+        ).
+%% in case unsafe_naf is set in a list of tripwire options
+set_runtime_option(unsafe_naf(Opt)) :-
+        set_unsafe_naf_option(Opt).
+%% in case setof option is set in a list of tripwire options
+set_runtime_option(setof(Opt)) :-
+        set_setof_option(Opt).
+
+set_initial_memory_cap :-
+	sys_main_memory(RAM),
+	KBs is floor(0.85 * RAM/1024),
+	%% On 32 bit machines KBs might be negative due to low integer precision
+	%% In that case, don't limit the memory. Also don't limit if
+	%% KBs is suspiciously slow.
+	(KBs > 3000000 ->
+	    flora_set_memory_limitKB(KBs,_)
+	; true
+	).
+
+
+/***************** timeout handling ****************************************/
+
+fail_on_interrupt(_) :- fail.
+ignore_interrupt(_) :- true.
+
+abort_on_interrupt(_Goal,Reason) :-
+        tripwire_disabled(Reason),
+        !.
+abort_on_interrupt(Goal,Reason) :-
+        (var(Goal) -> GAtom = FL_UNKNOWN_OBJECT
+        ; flora_decode_goal_as_atom(Goal,GAtom)
+        ),
+        (Reason==answersize ->
+            ReasonMsg = 'reaching answer size limit of ',
+            current_prolog_flag(max_table_answer_size,Value),
+            ValueDim = ''
+        ; Reason==goalsize ->
+            ReasonMsg = 'reaching subgoal size limit of ',
+            current_prolog_flag(max_table_subgoal_size,Value),
+            ValueDim = ''
+        ; Reason==activegoals ->
+            ReasonMsg = 'reaching active subgoals limit of ',
+            current_prolog_flag(max_incomplete_subgoals,Value),
+            ValueDim = ''
+        ; Reason==timer ->  ReasonMsg = 'timeout', Value = '', ValueDim = ''
+        ; Reason==memory ->
+            ReasonMsg = 'reaching memory limit of ',
+            current_prolog_flag(max_memory,Value1),
+            Value is Value1/MB_CONST,
+            ValueDim = ' GBs'
+        ; ReasonMsg = 'unknown reason', Value = '', ValueDim = ''
+        ),
+	flora_abort(['interrupt in query ', GAtom, ' due to ',
+                     ReasonMsg, Value, ValueDim],
+                    FLORA_ABORT_NOTRACE).
+
+insert_goal_in_time_handlers(_,[]) :- !.
+insert_goal_in_time_handlers(Goal,[Opt|Options]) :-
+	arg(2,Opt,Handler),
+	copy_term(Goal,G),
+	(Handler = _:BaseHandler, atom(BaseHandler) -> true
+        ; ground(Handler) -> true
+        ; Handler = _Mod:BaseHandler -> arg(1,BaseHandler,G)
+	; arg(1,Handler,G)
+	),
+	insert_goal_in_time_handlers(Goal,Options).
+
+flora_set_timeout(0) :-
+        !,
+        flora_cancel_timeout.
+flora_set_timeout(Options) :-
+        check_terminyzer_not_active(timer),
+	florify_timeout_options(Options,FlrOptions),
+        !,
+	flora_clear_timeout,
+	flora_get_break_level(BL),
+        flora_stdmsg_nl,
+        flora_message_line('all previously defined timers and monitors are canceled'),
+        flora_stdmsg_nl,
+	assert(flora_runtime_limits_registry(timeout,BL,FlrOptions)),
+        (BL > 0 -> timed_call_modify(FlrOptions)
+        ; true
+        ).
+flora_set_timeout(_).
+
+flora_cancel_timeout :-
+        flora_clear_all_timeouts,
+        %% needs to be fixed when timed_call_cancel works
+        %%catch(timed_call_modify([repeating(1111111111,true)]),_,true).
+        timed_call_cancel,
+        !.
+flora_cancel_timeout.
+
+florify_timeout_options([],[]) :- !.
+florify_timeout_options([Opt|Options],[FlrOpt|FlrOptions]) :-
+	florify_one_timeout_option(Opt,FlrOpt),
+	florify_timeout_options(Options,FlrOptions).
+
+florify_one_timeout_option(repeating(Interval,Handler),repeating(MSecInterval,RealHandler)) :-
+	!,
+	(\+ ((number(Interval), Interval>=0)) ->
+	    flora_abort(['periodic timer interrupt interval must be a positive number of seconds, ', Interval], FLORA_ABORT_NOTRACE)
+        ; 0.0 is float(Interval) -> flora_cancel_timeout, fail
+	; timeout_handler_canonical(Handler,RealHandler),
+	    MSecInterval is round(Interval*1000)
+	).
+florify_one_timeout_option(max(Max,Handler),max(MSecMax,RealHandler)) :-
+	!,
+	( \+ ((number(Max), Max>=0)) ->
+	    flora_abort(['timeout limit must be a positive number of seconds, ', Max], FLORA_ABORT_NOTRACE)
+        ; 0.0 is float(Max) -> flora_cancel_timeout, fail
+	; timeout_handler_canonical(Handler,RealHandler),
+	    MSecMax is round(Max*1000)
+	).
+
+timeout_handler_canonical(Handler,CanonH) :-
+	callable(Handler),
+	!,
+	( Handler == ignore ->
+            CanonH = flrerrhandler:ignore_interrupt(_), Fun = ignore_interrupt
+	; Handler == abort ->
+            CanonH = flrerrhandler:abort_on_interrupt(_,timer), Fun = abort_on_interrupt
+	; Handler == fail ->
+            CanonH = flrerrhandler:fail_on_interrupt(_), Fun = fail_on_interrupt
+	; Handler == pause ->
+            CanonH = flrerrhandler:break_on_interrupt(_,timer), Fun = break_on_interrupt
+	; Handler = FL_AT(Goal,FL_PLIB(PMod)) ->
+	    (Goal =.. [Fun,Var], var(Var) -> CanonH = (PMod:Goal)
+	    ; flora_abort([Goal,FL_AT,FL_PLIB(PMod),': timeout handler must be a Prolog predicate with one unbound argument'],FLORA_ABORT_NOTRACE)
+	    )
+	; Handler = FL_AT(Goal,FL_PLIB) ->
+	    (Goal =.. [Fun,Var], var(Var) -> CanonH = Goal
+	    ; flora_abort([Goal,FL_AT,FL_PLIB,': timeout handler must be a Prolog predicate with one unbound argument'],FLORA_ABORT_NOTRACE)
+	    )
+	; Handler = FL_AT(Goal,Mod) ->
+	    (Goal =.. [Fun,Var], var(Var) ->
+		atom(Mod),
+		flrwrapper:flora_modularize_atom(Fun,Mod,ModFun),
+		CanonH =.. [ModFun,Var,_]
+	    ; flora_abort([Goal,FL_AT,Mod,': timeout handler must be a predicate declared as :- prolog and have one unbound argument'],FLORA_ABORT_NOTRACE)
+	    )
+	; Handler =.. [Fun,Var], var(Var) -> CanonH = Handler
+        ; Handler = Mod:Pred, ground(Pred) -> CanonH = Handler
+        ; ground(Handler) -> CanonH = Handler
+        ; Handler = Mod:Pred, Pred =.. [Fun,Var], var(Var) -> CanonH = Handler
+	; flora_abort(['unsupported form of timeout handler: ',
+		       Handler],FLORA_ABORT_NOTRACE)
+	),
+	%% This require the handler to be loaded in advance
+	(current_predicate(Fun,CanonH) -> true
+	; flora_abort(['timeout handler ', CanonH, ' is not defined'],
+		      FLORA_ABORT_NOTRACE)
+	).
+timeout_handler_canonical(Handler,_CanonH) :-
+	flora_abort([Handler, ': periodic timeout handler must be a Prolog predicate with one argument'],FLORA_ABORT_NOTRACE).
+
+
+/***************** termsize handling *************************************/
+
+flora_cancel_max_subgoal_size :-
+        check_terminyzer_not_active(goalsize),
+        !,
+        retractall(flora_runtime_limits_registry(goalsize,_,_)),
+        retractall(previous_prolog_flag(max_table_subgoal_size,_)),
+	set_prolog_flag(tripwire(max_table_subgoal_size), limit(0)).
+        
+%% Number 0 means maximum_integer
+%% so, to clear call flora_set_subgoal_size(0,_).
+flora_set_subgoal_size(TermSize,Action) :-
+        check_terminyzer_not_active(goalsize),
+        !,
+	convert_size_arg(TermSize,Size),
+        flora_get_break_level(BL),
+        retractall(previous_prolog_flag(max_table_subgoal_size,_)),
+        assert(previous_prolog_flag(max_table_subgoal_size,Size)),
+	flora_set_subgoal_size_aux(Action,Size),
+        (BL == 0 -> 
+            retractall(flora_runtime_limits_registry(goalsize,_,_)),
+            (Size > 0 ->
+                assert(flora_runtime_limits_registry(goalsize,0,(Size,Action)))
+            ; true
+            )
+        ; true
+        ).
+flora_set_subgoal_size(_,_).
+
+flora_set_subgoal_size_aux(abstract,TermSize) :-
+	!,
+        retractall(max_table_subgoal_size_user_handler),
+	set_prolog_flag(tripwire(max_table_subgoal_size), limit(TermSize)),
+	set_prolog_flag(tripwire(max_table_subgoal_size), action(abstract)).
+flora_set_subgoal_size_aux(abort,TermSize) :-
+	!,
+        retractall(max_table_subgoal_size_user_handler),
+	set_prolog_flag(tripwire(max_table_subgoal_size), limit(TermSize)),
+	set_prolog_flag(tripwire(max_table_subgoal_size), action(suspend)),
+        assert((max_table_subgoal_size_user_handler :- abort_on_interrupt(_,goalsize))).
+flora_set_subgoal_size_aux(pause,TermSize) :-
+        flora_running_as(ergo),
+        !,
+        retractall(max_table_subgoal_size_user_handler),
+	set_prolog_flag(tripwire(max_table_subgoal_size), limit(TermSize)),
+	set_prolog_flag(tripwire(max_table_subgoal_size), action(suspend)),
+        assert((max_table_subgoal_size_user_handler :- break_on_interrupt(_,goalsize))).
+flora_set_subgoal_size_aux(Action,_) :-
+        (flora_running_as(ergo) ->
+            Msg2 = '; supported actions are abort, abstract, or pause'
+        ; Msg2 = '; supported actions are abort or abstract'
+        ),
+	flora_abort(['unsupported subgoal size-limit action, ', Action, Msg2],
+		    FLORA_ABORT_NOTRACE).
+
+flora_subgoal_size(TermSize,Action) :-
+	current_prolog_flag(max_table_subgoal_size,TermSize),
+	current_prolog_flag(max_table_subgoal_size_action,Action).
+
+%% answer size
+flora_cancel_max_answer_size :-
+        check_terminyzer_not_active(answersize),
+        !,
+        retractall(flora_runtime_limits_registry(answersize,_,_)),
+        retractall(previous_prolog_flag(max_table_answer_size,_)),
+	set_prolog_flag(tripwire(max_table_answer_size), limit(0)).
+        
+flora_set_answer_size(TermSize,Action) :-
+        check_terminyzer_not_active(answersize),
+        !,
+	convert_size_arg(TermSize,Size),
+        flora_get_break_level(BL),
+        retractall(previous_prolog_flag(max_table_answer_size,_)),
+        assert(previous_prolog_flag(max_table_answer_size,Size)),
+	flora_set_answer_size_aux(Action,Size),
+        (BL == 0 -> 
+            retractall(flora_runtime_limits_registry(answersize,_,_)),
+            (Size > 0 ->
+                assert(flora_runtime_limits_registry(answersize,0,(Size,Action)))
+            ; true
+            )
+        ; true
+        ).
+flora_set_answer_size(_,_).
+
+flora_set_answer_size_aux(abstract,TermSize) :-
+	!,
+        retractall(max_table_answer_size_user_handler),
+	set_prolog_flag(tripwire(max_table_answer_size), limit(TermSize)),
+	set_prolog_flag(tripwire(max_table_answer_size), action(abstract)).
+flora_set_answer_size_aux(abort,TermSize) :-
+	!,
+        retractall(max_table_answer_size_user_handler),
+	set_prolog_flag(tripwire(max_table_answer_size), limit(TermSize)),
+	set_prolog_flag(tripwire(max_table_answer_size), action(suspend)),
+        assert((max_table_answer_size_user_handler :- abort_on_interrupt(_,answersize))).
+flora_set_answer_size_aux(pause,TermSize) :-
+        flora_running_as(ergo),
+        !,
+        retractall(max_table_answer_size_user_handler),
+	set_prolog_flag(tripwire(max_table_answer_size), limit(TermSize)),
+	set_prolog_flag(tripwire(max_table_answer_size), action(suspend)),
+        assert((max_table_answer_size_user_handler :- break_on_interrupt(_,answersize))).
+flora_set_answer_size_aux(Action,_) :-
+        (flora_running_as(ergo) ->
+            Msg2 = '; supported actions are abort, abstract, or pause'
+        ; Msg2 = '; supported actions are abort or abstract'
+        ),
+	flora_abort(['unsupported answer size limit action, ', Action, Msg2],
+		    FLORA_ABORT_NOTRACE).
+
+flora_answer_size(TermSize,Action) :-
+	current_prolog_flag(max_table_answer_size,TermSize),
+	current_prolog_flag(max_table_answer_action,Action).
+
+convert_size_arg(TermSize,TermSizeOut) :-
+	((\+integer(TermSize) ; TermSize<0)
+	-> flora_abort(['invalid maximum term size requested, ',TermSize],
+		       FLORA_ABORT_NOTRACE)
+	; true
+	),
+	(TermSize==0 ->
+            %%current_prolog_flag(max_integer,MaxInt),
+            %%TermSizeOut=MaxInt
+            TermSizeOut = 0
+        ; TermSizeOut=TermSize
+        ).
+
+%% max incomplete/active subgoals
+flora_cancel_max_active_goals :-
+        check_terminyzer_not_active(activegoals),
+        !,
+        retractall(flora_runtime_limits_registry(activegoals,_,_)),
+        retractall(previous_prolog_flag(max_incomplete_subgoals,_)),
+	set_prolog_flag(tripwire(max_incomplete_subgoals), limit(0)).
+        
+flora_set_max_active_goals(SubgNum,Action) :-
+        check_terminyzer_not_active(activegoals),
+        !,
+	convert_size_arg(SubgNum,Size),
+        flora_get_break_level(BL),
+        retractall(previous_prolog_flag(max_incomplete_subgoals,_)),
+        assert(previous_prolog_flag(max_incomplete_subgoals,Size)),
+	flora_set_max_active_goals_aux(Action,Size),
+        (BL == 0 -> 
+            retractall(flora_runtime_limits_registry(activegoals,_,_)),
+            (Size > 0 ->
+                assert(flora_runtime_limits_registry(activegoals,0,(Size,Action)))
+            ; true
+            )
+        ; true
+        ).
+flora_set_max_active_goals(_,_).
+
+flora_set_max_active_goals_aux(abort,SubgNum) :-
+	!,
+        retractall(max_incomplete_subgoals_user_handler),
+	set_prolog_flag(tripwire(max_incomplete_subgoals), limit(SubgNum)),
+	set_prolog_flag(tripwire(max_incomplete_subgoals), action(suspend)),
+        assert((max_incomplete_subgoals_user_handler :- abort_on_interrupt(_,activegoals))).
+flora_set_max_active_goals_aux(pause,SubgNum) :-
+        flora_running_as(ergo),
+        !,
+        retractall(max_incomplete_subgoals_user_handler),
+	set_prolog_flag(tripwire(max_incomplete_subgoals), limit(SubgNum)),
+	set_prolog_flag(tripwire(max_incomplete_subgoals), action(suspend)),
+        assert((max_incomplete_subgoals_user_handler :- break_on_interrupt(_,activegoals))).
+flora_set_max_active_goals_aux(Action,_) :-
+        (flora_running_as(ergo) ->
+            Msg2 = '; supported actions are abort or pause'
+        ; Msg2 = '; supported action is: abort'
+        ),
+	flora_abort(['unsupported active subgoal limit action, ', Action, Msg2],
+		    FLORA_ABORT_NOTRACE).
+
+flora_max_active_goals(SubgNum,Action) :-
+	current_prolog_flag(max_incomplete_subgoals,SubgNum),
+	current_prolog_flag(max_incomplete_subgoals_action,Action).
+
+
+
+/***************** occurs check handling *************************************/
+flora_set_unification_mode(pedantic) :-
+	set_prolog_flag(unify_with_occurs_check,on).
+flora_set_unification_mode(fast) :-
+	set_prolog_flag(unify_with_occurs_check,off).
+
+flora_unification_mode(X) :-
+	current_prolog_flag(unify_with_occurs_check,F),
+	(F==on -> X=pedantic
+	; X=fast
+	).
+
+/********************* memory management *************************************/
+%% in MBs. XSB uses KBs
+flora_set_memory_limit(MemLim,_) :-
+	\+ ((number(MemLim), MemLim > 0)),
+	!,
+	flora_abort(['memory limit must be a positive number, ', MemLim],
+		    FLORA_ABORT_NOTRACE).
+flora_set_memory_limit(MemLim,Action) :-
+	KBlimit is round(MB_CONST*MemLim),
+        flora_set_memory_limitKB(KBlimit,Action).
+flora_set_memory_limitKB(KBlimit,Action) :-
+        flora_get_break_level(BL),
+        (BL == 0 -> 
+            retractall(flora_runtime_limits_registry(memory,_,_)),
+            (KBlimit > 0 ->
+                assert(flora_runtime_limits_registry(memory,0,(KBlimit,Action)))
+            ; true
+            )
+        ; true
+        ),
+        retractall(previous_prolog_flag(max_memory,_)),
+        assert(previous_prolog_flag(max_memory,KBlimit)),
+	set_prolog_flag(max_memory,KBlimit),
+        (Action == pause, flora_running_as(ergo) ->
+            %% pausing is not defined in Flora - only in Ergo
+            set_prolog_flag(tripwire(max_memory), action(suspend)),
+            assert((max_memory_user_handler :- break_on_interrupt(_,memory)))
+        ; true %% default is abort
+        ).
+
+flora_clear_memory_limit :- set_prolog_flag(max_memory,0).
+
+
+flora_set_gc_margin(Mem) :-
+	set_prolog_flag(heap_margin,Mem).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% restore memory, goalsize, answersize, activegoals limits
+%% from flora_runtime_limits_registry/3
+flora_restore_runtime_limits :-
+        (flora_runtime_limits_registry(memory,0,(KBlimit,_Action)) ->
+            set_prolog_flag(max_memory,KBlimit)
+        ; true
+        ),
+        (flora_runtime_limits_registry(goalsize,0,(Size,Action)) ->
+            flora_set_subgoal_size_aux(Action,Size)
+        ; true
+        ),
+        (flora_runtime_limits_registry(answersize,0,(Size,Action)) ->
+            flora_set_answer_size_aux(Action,Size)
+        ; true
+        ),
+        (flora_runtime_limits_registry(activegoals,0,(Size,Action)) ->
+            flora_set_max_active_goals_aux(Action,Size)
+        ; true
+        ).
+
+%%%% Interrupt management. Used in Ergo only.
+:- export
+        enable_all_tripwires/0,
+        disable_all_tripwires/0,
+        enable_tripwire/1,
+        enable_tripwires/1,
+        disable_tripwire/1,
+        disable_tripwires/1,
+        tripwire_enabled/1,
+        tripwire_disabled/1.
+:- import
+        flora_set_counter/2,
+        flora_get_counter/2
+   from flrporting.
+
+#define TIMER_TRIPWIRE_SWITCH        '_$flora_timer_tripwire_switch'
+#define MEMORY_TRIPWIRE_SWITCH       '_$flora_memory_tripwire_switch'
+#define GOALSIZE_TRIPWIRE_SWITCH     '_$flora_goalsize_tripwire_switch'
+#define ANSWERSIZE_TRIPWIRE_SWITCH   '_$flora_answersize_tripwire_switch'
+#define ACTIVEGOALS_TRIPWIRE_SWITCH  '_$flora_activegoals_tripwire_switch'
+
+%%:- dynamic disabled_tripwire/1.
+%%:- index(disabled_tripwire/1,trie).
+
+enable_all_tripwires   :-
+        %%retractall(disabled_tripwire(_)).
+        enable_tripwires([timer,memory,goalsize,answersize,activegoals]).
+disable_all_tripwires  :-
+        disable_tripwires([timer,memory,goalsize,answersize,activegoals]).
+
+enable_tripwire(Type)  :-
+        /*
+        (retract(disabled_tripwire(Type)) -> true
+        ; true
+        ).
+        */
+        get_tripwire_switch(Type,Switch),
+        flora_set_counter(Switch,1).
+disable_tripwire(Type) :-
+        %%assert(disabled_tripwire(Type)).
+        get_tripwire_switch(Type,Switch),
+        flora_set_counter(Switch,0).
+
+tripwire_enabled(Type)  :-
+        %%nonvar(Type),
+        %%\+disabled_tripwire(Type).
+        get_tripwire_switch(Type,Switch),
+        flora_get_counter(Switch,1).
+tripwire_disabled(Type) :-
+        %%nonvar(Type),
+        %%disabled_tripwire(Type).
+        get_tripwire_switch(Type,Switch),
+        flora_get_counter(Switch,0).
+
+enable_tripwires([]) :- !.
+enable_tripwires([Type|Rest]) :-
+        enable_tripwire(Type),
+        enable_tripwires(Rest).
+disable_tripwires([]) :- !.
+disable_tripwires([Type|Rest]) :-
+        disable_tripwire(Type),
+        disable_tripwires(Rest).
+
+get_tripwire_switch(Type,_Switch) :-
+        var(Type),
+        !,
+        flora_abort('BUG: non-ground tripwire type passed as an argument',
+                    FLORA_ABORT_NOTRACE).
+get_tripwire_switch(Type,Switch) :- get_tripwire_switch_ground(Type,Switch).
+
+get_tripwire_switch_ground(timer,TIMER_TRIPWIRE_SWITCH) :- !.
+get_tripwire_switch_ground(memory,MEMORY_TRIPWIRE_SWITCH) :- !.
+get_tripwire_switch_ground(goalsize,GOALSIZE_TRIPWIRE_SWITCH) :- !.
+get_tripwire_switch_ground(answersize,ANSWERSIZE_TRIPWIRE_SWITCH) :- !.
+get_tripwire_switch_ground(activegoals,ACTIVEGOALS_TRIPWIRE_SWITCH) :- !.
+
+:- dynamic unsafe_naf_option/1.
+%% to clear ignoreonce, call FLLIBSETRUNTIME([unsafe_naf(ignoreonce_done)])
+%% in flranswer.P
+set_unsafe_naf_option(Opt) :-
+        (Opt == warn ->
+            retractall(unsafe_naf_option(ignore)),
+            assert(unsafe_naf_option(warn))
+        ; Opt == ignore ->
+            retractall(unsafe_naf_option(_)),
+            assert(unsafe_naf_option(ignore))
+        ; Opt == ignoreonce ->
+            assert(unsafe_naf_option(ignoreonce))
+        ; Opt == ignoreonce_done ->
+            retractall(unsafe_naf_option(ignoreonce))
+        ).
+
+unsafe_naf_warning_enabled :-
+        (\+unsafe_naf_option(_)
+        ;
+            unsafe_naf_option(warn),
+            \+unsafe_naf_option(ignoreonce)
+        ).
+
+set_setof_option(Opt) :-
+        retractall(setof_option(_)),
+        assert(setof_option(Opt)).
+
+
+/************* specific handlers ******************************************/
+
+/*
+   This can be used as follows:
+   setruntime{timeout(repeating(1,report_work(?)@\plg(flrerrhandler)))}.
+*/
+
+report_work(_Goal) :-
+	statistics(walltime,[_,Delta]),
+	conget(FL_WALLTIME,Yprev),
+	Y is Yprev + Delta,
+	Y1 is round(Y),
+	conset(FL_WALLTIME,Y1),
+	write(2,'  '),
+	(Y1 mod 4 =:= 0 -> put_code(2,0'~)
+	; Y1 mod 4 =:= 1 -> put_code(2,0'\)
+	; Y1 mod 4 =:= 2 -> put_code(2,0'|)
+	; put_code(2,0'/)
+	),
+	write(2,' cpu' = Y1),
+	put_code(2,0'\r).
+
+#include "extensions/flrerrhandler_mon.P"
+#include "extensions/flrerrhandler_tripwire.P"

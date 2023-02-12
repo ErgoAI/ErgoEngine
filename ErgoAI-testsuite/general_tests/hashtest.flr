@@ -1,0 +1,80 @@
+// meta-unification
+%tst1 :- ?X = p(a), %?X@?M ~ %p(a),
+	write('tst1 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?M))@\plg(flrdecode), nl@\plg().
+%tst2 :- %?X@?M ~ %p(a),
+	write('tst2 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?M))@\plg(flrdecode), nl@\plg().
+%tst3 :- \unless (?X=p(a), ?X ~ p(a))
+        \do writeln('tst3 failed as expected')@\plg().
+%tst4 :- \unless %?_X@?_M ~ p(a)
+        \do writeln('tst4 failed as expected')@\plg().
+%tst5 :- ?X ~ %p(a),
+	write('tst5 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X))@\plg(flrdecode), nl@\plg().
+%tst6 :- ?X ~ p(a),
+	write('tst6 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X))@\plg(flrdecode), nl@\plg().
+%tst7 :- ?X ~ a[b->c]@foo,
+	write('tst7 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X))@\plg(flrdecode), nl@\plg().
+%tst8 :- \unless ?_X@?_M ~ %p(a)
+        \do writeln('tst8 failed as expected')@\plg().
+%tst9 :- \unless ?_X@foo ~ a[%b]@?_M
+        \do writeln('tst9 failed as expected')@\plg().
+%tst10 :- insert{p(a),%q(b)},
+        delete{?X@?M1},
+        delete{%?Y@?M2},
+	write('tst10 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Y,?M1,?M2))@\plg(flrdecode), nl@\plg().
+%tst11 :- insert{p(${a}),p(${%b})},
+        p(?X1), ?X1 ~ ?X@?M,                 
+        p(?Y1), ?Y1 ~ %?Y@?M,
+        deleteall{p(?_)},
+	write('tst11 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Y,?M))@\plg(flrdecode), nl@\plg().
+
+?- newmodule{foo}.
+?- insertrule{(p(a) :- q(a))@foo, (%t(a) :- %r(a))}.
+
+%tst12 :- clause{dynamic,?X@?M,?Y},
+	write('tst12 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Y,?M))@\plg(flrdecode), nl@\plg().
+%tst13 :- clause{dynamic,%?X@?M,?Y},
+	write('tst13 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Y,?M))@\plg(flrdecode), nl@\plg().
+%tst14 :- \unless clause{dynamic,?_X@?_M1,%?_Y@?_M2}
+        \do writeln('tst14 failed as expected')@\plg().
+%tst15 :- \unless clause{dynamic,%?_X@?_M1,?_Y@?_M2}
+        \do writeln('tst15 failed as expected')@\plg().
+%tst16 :- ?X ~ p(a), ?X@?_M ~ p(a), ?Y ~ a[%b], %?Y@?_M ~ a[%b],  
+	write('tst16 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Y))@\plg(flrdecode), nl@\plg().
+%tst17 :- \unless (?X ~ p(a), ?X@?_M ~ %p(a), ?Y ~ %p(a), ?Y@?_M ~ p(a)) 
+        \do writeln('tst17 failed as expected')@\plg().
+%tst18 :- ?X ~ p@?M, ?Y ~ p@foo, pp(?X) ~ pp(?Y),
+	write('tst18 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Y,?M))@\plg(flrdecode), nl@\plg().
+%tst19 :- pp(?X) ~ pp(?Y), ?X ~ p@?M, ?Y ~ p@foo,
+	write('tst19 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Y,?M))@\plg(flrdecode), nl@\plg().
+%tst20 :- ?X ~ p, ?Y ~ %q@?M, pp(?X,?Y) ~ pp(?X1,?Y1), ?X1 ~ p@?M2, ?Y1 ~ %?Z@foo,
+	write('tst20 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Y,?M,?M2,?Z))@\plg(flrdecode), nl@\plg().
+%tst21 :- ?X ~ p, ?Y ~ %q@?M, ?X1 ~ p@?M2, ?Y1 ~ %?Z@foo, pp(?X,?Y) ~ pp(?X1,?Y1),
+	write('tst21 succeeded, as expected = ')@\plg(),
+	flora_write_goal(ans(?X,?Y,?M,?M2,?Z))@\plg(flrdecode), nl@\plg().
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7,
+            %tst8, %tst9, %tst10, %tst11, %tst12, %tst13, %tst14,
+            %tst15, %tst16, %tst17, %tst18, %tst19, %tst20, %tst21.
+
+%test :- tell(temp)@\plg(), 
+	%pretest,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	told@\plg().
+
+
+

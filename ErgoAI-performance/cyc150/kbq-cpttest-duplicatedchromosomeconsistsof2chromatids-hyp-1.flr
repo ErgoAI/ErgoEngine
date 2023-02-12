@@ -1,0 +1,134 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-DuplicatedChromosomeConsistsOf2Chromatids-Hyp (query 1)
+// http://silk.bbn.com/index.php/Categorized_Candidate_Questions_for_Halo_Bio_Question_Answering : Example:_In-house_13
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(typedGenlPreds, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genls, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, transitiveViaArgInverse(relationAllExistsCount, genls, 2)).
+istAsserted(UniversalVocabularyMt, transitiveViaArg(relationAllExistsCount, typedGenlPreds, 1)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genls(DuplicatedChromosome, EukaryoticChromosome)).
+istAsserted(UniversalVocabularyMt, typedGenlPreds(chromatids, properPhysicalParts)).
+istAsserted(MolecularBiologyMt, relationAllExistsCount(chromatids, DuplicatedChromosome, ChromatinStrand, 2)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genls(EukaryoticChromosome, Chromosome)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ContextOfPCWFn(NthEditionOfWorkFn('Biology-TheTextbook', 6)))).
+istAsserted(UniversalVocabularyMt, genlMt(ContextOfPCWFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 12)), ContextOfPCWFn(TextualPCWSubSectionOfTypeWithIDFn(TextualPCWSubSectionOfTypeWithIDFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 12), 'Section-PCW', 'The Key Roles of Cell Division'), 'Section-PCW', 'Cell division distributes identical sets of chromosomes to daughter cells')))).
+istAsserted(ContextOfPCWFn(TextualPCWSubSectionOfTypeWithIDFn(TextualPCWSubSectionOfTypeWithIDFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 12), 'Section-PCW', 'The Key Roles of Cell Division'), 'Section-PCW', 'Cell division distributes identical sets of chromosomes to daughter cells')), relationAllExistsCount(chromatids, DuplicatedChromosome, Chromatid, 2)).
+istAsserted(UniversalVocabularyMt, genlMt(ContextOfPCWFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 13)), ContextOfPCWFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 12)))).
+istAsserted(UniversalVocabularyMt, genlMt(ContextOfPCWFn(NthEditionOfWorkFn('Biology-TheTextbook', 6)), ContextOfPCWFn('UnitThree-CandR6thEd'))).
+istAsserted(UniversalVocabularyMt, genlMt(ContextOfPCWFn('UnitThree-CandR6thEd'), ContextOfPCWFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 13)))).
+
+// Explicit Background Facts
+istAsserted(MolecularBiologyMt, relationAllExistsCount(properPhysicalParts, Chromosome, Centromere, 1)).
+
+// Explicit Background Rules
+backwardSentence(relationInstanceExistsCount(?RELATION, ?INSTANCE, ?TYPE2, ?NUM)) :- mtVisible(BaseKB), naf backchainForbidden(relationInstanceExistsCount), relationAllExistsCount(?RELATION, ?TYPE1, ?TYPE2, ?NUM), isa(?INSTANCE, ?TYPE1).
+backwardSentence(not(isa(?INSTANCE, ?TYPE1))) :- mtVisible(BaseKB), naf backchainForbidden(isa), relationAllExistsCount(?RELATION, ?TYPE1, ?TYPE2, ?NUM), not(relationInstanceExistsCount(?RELATION, ?INSTANCE, ?TYPE2, ?NUM)).
+backwardSentence(not(relationAllExistsCount(?RELATION, ?TYPE1, ?TYPE2, ?NUM))) :- mtVisible(BaseKB), naf backchainForbidden(relationAllExistsCount), isa(?INSTANCE, ?TYPE1), not(relationInstanceExistsCount(?RELATION, ?INSTANCE, ?TYPE2, ?NUM)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259608', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259608', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-DuplicatedChromosome-259609', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259608', MtTimeDimFn(Now)), isa('HYP-DuplicatedChromosome-259609', DuplicatedChromosome)).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259608')).
+//REMOVED TITLE('KBQ  : $CPTTest-DuplicatedChromosomeConsistsOf2Chromatids-Hyp 1').
+%pretest :- relationInstanceExistsCount(properPhysicalParts, 'HYP-DuplicatedChromosome-259609', ?TYPE, ?N), %write_results('SUCCESS  : $CPTTest-DuplicatedChromosomeConsistsOf2Chromatids-Hyp 1').
+
+// Debugging
+proof(2240, 0) :- isa('HYP-DuplicatedChromosome-259609', DuplicatedChromosome).
+proof(2240, 1) :- isa('HYP-DuplicatedChromosome-259609', DuplicatedChromosome).
+proof(2240, 2) :- relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, ChromatinStrand, 2).
+proof(2240, 3) :- relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, ChromatinStrand, 2).
+proof(2240, 4) :- relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, ChromatinStrand, 2).
+proof(2240, 5) :- isa('HYP-DuplicatedChromosome-259609', DuplicatedChromosome), relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, ChromatinStrand, 2).
+proof(2240, 6) :- relationInstanceExistsCount(properPhysicalParts, 'HYP-DuplicatedChromosome-259609', ChromatinStrand, 2).
+proof(2240, 7) :- relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, Chromatid, 2).
+proof(2240, 8) :- relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, Chromatid, 2).
+proof(2240, 9) :- relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, Chromatid, 2).
+proof(2240, 10) :- isa('HYP-DuplicatedChromosome-259609', DuplicatedChromosome), relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, Chromatid, 2).
+proof(2240, 11) :- relationInstanceExistsCount(properPhysicalParts, 'HYP-DuplicatedChromosome-259609', Chromatid, 2).
+proof(2240, 12) :- relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, Centromere, 1).
+proof(2240, 13) :- relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, Centromere, 1).
+proof(2240, 14) :- relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, Centromere, 1).
+proof(2240, 15) :- isa('HYP-DuplicatedChromosome-259609', DuplicatedChromosome), relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, Centromere, 1).
+proof(2240, 16) :- relationInstanceExistsCount(properPhysicalParts, 'HYP-DuplicatedChromosome-259609', Centromere, 1).
+proof(2240, 17) :- isa('HYP-DuplicatedChromosome-259609', EukaryoticChromosome).
+proof(2240, 18) :- isa('HYP-DuplicatedChromosome-259609', EukaryoticChromosome).
+proof(2240, 19) :- relationAllExistsCount(properPhysicalParts, EukaryoticChromosome, Centromere, 1).
+proof(2240, 20) :- relationAllExistsCount(properPhysicalParts, EukaryoticChromosome, Centromere, 1).
+proof(2240, 21) :- relationAllExistsCount(properPhysicalParts, EukaryoticChromosome, Centromere, 1).
+proof(2240, 22) :- isa('HYP-DuplicatedChromosome-259609', EukaryoticChromosome), relationAllExistsCount(properPhysicalParts, EukaryoticChromosome, Centromere, 1).
+proof(2240, 23) :- relationInstanceExistsCount(properPhysicalParts, 'HYP-DuplicatedChromosome-259609', Centromere, 1).
+proof(2240, 24) :- isa('HYP-DuplicatedChromosome-259609', Chromosome).
+proof(2240, 25) :- isa('HYP-DuplicatedChromosome-259609', Chromosome).
+proof(2240, 26) :- relationAllExistsCount(properPhysicalParts, Chromosome, Centromere, 1).
+proof(2240, 27) :- relationAllExistsCount(properPhysicalParts, Chromosome, Centromere, 1).
+proof(2240, 28) :- relationAllExistsCount(properPhysicalParts, Chromosome, Centromere, 1).
+proof(2240, 29) :- isa('HYP-DuplicatedChromosome-259609', Chromosome), relationAllExistsCount(properPhysicalParts, Chromosome, Centromere, 1).
+proof(2240, 30) :- relationInstanceExistsCount(properPhysicalParts, 'HYP-DuplicatedChromosome-259609', Centromere, 1).
+
+proof(2240, 1000) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+proof(2240, 1001) :- genlMt(ContextOfPCWFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 12)), ContextOfPCWFn(TextualPCWSubSectionOfTypeWithIDFn(TextualPCWSubSectionOfTypeWithIDFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 12), 'Section-PCW', 'The Key Roles of Cell Division'), 'Section-PCW', 'Cell division distributes identical sets of chromosomes to daughter cells'))).
+proof(2240, 1002) :- genlMt(ContextOfPCWFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 13)), ContextOfPCWFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 12))).
+proof(2240, 1003) :- genlMt(ContextOfPCWFn(NthEditionOfWorkFn('Biology-TheTextbook', 6)), ContextOfPCWFn('UnitThree-CandR6thEd')).
+proof(2240, 1004) :- genlMt(ContextOfPCWFn('UnitThree-CandR6thEd'), ContextOfPCWFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 13))).
+
+proof(2240, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-259608', 1, genlMt).
+proof(2240, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-259608', 2, genlMt).
+proof(2240, 2002) :- admittedArgument(SecondFn(25, MinuteFn(6, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(2240, 2003) :- admittedArgument(SecondFn(25, MinuteFn(6, HourFn(18, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(2240, 2004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259608'), UniversalVocabularyMt).
+proof(2240, 2005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259608'), BaseKB).
+proof(2240, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259608'), MolecularBiologyMt).
+proof(2240, 2007) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259608'), ContextOfPCWFn(TextualPCWSubSectionOfTypeWithIDFn(TextualPCWSubSectionOfTypeWithIDFn('ChapterOfWork-OrdinalFn'(NthEditionOfWorkFn('Biology-TheTextbook', 6), 12), 'Section-PCW', 'The Key Roles of Cell Division'), 'Section-PCW', 'Cell division distributes identical sets of chromosomes to daughter cells'))).
+proof(2240, 2008) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259608'), MtSpace('Hypothesis-HypotheticalContext-259608', MtTimeDimFn(Now))).
+proof(2240, 2009) :- isa('HYP-DuplicatedChromosome-259609', EukaryoticChromosome).
+proof(2240, 2010) :- isa('HYP-DuplicatedChromosome-259609', Chromosome).
+proof(2240, 2011) :- isa('HYP-DuplicatedChromosome-259609', DuplicatedChromosome).
+proof(2240, 2012) :- relationAllExistsCount(properPhysicalParts, EukaryoticChromosome, Centromere, 1).
+proof(2240, 2013) :- relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, Chromatid, 2).
+proof(2240, 2014) :- relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, Centromere, 1).
+proof(2240, 2015) :- relationAllExistsCount(properPhysicalParts, DuplicatedChromosome, ChromatinStrand, 2). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

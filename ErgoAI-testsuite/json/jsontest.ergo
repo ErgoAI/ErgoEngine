@@ -1,0 +1,164 @@
+#include "standard.h"
+
+// valid tests
+%tst1 :- write('tst1 = ')@\plg,
+         ergo_parse_json('data/test1.json',?X)@\plg(jsonlib),
+         flora_bind_vars_meaningfully(?X)@\plg(flrporting),
+         writeln(?X)@\io.
+%tst2 :- write('tst2 = ')@\plg,
+         ergo_parse_json('data/test2.json',?X)@\plg(jsonlib),
+         flora_rename_vars_meaningfully(?X)@\plg(flrdecode),
+         writeln(?X)@\io.
+%tst3 :- write('tst3 = ')@\plg,
+         ergo_parse_json('data/test3.json',?X)@\plg(jsonlib),
+         flora_rename_vars_meaningfully(?X)@\plg(flrdecode),
+         writeln(?X)@\io.
+%tst4 :- ergo_parse_json('data/test4.json',?X)@\plg(jsonlib),
+         flora_rename_vars_meaningfully(?X)@\plg(flrdecode),
+         writeln(tst4=?X)@\io.
+%tst5 :- ergo_parse_json('data/test5.json',?X)@\plg(jsonlib),
+         flora_rename_vars_meaningfully(?X)@\plg(flrdecode),
+         writeln(tst5=?X)@\io.
+%tst6 :- ergo_parse_json('data/test6.json',?X)@\plg(jsonlib),
+         flora_rename_vars_meaningfully(?X)@\plg(flrdecode),
+         writeln(tst6=?X)@\io.
+%tst7 :- ergo_parse_json('data/test7.json',?X)@\plg(jsonlib),
+         writeln(tst7=?X)@\io.
+// invalid tests
+%tst8 :- ('data/ext-invalid-0001.json'[parse->?]@\json -->>
+            writeln(tst8=no)@\plg
+         ; writeln(tst8=ok)@\plg
+         ).
+%tst9 :- (ergo_parse_json('data/ext-invalid-0002.json',?)@\plg(jsonlib) -->>
+            writeln(tst9=no)@\plg
+         ; writeln(tst9=ok)@\plg
+         ).
+
+// valid
+%tst10 :- ergo_parse_json('data/ext-valid-0001.json',?X)@\plg(jsonlib),
+          writeln(tst10=?X)@\io.
+%tst11 :- ergo_parse_json('data/ext-valid-0002.json',?X)@\plg(jsonlib),
+          writeln(tst11=?X)@\io.
+%tst12 :- 'data/ext-valid-0003.json'[parse->?X]@\json,
+          writeln(tst12=?X)@\io.
+
+// invalid tests
+%tst13 :- ('data/invalid-0000.json'[parse->?]@\json -->>
+            writeln(tst13=no)@\plg
+          ; writeln(tst13=ok)@\plg
+          ).
+%tst14 :- (ergo_parse_json('data/invalid-0001.json',?)@\plg(jsonlib) -->>
+            writeln(tst14=no)@\plg
+          ; writeln(tst14=ok)@\plg
+          ).
+%tst15 :- (ergo_parse_json('data/invalid-0002.json',?)@\plg(jsonlib) -->>
+            writeln(tst15=no)@\plg
+          ; writeln(tst15=ok)@\plg
+          ).
+%tst16 :- (ergo_parse_json('data/invalid-0003.json',?)@\plg(jsonlib) -->>
+            writeln(tst16=no)@\plg
+          ; writeln(tst16=ok)@\plg
+          ).
+%tst17 :- (ergo_parse_json('data/invalid-0004.json',?)@\plg(jsonlib) -->>
+            writeln(tst17=no)@\plg
+          ; writeln(tst17=ok)@\plg
+          ).
+%tst18 :- (ergo_parse_json('data/invalid-0005.json',?)@\plg(jsonlib) -->>
+            writeln(tst18=no)@\plg
+          ; writeln(tst18=ok)@\plg
+          ).
+%tst19 :- (ergo_parse_json('data/invalid-0006.json',?)@\plg(jsonlib) -->>
+            writeln(tst19=no)@\plg
+          ; writeln(tst19=ok)@\plg
+          ).
+%tst20 :- (ergo_parse_json('data/invalid-0007.json',?)@\plg(jsonlib) -->>
+            writeln(tst20=no)@\plg
+          ; writeln(tst20=ok)@\plg
+          ).
+%tst21 :- (ergo_parse_json('data/invalid-0008.json',?)@\plg(jsonlib) -->>
+            writeln(tst21=no)@\plg
+          ; writeln(tst21=ok)@\plg
+          ).
+%tst22 :- (ergo_parse_json('data/invalid-0009.json',?)@\plg(jsonlib) -->>
+            writeln(tst22=no)@\plg
+          ; writeln(tst22=ok)@\plg
+          ).
+%tst22 :- (ergo_parse_json('data/invalid-0010.json',?)@\plg(jsonlib) -->>
+            writeln(tst22=no)@\plg
+          ; writeln(tst22=ok)@\plg
+          ).
+%tst23 :- (ergo_parse_json('data/simple_err1.json',?)@\plg(jsonlib) -->>
+            writeln(tst23=no)@\plg
+          ; writeln(tst23=ok)@\plg
+          ).
+%tst24 :- (ergo_parse_json('data/simple_err2.json',?)@\plg(jsonlib) -->>
+            writeln(tst24=no)@\plg
+          ; writeln(tst24=ok)@\plg
+          ).
+%tst25 :- (ergo_parse_json('data/simple_err3.json',?)@\plg(jsonlib) -->>
+            writeln(tst25=no)@\plg
+          ; writeln(tst25=ok)@\plg
+          ).
+
+// valid tests
+%tst26 :- 'data/valid-0000.json'[parse->?X]@\json,
+          writeln(tst26=?X)@\io.
+%tst27 :- ergo_parse_json('data/valid-0001.json',?X)@\plg(jsonlib),
+          writeln(tst27=?X)@\io.
+%tst28 :- ergo_parse_json('data/valid-0002.json',?X)@\plg(jsonlib),
+          writeln(tst28=?X)@\io.
+%tst29 :- ergo_parse_json('data/valid-0003.json',?X)@\plg(jsonlib),
+          writeln(tst29=?X)@\io.
+%tst30 :- ergo_parse_json('data/valid-0004.json',?X)@\plg(jsonlib),
+          writeln(tst30=?X)@\io.
+%tst31 :- ergo_parse_json('data/valid-0005.json',?X)@\plg(jsonlib),
+          writeln(tst31=?X)@\io.
+%tst32 :- ergo_parse_json('data/valid-0006.json',?X)@\plg(jsonlib),
+          writeln(tst32=?X)@\io.
+%tst33 :- ergo_parse_json('data/valid-0007.json',?X)@\plg(jsonlib),
+          writeln(tst33=?X)@\io.
+%tst34 :- ergo_parse_json('data/valid-0008.json',?X)@\plg(jsonlib),
+          writeln(tst34=?X)@\io.
+%tst35 :- ergo_parse_json('data/valid-0009.json',?X)@\plg(jsonlib),
+          writeln(tst35=?X)@\io.
+%tst36 :- ergo_parse_json('data/valid-0010.json',?X)@\plg(jsonlib),
+          writeln(tst36=?X)@\io.
+%tst37 :- ergo_parse_json('data/valid-0011.json',?X)@\plg(jsonlib),
+          flora_rename_vars_meaningfully(?X)@\plg(flrdecode),
+          writeln(tst37=?X)@\io.
+%tst38 :- ergo_parse_json('data/valid-0012.json',?X)@\plg(jsonlib),
+          flora_rename_vars_meaningfully(?X)@\plg(flrdecode),
+          writeln(tst38=?X)@\io.
+
+%tst39 :- str('{ \"first\" : 1, \"second\" : {\"third\": [1,2], \"fourth\" : { \"fifth\":3}}}')[parse('second.fourth')->?X]@\json,
+          writeln(tst39=?X)@\io.
+
+
+
+
+%pretest :-
+        %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9,
+        %tst10, %tst11, %tst12, %tst13, %tst14, %tst15, %tst16, %tst17,
+        %tst18, %tst19, %tst20, %tst21, %tst22, %tst23, %tst24, %tst25,
+        %tst26, %tst27, %tst28, %tst29, %tst30, %tst31, %tst32, %tst33,
+        %tst34, %tst35, %tst36, %tst37, %tst38, %tst39.
+
+%test :-
+	file_reopen(temp1,w,STDERR,?_)@\plg(file_io),
+	file_reopen(temp2,w,STDWARN,?_)@\plg(file_io),
+        tell(temp)@\plg,
+        %pretest,
+        told@\plg,
+	file_close(STDWARN)@\plg(file_io),
+	file_close(STDERR)@\plg(file_io),
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp2)@\plg,read,?Port2)@\plg,
+	open(file(temp)@\plg,append,?Port0)@\plg,
+	copyIOport(?Port1,?Port0)@\plg(file_io),
+	copyIOport(?Port2,?Port0)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+        close(?Port0)@\plg,
+	flora_file_op(unlink,temp1)@\plg(flrporting),
+	flora_file_op(unlink,temp2)@\plg(flrporting).
+

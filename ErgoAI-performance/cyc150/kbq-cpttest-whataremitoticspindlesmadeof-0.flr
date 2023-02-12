@@ -1,0 +1,103 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-WhatAreMitoticSpindlesMadeOf (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(relationAllExistsCount, relationAllExistsMin)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(relationAllExistsAndOnly, relationAllExists)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(UniversalVocabularyMt, genlPreds(primaryPhysicalPartType, properPhysicalPartTypes)).
+
+// Explicit Background Facts
+istAsserted(UniversalVocabularyMt, arg2Isa(properPhysicalParts, PartiallyTangible)).
+istAsserted(MicrobiologyMt, primaryPhysicalPartType(MitoticSpindle, Microtubule)).
+istAsserted(MicrobiologyMt, relationAllExistsCount(properPhysicalParts, MitoticSpindle, SpindlePole, 2)).
+
+// Explicit Background Rules
+backwardSentence(relationAllExists(?SLOT, ?UNIV_COL, ?EXIST_COL)) :- mtVisible(BaseKB), naf backchainForbidden(relationAllExists), relationAllExistsMin(?SLOT, ?UNIV_COL, ?EXIST_COL, ?NUM), greaterThan(?NUM, 0).
+backwardSentence(not(greaterThan(?NUM, 0))) :- mtVisible(BaseKB), naf backchainForbidden(greaterThan), relationAllExistsMin(?SLOT, ?UNIV_COL, ?EXIST_COL, ?NUM), not(relationAllExists(?SLOT, ?UNIV_COL, ?EXIST_COL)).
+backwardSentence(not(relationAllExistsMin(?SLOT, ?UNIV_COL, ?EXIST_COL, ?NUM))) :- mtVisible(BaseKB), naf backchainForbidden(relationAllExistsMin), not(relationAllExists(?SLOT, ?UNIV_COL, ?EXIST_COL)), greaterThan(?NUM, 0).
+backwardSentence(relationAllExistsAndOnly(?PRED, ?TYPE_1, ?COL)) :- mtVisible(BaseKB), naf backchainForbidden(relationAllExistsAndOnly), relationAllExists(?PRED, ?TYPE_1, ?TYPE_2), arg2Isa(?PRED, ?COL).
+backwardSentence(not(arg2Isa(?PRED, ?COL))) :- mtVisible(BaseKB), naf backchainForbidden(arg2Isa), relationAllExists(?PRED, ?TYPE_1, ?TYPE_2), not(relationAllExistsAndOnly(?PRED, ?TYPE_1, ?COL)).
+backwardSentence(not(relationAllExists(?PRED, ?TYPE_1, ?TYPE_2))) :- mtVisible(BaseKB), naf backchainForbidden(relationAllExists), arg2Isa(?PRED, ?COL), not(relationAllExistsAndOnly(?PRED, ?TYPE_1, ?COL)).
+backwardSentence(properPhysicalPartTypes(?COL1, ?COL2)) :- mtVisible(BaseKB), naf backchainForbidden(properPhysicalPartTypes), relationAllExists(properPhysicalParts, ?COL1, ?COL2).
+backwardSentence(not(relationAllExists(properPhysicalParts, ?COL1, ?COL2))) :- mtVisible(BaseKB), naf backchainForbidden(relationAllExists), not(properPhysicalPartTypes(?COL1, ?COL2)).
+
+// Query
+queryMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+//REMOVED TITLE('KBQ  : $CPTTest-WhatAreMitoticSpindlesMadeOf 0').
+%pretest :- properPhysicalPartTypes(MitoticSpindle, ?WHAT), %write_results('SUCCESS  : $CPTTest-WhatAreMitoticSpindlesMadeOf 0').
+
+// Debugging
+proof(11632, 0) :- properPhysicalPartTypes(MitoticSpindle, Microtubule).
+proof(11632, 1) :- properPhysicalPartTypes(MitoticSpindle, Microtubule).
+proof(11632, 2) :- arg2Isa(properPhysicalParts, PartiallyTangible).
+proof(11632, 3) :- arg2Isa(properPhysicalParts, PartiallyTangible).
+proof(11632, 4) :- relationAllExistsMin(properPhysicalParts, MitoticSpindle, SpindlePole, 2).
+proof(11632, 5) :- relationAllExistsMin(properPhysicalParts, MitoticSpindle, SpindlePole, 2).
+proof(11632, 6) :- greaterThan(2, 0).
+proof(11632, 7) :- greaterThan(2, 0).
+proof(11632, 8) :- greaterThan(2, 0), relationAllExistsMin(properPhysicalParts, MitoticSpindle, SpindlePole, 2).
+proof(11632, 9) :- relationAllExists(properPhysicalParts, MitoticSpindle, SpindlePole).
+proof(11632, 10) :- relationAllExists(properPhysicalParts, MitoticSpindle, SpindlePole), arg2Isa(properPhysicalParts, PartiallyTangible).
+proof(11632, 11) :- relationAllExists(properPhysicalParts, MitoticSpindle, PartiallyTangible).
+proof(11632, 12) :- properPhysicalPartTypes(MitoticSpindle, PartiallyTangible).
+proof(11632, 13) :- properPhysicalPartTypes(MitoticSpindle, SpindlePole).
+
+proof(11632, 1000) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(11632, 1001) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(11632, 1002) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(11632, 2000) :- admittedArgument(CytologicalProcessesQueryMt, 1, genlMt).
+proof(11632, 2001) :- admittedArgument(CytologicalProcessesQueryMt, 2, genlMt).
+proof(11632, 2002) :- admittedArgument(SecondFn(15, MinuteFn(52, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(11632, 2003) :- admittedArgument(SecondFn(15, MinuteFn(52, HourFn(19, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(11632, 2004) :- greaterThan(2, 0).
+proof(11632, 2005) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), UniversalVocabularyMt).
+proof(11632, 2006) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), BaseKB).
+proof(11632, 2007) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MicrobiologyMt).
+proof(11632, 2008) :- genlMt(MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now)), MtSpace(CytologicalProcessesQueryMt, MtTimeDimFn(Now))).
+proof(11632, 2009) :- genlPreds(relationAllExistsCount, relationAllExistsMin).
+proof(11632, 2010) :- genlPreds(relationAllExistsAndOnly, relationAllExists).
+proof(11632, 2011) :- genlPreds(primaryPhysicalPartType, properPhysicalPartTypes). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

@@ -1,0 +1,113 @@
+/* File:      flrsetops.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2017-2018
+**      Coherent Knowledge, LLC, 2017-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_exceptions.flh"
+
+:- import
+	sublist/2,
+	memberchk/2,
+	member/2
+   from lists.
+
+:- import
+        subset/2,
+        for/3
+   from basics.
+
+:- import
+        flora_module_registry/1
+   from flrregistry.
+
+:- import
+        flora_module_predicate/4
+   from flrwrapper.
+
+:- import
+        flora_running_as/1
+   from flrporting.
+
+:- export
+	flora_list_subset/2,
+	flora_list_sublist/2,
+	flora_list_member/2.
+
+%% flora_list_subset/2. Ergo sets - available only in Ergo
+flora_list_subset(M,L) :-
+        atom(M), atom(L),
+        flora_running_as(ergo),
+        flora_module_registry(ERGOSET),
+        !,
+        flora_module_predicate(genericsubset,[M,L,_Cnxt],ERGOSET,Pred),
+        Pred.
+flora_list_subset(M,L) :-
+        ((ground(M) ; nonvar(L)) -> %% or else infinite number of answers
+            subset(M,L)
+        ; undefined
+        ).
+
+%% flora_list_sublist/2
+flora_list_sublist(M,L) :-
+        ((ground(M) ; nonvar(L)) -> %% or else infinite number of answers
+            sublist(M,L)
+        ; undefined
+        ).
+
+%% handle intervals like 3..10
+flora_list_member(M, Target) :-
+        ground(Target),
+        Target = FL_RANGE(Low,High),
+        number(Low),
+        number(High),
+        !,
+        for(M,Low,High).
+%% intervals like char1..char2
+flora_list_member(M, Target) :-
+        ground(Target),
+        Target = FL_RANGE(Low,High),
+        atom_codes(High,[HiCode]),
+        atom_codes(Low,[LowCode]),
+        !,
+        for(MCode,LowCode,HiCode),
+        atom_codes(M,[MCode]).
+%% Ergo set - available only in Ergo
+flora_list_member(M, Target) :-
+        atom(Target),
+        flora_running_as(ergo),
+        flora_module_registry(ERGOSET),
+        !,
+        flora_module_predicate(genericmember,[Target,set,M,_Cnxt],ERGOSET,Pred),
+        Pred.
+flora_list_member(M,L) :-
+	(ground(M) -> memberchk(M,L)
+        %% If L is a var and M nonground, infinite number of answers is possible
+	; nonvar(L) -> member(M,L)
+        ; undefined  %% should issue a warning here before failing
+	).

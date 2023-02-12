@@ -1,0 +1,97 @@
+:- use_argumentation_theory{ogcle} .
+?- [ogclpe>>ogcle] .
+:- setsemantics{tabling(incremental)}.
+?-Method[%mustDefine(on)]@\sys.
+
+\overrides(?X,?Y) :- silk#overrides(?X,?Y) .
+\overrides(?X,?Y,?Z,?W) :- silk#overrides(?X,?Y,?Z,?W) .
+?- \optimize(class_expressions, main) .
+
+
+?- [+'../aux_files/silk-predicates'],
+   [+'../aux_files/silk-predicates_at_builtin'>>builtin],
+	
+	[+'core_files/core-pragmatics'],
+	[+'core_files/core-rules'],
+	[+'core_files/latest-tiny-kb'],
+	[+'core_files/rmt-removal-lookup-pos-1'].
+
+//?- ?query : silk#PersistentQuery[query-> ?text].
+//?- \tracelow('/tmp/trace.out.biology-kb-v240-v2-with-definitions').
+// KBQ:  : $CPTTest-AnEventThatInterferesWithSpindleFormationIsOneThatInterferesWithTheMCheckpoint (query 0)
+
+// Implicit Background Facts
+istAsserted(UniversalVocabularyMt, isa(temporallySubsumes, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa('temporallySubsumes-TypeType', ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, TransitiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, isa(genlMt, ReflexiveBinaryPredicate)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologicalChemistryMt, MicrobiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyMt, MicrobiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, transitiveViaArg('preconditionFor-SitTypeSitType', genls, 1)).
+istAsserted(UniversalVocabularyMt, genlMt(CycAgencyTheoryMt, UniversalVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BaseKB, CycAgencyTheoryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt)).
+istAsserted(UniversalVocabularyMt, genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(ProprietaryMtFn(BiologyMt), BiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt))).
+istAsserted(UniversalVocabularyMt, genls(MitoticSpindleAssembly, SpindleApparatusAssembly)).
+istAsserted(UniversalVocabularyMt, genlMt(ReasoningToCausesFromObservationsMt, BaseKB)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, MolecularBiologyMt)).
+istAsserted(UniversalVocabularyMt, genlMt(CytologicalProcessesQueryMt, ReasoningToCausesFromObservationsMt)).
+istAsserted(BiologyMt, 'preconditionFor-SitTypeSitType'(MitoticSpindleAssembly, MCheckpoint)).
+
+// Explicit Background Rules
+backwardSentence('inhibits-SitSitType'(?INHIBITION, ?COND)) :- mtVisible(UniversalVocabularyMt), naf backchainForbidden('inhibits-SitSitType'), 'inhibits-SitSitType'(?INHIBITION, ?INHIBITED), 'preconditionFor-SitTypeSitType'(?INHIBITED, ?COND).
+backwardSentence(not('inhibits-SitSitType'(?INHIBITION, ?INHIBITED))) :- mtVisible(UniversalVocabularyMt), naf backchainForbidden('inhibits-SitSitType'), 'preconditionFor-SitTypeSitType'(?INHIBITED, ?COND), not('inhibits-SitSitType'(?INHIBITION, ?COND)).
+backwardSentence(not('preconditionFor-SitTypeSitType'(?INHIBITED, ?COND))) :- mtVisible(UniversalVocabularyMt), naf backchainForbidden('preconditionFor-SitTypeSitType'), 'inhibits-SitSitType'(?INHIBITION, ?INHIBITED), not('inhibits-SitSitType'(?INHIBITION, ?COND)).
+
+// Hypothesized Premises
+istAsserted(UniversalVocabularyMt, isa('Hypothesis-HypotheticalContext-259468', HypotheticalContext)).
+istAsserted(UniversalVocabularyMt, genlMt('Hypothesis-HypotheticalContext-259468', CytologicalProcessesQueryMt)).
+istAsserted(UniversalVocabularyMt, isa('HYP-Situation-259469', Individual)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259468', MtTimeDimFn(Now)), isa('HYP-Situation-259469', Situation)).
+istAsserted(MtSpace('Hypothesis-HypotheticalContext-259468', MtTimeDimFn(Now)), 'inhibits-SitSitType'('HYP-Situation-259469', SpindleApparatusAssembly)).
+
+// Query
+queryMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259468')).
+//REMOVED TITLE('KBQ  : $CPTTest-AnEventThatInterferesWithSpindleFormationIsOneThatInterferesWithTheMCheckpoint 0').
+%pretest :- 'inhibits-SitSitType'('HYP-Situation-259469', MCheckpoint), %write_results('SUCCESS  : $CPTTest-AnEventThatInterferesWithSpindleFormationIsOneThatInterferesWithTheMCheckpoint 0').
+
+// Debugging
+proof(1540, 0) :- 'inhibits-SitSitType'('HYP-Situation-259469', SpindleApparatusAssembly).
+proof(1540, 1) :- 'inhibits-SitSitType'('HYP-Situation-259469', SpindleApparatusAssembly).
+proof(1540, 2) :- 'preconditionFor-SitTypeSitType'(SpindleApparatusAssembly, MCheckpoint).
+proof(1540, 3) :- 'preconditionFor-SitTypeSitType'(SpindleApparatusAssembly, MCheckpoint).
+proof(1540, 4) :- 'inhibits-SitSitType'('HYP-Situation-259469', SpindleApparatusAssembly), 'preconditionFor-SitTypeSitType'(SpindleApparatusAssembly, MCheckpoint).
+proof(1540, 5) :- 'inhibits-SitSitType'('HYP-Situation-259469', MCheckpoint).
+
+proof(1540, 1000) :- genlMt(MicrobiologyMt, MicrobiologyVocabularyMt).
+proof(1540, 1001) :- genlMt(MolecularBiologyMt, MolecularBiologyVocabularyMt).
+proof(1540, 1002) :- genlMt(MolecularBiologyVocabularyMt, MicrobiologicalChemistryMt).
+proof(1540, 1003) :- genlMt(MicrobiologyVocabularyMt, BiologyVocabularyMt).
+proof(1540, 1004) :- genlMt(ProprietaryMtFn(BiologyMt), BiologyMt).
+proof(1540, 1005) :- genlMt(BiologyVocabularyMt, ProprietaryMtFn(BiologyMt)).
+proof(1540, 1006) :- genlMt(ReasoningToCausesFromObservationsMt, BaseKB).
+
+proof(1540, 2000) :- admittedArgument('Hypothesis-HypotheticalContext-259468', 1, genlMt).
+proof(1540, 2001) :- admittedArgument('Hypothesis-HypotheticalContext-259468', 2, genlMt).
+proof(1540, 2002) :- admittedArgument(SecondFn(41, MinuteFn(51, HourFn(17, DayFn(26, MonthFn(April, YearFn(2011)))))), 1, temporallySubsumes).
+proof(1540, 2003) :- admittedArgument(SecondFn(41, MinuteFn(51, HourFn(17, DayFn(26, MonthFn(April, YearFn(2011)))))), 2, temporallySubsumes).
+proof(1540, 2004) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259468'), UniversalVocabularyMt).
+proof(1540, 2005) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259468'), BaseKB).
+proof(1540, 2006) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259468'), BiologyMt).
+proof(1540, 2007) :- genlMt(MtSpace(MtTimeDimFn(Now), 'Hypothesis-HypotheticalContext-259468'), MtSpace('Hypothesis-HypotheticalContext-259468', MtTimeDimFn(Now))).
+proof(1540, 2008) :- 'preconditionFor-SitTypeSitType'(SpindleApparatusAssembly, MCheckpoint). 
+checkingGround(?R) :- ground(?R).
+%write_results(?R) :- %writeln(?R)@\io.
+
+%pretest :- true.
+
+%test :- tell(temp)@\plg(), 
+	Method[%mustDefine(on)]@\sys,
+	%pretest,
+	Method[%mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+

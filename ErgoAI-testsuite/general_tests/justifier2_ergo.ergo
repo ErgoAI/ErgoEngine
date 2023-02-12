@@ -1,0 +1,49 @@
+:- compiler_options{omni=on}.
+
+// allow defeasible rules
+:-use_argumentation_theory.
+
+@{r1} worm_eater(?X1) :- ?X1:bird.
+@{r2} \neg worm_eater(?X1) :- ?X1:penguin.
+@!{r3[textit->'A worm eater is someone who eats worms']}
+forall(?X1)^(worm_eater(?X1) ==> exists(?X2)^(worm(?X2),eat(?X1,?X2))).
+forall(?X1)^(\neg worm_eater(?X1) ==> \neg exists(?X2)^(?X2:worm,eat(?X1,?X2))).
+
+\overrides(r2,r1).
+
+Fred:penguin.
+Sam:bird.
+penguin::bird.
+${{bird,worm}::animal}.
+
+textit{?X:?Y, '%s is a %s', [?X,?Y]}.
+textit{?X::?Y, '%s is a subclass of %s', [?X,?Y]}.
+
+${
+// worm-eating animal
+(query1(?X) :- ?X:animal, worm(?W), eat(?X,?W)),
+// non-worm-eating animal
+(query2(?X) :- ?X:animal, \naf exists(?W)^(worm(?W), eat(?X,?W)))
+}.
+
+?- insert {Trade_2:trade[Trade_ID->'1001', Quantity->'1000', Price->'75']}.
+
+//%tst1 :- %justificationTreeFunction(?Child,w(${query2(Fred)@main},null,\true,null,null,[]),null)@\fidji, ?Child != w(${Fred:animal@main},?,?,?,?,?), %justificationTreeFunction(?_GrandChild,?Child,null)@\fidji,
+%tst1 :- ${query2(Fred)}[why(full)->?E]@\why,
+        ?E[show->?Sh]@\show,
+        writeln(test1 = ?Sh)@\plg.
+%tst2 :- ${query2(Fred)}[why(full,withtext)->?E]@\why,
+        ?E[show->?Sh]@\show,
+        writeln(test2 = ?Sh)@\plg.
+%tst3 :- flora_query('${?T:trade}[why(full)->?E]@\\why.', ['?T' = ?T,  '?E' = ?E], ?_S,?_X,?_Exception)@\plg(flora2),
+        writeln(test3=?T)@\io,
+        writeln(test3=?E)@\io.
+
+%pretest :-
+        //['ergo_syslib/fidji-cks'],
+        //['ergo2java/interprolog'],
+        %tst1, %tst2, %tst3.
+
+%test :- tell(temp)@\plg,
+         %pretest,
+         told@\plg.

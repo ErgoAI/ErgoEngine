@@ -1,0 +1,318 @@
+\chapter[Persistent Modules]{Persistent Modules\\{\Large by Vishal Chowdhary}}
+
+
+
+\newcommand{\psm}{\mbox{PM}\xspace}
+
+This chapter describes a \FLSYSTEM package that enables persistent modules.  A
+\emph{persistent module} (abbr., \psm) is like any other \FLSYSTEM module
+except that it is associated with a database. Any insertion or deletion of
+base facts and rules
+in such a module results in a corresponding operation on the
+associated database. This data persists across \FLSYSTEM sessions, so the
+inserted data and rules
+that were present in such a module are restored when the system restarts and
+the module is re-attached to the database.
+
+This package connects to databases via the ODBC interface, so the ODBC
+drivers for the chosen DBMS (database management system) must be installed.
+  
+The \texttt{persistentmodules} package is experimental and has been tested
+only with MySQL and PostgresSQL on Linux and Windows. It is possible that
+it also works with Oracle, DB2, and SQL Server. 
+
+\section{PM Interface}
+
+A module becomes persistent by executing a statement that associates the
+module with an ODBC data source described by a DSN (\emph{data source
+  name}).
+To start using the module persistence
+feature, first load the following package into some module. For instance:
+%% 
+\begin{verbatim}
+  ?- [persistentmodules>>pm].
+\end{verbatim}
+%% 
+The following API is available. Note that \texttt{pm} is just a name we
+chose for the sake of an example. If you load {\tt
+  persistentmodules} into some other module, say {\tt foo}, then {\tt foo}
+should be used instead of {\tt pm} in the examples below.    
+\index{attach method}
+\index{attachNew method}
+%%
+\begin{itemize}
+\item {\tt ?- ?Module[attach(?DSN,?DB,?User,?Password)]@pm.}\\
+  This action associates the data source described by an ODBC {\tt DSN}
+  with the module.  
+
+  Not all DBMSs support the operation of replacing the
+  DSN's database at run time through ODBC (the USE statement).
+  For instance, MS Access or PostgresSQL do not.
+  In this case, \texttt{?DSN} must be bound to \texttt{connectDSN + dbDSN}
+  (separate DSNs for connecting to DBMS and for the actual work database),
+  as explained in Section~\ref{sec-dsn-more}.
+
+  For other DBMS, such as MySQL, SQL Server, and Oracle, {\tt ?DSN} can be
+  just an atom that specifies the work database. 
+
+  The {\tt ?User} and {\tt ?Password} must be bound to the user name and
+  the password to be used to connect to the database.
+
+  The database specified by the DSN must already exist and must be created
+  by a previous call to the method \texttt{attachNew} described below.
+  Otherwise, the operation is aborted.
+  The database used in the {\tt attach}
+  statement must not be accessed directly---only through the persistent
+  modules interface.  The above statement will create the necessary tables
+  in the database, if they are not already present.
+
+  Note that the same database can be associated with several different
+  modules. The package will not mix up the facts that belong to different
+  modules.
+\item {\tt ?- ?Module[attachNew(?DSN,?DB,?User,?Password)]@pm.}\\
+  Like {\tt attach}, but a new database is created as specified by {\tt
+    ?DSN}.  If the same database already exists, an exception of the form
+  {\tt \FLDBEXCEPTION(?ErrorMsg)} is thrown.  (In a program, include
+  {\tt flora\_exceptions.flh} to define {\tt \FLDBEXCEPTION}; in the
+  shell, use the symbol {\tt \fldbexception}.)  This method creates
+  all the necessary tables, if they are not already present.
+
+  As with the \texttt{attach} method, some DDBMS, like PostgresSQL, will
+  need the DSN to be specified as \texttt{connectDSN + dbDSN}.
+  
+  As with the \texttt{attach} method, some DDBMS, like PostgresSQL, will
+  need the DSN to be specified as 
+  
+  Note that this command works only with database systems that understand
+  the SQL command {\tt CREATE DATABASE}. For instance, MS Access does not
+  support this command and will cause an error.
+\item {\tt ?- ?Module[detach]@pm.}\\
+  Detaches the module from its database. The module is no longer persistent
+  in the sense that subsequent changes are not reflected in any database.
+  However, the earlier data is not lost. It stays in the database and the
+  module can be reattached to that database.
+\item {\tt ?- ?Module[loadDB]@pm.}\\
+  On re-associating a module with a database (i.e., when {\tt
+    ?Module[attach(?DSN, ?DB,?User,?Password)]@pm} is called in a new
+  \FLSYSTEM session), database facts previously associated with the module are
+  loaded back into it (but rules are loaded).  However, since the database may be large, \FLSYSTEM
+  does not preload it into the main memory. Instead, facts are loaded
+  on-demand.  If it is desired to have all these facts in main
+  memory at once, the user can execute the above command. If no previous
+  association between the module and a database is found, an exception is
+  thrown.
+\item \texttt{?- set\_field\_type(?Type)@pm.} \\  
+  By default, \FLSYSTEM creates tables with the VARCHAR field type because
+  this is the only type that is accepted by all major database systems.
+  However, ideally, the CLOB (character large object) type should be used
+  because VARCHAR fields are limited to 4000-7000 characters, which is
+  usually inadequate for most needs.
+  Unfortunately, the different database systems differ in how they support
+  CLOBs, so the above call is provided to let the user specify the field types
+  that would be acceptable to the system(s) at hand. The call should be
+  made \textbf{before} the method \texttt{attachNew} is used. Examples:
+  %% 
+\begin{verbatim}
+     ?- set_field_type('TEXT DEFAULT NULL')@pm.   // MySQL, PostgreSQL
+     ?- set_field_type('CLOB DEFAULT NULL')@pm.   // Oracle, DB2
+\end{verbatim}
+  %% 
+\end{itemize}
+
+
+
+Once a database is associated with the module, querying and insertion of
+the data into the module is done as in the case of regular (transient)
+modules.  Therefore \psm's provide a transparent and natural access to the
+database and every query or update may, in principle, involve a database
+operation.  For example, a query like {\tt ?- ?D[dept -> ped]@StonyBrook.}
+may invoke the SQL {\tt SELECT} operation if module {\tt StonyBrook} is
+associated with a database.  Similarly {\tt  insert\{a[b \fd
+  c]@stonyBrook\}} and {\tt delete\{a[e \fd f]@stonyBrook\}}  will invoke
+SQL {\tt INSERT} and {\tt DELETE} commands, respectively. Thus, \psm's provide
+a high-level abstraction over the external database.
+
+Note that if {\tt ?Module[loadDB]@pm} has been previously executed,
+queries to a persistent module will \emph{not} access the database since
+\FLSYSTEM will use its in-memory cache instead. However, insertion and
+deletion of facts in such a module will still cause database operations.
+
+\section{More on DSNs}\label{sec-dsn-more}
+
+ODBC drivers to DBMS's can be divided into two categories:
+%% 
+\begin{enumerate}
+\item  those that support the USE statement that can change database
+  connection at run time (MySQL, Oracle, others); and
+\item those that do not (PostgreSQL, MS Access).
+\end{enumerate}
+%% 
+For the first category, a DSN can be as simple as
+%% 
+\begin{verbatim}
+  [mydb]
+  Driver   = MySQL
+  Server   = localhost
+  User     = xsb
+\end{verbatim}
+%% 
+Note that the actual database 
+is not specified, as the package sets it at run-time.
+The above DSN is for MySQL;
+other DBMS in the same category may require additional fields in a DSN.
+
+Here is how the attachment commands look in this case:
+%% 
+\begin{verbatim}
+  ?- foo[attachNew(mydb, foo, xsb, 'xyz%56G9U')]@pm.
+  ?- foo[attach(mydb, foo, xsb, 'xyz%56G9U')]@pm.
+\end{verbatim}
+%% 
+
+For the second category of DBMS, one needs
+to define two DSNs: the first for connecting to the DBMS and creating the
+work database, and the second for working with that database.
+This is how they might look for PostgreSQL:
+%% 
+\begin{verbatim}
+  [postw]
+  # This is the DSN for connecting to PostgreSQL
+  Driver   = PostgreSQL_Unicode
+  User     = postgres
+  Database = template1
+  # For Postgres must be Servername, not Server!!!
+  Servername = localhost
+
+  [postw2]
+  # This is the DSN for actually working with the database xsb2 to which a
+  # PM is attached
+  Driver   = PostgreSQL_Unicode
+  User     = postgres
+  Database = xsb2
+  # For Postgres must be Servername, not Server!!!
+  Servername = localhost
+\end{verbatim}
+%% 
+Here the \texttt{Database} field is mandatory. The database in the first
+DSN,
+\texttt{template1}, is an existing DBMS, which we used for the first
+connection in which the package will create the work database \texttt{xsb2}.
+The second DSN uses the work database \texttt{xsb2}. We could not use 
+that DSN for connection because in \texttt{attachNew} the database
+\texttt{xsb2} did not exist yet. (MySQL does not have that problem, as it
+allows one to omit the \texttt{Database} field.)
+
+This is how the attachment commands look like in the second case:
+%% 
+\begin{verbatim}
+  ?- foo[attachNew(postw+postw2, xsb2, postgres, 'xyz%56G9U')]@pm.
+  ?- foo[attach(postw+postw2, xsb2, postgres, 'xyz%56G9U')]@pm.
+\end{verbatim}
+%% 
+
+
+\section{Examples}
+
+The following example puts everything together.
+This example works with MySQL-like databases.
+For Postgres, use the attachment commands shown above.
+
+%%
+\begin{alltt}
+// Create new modules mod, db_mod1, db_mod2.
+\prompt newmodule\{mod\}, newmodule\{db_mod1\}, newmodule\{db_mod2\}.
+\prompt [persistentmodules>>pm].
+
+// pre-insert preliminary data into all three modules.
+// Once db_mod1/db_mod2 are attached to a DB, the pre-inserted data will be
+// added to the database (but not pre-inserted rules)
+\prompt insert\{q(a)@mod,q(b)@mod,p(a,a)@mod\}.
+\prompt insert\{p(a,a)@db_mod1, p(a,b)@db_mod1\}.
+\prompt insert\{q(a)@db_mod2,q(b)@db_mod2,q(c)@db_mod2\}.
+
+//  Associate modules db_mod1, db_mod2 with an EXISTING database db
+//  To attach db_mod1/db_mod2 to a NEW database, use attachNew(...)
+//  The data source is described by the DSN mydb.
+\prompt db_mod1[attach(mydb,db,myuser,mypwd)]@pm.
+\prompt db_mod2[attach(mydb,db,myuser,mypwd)]@pm.
+
+// insert more data into db_mod2 and mod.
+\prompt insert\{a(p(a,b,c),d)@db_mod2\}.
+\prompt insert\{q(a)@mod,q(b)@mod,p(a,a)@mod\}.
+
+// Both pre-inserted and the latest data will now be in the database
+
+// shut down the engine
+\prompt \bs{}halt.
+\end{alltt}
+%%
+
+\noindent
+Restart the \FLSYSTEM system.
+
+%%
+\begin{alltt}
+// Create the same modules again
+\prompt newmodule\{mod\}, newmodule\{db_mod1\}, newmodule\{db_mod2\}.
+
+// try to query the data in any of these modules.
+\prompt q(?X)@mod.
+No.
+
+\prompt p(?X,?Y)@db_mod1.
+No.
+
+//  Attach the earlier database to db_mod1.
+\prompt [persistentmodules>>pm].
+\prompt db_mod1[attach(mydb,db,user,pwd)]@pm.
+
+// try querying again...
+
+// Module mod is still not associated with any database and nothing was
+// inserted there even transiently, we have:
+\prompt q(?X)@mod.
+No.
+
+// But the following query retrieves data from the database associated
+// with db_mod1.
+\prompt p(?X,?Y)@db_mod1.
+?X = a,
+?Y = a.
+
+?X = a,
+?Y = b.
+
+Yes.
+
+// Since db_mod2 was not re-attached to its database,
+// it still has no data, and the query fails.
+\prompt q(?X)@db_mod2.
+
+No.
+\end{alltt}
+%%
+
+\section{Unsupported Features}\label{sec-persist-unsupport}
+
+Insertion and deletion of rules into persistent modules is supported, 
+but insertion/deletion of latent queries into such modules 
+might not be fully supported
+(this should work but has not been tested extensively).
+
+Unlike facts inserted into modules,
+if a module had rules inserted into it before the module is attached to a
+database,
+those rules will not be automatically inserted into that database and thus
+will not persist from session to session.
+
+Also, static rules---those appearing in loaded files (as opposed to the
+added files)---cannot be made persistent.
+
+Finally, disabled rules that are saved in a database get re-enabled
+after they are loaded back into main memory. That is, rule disablement is
+not persistent.
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "flora-packages"
+%%% End: 

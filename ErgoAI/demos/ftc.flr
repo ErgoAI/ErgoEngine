@@ -1,0 +1,37 @@
+// test ctrace
+edge[1->2].
+edge[2->3].
+edge[3->4].
+edge[4->1].
+path[?X->?Y] :- edge[?X->?Y].
+path[?X->?Y] :- edge[?X->?Z], path[?Z->?Y].
+
+//infinite terms
+edge1[a->b].
+edge2[b->a].
+path1[?X->?Y] :- edge1[?X->?Y].
+path2[?X->?Y] :- edge2[?X->?Y].
+path1[?X->f1(?Y)] :- path2[?X->?Y].
+path2[?X->f2(?Y)] :- path1[?X->?Y].
+
+//direct infinite terms
+fact[a->b].
+allfacts[?X->?Y] :- fact[?X->?Y].
+allfacts[?X->f(?Y)] :- allfacts[?X->?Y].
+
+// flora_set_answer_size here does the following:
+//        ?- set_prolog_flag(max_table_answer_size, 5)@\plg(curr_sym).
+//        ?- set_prolog_flag(max_table_answer_action,failure)@\plg(curr_sym).
+?- flora_set_answer_size(5,0,fail)@\prolog(flrerrhandler).
+?- \logforest('ftclog.flr').
+?- path1[?Start->?End].
+?- \nologforest.
+?- \halt.
+
+/*
+?- flora_set_answer_size(5,0,fail)@\prolog(flrerrhandler).
+?- \logforest('test.flr').
+?- path1[?Start->?End].
+?- \nologforest.
+?- \halt.
+*/

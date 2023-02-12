@@ -1,0 +1,169 @@
+/*******************************************************************************
+  file: closure/flrcommon_inh.fli - Inheritance-specific part common to all
+				    trailers that support inheritance
+
+  Author(s): Guizhen Yang
+
+  Contact:   flora-users@lists.sourceforge.net
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+*******************************************************************************/
+
+
+#include "flora_wspredicates.flh"
+#include "flora_porting.flh"
+
+
+/*****************************************************************************
+  inheritance book-keeping information for multivalued methods
+
+  Note that the argument "Class" here is considered as a class.
+  It is about inheritance from superclasses to subclasses.
+*****************************************************************************/
+override_class_imvd(C,MethSign,Class,FL_CONTEXT(Caller,_,_)) :-
+	WRAP_SUB(X,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_SUB(Class,X,FL_CONTEXT(Caller,_,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(X,C,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(X,Class,_)),
+	FLLOCALPREFIX(WRAP_IMVD)(X,MethSign,FL_CONTEXT(Caller,_,_)).
+
+
+candidate_class_imvd(C,MethSign,Class,FL_CONTEXT(Caller,_,_)) :-
+	var(MethSign),
+	!,
+	WRAP_SUB(Class,C,FL_CONTEXT(Caller,_,_)),
+	FLLOCALPREFIX(WRAP_IMVD)(C,MethSign,FL_CONTEXT(Caller,_,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(C,Class,_)),
+	FLORA_NAF_EXISTS(override_class_imvd(C,MethSign,Class,FL_CONTEXT(Caller,_,_))).
+
+candidate_class_imvd(C,MethSign,Class,FL_CONTEXT(Caller,_,_)) :-
+	FLLOCALPREFIX(WRAP_IMVD)(C,MethSign,FL_CONTEXT(Caller,_,_)),
+	WRAP_SUB(Class,C,FL_CONTEXT(Caller,_,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(C,Class,_)),
+	FLORA_NAF_EXISTS(override_class_imvd(C,MethSign,Class,FL_CONTEXT(Caller,_,_))).
+
+
+multiple_class_imvd(C,MethSign,Class,FL_CONTEXT(Caller,_,_)) :-
+	candidate_class_imvd(X,MethSign,Class,FL_CONTEXT(Caller,_,_)),
+	flora_defined_class(C),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(X,C,_)).
+
+
+/*****************************************************************************
+  inheritance book-keeping information for multivalued methods
+
+  Note that the argument "Object" here is considered as an object.
+  It is about inheritance from superclasses to instances/members.
+*****************************************************************************/
+override_object_imvd(C,MethSign,Object,FL_CONTEXT(Caller,_,_)) :-
+	WRAP_SUB(X,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_ISA(Object,X,FL_CONTEXT(Caller,_,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(X,C,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(X,Object,_)),
+	FLLOCALPREFIX(WRAP_IMVD)(X,MethSign,FL_CONTEXT(Caller,_,_)).
+
+
+candidate_object_imvd(C,MethSign,Object,FL_CONTEXT(Caller,_,_)) :-
+	var(MethSign),
+	!,
+	WRAP_ISA(Object,C,FL_CONTEXT(Caller,_,_)),
+	FLLOCALPREFIX(WRAP_IMVD)(C,MethSign,FL_CONTEXT(Caller,_,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(C,Object,_)),
+	FLORA_NAF_EXISTS(override_object_imvd(C,MethSign,Object,FL_CONTEXT(Caller,_,_))).
+
+candidate_object_imvd(C,MethSign,Object,FL_CONTEXT(Caller,_,_)) :-
+	FLLOCALPREFIX(WRAP_IMVD)(C,MethSign,FL_CONTEXT(Caller,_,_)),
+	WRAP_ISA(Object,C,FL_CONTEXT(Caller,_,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(C,Object,_)),
+	FLORA_NAF_EXISTS(override_object_imvd(C,MethSign,Object,FL_CONTEXT(Caller,_,_))).
+
+
+multiple_object_imvd(C,MethSign,Object,FL_CONTEXT(Caller,_,_)) :-
+	candidate_object_imvd(X,MethSign,Object,FL_CONTEXT(Caller,_,_)),
+	flora_defined_class(C),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(X,C,_)).
+
+
+/*****************************************************************************
+  inheritance book-keeping information for boolean tabled methods
+
+  Note that the argument "Class" here is considered as a class.
+  It is about inheritance from superclasses to subclasses.
+*****************************************************************************/
+override_class_imeth(C,MethSign,Class,FL_CONTEXT(Caller,_,_)) :-
+	WRAP_SUB(X,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_SUB(Class,X,FL_CONTEXT(Caller,_,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(X,C,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(X,Class,_)),
+	FLLOCALPREFIX(WRAP_IMETH)(X,MethSign,FL_CONTEXT(Caller,_,_)).
+
+
+candidate_class_imeth(C,MethSign,Class,FL_CONTEXT(Caller,_,_)) :-
+	var(MethSign),
+	!,
+	WRAP_SUB(Class,C,FL_CONTEXT(Caller,_,_)),
+	FLLOCALPREFIX(WRAP_IMETH)(C,MethSign,FL_CONTEXT(Caller,_,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(C,Class,_)),
+	FLORA_NAF_EXISTS(override_class_imeth(C,MethSign,Class,FL_CONTEXT(Caller,_,_))).
+
+candidate_class_imeth(C,MethSign,Class,FL_CONTEXT(Caller,_,_)) :-
+	FLLOCALPREFIX(WRAP_IMETH)(C,MethSign,FL_CONTEXT(Caller,_,_)),
+	WRAP_SUB(Class,C,FL_CONTEXT(Caller,_,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(C,Class,_)),
+	FLORA_NAF_EXISTS(override_class_imeth(C,MethSign,Class,FL_CONTEXT(Caller,_,_))).
+
+
+multiple_class_imeth(C,MethSign,Class,FL_CONTEXT(Caller,_,_)) :-
+	candidate_class_imeth(X,MethSign,Class,FL_CONTEXT(Caller,_,_)),
+	flora_defined_class(C),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(X,C,_)).
+
+
+/*****************************************************************************
+  inheritance book-keeping information for boolean tabled methods
+
+  Note that the argument "Object" here is considered as an object.
+  It is about inheritance from superclasses to instances/members.
+*****************************************************************************/
+override_object_imeth(C,MethSign,Object,FL_CONTEXT(Caller,_,_)) :-
+	WRAP_SUB(X,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_ISA(Object,X,FL_CONTEXT(Caller,_,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(X,C,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(X,Object,_)),
+	FLLOCALPREFIX(WRAP_IMETH)(X,MethSign,FL_CONTEXT(Caller,_,_)).
+
+
+candidate_object_imeth(C,MethSign,Object,FL_CONTEXT(Caller,_,_)) :-
+	var(MethSign),
+	!,
+	WRAP_ISA(Object,C,FL_CONTEXT(Caller,_,_)),
+	FLLOCALPREFIX(WRAP_IMETH)(C,MethSign,FL_CONTEXT(Caller,_,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(C,Object,_)),
+	FLORA_NAF_EXISTS(override_object_imeth(C,MethSign,Object,FL_CONTEXT(Caller,_,_))).
+
+candidate_object_imeth(C,MethSign,Object,FL_CONTEXT(Caller,_,_)) :-
+	FLLOCALPREFIX(WRAP_IMETH)(C,MethSign,FL_CONTEXT(Caller,_,_)),
+	WRAP_ISA(Object,C,FL_CONTEXT(Caller,_,_)),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(C,Object,_)),
+	FLORA_NAF_EXISTS(override_object_imeth(C,MethSign,Object,FL_CONTEXT(Caller,_,_))).
+
+
+multiple_object_imeth(C,MethSign,Object,FL_CONTEXT(Caller,_,_)) :-
+	candidate_object_imeth(X,MethSign,Object,FL_CONTEXT(Caller,_,_)),
+	flora_defined_class(C),
+	FLORA_NAF_EXISTS(WRAP_DIFFOBJEQL_AUX(X,C,_)).
+

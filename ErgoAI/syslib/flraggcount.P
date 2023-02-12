@@ -1,0 +1,120 @@
+/* File:      flraggcount.P
+**
+** Author(s): Guizhen Yang 
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2020.
+**      Coherent Knowledge Systems, 2016-2020.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_errors.flh"
+#include "flora_exceptions.flh"
+
+:- import member/2, length/2 from basics.
+
+:- import flora_decode_oid_list_as_atom_list_substitute_vars/2 from flrdecode.
+:- import flora_abort/2 from flrporting.
+%%:- import ground_memberchk/1 from flrauxil.
+
+
+
+/*********************************************************************
+  fllibcount(+Var,+GrpByLst,[],+Goal,-Count)
+*********************************************************************/
+FLLIBCOUNT(Var,[],[],Goal,Count) :-
+	!,
+	findall(Var,Goal,Matches),
+	length(Matches,Count).
+
+/*
+FLLIBCOUNT(Var,GrpByLst,[],Goal,_Count) :-
+	ground_memberchk(GrpByLst),
+	!,
+	flora_decode_oid_list_as_atom_list_substitute_vars([Var,GrpByLst,Goal],
+							   [VarA,GrpByLstA,GoalA]),
+	flora_abort(['In ',FL_COUNT,'{',VarA,GrpByLstA,'|',GoalA,'}',GROUPING_VAR_GROUND],
+		    FLORA_ABORT_NOTRACE).
+*/
+
+FLLIBCOUNT(Var,GrpByLst,[],Goal,Count) :-
+	!,
+	findall(flora_result(Var,GrpByLst),Goal,Matches),
+	findall(Grp,member(flora_result(_,Grp),Matches),L),
+	sort(L,Groups),
+	member(GrpByLst,Groups),
+	findall(D,member(flora_result(D,GrpByLst),Matches),DL),
+	length(DL,Count).
+
+
+/*********************************************************************
+  fllibcountdistinct(+Var,+GrpByLst,[],+Goal,-Count)
+*********************************************************************/
+FLLIBCOUNTDISTINCT(Var,[],[],Goal,Count) :-
+	!,
+	findall(Var,Goal,Matches1),
+	sort(Matches1,Matches),
+	length(Matches,Count).
+
+/*
+FLLIBCOUNTDISTINCT(Var,GrpByLst,[],Goal,_Count) :-
+	ground_memberchk(GrpByLst),
+	!,
+	flora_decode_oid_list_as_atom_list_substitute_vars([Var,GrpByLst,Goal],
+							   [VarA,GrpByLstA,GoalA]),
+	flora_abort(['In ',FL_COUNTDISTINCT,'{',VarA,GrpByLstA,'|',GoalA,'}',GROUPING_VAR_GROUND],
+		    FLORA_ABORT_NOTRACE).
+*/
+
+
+FLLIBCOUNTDISTINCT(Var,GrpByLst,[],Goal,Count) :-
+	!,
+	findall(flora_result(Var,GrpByLst),Goal,Matches),
+	findall(Grp,member(flora_result(_,Grp),Matches),L),
+	sort(L,Groups),
+	member(GrpByLst,Groups),
+	findall(D,member(flora_result(D,GrpByLst),Matches),DL1),
+	sort(DL1,DL),
+	length(DL,Count).
+
+/*********************************************************************
+  fllibcount(+Var,+GrpByLst,+UniqLst,+Goal,-Count)
+  Like count, but in each group eliminate duplicates that have
+  the same values over the vars in UniqLst.
+*********************************************************************/
+FLLIBCOUNT(Var,[],UniqLst,Goal,Count) :-
+	!,
+	findall(Var+UniqLst,Goal,Matches),
+        sort(Matches,UniqMatches),
+	length(UniqMatches,Count).
+
+FLLIBCOUNT(Var,GrpByLst,UniqLst,Goal,Count) :-
+	!,
+	findall(flora_result(Var+UniqLst,GrpByLst),Goal,Matches),
+	findall(Grp,member(flora_result(_,Grp),Matches),L),
+	sort(L,Groups),
+	member(GrpByLst,Groups),
+	findall(D,member(flora_result(D,GrpByLst),Matches),DL),
+        sort(DL,UniqDL), %% eliminate duplicates having same vals over UniqLst
+	length(UniqDL,Count).

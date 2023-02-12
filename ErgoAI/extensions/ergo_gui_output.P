@@ -1,0 +1,122 @@
+/* File:      extensions/ergo_gui_output.P -- color-coded output to window
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2016-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+
+#include "standard.h"
+
+#define DEFAULT_LETTER_PIXEL_HEIGHT  14
+#define DEFAULT_LETTER_PIXEL_WIDTH   8
+
+:- import
+        check_ergo_gui_busy/1,
+        gui_object_visible/1,
+        open_gui_window/3,
+        ergo_gui_mode/0
+   from flrutils.
+
+:- import
+	flora_concat_atoms/2
+   from flrporting.
+
+:- import
+	java/2
+   from interprolog.
+
+:- dynamic application_output_window/2.
+
+
+:- export
+        gui_print_to_window/2,
+        gui_print_nowindow/1,
+        gui_print_nogui/1,
+        close_application_window/1,
+        clear_application_window/1,
+        open_gui_window_for_application/5,
+        open_gui_window_for_application_if_necessary/5.
+
+gui_print_to_window(AppName,StringOrList) :-
+        get_application_window(AppName,W),
+        !,
+        process_text(StringOrList,gui,TextOut),
+	java(W,print(string(TextOut))).
+gui_print_to_window(_AppName,StringOrList) :-
+        gui_print_nowindow(StringOrList).
+
+gui_print_nowindow(StringOrList) :-
+        %% no gui window, but if in the Studio Listener then still use gui
+        flora_configuration(uimode,studio),
+        !,
+        process_text(StringOrList,gui,TextOut),
+        write(TextOut).
+gui_print_nowindow(StringOrList) :-
+        gui_print_nogui(StringOrList).
+
+gui_print_nogui(StringOrList) :-
+        process_text(StringOrList,nogui,TextOut),
+        write(STDFDBK,TextOut).
+
+open_gui_window_for_application_if_necessary(AppName,WindowTitle,ToolTip,Rows,Cols) :-
+	(get_application_window(AppName,W),
+            gui_object_visible(W), W \== null -> true
+        ; open_gui_window_for_application(AppName,WindowTitle,ToolTip,Rows,Cols)
+        ).
+
+open_gui_window_for_application(AppName,WindowTitle,ToolTip,Rows,Cols) :-
+        ergo_gui_mode,
+        check_ergo_gui_busy(AppName),
+        !,
+	close_application_window(AppName),
+	flora_concat_atoms([WindowTitle],Title), %% why concat atoms??
+        open_gui_window(W,Title,ToolTip),
+	(integer(W) ->
+	    assert(application_output_window(AppName,W)),
+	    WPixels is Cols*DEFAULT_LETTER_PIXEL_WIDTH,
+	    HPixels is Rows*DEFAULT_LETTER_PIXEL_HEIGHT,
+	    java(W,setSize(int(WPixels),int(HPixels)))
+	; assert(application_output_window(AppName,null))
+	).
+open_gui_window_for_application(AppName,_,_,_,_) :-
+	assert(application_output_window(AppName,null)).
+
+close_application_window(AppName) :-
+	(application_output_window(AppName,W) ->
+	    (integer(W) -> java(W,dispose)
+	    ; true
+	    ),
+	    retractall(application_output_window(AppName,_))
+	; true
+	).
+
+get_application_window(AppName,W) :-
+	application_output_window(AppName,W),
+	integer(W),
+	(gui_object_visible(W) -> true
+        ; retractall(application_output_window(AppName,_)),
+            !,
+            fail
+        ).
+
+clear_application_window(AppName) :-
+	(application_output_window(AppName,W), integer(W) -> java(W,clear)
+	; true
+	).
+

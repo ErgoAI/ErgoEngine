@@ -1,0 +1,337 @@
+
+\chapter[Constraint Solving]
+{Constraint Solving with MiniZinc\\
+  \Large by Michael Kifer}
+
+
+
+\section{Introduction}
+
+MiniZinc is a uniform declarative constraint language that is understood by
+most modern solvers for constraint and optimization problems. It comes bundled with a few such solvers:
+\begin{itemize}
+\item \texttt{gecode}: this is a top-notch solver---very powerful and fast.
+  It is an excellent choice for finite domain constraints.
+  A disadvantage is insufficient support for floating point numbers.
+\item  \texttt{osicbc}: this solver has a much better support for the
+  floats than \texttt{gecode}. In particular, it is a much better choice
+  for linear programming type of problems. On the other hand, it may be
+  slower than \texttt{gecode} for finite domains.  
+\item \texttt{chuffed}: yet another solver for finite domains; it has no
+  support for floats at all. This solver is more limited than the other
+  two, but might be faster on some particular problems. Since generally no
+  solver is uniformly better than all others, it is a good idea to try
+  different solvers and see which one works best for a problem at hand.
+\end{itemize}
+%% 
+Other solvers,
+including most of the newest ones, such as Google OR-Tools,\footnote{
+  \url{https://developers.google.com/optimization/}
+  }
+can be downloaded separately and installed as plugins.
+
+This chapter assumes that the reader is familiar with the basics of MiniZinc.
+The MiniZinc language is described in
+\url{https://www.minizinc.org/doc-2.2.3/en/index.html}; see, especially, the
+tutorial. 
+The \FLSYSTEM interface to MiniZinc comes with several sample problems from that
+tutorial, which are found in \url{.../ErgoAI/ergo_demos/minizinc/}.
+The file \url{.../ErgoAI/ergo_demos/minizinc_examples.P} contains examples of
+invocations of those problems from within \FLSYSTEM. After the
+installation, all examples can be run together
+by simply starting \FLSYSTEM and then loading the aforesaid file:
+%% 
+\begin{verbatim}
+   ergo> ['ergo_demos/minizinc_examples'].
+\end{verbatim}
+%% 
+Annotated results will be printed on the console.
+
+\section{Installation}
+
+Some Linux distributions (e.g., Ubuntu) come with ready-made MiniZinc .deb
+or .rpm packages. However, one must make sure that the command
+\url{minizinc} is provided by those packages, as some provide only the IDE.
+Mac packages are also available.
+
+In case a Linux or a Mac package is incomplete (or if one uses Windows),
+MiniZinc can be downloaded from
+\url{https://www.minizinc.org/software.html} --- it does not come with
+\FLSYSTEM.
+
+Once installed, make sure that the command \texttt{minizinc} is understood when typed in a
+command window. If not, add \emph{folder-to-where-}\textbf{/bin/}minizinc is sitting to the
+environment variable \texttt{PATH}.  In Windows, this is best done in
+Control Panel; in Linux and Mac, add the command
+%% 
+\begin{verbatim}
+    export PATH=$PATH:path-to-minizinc
+\end{verbatim}
+%% 
+to \texttt{.bashrc} or an equivalent place. For instance,
+%% 
+\begin{verbatim}
+    PATH=$PATH:$HOME/minizinc/MiniZincIDE-2.2.3-bundle-linux/bin
+\end{verbatim}
+%% 
+
+\section{Loading the API}\label{sec-api-mod}
+
+To load \FLSYSTEM's API for MiniZinc, just load the corresponding package
+into some \FLSYSTEM's module. For instance,
+%% 
+\begin{verbatim}
+    ?- [minizinc>>mzn].
+\end{verbatim}
+%% 
+loads the API into the \FLSYSTEM module \texttt{mzn} and the calls
+described below become available in this module.
+
+\section{The API}
+
+Constraint and optimization problems are specified using the MiniZinc
+language in \emph{model files}, which have the suffix \texttt{.mzn}.
+Such problems usually have a number of \emph{input variables}   and several
+\emph{output} (or \emph{decision}) \emph{variables}.   
+In principle, input values can be specified in the model file itself, but
+this is generally not a good idea because typically one wants to solve
+the same problem with different inputs.
+For this reason, MiniZinc allows one to use models (that have no input)
+with one or more \emph{input files}, which have the extension \texttt{.dzn}. 
+In addition, the API to MiniZinc lets one pass parameters in-line, as
+part of an \FLSYSTEM call.
+
+\noindent
+\emph{Important:} the MiniZinc model files (.mzn) must \textbf{not} have
+\texttt{output} statements in them. Otherwise, errors and wrong answers
+may result. (These output statements will be added automatically based on
+output templates described below.)  
+
+
+The API itself mainly consists of the following calls, which live in the
+\FLSYSTEM module into which the API is loaded, as explained in
+Section~\ref{sec-api-mod}. 
+In the examples below we assume that this module is \texttt{mzn}, so, for
+example, \texttt{solve/8} below should be invoked as a query as
+\texttt{solve(...,...,...,...,...,...,...,...)@mzn}.   
+
+%% 
+\begin{itemize}
+\item
+  \texttt{solve(+MznF,+DatFs,+InPars,+Solver,+Solns,+OutTempl,-Rslt,-Xceptns)}: 
+  Pluses here denote input parameters and minuses denote output parameters.
+  The meaning of the arguments is as follows:
+  %% 
+  \begin{itemize}
+  \item    \texttt{MznF}: should be bound to a path to the desired 
+    model file (.mzn file) that contains a specification of a constraint or
+    optimization problem. The path must be represented as a Prolog atom and
+    can be absolute or relative to the current directory.
+  \item \texttt{DatFs}: a list of paths (relative or absolute)  
+    to the data files that describe all or some of the input parameters for
+    the model in \texttt{MznF}. All paths must be atoms.
+    If no data files are needed, just use the empty list \texttt{[]}. 
+  \item \texttt{InPars}: a list of the \emph{in-line} input parameters to
+    the model.
+    These are supported for flexibility, to allow initialization of some or
+    all input parameters directly in Prolog.
+    Each parameter in \texttt{InPars} must have the form \emph{id} =
+    \emph{value}, where \emph{id} must be the Id of an input variable used in
+    the model file \texttt{MznF} and value must be a term understood by MiniZinc.
+    Typically, such a term would be a number, an atom, or a function term.
+    For instance,  \texttt{foo='[|1, 0|3, 4|8, 9|]'} would initialize the input
+    variable \texttt{foo} with a 2-dimensional array of numbers;
+    \texttt{Item = anon\_enum(8)}  would initialize the MiniZinc variable
+    \texttt{Item}  of an enumerated type to a set
+    \texttt{\{Item\_1,Item\_2,...,Item\_8\}}.
+  \item \texttt{Solver}: the name of the solver to use. If this is a variable,
+    the default solver \texttt{gecode} is used. 
+  \item \texttt{Solns}: the number of solutions to show. 
+    Could be \texttt{all} or a positive integer.
+    Note: for optimization problems where a function is maximized or minimized,
+    \texttt{Solns} \underline{must} be bound to 1. Otherwise, solvers would
+    return also non-optimal solutions, and the desired optimal one may not
+    be the first.
+  \item \texttt{OutTempl}: the template showing how the output should look
+    like. It has the form \emph{predname}($OutSpec_1$, ...,$OutSpec_n$)
+    where \emph{predname} is the name of a predicate
+    where the results will be stored (see below)
+    and each $OutSpec$ can have one of these forms:
+    %% 
+    \begin{itemize}
+    \item  An \emph{atom} representing an output (``decision'') variable
+      defined in the model file \texttt{MznF} or an atom representing an
+      arithmetic expression (in the syntax of MiniZinc, which is close to
+      \FLSYSTEM) involving one or more decision variables.
+      In the result, this atom will be replaced with the value of that
+      variable or expression. Example: 'P*100.0'.
+    \item A simple arithmetic expression involving decision variables,
+      numbers, and +, $-$, *, /.  Example: P*100+9. The difference with the
+      above is that the single quotes are omitted, for convenience.
+    \item  A term of the form \texttt{+}(\emph{atom}) or
+      \texttt{str}(\emph{atom}).  In the result, this will be replaced with
+      \emph{atom} verbatim. Note: if \texttt{atom} is not alphanumerical,
+      it must be quoted.
+
+    \item A list of the form [$OutSpec_1$, ...,$OutSpec_n$]. Each
+      \emph{OutSpec} in the list must have one of the forms
+      described here.
+    \item A term of the form $OutSpec_1$ \texttt{=} $OutSpec_2$. Each
+      \emph{OutSpec} must have one of the forms
+      described here.
+    \end{itemize}
+    %% 
+    The template predicate cannot be \texttt{solve/8}, \texttt{solve\_flex/8},
+    \texttt{show/1}, \texttt{delete/1},  
+    and the arity must be greater than 0.  
+  \item \texttt{Rslt}: must be a term that matches the output
+    template---typically just a variable.  Solutions to the constraint and
+    optimization problems will be returned as bindings to variables in this
+    term.  The term cannot match the predicates \texttt{solve/8},
+    \texttt{solve\_flex/8}, \texttt{show/1}, or \texttt{delete/1} (e.g.,
+    cannot be \texttt{solve(?,?,?,?,?,?,?,?)}), and the arity must
+    be greater than 0 (i.e., no predicates like \texttt{foo/0}).
+
+    \emph{Note}: solutions are also saved internally and
+    can be used
+    at a later analysis stage. If any of these solutions are no longer
+    needed, they can be emptied out, as described below.
+
+  \item \texttt{Xceptns}: a list of exceptions returned by the solver.
+    If the constraint/optimization problem was solved successfully, this
+    variable will be bound to an empty list \texttt{[]}. Otherwise,
+    each exception has the form
+    \texttt{(reason=...,model\_file=...)}  and the
+    following reasons might be returned:
+    %% 
+    \begin{itemize}
+    \item  \texttt{unsatisfiable} --- the optimization problem is
+      unsatisfiable.
+    \item \texttt{unbounded}  --- the optimization problem has an unbounded
+      objective function. For example, if the problem is to maximize the
+      function and the function has no maximum (under the given
+      constraints); or the problem is to minimize the function, and there
+      is no minimum.
+    \item \texttt{unsatisfiable\_or\_unbounded} --- one of the above.
+    \item \texttt{unknown} --- could not find a solution within the limits
+      (e.g., timeout).
+    \item \texttt{error} --- search resulted in an error. 
+    \end{itemize}
+    %% 
+  \end{itemize}
+  %% 
+  Note: exceptions are separate from other kinds of errors, such as a
+  syntax errors in a model or data file or using a solver with a feature or
+  option it does not support. Errors are explained later.
+\item
+  \texttt{solve\_flex(+MznF,+DatFs,+InPars,+Solver,+Solns,+OutTempl,-Rslt,-Xceptns)}:
+  The meaning of the parameters is the same as for \texttt{solve/8}.  The
+  difference is that if \texttt{InPars} or \texttt{OutTempl} is non-ground,
+  the call to MiniZinc is delayed until they both become ground. If the top
+  query finishes and one of them is still not ground, an error will be
+  issued.  This version is used in cases when it is hard to estimate when
+  \texttt{InPars} or \texttt{OutTempl} may become ground, so calls to
+  \texttt{solve\_flex} can be placed early without worrying that
+  \texttt{InPars} and \texttt{OutTempl} may not have been computed
+  yet. But, of course, one must ensure that \texttt{InPars}  and
+  \texttt{OutTempl}  will eventually
+  get bound---or deal with the error.
+\end{itemize}
+%% 
+
+\paragraph{How does MiniZinc return complex structures back to \FLSYSTEM?}
+MiniZinc has a number of data structures that do not have direct
+equivalence in \FLSYSTEM, so they are mapped to HiLog terms when results are
+returned as bindings for the \texttt{Rslt} variable. Here is the correspondence:
+%% 
+\begin{itemize}
+\item  Numbers are passed back as integers and floats.
+\item  MiniZinc strings and identifiers are passed as atoms (\FLSYSTEM
+  symbols).
+\item  Arrays are returned as lists. Multi-dimensional arrays are flattened
+  and passed as lists as well. For instance, a 2-dimensional array
+  \texttt{[|1, 2|3, 4|5, 6|]} will be returned as \texttt{[1,2,3,4,5,6]}.
+\item Sets are returned as terms of the form
+  \texttt{\{\}((elt1,elt2,elt3,...))}. 
+  For example, the set \texttt{\{a,b,c\}} comes back as the term
+  \texttt{\{\}((a,b,c))}. Note that in \FLSYSTEM this term is really
+  \texttt{'\{\}'((a,(b,c)))}. Observe the double parentheses, which indicate
+  that the functor symbol here is \texttt{\{\}/1}, not \texttt{\{\}/3}.
+\item A MiniZinc range expressions of the form \texttt{N1..N2} is returned as
+  the term \texttt{N1..N2}.
+\end{itemize}
+%% 
+
+\paragraph{Accessing solutions at a later time.}
+
+Solutions obtained via \texttt{slove/8} or \texttt{solve\_flex/8} 
+can be retrieved later via a call to \texttt{show/1}.  For instance, if
+\texttt{solve/8} returns the solutions as a term \texttt{foo/2} then
+they cal later also be obtained by querying
+%% 
+\begin{verbatim}
+   ?- show(foo(?X,?Y))@mzn.
+\end{verbatim}
+%% 
+If \texttt{solve/8} was also called to solve another constraint problem,
+returning the results in a predicate \texttt{bar/3} then they can also be
+retrieved and, in fact, the two sets of solutions can be combined. For
+instance, 
+%% 
+\begin{verbatim}
+   ?- show(foo(?X,?Y))@mzn, show(bar(?X,?V,?W))@mzn, ?Y < ?W.
+\end{verbatim}
+%% 
+If any set of solutions is no longer needed, it can be deleted.
+For instance,
+%% 
+\begin{verbatim}
+   ?- delete(foo(?,?))@mzn.
+\end{verbatim}
+%% 
+
+\paragraph{Errors vs. exceptions.}
+If a model or data file contains a syntax error or a feature that the
+chosen solver does not support, the \texttt{solve/8} and
+\texttt{solve\_flex/8} calls will fail and a message will be printed to
+standard output:
+%% 
+\begin{verbatim}
+    +++ MiniZinc: syntax or type errors found; details in ....some file...
+\end{verbatim}
+%% 
+The user will then be able to find the details about the problem.
+
+Note: errors are different from exceptions. If only exceptions are returned
+(and no errors), the calls \texttt{solve/8} and \texttt{solve\_flex/8} will
+succeed. In contrast, they will fail in case of errors.
+
+\paragraph{Debugging API.}
+For further development and bug reporting, the following calls are useful.
+They are all 0-ary predicates that take no arguments.
+%% 
+\begin{itemize}
+\item  \texttt{keep\_tmpfiles}: The MiniZinc interface creates a number of
+  temporary files, which are deleted, if MiniZinc finished normally and
+  without an error. However, if a bug is suspected, it is desirable to
+  preserve these files and send them to the developers. 
+  This can be achieved by executing the query
+  \texttt{keep\_tmpfiles@mzn}
+  before the call to \texttt{solve/8}.
+\item \texttt{show\_mzn\_cmd}: Executing this as a query will cause the
+  \texttt{solve/8} predicate, described earlier, to print the shell command
+  that was used to invoke MiniZinc in each call.
+  This is useful if one suspects a bug in the API.
+\item \texttt{dbg\_clear}: Executing this clears out the flags set by the
+  above debugging calls. As a result, the temporary files will again be
+  deleted after each invocation of MiniZinc and shell commands will not be
+  shown.
+\end{itemize}
+%% 
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora-packages"
+%%% End: 

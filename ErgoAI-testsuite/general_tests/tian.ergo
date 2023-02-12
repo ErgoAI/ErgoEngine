@@ -1,0 +1,30 @@
+:- compiler_options{omni=on}.
+
+:-use_argumentation_theory.
+@{r1} forall(?X1)^(${bird(?X1)}==>b1(?X1)).
+forall(?X1)^(b1(?X1)==>exists(?X2)^(worm(?X2),eat(?X1,?X2))).
+forall(?X1)^(penguin(?X1)==>bird(?X1)).
+@{r2} forall(?X1)^(penguin(?X1)==>b2(?X1)).
+${forall(?X1)^(b2(?X1)==>\neg exists(?X2)^(worm(?X2),eat(?X1,?X2)))}.
+\overrides(r2,r1).
+\opposes(r2,b2(?_X1),r1,b1(?_X1)).
+penguin(tweety).
+bird(sam).
+
+%tst1 :- write('tst1: ')@\plg,
+	 worm(?X1),eat(?X2,?X1),
+	 writeln(?X1+?X2)@\io.
+%tst2 :- write('tst2: ')@\plg,
+	 \neg (worm(?X1),eat(?X2,?X1)),
+	 writeln(?X1+?X2)@\io.
+
+%pretest :-
+        setruntime{unsafe_naf(ignoreonce)},
+        %tst1, %tst2, truthvalue{\true}.
+
+%test :- tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.

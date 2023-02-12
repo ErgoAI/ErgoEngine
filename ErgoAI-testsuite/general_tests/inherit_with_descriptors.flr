@@ -1,0 +1,104 @@
+/* This demo shows various cases of non-monotonic inheritance */
+/* It is like nonmoninherit.flr, but uses rules and descriptors. */
+
+
+:- use_argumentation_theory.
+:- setsemantics{equality=basic}.
+
+aaa.
+bbb.
+
+a::all :- aaa.
+@!{all}
+a::all2.
+
+@!{r1}
+a[|b -> c|] :- aaa.
+@!{r2}
+a[|b1 -> c1|] :- aaa.
+@{t1}
+aa:a :- aaa.
+@{t2} @!{r4}
+aa[b->d] :- aaa.
+
+%tst1 :- aa[b->?X],
+	 write('test1: ')@\plg,
+	 writeln(?X)@\plg(), \false.      // X=d
+%tst1 :- \true.
+
+aaa::a :- bbb.
+%tst2 :- aaa[|?U->?Y|],
+	 write('test2: ')@\plg,
+	 write(?U)@\plg(), write('  ')@\plg(), writeln(?Y)@\plg(), \false.
+%tst2 :- \true.
+
+@!{r11}
+a1[|b -> d|] :- bbb.
+@!{r12}
+aaaa:a1.
+aaaa:a :- bbb.
+%tst3 :- aaaa[?U->?Y],
+	 write('test3: ')@\plg,
+	 write(?U)@\plg(), write('  ')@\plg(), writeln(?Y)@\plg(), \false.
+%tst3 :- \true.
+
+//------------------
+
+
+@{t11}
+ab[|b -> {cc,dd}|] :- aaa.
+@!{r13}
+ab[|b2 -> {cc2,dd2}|].
+
+abb:ab :- bbb.
+@!{r14[tag->kkk]}
+abb[b -> tt] :- bbb.
+%tst4 :- abb[?M -> ?K],
+	 write('test4: ')@\plg,
+	 write(?M)@\plg(), write('  ')@\plg(), writeln(?K)@\plg(), \false.
+%tst4 :- \true.
+
+aabb:ab.
+%tst5 :- aabb[?M -> ?K],
+	 write('test5: ')@\plg,
+	 write(?M)@\plg(), write('  ')@\plg(), writeln(?K)@\plg(), \false.
+%tst5 :- \true.
+
+abbb::ab :- aaa.
+@!{ppppp}
+abbb[|b -> e|] :- bbb.
+%tst6 :- abbb[|?M -> ?K|],
+	 write('test6: ')@\plg,
+	 write(?M)@\plg(), write('  ')@\plg(), writeln(?K)@\plg(), \false.
+%tst6 :- \true.
+
+@!{r18}
+ab1[|b -> ttt|].
+@!{r21}
+ab1::ab.
+@!{r33}
+bbb[|b2 -> {e}|] :- aaa.
+@!{r34}
+aabb1:bbb.
+aabb1:ab1.
+
+%tst7 :- aabb1[?M -> ?K],
+	 write('test7: ')@\plg,
+	 write(?M)@\plg(),write('  ')@\plg(),writeln(?K)@\plg(),\false.
+%tst7 :- \true.
+
+%tst8 :- aaa::all, aaa::all2, aaaa:all, aaaa:all2, writeln(test8=ok)@\plg, !.
+%tst8 :- writeln(test8=failed)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8.
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	!,
+	setsemantics{equality=none},
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+
+

@@ -1,0 +1,361 @@
+:- use_argumentation_theory{ogcl}.
+?- [ogclp>>ogcl].
+
+@{r1} p.
+@{r2} q :- \true.
+@{r3} s :- \true.
+
+
+\overrides(r1,r3).
+\overrides(r3,?,r2,?). // just to test \overrides/4
+
+\opposes(p,s).
+\opposes(?,q,?,s).  // just for testing \opposes/4
+
+/*
+  Differs from new gcl.
+  New GCLP:
+   p, q, \naf s.
+   p refutes s and nobody refutes p, so p is true and s is false.
+   s refutes q, but s itself is refuted, so q stands.
+  Old GCLP:
+   p, \naf q, \naf s.
+   p refutes s and nobody refutes p, so p is true and s is false.
+   s refutes q. In old GCLP this is enough to be defeated - does not matter
+   if s is defeated or not.
+   
+*/
+
+%test1 :-
+	write('test01: ')@\plg,
+	\if (p, \naf q, \naf s) \then writeln('Success')@\plg
+        \else writeln('Failed')@\plg.
+
+
+?- insert{@{r1dyn} p_dyn}.
+?- insertrule{@{r2dyn} q_dyn :- \true}.
+?- insertrule{@{r3dyn} s_dyn :- \true}.
+
+\overrides(r1dyn,r3dyn).
+\overrides(r3dyn,?,r2dyn,?). // just to test \overrides/4
+
+\opposes(p_dyn,s_dyn).
+\opposes(?,q_dyn,?,s_dyn).  // just for testing \opposes/4
+
+/*
+  Differs from new gcl
+  New GCLP:
+   p_dyn, q_dyn, \naf s_dyn.
+   p_dyn refutes s_dyn and nobody refutes p_dyn,
+   so p_dyn is true and s_dyn is false.
+   s_dyn refutes q_dyn, but s_dyn itself is refuted, so q_dyn stands.
+  Old GCLP:
+   p_dyn, \naf q_dyn, \naf s_dyn.
+   p_dyn refutes s_dyn and nobody refutes p_dyn, so p_dyn is true and s_dyn
+   is false.
+   s_dyn refutes q_dyn. In old GCLP this is enough to be defeated - does not
+   matter if s_dyn is defeated or not.
+   
+*/
+
+
+%test1dyn :-
+	write('test01dyn: ')@\plg,
+	\if (p_dyn,\naf q_dyn, \naf s_dyn) \then writeln('Success')@\plg
+        \else writeln('Failed')@\plg.
+
+
+
+
+@{r1_2} p2 :- \true.
+@{r2_2} q2.
+
+@{r3_2}     v2 :- \true.
+@{r4_2} \neg v2 :- t1_2.
+
+t1_2.
+
+\opposes(p2,q2).
+
+/*
+    p and q rebut each other, so they disqualify each other and are both false.
+*/
+
+%test2 :-
+	write('test02: ')@\plg,
+	\if (p2;q2) \then writeln('Failed')@\plg
+        \else writeln('Success')@\plg.
+
+%test3 :-
+	write('test03: ')@\plg,
+	\if v2 \then writeln('Failed')@\plg
+        \else writeln('Success')@\plg.
+
+
+
+?- insert{@{r1_2dyn} p_2dyn :- \true}.
+?- insertrule{@{r2_2dyn} q_2dyn :- \true}.
+
+?- insert{@{r3_2dyn}     v_2dyn :- \true}.
+?- insertrule{@{r4_2dyn} \neg v_2dyn :- t1_2dyn}.
+
+t1_2dyn.
+
+\opposes(p_2dyn,q_2dyn).
+
+/*
+    p and q rebut each other, so they disqualify each other and are both false.
+*/
+
+%test2dyn :-
+	write('test02dyn: ')@\plg,
+	\if (p_2dyn;q_2dyn) \then writeln('Failed')@\plg
+        \else writeln('Success')@\plg.
+
+%test3dyn :-
+	write('test03dyn: ')@\plg,
+	\if v_2dyn \then writeln('Failed')@\plg
+        \else writeln('Success')@\plg.
+
+
+?- Method[mustDefine(off,t2_3@ \@)]@\sys.
+
+@{r1_3} p_3 :- t1_3.
+@{r2_3} q_3 :- t2_3.
+@{r3_3} s_3 :- t3_3.
+t1_3.
+t3_3.
+\overrides(r1_3,r2_3).
+\overrides(r2_3,?,r3_3,?).
+
+\opposes(?,p_3,?,q_3).
+\opposes(q_3,s_3).
+\opposes(p_3,s_3).
+
+/*
+    p and s rebut each other because: (1) we do not have that either
+    one overrides the other; and (2) q does not refute s since,
+    although r2 overrides r3, q's body is false, so q is not a candidate
+    and does not actually conflict with s.
+    So, q is false for lack of support and p,s are false due to rebuttal of
+    each other.
+*/
+%test4 :-
+	write('test04: ')@\plg,
+	\if (p_3;q_3;s_3) \then writeln('Failed')@\plg
+        \else writeln('Success')@\plg.
+
+
+?- Method[mustDefine(off,t2_3dyn@ \@)]@\sys.
+
+?- insertrule{@{r1_3dyn} p_3dyn :- t1_3dyn}.
+?- insertrule{@{r2_3dyn} q_3dyn :- t2_3dyn}.
+?- insert{@{r3_3dyn} s_3dyn :- t3_3dyn}.
+?- insert{t1_3dyn}.
+t3_3dyn.
+\overrides(r1_3dyn,r2_3dyn).
+\overrides(r2_3dyn,?,r3_3dyn,?).
+
+\opposes(?,p_3dyn,?,q_3dyn).
+\opposes(q_3dyn,s_3dyn).
+\opposes(p_3dyn,s_3dyn).
+
+/*
+    p and s rebut each other because: (1) we do not have that either
+    one overrides the other; and (2) q does not refute s since,
+    although r2 overrides r3, q's body is false, so q is not a candidate
+    and does not actually conflict with s.
+    So, q is false for lack of support and p,s are false due to rebuttal of
+    each other.
+*/
+%test4dyn :-
+	write('test04dyn: ')@\plg,
+	\if (p_3dyn;q_3dyn;s_3dyn) \then writeln('Failed')@\plg
+        \else writeln('Success')@\plg.
+
+
+
+@{r1_4} p_4 :- t1_4.
+@{r2_4} q_4 :- t2_4.
+@{r3_4} s_4 :- t3_4.
+@{r4_4} t1_4 :- \true.
+@{r5_4} t3_4 :- \true.
+
+t2_4 :- \false.
+
+\overrides(r1_4,r2_4).
+\overrides(r2_4,r3_4).
+\overrides(r1_4,r3_4).
+
+\opposes(p_4,q_4).
+\opposes(q_4,s_4).
+\opposes(p_4,s_4).
+
+/*
+   Here we added that r1 overrides r3 to test3
+   Now, s no longer rebuts p, since p resutes s.
+*/
+%test5 :-
+	write('test05: ')@\plg,
+	\if (p_4, \naf q_4, \naf s_4) \then writeln('Success')@\plg
+        \else writeln('Failed')@\plg.
+
+
+?- insertrule{@{r1_4dyn} p_4dyn :- t1_4dyn}.
+@{r2_4dyn} q_4dyn :- t2_4dyn.
+?- insertrule{@{r3_4dyn} s_4dyn :- t3_4dyn}.
+@{r4_4dyn} t1_4dyn :- \true.
+@{r5_4dyn} t3_4dyn :- \true.
+t2_4dyn :- \false.
+
+\overrides(r1_4dyn,r2_4dyn).
+\overrides(r2_4dyn,r3_4dyn).
+\overrides(r1_4dyn,r3_4dyn).
+
+\opposes(p_4dyn,q_4dyn).
+\opposes(q_4dyn,s_4dyn).
+\opposes(p_4dyn,s_4dyn).
+
+/*
+   Here we added that r1 overrides r3 to test3
+   Now, s no longer rebuts p, since p resutes s.
+*/
+%test5dyn :-
+	write('test05dyn: ')@\plg,
+	\if (p_4dyn, \naf q_4dyn, \naf s_4dyn) \then writeln('Success')@\plg
+        \else writeln('Failed')@\plg.
+
+
+@{r1_5} p_5 :- t1_5.
+@{r2_5} q_5 :- t2_5.
+@{r3_5} s_5 :- t3_5.
+t1_5.
+t2_5.
+t3_5.
+\overrides(r1_5,r2_5).
+\overrides(r2_5,r3_5).
+
+\opposes(p_5,q_5).
+\opposes(q_5,s_5).
+\opposes(p_5,s_5).
+
+/*
+    This is a strange case: compared to test3 we made q_5 supported
+    by adding t2_5.
+    Now, q_5 refutes s_5, so s_5 cannot rebut p_5, and thus p_5 is true.
+    But p_5 rebuts s_5. Since p_5 is not defeated, s_5 is false.
+*/
+%test6 :-
+	write('test06: ')@\plg,
+	\if (p_5, \naf s_5, \naf q_5) \then writeln('Success')@\plg
+        \else writeln('Failed')@\plg.
+
+
+?- insert{@{r1_5dyn} p_5dyn :- t1_5dyn}.
+@{r2_5dyn} q_5dyn :- t2_5dyn.
+?- insert{@{r3_5dyn} s_5dyn :- t3_5dyn}.
+t1_5dyn.
+?- insert{t2_5dyn}.
+t3_5dyn.
+\overrides(r1_5dyn,r2_5dyn).
+\overrides(r2_5dyn,r3_5dyn).
+
+\opposes(p_5dyn,q_5dyn).
+\opposes(q_5dyn,s_5dyn).
+\opposes(p_5dyn,s_5dyn).
+
+/*
+    This is a strange case: compared to test3 we made q_5dyn supported
+    by adding t2_5dyn.
+    Now, q_5dyn refutes s_5dyn, so s_5dyn cannot rebut p_5dyn,
+    and thus p_5dyn is true.
+    But p_5dyn rebuts s_5dyn. Since p_5dyn is not defeated, s_5dyn is false.
+*/
+%test6dyn :-
+	write('test06dyn: ')@\plg,
+	\if (p_5dyn, \naf s_5dyn, \naf q_5dyn) \then writeln('Success')@\plg
+        \else writeln('Failed')@\plg.
+
+//  Test 7 - nonground case
+@{r1_7} p7(?X) :- t7(?X).
+@{r2_7} q7(?X) :- t7(?X).
+@{r3_7} s7(?X) :- t7(?X).
+
+t7(a).
+t7(1).
+t7(b).
+
+\overrides(r1_7,r3_7).
+\overrides(r3_7,r2_7). 
+
+\opposes(p7(?_X),s7(?_X)).
+\opposes(q7(?_X),s7(?_X)).
+
+/*
+  Differs from new gcl
+  This is similar to test1.
+  New GCL:
+   p7(?_X) refutes s7(?_X) and nobody refutes p7(?X),
+   so p7(?X) is true and s7(?X) is false for ?X=a,1,b.
+   Next, s7(?X) refutes q7(?X), but s7(?X) itself is refuted,
+   so q7(?X) stands for ?X=a,1,b.
+  Old GCL:
+   p7(a/b/1) are true, q7(a/b/1) false. s7(a/b/1) false.
+   
+*/
+
+
+%test7 :-
+	write('test07: ')@\plg,
+	\if (p7(a),p7(1),p7(b), \naf q7(a), \naf q7(1), \naf q7(b),\naf s7(a),\naf s7(1),\naf s7(b))
+        \then writeln('Success')@\plg
+        \else writeln('Failed')@\plg.
+
+
+//  Test 8 - nonground case, dynamic
+?- insert{@{r1_7dyn} p7dyn(?X) :- t7dyn(?X)}.
+?- insertrule{@{r2_7dyn} q7dyn(?X) :- t7dyn(?X)}.
+@{r3_7dyn} s7dyn(?X) :- t7dyn(?X).
+
+?- insert{t7dyn(a), t7dyn(1)}.
+t7dyn(b).
+
+\overrides(r1_7dyn,r3_7dyn).
+\overrides(r3_7dyn,r2_7dyn). 
+
+\opposes(p7dyn(?_X),s7dyn(?_X)).
+\opposes(q7dyn(?_X),s7dyn(?_X)).
+
+/*
+  Differs from new gcl
+  This is similar to test1dyn.
+  New GCL:
+   p7dyn(?_X) refutes s7dyn(?_X) and nobody refutes p7dyn(?X),
+   so p7dyn(?X) is true and s7dyn(?X) is false for ?X=a,1,b.
+   Next, s7dyn(?X) refutes q7dyn(?X), but s7dyn(?X) itself is refuted,
+   so q7dyn(?X) stands for ?X=a,1,b.
+  Old GCL:
+   p7dyn(a/b/1) are true, q7dyn(a/b/1) false. s7dyn(a/b/1) false.
+   
+*/
+
+%test7dyn :-
+	write('test07dyn: ')@\plg,
+	\if (p7dyn(a),p7dyn(1),p7dyn(b), \naf q7dyn(a), \naf q7dyn(1), \naf q7dyn(b),\naf s7dyn(a),\naf s7dyn(1),\naf s7dyn(b))
+        \then writeln('Success')@\plg
+        \else writeln('Failed')@\plg.
+
+
+
+
+%pretest :- %test1, %test2, %test3, %test4, %test5, %test6, %test7,
+            %test1dyn, %test2dyn, %test3dyn, %test4dyn, %test5dyn, %test6dyn,
+	    %test7dyn.
+
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\prolog.

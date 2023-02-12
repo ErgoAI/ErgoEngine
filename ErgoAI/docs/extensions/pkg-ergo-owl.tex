@@ -1,0 +1,274 @@
+\chapter[Loading RDF and OWL files]
+{Importing RDF and OWL\\
+  {\Large by Paul Fodor and Michael Kifer}}
+
+This chapter describes the \ERGO import facility for RDF and OWL files.
+The Resource Description Framework (RDF) and the Web Ontology
+Language (OWL) are families of knowledge representation languages for
+authoring ontologies.
+
+The \ERGO-to-OWL API is available through the \ERGO system module
+\texttt{\bs{}owl}
+and calling anything \texttt{@\bs{}owl}  will load that module. If, however, for
+some reason it is necessary to load this module without executing any
+operations, one can accomplish this by calling 
+%% 
+\begin{itemize}
+\item  \texttt{ensure\_loaded@\bs{}owl}. 
+\end{itemize}
+%% 
+
+\section{Loading RDF and OWL Files}
+
+The main predicate for importing and loading RDF and OWL files into \ERGO is
+\texttt{rdf\_load}:
+
+  %%\texttt{System[rdf\_load(?InputFileName, ?InputLangSyntax,
+    %%\\
+    %%\hspace*{3cm} ?LoadingMethod, ?IriPrefixes, ?RdfModule)]@\bs{}owl}.
+  \texttt{System[rdf\_load(?InputFileName,?InputLangSyntax,?IriPrefixes,?RdfModule)]@\bs{}owl}.
+
+  The parameters of this query are explained below. They are all input
+  parameters and therefore must be bound. The result of the translation is
+  stored in an \ERGO module indicated by the last argument.
+  
+  \texttt{?InputFileName}  must be bound to an \ERGO symbol (Prolog atom);
+  it is an input file name where the RDF or OWL file resides 
+  (this can be absolute or relative path).
+  It is advisable that the user uses forward slash as the delimiter for
+  specifying path names.
+  Backslash also works, but it should be doubled, as backslashes
+  need to be escaped.
+
+  Note: the input file name can be a URL in which case it should have the
+  form \texttt{url(\textnormal{\emph{the-web-address}})}. For example,
+  \texttt{url('http://www.w3.org/TR/owl-guide/wine.rdf')}. 
+  This feature will work only if the host system has all the required
+  software installed (like the \emph{curl} package. (Please refer to the
+  installation instructions.) 
+  
+
+  \texttt{?InputLangSyntax}  must be bound to an \ERGO symbol (Prolog atom);
+  it is an input file syntax: 
+  'RDF/XML',
+  'JSON-LD'
+  'TURTLE',
+  'TTL'	,
+  'N-TRIPLES',
+  'N-QUADS',
+  'NT',
+  'N3', or
+  'RDF/JSON' (lowercase versions are also accepted).
+
+  If \texttt{?InputLangSyntax} is an empty atom \texttt{''} then the input
+  syntax is determined from the file extension.\footnote{
+    \texttt{.owl} and \texttt{.rdf}  for  'RDF/XML',
+    \texttt{.nt} for 'N-TRIPLES' and 'NT',
+    \texttt{.ttl} for 'TTL' and 'TURTLE',
+    \texttt{.nq} for 'N-QUADS', 
+    \texttt{.jsonld} for 'JSON-LD',
+    \texttt{.rj} for 'RDF/JSON',
+    \texttt{.n3} for 'N3'. 
+    }
+
+%%  The flag \texttt{?LoadingMethod} indicates the method to use for RDF/OWL
+%%  import. \ERGO translates the original RDF/OWL files into an intermediate
+%%  format and then loads that intermediate file.\footnote{
+%%    These intermediate files are created in a hidden directory
+%%    \texttt{\emph{USERHOME}/.xsb/ergo-\emph{VERSION}/ergo\_owl/},
+%%    but the user normally does not need to see them.
+%%  }
+%%  The intermediate format depend on the specified method.
+%%  The \texttt{?LoadingMethod} must be bound to one of these symbols:
+%%  %% 
+%%  \begin{itemize}
+%%  \item   \texttt{fastload}\\
+%%    This method represents RDF triples via an obscure, but efficient
+%%    format. The triples are loaded as facts into the module specified by the
+%%    argument \texttt{?RdfModule}.
+%%    They can be queries via the \ERGO frame syntax
+%%    \texttt{?S[?P->?O]@rdfStorage123} (assuming \texttt{?RdfModule} is
+%%    bound to \texttt{rdfStorage123}). 
+%%    \\
+%%    \texttt{fastload} is the \emph{preferred} method, as it is much more
+%%    efficient than the other two methods
+%%    for large files. The intermediate file created
+%%    by this method
+%%    is a bit hard for humans to read, so it is not appropriate
+%%    for debugging. Nevertheless, users normally do not need to inspect the
+%%    intermediate files into which \ERGO translates RDF and OWL, so the
+%%    readability of this format is rarely an issue.
+%%    \\
+%%    Example of a query:\\
+%%    \texttt{System[rdf\_load('wine.owl','',fastload,'',rdfStorage123)]@\bs{}owl,\\?S[?P->?O]@rdfStorage123.}  
+%%  \item \texttt{predicates}\\
+%%    In this method, RDF triples are represented as
+%%    \texttt{property(subject,object)}, and they are loaded into
+%%    the \ERGO module specified by the
+%%    \texttt{?RdfModule} argument. They are queried as
+%%    \texttt{?P(?S,?O)@rdfStorage123}, where we assume that the argument
+%%    \texttt{?RdfModule} is bound to \texttt{rdfStorage123}.
+%%    \\
+%%    This format uses the regular \ERGO syntax for the intermediate files it
+%%    creates, and so it is easier to inspect
+%%    visually than the intermediate format for the \texttt{fastload} method.
+%%    However, the need to inspect these intermediate files is very rare,
+%%    while loading large files in this format is much slower than for
+%%    \texttt{fastload}. \\
+%%    Example of a query:\\
+%%    \texttt{System[rdf\_load('wine.owl','',predicates,'',rdfStorage123)]@\bs{}owl,\\?P(?S,?O)@rdfStorage123.}  
+%%  \item \texttt{frames}\\
+%%    In this method, RDF triples are represented using the \ERGO frame
+%%    syntax:
+%%    \texttt{subject[property->object]}.
+%%    These facts are also loaded into the
+%%    \ERGO module specified by \texttt{?RdfModule}. They are queried
+%%    similarly to the \texttt{fastload} method: 
+%%    \texttt{?S[?P->?O]@rdfStorage123}, where
+%%    \texttt{rdfStorage123} is the binding for \texttt{?RdfModule}
+%%    in this example.
+%%    \\
+%%    As with the \texttt{predicates} method, loading large RDF/OWL files via
+%%    the \texttt{frames} method is much slower than via the
+%%    \texttt{fastload} method.   
+%%    \\
+%%    Example of a query:\\
+%%    \texttt{System[rdf\_load('wine.owl','',frames,'',rdfStorage123)]@\bs{}owl,\\?S[?P->?O]@rdfStorage123.}  
+%%  \end{itemize}
+%%  %% 
+%%  
+
+  \texttt{?IriPrefixes} must be bound to an \ERGO symbol (Prolog atom) and
+  be a sequence or rows, ending with the newline character,
+  where each row has the form \texttt{prefix=URL}: 
+  %% 
+\begin{verbatim}
+     'prefix1=URL
+      prefix2=URL2
+      ...
+      prefixN-URL_N'
+\end{verbatim}
+  %% 
+  This parameter can be used to define prefixes for compact URIs (curi's)
+  that are
+  used inside the input RDF/OWL files but not defined in that file. These prefixes will be added to the
+  standard pre-defined prefixes \texttt{rdf}
+  (\url{http://www.w3.org/1999/02/22-rdf-syntax-ns#}), \texttt{rdfs}
+  (\url{http://www.w3.org/2000/01/rdf-schema#}), \texttt{owl}
+  (\url{http://www.w3.org/2002/07/owl#}), and
+  \texttt{xsd} (\url{http://www.w3.org/2001/XMLSchema#}).
+  If any of the standard prefixes \texttt{rdf}, \texttt{rdfs},
+  \texttt{owl}, or \texttt{xsd}     are also defined in
+  \texttt{?IriPrefixes}, the latter override the default definitions.
+
+  Note: this does \emph{not} define any IRI prefixes in \ERGO itself.
+  If one wants to use the above prefixes inside \ERGO, the following
+  queries must be issued:
+  %% 
+\begin{verbatim}
+ ?- iriprefix{prefix1=URL},
+    iriprefix{prefix2=URL2},
+    ....
+\end{verbatim}
+  %% 
+  Note that URL, URL2, etc., must be symbols and thus be
+  quoted correctly, as in
+  %% 
+\begin{verbatim}
+  ?- iriprefix{foo='http://my.foo.bar.com/foobar'}.  
+\end{verbatim}
+  %% 
+
+  The last argument,
+  \texttt{?RdfModule}, must be bound to an \ERGO symbol (Prolog atom);
+  it indicates the \ERGO module into which the RDF imported triples
+  should placed at run time. These triples have the form
+  \texttt{?Subject[?Property->?Object]} and can be queried as follows:
+  %% 
+  \begin{quote}
+    \texttt{?Subject[?Property->?Object]@MyRdfModule}  
+  \end{quote}
+  %% 
+  where we assume that \texttt{?RdfModule} is bound to
+  \texttt{MyRdfModule} in this example. 
+  
+
+  \paragraph{A simplified version of the rdf\_load query.}
+  In most cases the user does not need to use all the options
+  provided by the \texttt{rdf\_load} method and the following query would
+  suffice: 
+
+  \texttt{System[rdf\_load(?InputFileName, ?RdfModule)]@\bs{}owl}
+
+  The input language
+  syntax is determined from the file extension and no IRI prefixes are
+  expected to be supplied. In other words, a call like
+  
+  \texttt{System[rdf\_load('wine.owl', MyRdfModule)]@\bs{}owl}
+
+  is equivalent to
+
+  \texttt{System[rdf\_load('wine.owl','','',MyRdfModule)]@\bs{}owl}
+
+\section{Other API Calls}
+
+Besides loading, the following API calls are supported:
+
+%% 
+\begin{itemize}
+\item  \texttt{?RdfModule[rdf\_insert(?S,?P,?O)]@\bs{}owl} --- insert
+  \texttt{?S[?P->?O]} into the RDF module indicated by \texttt{?RdfModule}.
+\item  \texttt{?RdfModule[rdf\_delete(?S,?P,?O)]@\bs{}owl} --- delete
+  a fact that matches \texttt{?S[?P->?O]} from the RDF module indicated by
+  \texttt{?RdfModule}.
+\item  \texttt{?RdfModule[rdf\_deleteall]@\bs{}owl} --- empty out the
+  specified RDF module.
+\item \texttt{?Subject[rdf\_reachable(?RdfModule,?Property)->?Object]@\bs{}owl}
+  --- true if \texttt{?Object}  is reachable from \texttt{?Subject} via a
+  path of properties \texttt{?Property}. If the property is specified
+  simply as \texttt{?} then any path will do. If \texttt{?Property} is
+  bound (say, to \texttt{foo})  then only the paths consisting of the
+  \texttt{foo}-edges will be considered. If \texttt{?Property} is an
+  unbound variable then any path will do, if all edges of that path are the
+  same. 
+
+\item \texttt{?RdfModule[rdf\_predicate->?P]@\bs{}owl},
+  \texttt{?RdfModule[rdf\_subject->?S]@\bs{}owl},
+  \texttt{?RdfModule[rdf\_object->?O]@\bs{}owl} --- return the set of all
+  properties, subjects, and objects, respectively, in the RDF module
+  \texttt{?RdfModule}. 
+\end{itemize}
+%% 
+
+\section{Importing Multiple RDF/OWL Files}
+
+Multiple RDF and OWL files can be loaded into separate \ERGO modules (and
+the same file can even be loaded into different modules, if so desired).
+However, what happens if two files are loaded into the \emph{same} module? For instance,
+%% 
+\begin{verbatim}
+  ?- System[rdf_load('wine.owl', MyRdfModule)]@\owl,
+     System[rdf_load('beer.owl', MyRdfModule)]@\owl,
+     ... ... ... do something ... ... ...
+\end{verbatim}
+%% 
+In that case, the data from the second import will be \emph{added} to the data
+obtained from the second import. If this additive behavior is not what is
+required in a particular situation and one wants the second import to
+\emph{override} the first, a call to \texttt{rdf\_deleteall} will
+do the trick:
+\begin{verbatim}
+  ?- System[rdf_load('wine.owl', MyRdfModule)]@\owl},
+     ... ... ... do something ... ... ...
+     MyRdfModule[rdf_deleteall]@\owl,  // erase the previously imported data
+     System[rdf_load('beer.owl', MyRdfModule)]@\owl},
+     ... ... ... do something else ... ... ...
+\end{verbatim}
+
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora-packages"
+%%% End: 

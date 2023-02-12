@@ -1,0 +1,13 @@
+// This auxiliary file is used because tabledupdates.flr inserts and
+// deletes stuff, so it is easiest to just reload the module to
+// reproduce the second run using debug on
+
+%test :- tell(temp)@\plg(), 
+	[tabledupdates>>foo], %pretest@foo,
+	!,
+	Method[mustDefine(on)]@\sys,
+	erasemodule{foo},
+	!,
+	[tabledupdates>>foo], %pretest@foo,
+	Method[mustDefine(off)]@\sys,
+	told@\plg().

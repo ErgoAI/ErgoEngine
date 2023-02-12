@@ -1,0 +1,941 @@
+/* File:      flrporting.P  -- Non-standard Prolog predicates used in FLORA-2
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2021;
+**      Coherent Knowledge Systems, LLC, 2014-2019.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on,spec_off]).
+#mode standard Prolog
+
+#include "token_defs_xsb.h"
+#include "psc_defs.h"
+#include "celltags_xsb.h"
+#include "version.flh"
+%% Forward slash is ok here, because gpp understands this even on Windows
+#include "flrincludes/flora_var_attributes.flh"
+#include "flrincludes/flora_porting.flh"
+#include "flrincludes/flora_exceptions.flh"
+#include "flrincludes/flora_characters.flh"
+#include "flrincludes/flora_terms.flh"
+%% DO NOT include any other FLORA-2 .flh files here, or else FLORA-2 won't
+%% build correctly when installed outside of the XSB tree
+
+
+:- import conget/2, conset/2 from gensym.
+:- import eval/2 from eval.
+:- import
+        %%term_type/2,
+        getenv/2,
+        term_psc/2,
+        psc_type/2,
+        slash/1,
+	delete_attributes/1,
+        file_writequoted/2,
+        file_puttoken/3
+   from machine.
+:- import
+	term_to_codes/3,
+        term_to_atom/3
+   from string.
+:- import
+        remove_lib_dir/1,
+        removeall_lib_dir/1,
+        has_lib_dir/1,
+        add_lib_dir/1
+   from consult.
+:- import xsb_configuration/2 from xsb_configuration.
+:- import
+        path_sysop/2, path_sysop/3, copyIOport/2,
+        file_read_line_atom/1, file_read_line_list/1
+        from file_io.
+
+:- import
+        %%close_open_tables/1,
+        xsb_backtrace/1
+   from machine.
+
+:- import
+        memberchk/2,
+        select/3,
+	append/3,
+        reverse/2
+   from basics.
+
+:- import
+	set_banner_control/2,
+	banner_control/1
+   from banner.
+
+:- import flora_configuration/2 from flrregistry.
+
+:- import is_whitespace/1 from flrlexer.
+
+:- import has_flora_configuration_dir/2 from flora2.
+
+:- import flrterm_vars/3 from flora_ground.
+
+:- export
+        flora_write_quoted_atom/1,
+        flora_write_atom_quoted_as_needed/1,
+        flora_write_atom/1,
+        flora_escape_2quotes_backslash_in_atom/2,
+        flora_escape_2quotes_backslash_in_atom_undouble_quotes/2,
+        flora_undouble_quotes/2,
+        flora_file_op/2,
+        flora_file_op/3,
+        get_variable_rename_index/1,
+        set_variable_rename_index/1,
+        flora_read_line_as_atom/1,
+        flora_read_line_as_list/1,
+        flora_copy_input/0,
+        flora_copy_input/2,
+
+        flora_slash/1,
+        flora_running_under/1,
+        flora_running_under/2,
+        flora_running_under/4,
+        flora_user_home/1,
+        flora_install_dir/1,
+        flora_user_floradir/1,
+        flora_build_id/1,
+        flora_build_date/1,
+        flora_build_datetime/1,
+        flora_abort/0,
+        flora_abort/1,
+        flora_abort/2,
+
+        flora_predicate_is_defined_lowlevel/1,
+
+        flora_atom_length/2,
+        flora_match_substring/3,
+        flora_match_substring/5,
+        flora_get_substring/4,
+        flora_term_to_atom/2,
+        flora_term_to_atom_quote/2,
+        flora_concat_items/2,
+        flora_concat_atoms/2,
+        flora_concat_strings/2,
+
+        flora_get_user/1,
+
+        flora_set_counter/2,
+        flora_get_counter/2,
+        flora_increment_counter/2,
+        flora_increment_counter/4,
+
+        flora_cputime/1,
+        flora_walltime/1,
+        flora_module_path_get/1,
+        flora_module_path_add/1,
+        flora_module_path_remove/1,
+        flora_module_path_removeall/1,
+        flora_banner_control/1,
+        flora_set_banner_control/2,
+	flora_running_as/1,
+        flora_split_atom_at_whitespace/2,
+        flora_delete_from_list/3,
+        flora_double_backslash/2,
+        flora_double_quotes/2,
+        flora_double_dblquotes/2,
+        flora_double_backslash_and_quotes/2,
+        flora_convert_backslash_to_forward/2,
+        flora_convert_forward_slash_to_backward/2,
+        flora_convert_win_path_to_cygwin/2.
+
+:- dynamic variable_rename_index/1.
+
+
+flora_subatom(Sub,Atm) :- str_sub(Sub,Atm).
+%%flora_subatom(Sub,Atm) :- sub_atom(Atm,_,_,_,Sub).
+
+flora_term_to_atom(Term,Atom) :-
+        term_to_atom(Term,Atom,[ignore_ops(canonical),quoted(false)]).
+        %%fmt_write_string(AtomN,'%S',arg(Term)),
+        %%Atom = AtomN.
+
+flora_term_to_atom_quote(Term,Atom) :-
+        term_to_codes(Term,[ignore_ops(canonical),quoted(true)],Codes),
+	Codes=[C|_],
+	(C == CH_QUOTE -> atom_codes(Atom,Codes)
+	; append([CH_QUOTE|Codes],[CH_QUOTE],CodesQ),
+	    atom_codes(Atom,CodesQ)
+	).
+        %%term_to_atom(Term,Atom,[ignore_ops(canonical),quoted(true)]).
+        %%fmt_write_string(Atom,'%S',arg(Term)).
+
+%% This concats items or any type - atoms, numbers, etc.
+flora_concat_items(List,Atom) :-
+        %% should we use 'alpha' instead of 'numeric'?
+        flora_rename_vars_meaningfully(List,0'?,alpha,List1),
+	my_concat_atom(List1,Atom,_).
+/*
+flora_concat_items(List,Atom) :-
+        copy_term(List,List1),
+        %% this is done because otherwise term_to_atom will convert
+        %% every variable to _h0. With numbervars, each variable is
+        %% encoded as $VAR(XYZ), with different variables getting
+        %% different names, and then term_to_atom decodes them to XYZ.
+        %%num_vars:numbervars(List1,0,_,[attvar(bind)]),
+        flora_concat_items_aux(List1,Atom).
+
+%% Make the most common case fast!
+flora_concat_items_aux([Item1,Item2],Atom) :-
+        !,
+        %%term_to_atom(Item1,Item1atm,[ignore_ops(canonical),quoted(false),numbervars(true)]),
+        %%term_to_atom(Item2,Item2atm,[ignore_ops(canonical),quoted(false),numbervars(true)]),
+        %%atom_concat(Item1atm,Item2atm,Atom).
+        fmt_write_string(AtomN, '%S%S', arg(Item1,Item2)),
+        Atom = AtomN.
+flora_concat_items_aux([Item|ItemList],Atom) :-
+        %%term_to_atom(Item,Atom1,[ignore_ops(canonical),quoted(false),numbervars(true)]),
+        fmt_write_string(Atom1, '%S', arg(Item)),
+        flora_concat_items_aux(ItemList,Atom2),
+        %%atom_concat(Atom1,Atom2,Atom).
+        fmt_write_string(AtomN, '%S%S', arg(Atom1,Atom2)),
+        Atom = AtomN.
+flora_concat_items_aux([],'').
+*/
+
+/*
+%% this was an experiment
+:- export flora_concat_items_aux3/3, flora_concat_items_aux/2.
+flora_concat_items_aux3([],Atom,Atom) :- !.
+flora_concat_items_aux3([Item|ItemList],Head,Atom) :-
+        fmt_write_string(Head1,'%S%s', arg(Head,Item)),
+        flora_concat_items_aux3(ItemList,Head1,Atom).
+*/
+
+%% If all members are atoms, this is more efficient
+%% Make the most common case fast!
+flora_concat_atoms(AtomList,Atom) :-
+        my_concat_atom(AtomList,Atom,_).
+/*
+flora_concat_atoms([Atom1,Atom2],Atom) :-
+        !,
+        %%atom_concat(Atom1,Atom2,Atom).
+        fmt_write_string(AtomN, '%S%S', arg(Atom1,Atom2)),
+        Atom = AtomN.
+flora_concat_atoms([Atom1|AtomList],Atom) :-
+        flora_concat_atoms(AtomList,Atom2),
+        %%atom_concat(Atom1,Atom2,Atom).
+        fmt_write_string(AtomN, '%S%S', arg(Atom1,Atom2)),
+        Atom = AtomN.
+flora_concat_atoms([],'').
+*/
+
+%% This concats atoms or charlists
+flora_concat_strings(L,Atom) :- my_concat_atom(L,Atom,strings).
+/*
+flora_concat_strings([S1,S2],Atom) :-
+        !,
+        string_to_atom(S1,A1),
+        string_to_atom(S2,A2),
+        %%atom_concat(A1,A2,Atom).
+        fmt_write_string(AtomN, '%S%S', arg(A1,A2)),
+        Atom = AtomN.
+flora_concat_strings([S1|SList],Atom) :-
+        flora_concat_strings(SList,A2),
+        string_to_atom(S1,A1),
+        %%atom_concat(A1,A2,Atom).
+        fmt_write_string(AtomN, '%S%S', arg(A1,A2)),
+        Atom = AtomN.
+flora_concat_strings([],'').
+
+string_to_atom(S,A) :-
+        (S == "" -> A = ''
+        ; atom(S) -> S=A
+        ; atom_codes(A,S)
+        -> true
+        ; flora_abort(['Non-string in flora_concat_strings/2: ', S])
+        ).
+*/
+        
+
+
+flora_atom_length(Atom,Length) :- atom_length(Atom, Length).
+
+
+flora_get_counter(Counter,Value) :- conget(Counter,Value).
+flora_set_counter(Counter,Value) :- conset(Counter,Value).
+flora_increment_counter(Counter,Increment) :-
+        flora_increment_counter(Counter,Increment,_OldValue,_NewValue).
+flora_increment_counter(Counter,Increment,OldValue,NewValue) :-
+        eval(Increment,I),
+        conget(Counter,OldValue),
+        NewValue is OldValue + I,
+        conset(Counter,NewValue).
+
+%% FLORA-2 wrappers for str_match in XSB's syslib/string.P
+%% Checks if Substr matches Str in a given direction and at the right position
+flora_match_substring(Substr,Str,Pos) :-
+        str_match(Substr,Str,forward,Pos,_).
+flora_match_substring(Sub,Str,Direction,Beg,End) :-
+        atom(Sub), atom(Str), atom(Direction),
+        memberchk(Direction, [forward,reverse]),
+        !,
+        str_match(Sub,Str,Direction,Beg,End).
+flora_match_substring(Sub,Str,Direction,_Beg,_End) :-
+	flora_abort(['flora_match_substring/5: Substring = ',Sub, '; String = ', Str, '; Direction = ',Direction, ' must be strings and Direction must be forward or reverse'], FLORA_ABORT_NOTRACE).
+
+%% extract substring Subst from String at positions From - To
+flora_get_substring(String,From,To,SubstOut) :-
+	(integer(To), To>=0 -> Size is To-From
+	; integer(To) -> flora_atom_length(String,Len), Size is Len-From+To+1
+	; var(To) -> flora_atom_length(String,Len), Size is Len-From
+	; flora_abort(['flora_get_substring/4: invalid 3d argument, ',To],FLORA_ABORT_NOTRACE)
+	),
+	%%sub_atom(String,From,Size,_,Subst),
+	substring(String,From,To,Subst),
+	Subst=SubstOut.
+
+flora_slash(Slash) :- slash(Slash).
+
+flora_cputime(X) :- cputime(X).
+flora_walltime(X) :- walltime(X).
+
+
+%% Manipulation of module search path
+%% Yap uses path/1, add_to_path/1, remove_from_path/1
+flora_module_path_add(Path)    :- add_lib_dir(Path).
+flora_module_path_remove(Path) :- remove_lib_dir(Path).
+flora_module_path_removeall(Path) :- removeall_lib_dir(Path).
+
+flora_module_path_get('.').
+flora_module_path_get(Path) :- has_lib_dir(Path).
+flora_module_path_get(Path) :-
+        xsb_configuration(libdir,LibPath), LibPath = Path.
+flora_module_path_get(Path) :-
+        xsb_configuration(syslibdir,SyslibPath), SyslibPath=Path.
+flora_module_path_get(Path) :-
+        xsb_configuration(cmplibdir,CmplibPath), CmplibPath = Path.
+
+
+%% User Home
+flora_user_home(Path) :- xsb_configuration(user_home,Path).
+
+%% where FLORA-2 is installed
+flora_install_dir(Path) :- flora_configuration(installdir,Path).
+
+/*************************************************************************
+  flora_user_floradir(-Dir)
+*************************************************************************/
+flora_user_floradir(Dir) :-
+	(has_flora_configuration_dir(userdir,Dir) -> true
+	;
+	    xsb_configuration(user_auxdir,PlgUserAuxDir),
+	    flora_slash(S),
+	    %% something like $HOME/.xsb/flora-version
+	    flora_build_id(Build),
+	    url_encode(Build,Buildnumber),
+	    flora_concat_atoms([PlgUserAuxDir,S,FLENGINENAME,'-',ERGO_VERSION,'-',Buildnumber],Dir),
+	    ( flora_file_op(exists,Dir) -> true
+	    ;
+		( flora_file_op(mkdir,Dir) -> true
+		;
+                    flora_get_user(User),
+		    flora_abort(['Startup failed! Cannot create user directory ', Dir,
+                                 '\n\t\tfor user ', User,
+                                 '\n\t\tCheck permissions and ownership of ',PlgUserAuxDir],
+                                startup_failed)
+		)
+	    ),
+            (flora_running_under(windows) ->
+                flora_double_backslash(Dir,DirDouble)
+            ; DirDouble = Dir
+            ),
+	    assert(flora_configuration(userdir,DirDouble))
+	),
+	!.
+
+flora_get_user(U) :- getenv('USER',U), !.
+flora_get_user(U) :- getenv('USERNAME',U), !.
+flora_get_user(unknown_user).
+
+%% File system-related
+flora_file_op(exists,File)          :- path_sysop(exists,File).
+flora_file_op(isplain,File)         :- path_sysop(isplain,File).
+flora_file_op(isdir,File)           :- path_sysop(isdir,File).
+flora_file_op(readable,File)        :- path_sysop(readable,File).
+flora_file_op(writable,File)        :- path_sysop(writable,File).
+flora_file_op(executable,File)      :- path_sysop(executable,File).
+flora_file_op(modtime,File,Time)    :-
+	(path_sysop(exists,File) -> path_sysop(modtime,File,Time)
+	; Time = -1
+	).
+flora_file_op(mkdir,Dir)            :- path_sysop(mkdir,Dir).
+flora_file_op(rmdir,Dir)            :- path_sysop(rmdir,Dir).
+flora_file_op(chdir,Dir)            :- path_sysop(chdir,Dir).
+flora_file_op(cwd,Dir)              :- path_sysop(cwd,Dir).
+flora_file_op(cwd_ancestordir,Dir)  :- path_sysop(cwd_ancestordir,Dir).
+flora_file_op(link,Srs,Dest)        :- path_sysop(link,Srs,Dest).
+flora_file_op(unlink,File)          :- path_sysop(unlink,File).
+flora_file_op(rm,File)              :- path_sysop(unlink,File).
+flora_file_op(tmpfilename,File)     :- path_sysop(tmpfilename,File).
+flora_file_op(isabsolute,File)      :- path_sysop(isabsolute,File).
+flora_file_op(rename,File,ToFile)   :- path_sysop(rename,File,ToFile).
+flora_file_op(basename,File,Base)   :-
+        (File = FL_URL(PureName) -> true
+        ; atom(File) -> PureName = File
+        ; flora_abort(['invalid filename syntax, ', File], FLORA_ABORT_NOTRACE)
+        ),
+        !,
+        path_sysop(basename,PureName,Base).
+flora_file_op(extension,File,Ext)   :-
+        (File = FL_URL(PureName) -> true
+        ; atom(File) -> PureName = File
+        ; flora_abort(['invalid filename syntax, ', File], FLORA_ABORT_NOTRACE)
+        ),
+        !,
+        path_sysop(extension,PureName,Ext).
+flora_file_op(localname,File,Local)  :-
+	flora_file_op(basename,File,Base),
+	flora_file_op(extension,File,Ext),
+        (Ext == '' -> Local = Base
+	; flora_concat_atoms([Base,'.',Ext],Local)
+        ).
+flora_file_op(dirname,File,Dir)     :-
+        (File = FL_URL(PureName) -> true
+        ; atom(File) -> PureName = File
+        ; flora_abort(['invalid filename syntax, ', File], FLORA_ABORT_NOTRACE)
+        ),
+        !,
+        path_sysop(dirname,PureName,DirPre),
+        (PureName==DirPre ->
+            flora_concat_atoms([DirPre,'.'],PureNameAux),
+            path_sysop(dirname,PureNameAux,Dir)
+        ; Dir = DirPre
+        ).
+flora_file_op(expand,File,Expanded) :-
+        (File = FL_URL(_) -> Expanded=File
+        ; atom(File) -> path_sysop(expand,File,Expanded)
+        ; flora_abort(['invalid filename syntax, ', File], FLORA_ABORT_NOTRACE)
+        ).
+flora_file_op(newerthan,File,File2) :-
+	path_sysop(exists,File),
+	path_sysop(newerthan,File,File2).
+flora_file_op(copy,From,To)         :- path_sysop(copy,From,To).
+flora_file_op(size,File,Size)       :-
+        path_sysop(size,File,Size).
+
+%% Copies stdin to stdout
+flora_copy_input :-
+	seeing(StdIn),
+	telling(StdOut),
+	copyIOport(StdIn,StdOut).
+
+%% From, To are file names. Variable means stdin or stdout, respectively
+flora_copy_input(From,To) :-
+	(var(From), !  ; seeing(OldIn), see(From)),
+	(var(To), !    ; telling(OldOut), tell(To)),
+	flora_copy_input,
+	(var(From), !  ; seen, see(OldIn)),
+	(var(To), !    ; told, tell(OldOut)).
+
+
+flora_write_atom_quoted_as_needed(Atom) :-
+	\+atom(Atom),
+	flora_abort(['flora_write_atom_quoted_as_needed: Non-atom argument, ', Atom]).
+flora_write_atom_quoted_as_needed(Atom) :-
+	telling(StdOut),
+	file_writequoted(StdOut,Atom).
+
+%% Write atoms in correct form for reading. Always quote, even if not necessary
+%% currently does not put quotes around, and it is not really needed.
+%% But we could add  write_quotedname in emu/io_builtins_xsb.c and make
+%% it do so that it will always put the quotes.
+flora_write_quoted_atom(Atom) :-
+	!,
+	flora_write_atom_quoted_as_needed(Atom).
+/*
+flora_write_quoted_atom(Atom) :-
+	\+atom(Atom),
+	flora_abort(['flora_write_quoted_atom: Non-atom argument, ', Atom]).
+flora_write_quoted_atom(Atom) :-
+	atom_codes(Atom,Codes),
+	put(CH_QUOTE),
+	write_atom_doubling_quotes(Codes),
+	put(CH_QUOTE).
+
+write_atom_doubling_quotes([]) :- !.
+write_atom_doubling_quotes([CH_QUOTE|Rest]) :-
+	!,
+	put(CH_QUOTE),
+	put(CH_QUOTE),
+	write_atom_doubling_quotes(Rest).
+write_atom_doubling_quotes([Ch|Rest]) :-
+	put(Ch),
+	write_atom_doubling_quotes(Rest).
+*/
+
+%% Unquoted atom
+flora_write_atom(Atom) :-
+	telling(StdOut),
+	file_puttoken(StdOut,TK_ATOM,Atom).
+
+flora_read_line_as_atom(Str) :- file_read_line_atom(Str).
+flora_read_line_as_list(Str) :- file_read_line_list(Str).
+
+%% the followig is used in Json-based explanations
+%% flora_escape_2quotes_backslash_in_atom/2
+flora_escape_2quotes_backslash_in_atom(In, Out) :-
+        atom_codes(In,InL),
+        escape_2quotes_backslash_in_list(InL,OutL),
+        atom_codes(Out,OutL).
+escape_2quotes_backslash_in_list([],[]) :- !.
+escape_2quotes_backslash_in_list([CH_DOUBLEQUOTE|Rest], [CH_BACKSLASH,CH_DOUBLEQUOTE|RestConverted]) :-
+	!,
+	escape_2quotes_backslash_in_list(Rest,RestConverted).
+escape_2quotes_backslash_in_list([CH_BACKSLASH|Rest], [CH_BACKSLASH,CH_BACKSLASH|RestConverted]) :-
+	!,
+	escape_2quotes_backslash_in_list(Rest,RestConverted).
+escape_2quotes_backslash_in_list([Ch|Rest],[Ch|RestConverted]) :-
+	escape_2quotes_backslash_in_list(Rest,RestConverted).
+
+%% flora_escape_2quotes_backslash_in_atom_undouble_quotes/2
+flora_escape_2quotes_backslash_in_atom_undouble_quotes(In, Out) :-
+        atom_codes(In,InL),
+        escape_2quotes_backslash_in_list_undouble_quotes(InL,OutL),
+        atom_codes(Out,OutL).
+escape_2quotes_backslash_in_list_undouble_quotes([],[]) :- !.
+escape_2quotes_backslash_in_list_undouble_quotes([CH_DOUBLEQUOTE|Rest], [CH_BACKSLASH,CH_DOUBLEQUOTE|RestConverted]) :-
+	!,
+	escape_2quotes_backslash_in_list_undouble_quotes(Rest,RestConverted).
+escape_2quotes_backslash_in_list_undouble_quotes([CH_BACKSLASH|Rest], [CH_BACKSLASH,CH_BACKSLASH|RestConverted]) :-
+	!,
+	escape_2quotes_backslash_in_list_undouble_quotes(Rest,RestConverted).
+%% undouble single quotes
+escape_2quotes_backslash_in_list_undouble_quotes([CH_QUOTE,CH_QUOTE|Rest], [CH_QUOTE|RestConverted]) :-
+	!,
+	escape_2quotes_backslash_in_list_undouble_quotes(Rest,RestConverted).
+%% also delete singleton quotes
+escape_2quotes_backslash_in_list_undouble_quotes([CH_QUOTE|Rest], RestConverted) :-
+	!,
+	escape_2quotes_backslash_in_list_undouble_quotes(Rest,RestConverted).
+escape_2quotes_backslash_in_list_undouble_quotes([Ch|Rest],[Ch|RestConverted]) :-
+	escape_2quotes_backslash_in_list_undouble_quotes(Rest,RestConverted).
+
+%% undouble single quotes
+flora_undouble_quotes(In, Out) :-
+        atom_codes(In,InL),
+        flora_undouble_quotes_list(InL,OutL),
+        atom_codes(Out,OutL).
+flora_undouble_quotes_list([],[]) :- !.
+flora_undouble_quotes_list([CH_QUOTE,CH_QUOTE|Rest], [CH_QUOTE|RestConverted]) :-
+	!,
+	flora_undouble_quotes_list(Rest,RestConverted).
+flora_undouble_quotes_list([Ch|Rest],[Ch|RestConverted]) :-
+	flora_undouble_quotes_list(Rest,RestConverted).
+
+
+:- table flora_running_under/1, flora_running_under/2 as opaque.
+
+flora_running_under(cygwin) :-
+	xsb_configuration(architecture,A),
+	flora_subatom(cygwin,A),
+	!.
+flora_running_under(windows) :-
+	xsb_configuration(architecture,A),
+	flora_subatom(windows,A),
+	!.
+flora_running_under(macos) :-
+	xsb_configuration(architecture,A),
+	flora_subatom(darwin,A),
+	!.
+flora_running_under(darwin) :-
+	xsb_configuration(architecture,A),
+	flora_subatom(darwin,A),
+	!.
+flora_running_under(unix) :-
+	\+ flora_running_under(cygwin),
+	\+ flora_running_under(windows),
+	\+ flora_running_under(macos).
+
+flora_running_under(OSName,Word) :-
+	xsb_configuration(word_size,Word),
+	xsb_configuration(architecture,Arch),
+	%% here we are trying to be more specific
+	(flora_subatom(linux,Arch) -> OSName = linux
+	; flora_subatom(bsd,Arch) -> OSName = bsd
+	; flora_subatom(solaris,Arch) -> OSName = solaris
+	; flora_subatom(windows,Arch) -> OSName = windows
+	; flora_subatom(darwin,Arch) -> OSName = darwin
+	; OSName = generic_unix
+	).
+
+flora_running_under(OSName,Word,Cpu,CpuType) :-
+        flora_running_under(OSName,Word),
+        xsb_configuration(host_cpu,Cpu),
+        (memberchk(Cpu,[i386,x64,x86_64]) -> CpuType=intel
+        ; CpuType=arm
+        ).
+
+flora_banner_control(X) :- banner_control(X).
+flora_set_banner_control(X,Flag) :- set_banner_control(X,Flag).
+
+flora_running_as(ergo).
+
+flora_convert_win_path_to_cygwin(WinP,CygwinP) :-
+	atom_codes(WinP,WinPlist),
+	WinPlist = [Letter, 0': | Rest],
+	(
+	  (0'a =< Letter, Letter =< 0'z)
+	; (0'A =< Letter, Letter =< 0'Z)
+	),
+	!,
+	%% Letter drive plus ":"
+	convert_backslash_to_forward(Rest,NewRest),
+	atom_codes(LetterAtom,[Letter]),
+	atom_codes(NewRestAtom,NewRest),
+	flora_concat_atoms(['/',cygdrive,'/',LetterAtom,NewRestAtom],CygwinP).
+	
+	%% If not a window path - leave as is
+flora_convert_win_path_to_cygwin(Path,Path).
+
+
+%% This one takes lists of chars
+convert_backslash_to_forward([],[]) :- !.
+convert_backslash_to_forward([CH_BACKSLASH | Back], [0'/ | Forward]) :-
+	!,
+	convert_backslash_to_forward(Back,Forward).
+convert_backslash_to_forward([Ch | Back], [Ch | Forward]) :-
+	convert_backslash_to_forward(Back,Forward).
+
+convert_forward_slash_to_backward([],[]) :- !.
+convert_forward_slash_to_backward([CH_SLASH|Back], [CH_BACKSLASH|Forward]) :-
+	!,
+	convert_forward_slash_to_backward(Back,Forward).
+convert_forward_slash_to_backward([Ch | Back], [Ch | Forward]) :-
+	convert_forward_slash_to_backward(Back,Forward).
+
+
+%% This one takes atoms
+flora_convert_backslash_to_forward(X,Y) :-
+	atom_codes(X,XX),
+	convert_backslash_to_forward(XX,YY),
+	atom_codes(Y,YY).
+
+flora_convert_forward_slash_to_backward(X,Y) :-
+	atom_codes(X,XX),
+	convert_forward_slash_to_backward(XX,YY),
+	atom_codes(Y,YY).
+
+
+%% Double backslashes
+flora_double_backslash(Path,PathDouble) :-
+	atom_codes(Path,PathLst),
+	double_backslash_list(PathLst,PathLstDouble),
+	atom_codes(PathDouble,PathLstDouble).
+
+double_backslash_list([],[]).
+double_backslash_list([CH_BACKSLASH|Rest], [CH_BACKSLASH,CH_BACKSLASH|DoubleRest]) :-
+	!,
+	double_backslash_list(Rest, DoubleRest).
+double_backslash_list([Ch|Rest], [Ch|DoubleRest]) :-
+	double_backslash_list(Rest, DoubleRest).
+
+
+%% Double quotes
+flora_double_quotes(Path,PathDouble) :-
+	atom_codes(Path,PathLst),
+	double_quotes_list(PathLst,PathLstDouble),
+	atom_codes(PathDouble,PathLstDouble).
+
+double_quotes_list([],[]).
+double_quotes_list([CH_QUOTE|Rest], [CH_QUOTE,CH_QUOTE|DoubleRest]) :-
+	!,
+	double_quotes_list(Rest, DoubleRest).
+double_quotes_list([Ch|Rest], [Ch|DoubleRest]) :-
+	double_quotes_list(Rest, DoubleRest).
+
+%% Double double quotes: "
+flora_double_dblquotes(Path,PathDouble) :-
+	atom_codes(Path,PathLst),
+	double_dblquotes_list(PathLst,PathLstDouble),
+	atom_codes(PathDouble,PathLstDouble).
+
+double_dblquotes_list([],[]).
+double_dblquotes_list([CH_DOUBLEQUOTE|Rest], [CH_DOUBLEQUOTE,CH_DOUBLEQUOTE|DoubleRest]) :-
+	!,
+	double_dblquotes_list(Rest, DoubleRest).
+double_dblquotes_list([Ch|Rest], [Ch|DoubleRest]) :-
+	double_dblquotes_list(Rest, DoubleRest).
+
+
+%% Double both backslash and quotes
+flora_double_backslash_and_quotes(Path,PathDouble) :-
+	atom_codes(Path,PathLst),
+	double_backslash_and_quotes_list(PathLst,PathLstDouble),
+	atom_codes(PathDouble,PathLstDouble).
+
+double_backslash_and_quotes_list([],[]).
+double_backslash_and_quotes_list([CH_BACKSLASH|Rest], [CH_BACKSLASH,CH_BACKSLASH|DoubleRest]) :-
+	!,
+	double_backslash_and_quotes_list(Rest, DoubleRest).
+double_backslash_and_quotes_list([CH_QUOTE|Rest], [CH_QUOTE,CH_QUOTE|DoubleRest]) :-
+	!,
+	double_backslash_and_quotes_list(Rest, DoubleRest).
+double_backslash_and_quotes_list([Ch|Rest], [Ch|DoubleRest]) :-
+	double_backslash_and_quotes_list(Rest, DoubleRest).
+	
+
+flora_delete_from_list(Elt,List,NewList) :- select(Elt,List,NewList).
+
+
+flora_abort :-
+	xsb_backtrace(Bt),
+	%% throw/1 now closes open tables, so do NOT do it here
+	%%close_open_tables(abort),
+	throw(FLORA_ABORT(Bt)).
+flora_abort(Msg) :-
+	flora_abort(Msg,FLORA_ABORT).
+
+%% AbortType == FLORA_ABORT_NOTRACE: no backtrace will be printed
+flora_abort(Msg,AbortType) :-
+	is_list(Msg),
+	!,
+	flora_concat_items(Msg,AtomMsg),
+	xsb_backtrace(Bt),
+	%% throw/1 now closes open tables, so do NOT do it here
+	%%close_open_tables(abort),
+	ThrowMsg =.. [AbortType,AtomMsg,Bt],
+	throw(ThrowMsg).
+flora_abort(Msg,AbortType) :-
+	xsb_backtrace(Bt),
+	%% throw/1 now closes open tables, so do NOT do it here
+	%%close_open_tables(abort),
+	ThrowMsg =.. [AbortType,Msg,Bt],
+	throw(ThrowMsg).
+
+
+flora_build_id(Build) :-
+	str_match(': ',ERGO_BUILD,forward,_,BStart),
+	BEnd = -1,
+	%%BStart2 is BEnd-7,
+	%%(BStart2>BStart1 -> BStart=BStart2 ; BStart=BStart1),
+	flora_get_substring(ERGO_BUILD,BStart,BEnd,BuildSub),
+	atom_codes(BuildSub,Codes),
+	skip_blanks(Codes,Codes1),
+	extract_nonblanks(Codes1,Codes2),
+	atom_codes(Build,Codes2),
+	!.
+flora_build_id(unknown).
+
+flora_build_datetime(DateT) :-
+	str_match(': ',ERGO_DATE,forward,_,DStart),
+	DEnd = -1,
+	flora_get_substring(ERGO_DATE,DStart,DEnd,DateSub),
+	atom_codes(DateSub,Codes),
+	skip_blanks(Codes,Codes1),
+	reverse(Codes1,Codes2),
+	skip_blanks(Codes2,Codes3),
+	reverse(Codes3,Codes4),
+	atom_codes(DateTT,Codes4),
+	!,
+	DateTT = DateT.
+flora_build_datetime(unknown).
+
+flora_build_date(unknown) :- flora_build_datetime(unknown), !.
+flora_build_date(Date) :-
+	flora_build_datetime(DateT),
+	str_match(' ',DateT,forward,DEnd,_),
+	flora_get_substring(DateT,0,DEnd,Date).
+    
+skip_blanks(In,Out) :-
+	(In = [CH_SPACE|Rest]
+	 ->	skip_blanks(Rest,Out)
+	 ;	Out = In
+	).
+
+extract_nonblanks([],[]) :- !.
+extract_nonblanks([CH_SPACE|_],[]) :- !.
+extract_nonblanks([Ch|RestIn],[Ch|RestOut]) :-
+	extract_nonblanks(RestIn,RestOut).
+
+%% this is a low-level check if Term is a defined predicate
+%% used in flrdefeasible.fli
+flora_predicate_is_defined_lowlevel(Term) :-
+	%%term_type(Term, Type),
+	%%Type =:= XSB_STRUCT,
+	term_psc(Term, PSC),
+	psc_type(PSC, NType),
+	(   NType =:= T_PRED; NType =:= T_FORN; NType =:= T_DYNA ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+/* 
+TLS 7/99 This version is linear rather than quadratic and seems
+much faster than the old one (which I must confess to writing).  Also,
+this is well-behaved for memory management since it no longer uses
+str_cat or atom_length.
+
+TLS: 12/03 I thought this might be more useful if I added a flatten,
+	so that substrings could be passed in as lists. 
+DSW: 3/04 rewritten to single pass for efficiency
+*/
+ 
+%% If Switch=strings then character strings are converted to
+my_concat_atom(L,A,Switch) :-
+        c_atom(L,[],AC,Switch),
+        atom_codes(A,AC).
+
+c_atom(A,L0,L,Switch) :-
+        (A == [] ->   L = L0
+        ; A @= [_|_],
+	    (Switch == strings -> \+is_charlist(A)
+	    ; true
+	    )
+        ->   A = [A1|R],
+            (R == []
+	    ->  c_atom(A1,L0,L,Switch)
+	    ;  c_atom(R,L0,L1,Switch),
+		c_atom(A1,L1,L,Switch)
+	    )
+        ; A @= (_,_)
+        ->  A = (A1,R),
+            c_atom(R,L0,L1,Switch),
+            c_atom(A1,L1,L,Switch)
+        ; (atom(A) ->  atom_codes(A,AC)
+          %% Next line is no good: converts 0.3 to 0.2999999
+	  %%; number(A) ->  number_codes(A,AC)
+	  ; integer(A) ->  number_codes(A,AC)
+	  ; float(A) ->
+              %% need to change
+              fmt_write_string(A_Atm,'%S',A),
+              atom_codes(A_Atm,AC)
+	  ; Switch == strings, is_charlist(A) -> AC = A
+	  ;  term_to_codes(A,[ignore_ops(canonical),quoted(false)],AC)
+	  ),
+            (L0 == [] ->   L = AC
+            ;    append(AC,L0,L)
+            )
+        ).
+
+
+:- export
+        flora_bind_vars_meaningfully/1,
+        flora_rename_vars_meaningfully/2,
+        flora_rename_vars_meaningfully/4,
+        flora_bind_vars_meaningfully/3.
+
+%% in-place
+flora_bind_vars_meaningfully(L) :-
+        flora_bind_vars_meaningfully(L,0'?,alpha).
+%% by copying
+flora_rename_vars_meaningfully(L,Lout) :-
+        flora_rename_vars_meaningfully(L,0'?,alpha,Lout).
+
+%% binds vars in-place
+%% PrefixChar is usually 0'?, 0'_, or Var (no prefix)
+%% Style is alpha or numeric
+flora_bind_vars_meaningfully(L,PrefixChar,Style) :-
+        bind_vars_meaningfully(L,PrefixChar,Style).
+
+%% this one does not affect the input arg L
+flora_rename_vars_meaningfully(L,PrefixChar,Style,Lcopy) :-
+        copy_term(L,Lcopy),
+        bind_vars_meaningfully(Lcopy,PrefixChar,Style).
+
+%% bind_vars_meaningfully(?L,?PrefixChar,+Style)
+%% PrefixChar is usually 0'?, 0'_, or Var (no prefix)
+%% Style is alpha or numeric
+bind_vars_meaningfully(L,PrefixChar,Style) :-
+	flrterm_vars(L,Vars,0),
+	sort(Vars,VarsSorted),
+        %%get_variable_rename_index(Idx),
+	bind_vars_meaningfully(VarsSorted,0,PrefixChar,Style).
+bind_vars_meaningfully([],_,_,_) :- !.
+/*
+bind_vars_meaningfully([],N,_,_) :-
+        !,
+        set_variable_rename_index(N).
+*/
+bind_vars_meaningfully([X|R],N,PrefixChar,Style) :-
+	atomic(X),
+	!,
+	bind_vars_meaningfully(R,N,PrefixChar,Style).
+bind_vars_meaningfully([X|R],N,PrefixChar,Style) :-
+	delete_attributes(X),
+        (Style == alpha ->
+            PreCode is N mod 26 + 0'A,
+            Discriminator is N div 26,
+            (Discriminator > 0 -> number_codes(Discriminator,DiscriminatorCode)
+            ; DiscriminatorCode = []
+            ),
+            Code = [PreCode|DiscriminatorCode]
+        ; number_codes(N,PreCode), Code = [0'h|PreCode]
+        ),
+        (var(PrefixChar) -> atom_codes(Xname,Code)
+	; atom_codes(Xname,[PrefixChar|Code])
+        ),
+	X = Xname,
+	N1 is N+1,
+	bind_vars_meaningfully(R,N1,PrefixChar,Style).
+
+/*
+   Splits string at white space into a list
+*/
+flora_split_atom_at_whitespace(In,Out) :-
+        atom_codes(In,InChars),
+        split_chars_at_whitespace(InChars,Out).
+
+split_chars_at_whitespace([],[]) :- !.
+split_chars_at_whitespace(InChars,[Atm|Rest]) :-
+        skip_white(InChars,InChars2),
+        chip_off_nonwhite_piece(InChars2,NonWhiteChars,RestChars),
+        atom_codes(Atm,NonWhiteChars),
+        split_chars_at_whitespace(RestChars,Rest).
+
+chip_off_nonwhite_piece([],[],[]) :- !.
+chip_off_nonwhite_piece([Ch|InChars],[Ch|NonWhiteChars],Rest) :-
+        \+is_whitespace(Ch),
+        !,
+        chip_off_nonwhite_piece(InChars,NonWhiteChars,Rest).
+%% white ch found
+chip_off_nonwhite_piece(InChars,[],Rest) :-
+        skip_white(InChars,Rest).
+
+skip_white([],[]) :- !.
+skip_white([Ch|InChars],Rest) :-
+        is_whitespace(Ch),
+        !,
+        skip_white(InChars,Rest).
+%% non-white ch found
+skip_white(InChars,InChars).
+
+
+%% unused
+get_variable_rename_index(N) :-
+        variable_rename_index(N),
+        !.
+get_variable_rename_index(0).
+
+%% unused
+set_variable_rename_index(N) :-
+        integer(N),
+        N>=0,
+        !,
+        retractall(variable_rename_index(_)),
+        assert(variable_rename_index(N)).
+set_variable_rename_index(N) :-
+	flora_abort(['Internal bug: ', N, ': invalid variable index'], FLORA_ABORT_NOTRACE).
+

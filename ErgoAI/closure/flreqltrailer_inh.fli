@@ -1,0 +1,360 @@
+/*******************************************************************************
+  file: closure/flreqltrailer_inh.fli - A template for generating trailers with
+  				      	equality maintenance AND inheritance
+
+  Author(s): Guizhen Yang
+
+  Contact:   flora-users@lists.sourceforge.net
+
+  Copyright (C) by
+       The Research Foundation of the State University of New York, 1999-2018;
+       Coherent Knowledge Systems, LLC, 2014-2018.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+       http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+*******************************************************************************/
+
+%%%%% THIS CONTAINS ONLY THE AXIOMS THAT DIFFER FROM THE NON-INHERITANCE VERSION
+
+#include "flora_wspredicates.flh"
+#include "flora_porting.flh"
+
+:- import flora_warning_line/2 from flrprint.
+:- import flora_funct_arity/2 from flrwrapper.
+:- import flora_runtime_switch_registry/2 from flrregistry.
+
+:- WRAP_COPY_UNQUOTED 'FLORA_THIS_MODULE_NAME'.
+
+
+#include "flreqltrailer_neg.inc"
+#include "flreqltrailer_neg_inh.inc"
+
+#define DELAY_REG  2
+:- import xwam_state/2 from machine.
+
+
+#define IF_LOCAL_OVERRIDE_OPTIMIZATION(Test)  \
+   (flora_runtime_switch_registry(FLORA_LOCAL_OVERRIDE_OPTION,'FLORA_THIS_MODULE_NAME') \
+   -> Test ; true)
+#define IF_NO_LOCAL_OVERRIDE_OPTIMIZATION(Test)  \
+   (flora_runtime_switch_registry(FLORA_LOCAL_OVERRIDE_OPTION,'FLORA_THIS_MODULE_NAME') \
+   -> true ; Test)
+
+
+/***************************************************************************
+  Note that all programs rules are translated with with the
+  'derived_' FLHEADPREFIX) prefix.
+  These rules are bridged to the trailer using wrapper predicates with the
+  'inferred_' (FLTRAILERPREFIX) prefix.
+***************************************************************************/
+
+
+/*****************************************************************************
+  inheritable methods that are locally defined
+
+  The argument "MethSign" has the form of Funct/Arity/Type.
+*****************************************************************************/
+%% FLLOCALPREFIX(WRAP_IMVD)/3
+FLLOCALPREFIX(WRAP_IMVD)(S,MethSign,FL_CONTEXT(Caller,Id1,Id2)) :-
+	var(MethSign),
+	FLTRAILERPREFIX(WRAP_IMVD_EQL)(S,M,_V,FL_CONTEXT(Caller,Id1,Id2)),
+	%% Should have a cut here when XSB will allow
+	flora_funct_arity(M,MethSign).
+
+FLLOCALPREFIX(WRAP_IMVD)(S,MethSign,FL_CONTEXT(Caller,Id1,Id2)) :-
+	var(MethSign),
+	!,
+	FLTRAILERPREFIX(WRAP_IMVDDEF_EQL)(S,M,FL_CONTEXT(Caller,Id1,Id2)),
+	flora_funct_arity(M,MethSign).
+
+FLLOCALPREFIX(WRAP_IMVD)(S,MethSign,FL_CONTEXT(Caller,Id1,Id2)) :-
+	nonvar(MethSign), % the cut above might not work under local scheduling
+	flora_funct_arity(M,MethSign),
+	FLTRAILERPREFIX(WRAP_IMVD_EQL)(S,M,_V,FL_CONTEXT(Caller,Id1,Id2)).
+	%% Should have a cut here when XSB will allow
+
+FLLOCALPREFIX(WRAP_IMVD)(S,MethSign,FL_CONTEXT(Caller,Id1,Id2)) :-
+	nonvar(MethSign), % the cut above might not work under local scheduling
+	flora_funct_arity(M,MethSign),
+	FLTRAILERPREFIX(WRAP_IMVDDEF_EQL)(S,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+
+%% FLLOCALPREFIX(WRAP_MVD)/3
+FLLOCALPREFIX(WRAP_MVD)(S,MethSign,FL_CONTEXT(Caller,Id1,Id2)) :-
+	var(MethSign),
+	FLTRAILERPREFIX(WRAP_MVD_EQL)(S,M,_V,FL_CONTEXT(Caller,Id1,Id2)),
+	%% Should have a cut here when XSB will allow
+	flora_funct_arity(M,MethSign).
+
+FLLOCALPREFIX(WRAP_MVD)(S,MethSign,FL_CONTEXT(Caller,Id1,Id2)) :-
+	var(MethSign),
+	!,
+	FLTRAILERPREFIX(WRAP_MVDDEF_EQL)(S,M,FL_CONTEXT(Caller,Id1,Id2)),
+	flora_funct_arity(M,MethSign).
+
+FLLOCALPREFIX(WRAP_MVD)(S,MethSign,FL_CONTEXT(Caller,Id1,Id2)) :-
+	nonvar(MethSign), % the cut above might not work under local scheduling
+	flora_funct_arity(M,MethSign),
+	FLTRAILERPREFIX(WRAP_MVD_EQL)(S,M,_V,FL_CONTEXT(Caller,Id1,Id2)).
+	%% Should have a cut here when XSB will allow
+
+FLLOCALPREFIX(WRAP_MVD)(S,MethSign,FL_CONTEXT(Caller,Id1,Id2)) :-
+	nonvar(MethSign), % the cut above might not work under local scheduling
+	flora_funct_arity(M,MethSign),
+	FLTRAILERPREFIX(WRAP_MVDDEF_EQL)(S,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+
+%% FLLOCALPREFIX(WRAP_IMETH)/3
+FLLOCALPREFIX(WRAP_IMETH)(S,MethSign,FL_CONTEXT(Caller,Id1,Id2)) :-
+	var(MethSign),
+	!,
+	FLTRAILERPREFIX(WRAP_IMETH_EQL)(S,M,FL_CONTEXT(Caller,Id1,Id2)),
+	%% Should have a cut here when XSB will allow
+	flora_funct_arity(M,MethSign).
+
+FLLOCALPREFIX(WRAP_IMETH)(S,MethSign,FL_CONTEXT(Caller,Id1,Id2)) :-
+	nonvar(MethSign), % the cut above might not work under local scheduling
+	flora_funct_arity(M,MethSign),
+	FLTRAILERPREFIX(WRAP_IMETH_EQL)(S,M,FL_CONTEXT(Caller,Id1,Id2)).
+	%% Should have a cut here when XSB will allow
+
+
+%% FLLOCALPREFIX(WRAP_METH)/3
+FLLOCALPREFIX(WRAP_METH)(S,MethSign,FL_CONTEXT(Caller,Id1,Id2)) :-
+	var(MethSign),
+	!,
+	FLTRAILERPREFIX(WRAP_METH_EQL)(S,M,FL_CONTEXT(Caller,Id1,Id2)),
+	%% Should have a cut here when XSB will allow
+	flora_funct_arity(M,MethSign).
+
+FLLOCALPREFIX(WRAP_METH)(S,MethSign,FL_CONTEXT(Caller,Id1,Id2)) :-
+	nonvar(MethSign), % the cut above might not work under local scheduling
+	flora_funct_arity(M,MethSign),
+	FLTRAILERPREFIX(WRAP_METH_EQL)(S,M,FL_CONTEXT(Caller,Id1,Id2)).
+	%% Should have a cut here when XSB will allow
+
+
+/*****************************************************************************
+  closure for X[Y->Z], X[|Y->Z|], X[]
+  nonmonotonic multiple inheritance of multivalued attributes
+  from superclasses to subclasses
+*****************************************************************************/
+WRAP_IMVD(C,M,V,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FLTRAILERPREFIX(WRAP_IMVD_EQL)(C,M,V,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_IMVD(C,M,V,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FL_INHER_REASON_IMVD(C,_Super,M,V,FL_CONTEXT(Caller,Id1,Id2)).
+
+FL_INHER_REASON_IMVD(C,Super,M,V,FL_CONTEXT(Caller,Id1,Id2)) :-
+	var(M),
+	!,
+	IF_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_IMVD)(C,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,Super,FL_CONTEXT(Caller,_,_)),
+	FLINHERITANCEPREFIX(WRAP_IMVD_EQL)(Super,M,V,FL_CONTEXT(Caller,Id1,Id2)),
+	flora_funct_arity(M,MethSign),
+	candidate_class_imvd(Super,MethSign,C,FL_CONTEXT(Caller,_,_)),
+        FLORA_NAF_EXISTS(intermed_NEG_block_imvd_eql(Super,M,V,C,FL_CONTEXT(Caller,_,_))),
+	IF_NO_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_IMVD)(C,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLORA_NAF_EXISTS(multiple_class_imvd(Super,MethSign,C,FL_CONTEXT(Caller,_,_))),
+        FLORA_NAF_EXISTS(local_NEG_block_imvd(C,M,V,FL_CONTEXT(Caller,_,_))).
+
+FL_INHER_REASON_IMVD(C,Super,M,V,FL_CONTEXT(Caller,Id1,Id2)) :-
+	nonvar(M),  % the cut above might not work under local scheduling
+	flora_funct_arity(M,MethSign),
+	IF_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_IMVD)(C,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,Super,FL_CONTEXT(Caller,_,_)), %% Optimization
+	candidate_class_imvd(Super,MethSign,C,FL_CONTEXT(Caller,_,_)),
+        FLORA_NAF_EXISTS(intermed_NEG_block_imvd_eql(Super,M,V,C,FL_CONTEXT(Caller,_,_))),
+	FLINHERITANCEPREFIX(WRAP_IMVD_EQL)(Super,M,V,FL_CONTEXT(Caller,Id1,Id2)),
+	IF_NO_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_IMVD)(C,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLORA_NAF_EXISTS(multiple_class_imvd(Super,MethSign,C,FL_CONTEXT(Caller,_,_))),
+        FLORA_NAF_EXISTS(local_NEG_block_imvd_eql(C,M,V,FL_CONTEXT(Caller,_,_))).
+
+
+WRAP_IMVDDEF(C,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FLTRAILERPREFIX(WRAP_IMVDDEF_EQL)(C,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_IMVDDEF(C,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FL_INHER_REASON_IMVDDEF(C,_Super,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+FL_INHER_REASON_IMVDDEF(C,Super,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	var(M),
+	!,
+	IF_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_IMVD)(C,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,Super,FL_CONTEXT(Caller,_,_)),
+	FLINHERITANCEPREFIX(WRAP_IMVDDEF_EQL)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+	flora_funct_arity(M,MethSign),
+	candidate_class_imvd(Super,MethSign,C,FL_CONTEXT(Caller,_,_)),
+	IF_NO_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_IMVD)(C,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLORA_NAF_EXISTS(multiple_class_imvd(Super,MethSign,C,FL_CONTEXT(Caller,_,_))).
+
+FL_INHER_REASON_IMVDDEF(C,Super,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	nonvar(M),  % the cut above might not work under local scheduling
+	flora_funct_arity(M,MethSign),
+	IF_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_IMVD)(C,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,Super,FL_CONTEXT(Caller,_,_)), %% Optimization
+	candidate_class_imvd(Super,MethSign,C,FL_CONTEXT(Caller,_,_)),
+	FLINHERITANCEPREFIX(WRAP_IMVDDEF_EQL)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+	IF_NO_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_IMVD)(C,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLORA_NAF_EXISTS(multiple_class_imvd(Super,MethSign,C,FL_CONTEXT(Caller,_,_))).
+
+WRAP_IMVDDEF(C,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	WRAP_IMVD(C,M,_V,FL_CONTEXT(Caller,Id1,Id2)).
+	%% Should have a cut here when XSB will allow
+
+
+/*****************************************************************************
+  nonmonotonic multiple inheritance of multivalued attributes
+  from superclasses to instances/members
+*****************************************************************************/
+WRAP_MVD(O,M,V,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FLTRAILERPREFIX(WRAP_MVD_EQL)(O,M,V,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_MVD(O,M,V,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FL_INHER_REASON_MVD(O,_Super,M,V,FL_CONTEXT(Caller,Id1,Id2)).
+
+FL_INHER_REASON_MVD(O,Super,M,V,FL_CONTEXT(Caller,Id1,Id2)) :-
+	var(M),
+	!,
+	IF_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_MVD)(O,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLINHERITANCEPREFIX(WRAP_ISA)(O,Super,FL_CONTEXT(Caller,_,_)),
+	FLINHERITANCEPREFIX(WRAP_IMVD_EQL)(Super,M,V,FL_CONTEXT(Caller,Id1,Id2)),
+	flora_funct_arity(M,MethSign),
+	candidate_object_imvd(Super,MethSign,O,FL_CONTEXT(Caller,_,_)),
+        FLORA_NAF_EXISTS(intermed_NEG_block_mvd_eql(Super,M,V,O,FL_CONTEXT(Caller,_,_))),
+	IF_NO_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_MVD)(O,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLORA_NAF_EXISTS(multiple_object_imvd(Super,MethSign,O,FL_CONTEXT(Caller,_,_))),
+        %% not explicitly negated
+        FLORA_NAF_EXISTS(local_NEG_block_mvd_eql(O,M,V,FL_CONTEXT(Caller,_,_))).
+
+FL_INHER_REASON_MVD(O,Super,M,V,FL_CONTEXT(Caller,Id1,Id2)) :-
+	nonvar(M),  % the cut above might not work under local scheduling
+	flora_funct_arity(M,MethSign),
+	IF_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_MVD)(O,MethSign,FL_CONTEXT(Caller,_,_)))),
+	%% DON'T uncomment: causes infinite loop in pps.flr/dyn_pps.flr
+	%%(nonvar(O) -> FLINHERITANCEPREFIX(WRAP_ISA)(O,Super,FL_CONTEXT(Caller,_,_)) ; true),
+	candidate_object_imvd(Super,MethSign,O,FL_CONTEXT(Caller,_,_)),
+        FLORA_NAF_EXISTS(intermed_NEG_block_mvd_eql(Super,M,V,O,FL_CONTEXT(Caller,_,_))),
+	FLINHERITANCEPREFIX(WRAP_IMVD_EQL)(Super,M,V,FL_CONTEXT(Caller,Id1,Id2)),
+	IF_NO_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_MVD)(O,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLORA_NAF_EXISTS(multiple_object_imvd(Super,MethSign,O,FL_CONTEXT(Caller,_,_))),
+        FLORA_NAF_EXISTS(local_NEG_block_mvd_eql(O,M,V,FL_CONTEXT(Caller,_,_))).
+
+
+WRAP_MVDDEF(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FLTRAILERPREFIX(WRAP_MVDDEF_EQL)(O,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+WRAP_MVDDEF(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FL_INHER_REASON_MVDDEF(O,_Super,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+FL_INHER_REASON_MVDDEF(O,Super,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	var(M),
+	!,
+	IF_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_MVD)(O,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLINHERITANCEPREFIX(WRAP_ISA)(O,Super,FL_CONTEXT(Caller,_,_)),
+	FLINHERITANCEPREFIX(WRAP_IMVDDEF_EQL)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+	flora_funct_arity(M,MethSign),
+	candidate_object_imvd(Super,MethSign,O,FL_CONTEXT(Caller,_,_)),
+	IF_NO_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_MVD)(O,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLORA_NAF_EXISTS(multiple_object_imvd(Super,MethSign,O,FL_CONTEXT(Caller,_,_))).
+
+FL_INHER_REASON_MVDDEF(O,Super,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	nonvar(M),  % the cut above might not work under local scheduling
+	flora_funct_arity(M,MethSign),
+	IF_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_MVD)(O,MethSign,FL_CONTEXT(Caller,_,_)))),
+	%% DON'T uncomment: causes infinite loop in pps.flr/dyn_pps.flr
+	%%(nonvar(O) -> FLINHERITANCEPREFIX(WRAP_ISA)(O,Super,FL_CONTEXT(Caller,_,_)) ; true),
+	candidate_object_imvd(Super,MethSign,O,FL_CONTEXT(Caller,_,_)),
+	FLINHERITANCEPREFIX(WRAP_IMVDDEF_EQL)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+	IF_NO_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_MVD)(O,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLORA_NAF_EXISTS(multiple_object_imvd(Super,MethSign,O,FL_CONTEXT(Caller,_,_))).
+
+WRAP_MVDDEF(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	nonvar(M),  % the cut above might not work under local scheduling
+	WRAP_MVD(O,M,_V,FL_CONTEXT(Caller,Id1,Id2)).
+	%% Should have a cut here when XSB will allow
+
+
+/*****************************************************************************
+  monotonic inheritance of binary attributes (tabled methods)
+*****************************************************************************/
+WRAP_METH(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FLTRAILERPREFIX(WRAP_METH_EQL)(O,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+/*
+WRAP_METH(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMETH(C,M,FL_CONTEXT(Caller,Id1,Id2)).
+*/
+
+WRAP_METH(O,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FL_INHER_REASON_METH(O,_Super,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+FL_INHER_REASON_METH(O,Super,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	var(M),
+	!,
+	IF_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_METH)(O,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLINHERITANCEPREFIX(WRAP_ISA)(O,Super,FL_CONTEXT(Caller,_,_)),
+	FLINHERITANCEPREFIX(WRAP_IMETH_EQL)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+	flora_funct_arity(M,MethSign),
+	candidate_object_imeth(Super,MethSign,O,FL_CONTEXT(Caller,_,_)),
+	IF_NO_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_METH)(O,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLORA_NAF_EXISTS(multiple_object_imeth(Super,MethSign,O,FL_CONTEXT(Caller,_,_))).
+
+FL_INHER_REASON_METH(O,Super,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	nonvar(M),  % the cut above might not work under local scheduling
+	flora_funct_arity(M,MethSign),
+	IF_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_METH)(O,MethSign,FL_CONTEXT(Caller,_,_)))),
+	%% DON'T uncomment: causes infinite loop in pps.flr/dyn_pps.flr
+	%%(nonvar(O) -> FLINHERITANCEPREFIX(WRAP_ISA)(O,Super,FL_CONTEXT(Caller,_,_)) ; true),
+	candidate_object_imeth(Super,MethSign,O,FL_CONTEXT(Caller,_,_)),
+	FLINHERITANCEPREFIX(WRAP_IMETH_EQL)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+	IF_NO_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_METH)(O,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLORA_NAF_EXISTS(multiple_object_imeth(Super,MethSign,O,FL_CONTEXT(Caller,_,_))).
+
+
+%% WRAP_IMETH/3
+WRAP_IMETH(C,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FLTRAILERPREFIX(WRAP_IMETH_EQL)(C,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+/*
+WRAP_IMETH(C,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,S,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMETH(S,M,FL_CONTEXT(Caller,Id1,Id2)).
+*/
+
+WRAP_IMETH(C,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	FL_INHER_REASON_IMETH(C,_Super,M,FL_CONTEXT(Caller,Id1,Id2)).
+
+FL_INHER_REASON_IMETH(C,Super,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	var(M),
+	!,
+	IF_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_IMETH)(C,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,Super,FL_CONTEXT(Caller,_,_)),
+	FLINHERITANCEPREFIX(WRAP_IMETH_EQL)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+	flora_funct_arity(M,MethSign),
+	candidate_class_imeth(Super,MethSign,C,FL_CONTEXT(Caller,_,_)),
+	IF_NO_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_IMETH)(C,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLORA_NAF_EXISTS(multiple_class_imeth(Super,MethSign,C,FL_CONTEXT(Caller,_,_))).
+
+FL_INHER_REASON_IMETH(C,Super,M,FL_CONTEXT(Caller,Id1,Id2)) :-
+	nonvar(M),  % the cut above might not work under local scheduling
+	flora_funct_arity(M,MethSign),
+	IF_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_IMETH)(C,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLINHERITANCEPREFIX(WRAP_SUB)(C,Super,FL_CONTEXT(Caller,_,_)), %% Optimization
+	candidate_class_imeth(Super,MethSign,C,FL_CONTEXT(Caller,_,_)),
+	FLINHERITANCEPREFIX(WRAP_IMETH_EQL)(Super,M,FL_CONTEXT(Caller,Id1,Id2)),
+	IF_NO_LOCAL_OVERRIDE_OPTIMIZATION(FLORA_NAF_EXISTS(FLLOCALPREFIX(WRAP_IMETH)(C,MethSign,FL_CONTEXT(Caller,_,_)))),
+	FLORA_NAF_EXISTS(multiple_class_imeth(Super,MethSign,C,FL_CONTEXT(Caller,_,_))).
+
+

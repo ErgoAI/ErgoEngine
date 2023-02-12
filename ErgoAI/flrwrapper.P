@@ -1,0 +1,889 @@
+/* File:      flrwrapper.P
+**
+** Author(s): Guizhen Yang 
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2021;
+**      and Vulcan, Inc., 2008-2013.
+**      Coherent Knowledge Systems, LLC, 2014-2021.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "flora_exceptions.flh"
+#include "flora_characters.flh"
+
+
+
+/*****************************************************************************
+  flora_module_predicate(+Functor,+Args,+ModuleName,-Call)
+
+  The parameter "ModuleName" is a name of a Flora module,
+  In the latter case, it would be a structured term.
+
+  Call is in usermod because it is constructed using =..
+
+  It fails if the input is not a valid Flora module name. This is used for
+  F-logic and HiLog wrapper predicates.
+*****************************************************************************/
+%% Caching this predicate saves a LOT of time.
+%% Performance is better, if we do not table this, but cache
+flora_module_predicate(Functor,Args,ModuleName,Call) :-
+	flora_encoded_call_cache(Functor,Args,ModuleName,Call),
+	!.
+flora_module_predicate(Functor,Args,ModuleName,Call) :-
+	length(Args,Arity),
+	flora_modular_prolog_registry(Functor,Arity,ModuleName),
+	!,
+	flora_modularize_atom(Functor,ModuleName,ModAtom),
+	flora_add_last(Args,NewArgs,_),
+	Call =.. [ModAtom|NewArgs],
+	NewArity is Arity+1,
+	length(ArgsTempl,NewArity),
+        PredTempl =.. [ModAtom|ArgsTempl],
+	asserta(flora_encoded_call_cache(Functor,Args,ModuleName,PredTempl)).
+flora_module_predicate(Functor,Args,ModuleName,Call) :-
+        is_list(Args),
+        atom(Functor),
+        !,
+	flora_concat_atoms([FLORA_MODULE_PREFIX,'''',ModuleName,'''',Functor],PF),
+        Call1 =.. [PF|Args],
+        Call = Call1,
+	%% Cache the call
+	functor(Call,_,Arity),
+	length(ArgsTempl,Arity),
+        PredTempl =.. [PF|ArgsTempl],
+	asserta(flora_encoded_call_cache(Functor,ArgsTempl,ModuleName,PredTempl)).
+flora_module_predicate(_Functor,_Args,_ModuleName,NULL).  %% invalid/unsupported combo
+
+
+/*****************************************************************************
+  Construct a predicate symbol for a Flora module and a functor.
+
+  flora_module_predicate_symbol(+Functor,+ModuleName,-Symbol)
+*****************************************************************************/
+flora_module_predicate_symbol(Functor,ModuleName,Symbol) :-
+	flora_module_predicate(Functor,[],ModuleName,Symbol).
+
+
+/*****************************************************************************
+  This procedure returns the HiLog wrapper for a Flora module.
+
+  flora_hilog_module_predicate_symbol(+ModuleName,-Call)
+*****************************************************************************/
+flora_hilog_module_predicate_symbol(ModuleName,Call) :-
+	flora_module_predicate(WRAP_NONTABLED_HILOG,[],ModuleName,Call).
+
+
+/*****************************************************************************
+  These procedures return the Tabled HiLog wrapper for a Flora module.
+
+  flora_tabled_hilog_module_predicate_symbol(+ModuleName,-Call)
+*****************************************************************************/
+flora_tabled_hilog_module_predicate_symbol(ModuleName,Call) :-
+	flora_module_predicate(WRAP_TABLED_HILOG,[],ModuleName,Call).
+flora_tabled_hilog_module_predicate_symbol(ModuleName,Call) :-
+	flora_module_predicate(FL_NEGPREFIX(WRAP_TABLED_HILOG),[],ModuleName,Call).
+
+
+/*****************************************************************************
+  These procedures return the Dyna HiLog wrapper for a Flora module.
+
+  flora_dyna_hilog_module_predicate_symbol(+ModuleName,-Call)
+*****************************************************************************/
+flora_dyna_hilog_module_predicate_symbol(ModuleName,Call) :-
+	flora_module_predicate(FLDYNAPREFIX(WRAP_NONTABLED_HILOG),[],ModuleName,Call).
+
+
+/*****************************************************************************
+  This procedure returns the Dynz HiLog wrapper for a Flora module.
+
+  flora_dynz_hilog_module_predicate_symbol(+ModuleName,-Call)
+*****************************************************************************/
+flora_dynz_hilog_module_predicate_symbol(ModuleName,Call) :-
+	flora_module_predicate(FLDYNZPREFIX(WRAP_NONTABLED_HILOG),[],ModuleName,Call).
+
+
+/*****************************************************************************
+  This procedure returns the Tabled Dyna HiLog wrapper for a Flora module.
+
+  flora_tdyna_hilog_module_predicate_symbol(+ModuleName,-Call)
+*****************************************************************************/
+flora_tdyna_hilog_module_predicate_symbol(ModuleName,Call) :-
+	flora_module_predicate(FLDYNAPREFIX(WRAP_TABLED_HILOG),[],ModuleName,Call).
+flora_tdyna_hilog_module_predicate_symbol(ModuleName,Call) :-
+	flora_module_predicate(FLNEGDYNAPREFIX(WRAP_TABLED_HILOG),[],ModuleName,Call).
+
+
+/*****************************************************************************
+  This procedure returns the Tabled Dynz HiLog wrapper for a Flora module.
+
+  flora_tdynz_hilog_module_predicate_symbol(+ModuleName,-Call)
+*****************************************************************************/
+flora_tdynz_hilog_module_predicate_symbol(ModuleName,Call) :-
+	flora_module_predicate(FLDYNZPREFIX(WRAP_TABLED_HILOG),[],ModuleName,Call).
+flora_tdynz_hilog_module_predicate_symbol(ModuleName,Call) :-
+	flora_module_predicate(FLNEGDYNZPREFIX(WRAP_TABLED_HILOG),[],ModuleName,Call).
+
+
+/*****************************************************************************
+  flora_storage_fdb_name(+ModuleName,-StorageName)
+
+  It takes a Flora module name as input and returns the name of the FDB storage
+  trie for this module.
+
+  The parameter "ModuleName" is the name of a Flora module.
+  If the input is not a valid Flora module name, it fails.
+*****************************************************************************/
+flora_fdb_storage_name(ModuleName,StorageName) :-
+	flora_concat_atoms([FLORA_FDB_TRIE_PREFIX,'''',ModuleName],StorageName).
+
+/*****************************************************************************
+  flora_fld_storage_name(+ModuleName,-StorageName)
+*****************************************************************************/
+flora_fld_storage_name(ModuleName,StorageName) :-
+	flora_concat_atoms([FLORA_FLD_TRIE_PREFIX,'''',ModuleName],StorageName).
+
+
+/*****************************************************************************
+  flora_fls_storage_name(+ModuleName,-StorageName)
+
+      Storage for module-dependent symbol occurrences
+      (to issue errors/warnings during load)
+
+  flora_fls_storage_name(-StorageName)
+
+      Storage for module-independent symbol occurrences 
+*****************************************************************************/
+flora_fls_storage_name(ModuleName,StorageName) :-
+	flora_concat_atoms([FLORA_FLS_TRIE_PREFIX,'''',ModuleName],StorageName).
+flora_fls_storage_name(StorageName) :-
+	flora_concat_atoms([FLORA_FLS_TRIE_PREFIX,'$'],StorageName).
+
+
+/******************************************************************************
+        flora_storage_module(+StorageName,-ModuleName)
+
+	Get module name corresponding to storage name
+******************************************************************************/
+flora_storage_module(StorageName,ModuleName) :-
+	flora_match_substring('''',StorageName,reverse,_,Pos),
+	flora_get_substring(StorageName,Pos,_,ModuleName).
+
+
+/*****************************************************************************
+      flora_is_fld_storage(+StorageName)
+      flora_is_fdb_storage(+StorageName)
+
+      Check if storage name is FLD or FDB
+*****************************************************************************/
+flora_is_fld_storage(StorageName) :-
+	%%flora_match_substring(FLORA_FLD_TRIE_PREFIX,StorageName,_).
+	flora_fld_storage_registry(StorageName).
+flora_is_fdb_storage(StorageName) :-
+	%%flora_match_substring(FLORA_FDB_TRIE_PREFIX,StorageName,_).
+	flora_storage_registry(StorageName).
+
+/*****************************************************************************
+  flora_setup_flogic_fact_wrapper(+ModuleName)
+
+  It sets up the wrapper predicate names for F-logic facts in a module. 
+  It is a Flora module.
+  This procedure is called by the DB erase/eraseall operation.
+
+  Used in syslib/flrdbop.P and flrbtdbop.P
+
+  Note: An F-logic wrapper predicate name is encoded as follows:
+        'FLORA_MODULE_PREFIX''workspace''wrapper'.
+*****************************************************************************/
+flora_setup_flogic_fact_wrapper(ModuleName) :-
+	flora_current_flogic_module(ModuleName),
+	!.
+
+flora_setup_flogic_fact_wrapper(ModuleName) :-
+	retractall(flora_current_flogic_module(_)),
+	asserta(flora_current_flogic_module(ModuleName)),
+	Prefix=FLORA_MODULE_PREFIX,
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_ISA],WSBisa),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_SUB],WSBsub),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_METH],WSBmeth),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_IMETH],WSBimeth),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_TRAN],WSBtran),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_MVD],WSBmvd),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_IMVD],WSBimvd),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_MVDSIG],WSBmvdsig),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_IMVDSIG],WSBimvdsig),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_BOOLSIG],WSBboolsig),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_IBOOLSIG],WSBiboolsig),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_TRANSIG],WSBtransig),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_ITRANSIG],WSBitransig),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_MVDCONDEF],WSBmvdcondef),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_IMVDCONDEF],WSBimvdcondef),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_MVDCON],WSBmvdcon),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_IMVDCON],WSBimvdcon),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_EXISTS],WSBexists),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_MVDDEF],WSBmvddef),
+	flora_concat_atoms([Prefix,'''',ModuleName,'''',WRAP_IMVDDEF],WSBimvddef),
+	retractall(flora_flogic_fact_wrapper(_,_)),
+	asserta(flora_flogic_fact_wrapper(WRAP_ISA,WSBisa)),
+	asserta(flora_flogic_fact_wrapper(WRAP_SUB,WSBsub)),
+	asserta(flora_flogic_fact_wrapper(WRAP_METH,WSBmeth)),
+	asserta(flora_flogic_fact_wrapper(WRAP_IMETH,WSBimeth)),
+	asserta(flora_flogic_fact_wrapper(WRAP_TRAN,WSBtran)),
+	asserta(flora_flogic_fact_wrapper(WRAP_MVD,WSBmvd)),
+	asserta(flora_flogic_fact_wrapper(WRAP_IMVD,WSBimvd)),
+	asserta(flora_flogic_fact_wrapper(WRAP_MVDSIG,WSBmvdsig)),
+	asserta(flora_flogic_fact_wrapper(WRAP_IMVDSIG,WSBimvdsig)),
+	asserta(flora_flogic_fact_wrapper(WRAP_BOOLSIG,WSBboolsig)),
+	asserta(flora_flogic_fact_wrapper(WRAP_IBOOLSIG,WSBiboolsig)),
+	asserta(flora_flogic_fact_wrapper(WRAP_TRANSIG,WSBtransig)),
+	asserta(flora_flogic_fact_wrapper(WRAP_ITRANSIG,WSBitransig)),
+	asserta(flora_flogic_fact_wrapper(WRAP_MVDCONDEF,WSBmvdcondef)),
+	asserta(flora_flogic_fact_wrapper(WRAP_IMVDCONDEF,WSBimvdcondef)),
+	asserta(flora_flogic_fact_wrapper(WRAP_MVDCON,WSBmvdcon)),
+	asserta(flora_flogic_fact_wrapper(WRAP_IMVDCON,WSBimvdcon)),
+	asserta(flora_flogic_fact_wrapper(WRAP_EXISTS,WSBexists)),
+	asserta(flora_flogic_fact_wrapper(WRAP_MVDDEF,WSBmvddef)),
+	asserta(flora_flogic_fact_wrapper(WRAP_IMVDDEF,WSBimvddef)).
+
+
+/*****************************************************************************
+  flora_decode_module_prefix(+Funct)
+  flora_get_symbol_module(+Funct,-Module)
+
+  Checks a predicate symbol if it begins with
+  FLORA_PREFIX'FLORA_MODULE', which indicates it is a Flora,
+  F-logic, or a HiLog module predicate.
+
+  flora_get_symbol_module/2 extracts module from a modularized FLORA-2 symbol
+*****************************************************************************/
+flora_decode_module_prefix(Funct) :-
+	%% Funct could be an int or float, so check
+	atom(Funct),
+	!,
+	%% Check if functor begins with FLORA_MODULE_PREFIX followed by an '.
+	flora_match_substring(FLORA_MODULE_PREFIX'',Funct,0).
+
+flora_get_symbol_module(Funct,Module) :-
+	flora_decode_module_prefix(Funct),
+	flora_get_substring(Funct,FLORA_MODULE_PREFIX_LEN_PLUS1,-1,RestFunct),
+	flora_match_substring('''',RestFunct,forward,N,_),
+	%% Extract the workspace name.
+	flora_get_substring(RestFunct,0,N,Module).
+
+flora_get_symbol_module_wrapper(Funct,Module,Wrap) :-
+	flora_decode_module_prefix(Funct),
+	flora_get_substring(Funct,FLORA_MODULE_PREFIX_LEN_PLUS1,-1,RestFunct),
+	flora_match_substring('''',RestFunct,forward,N,M),
+	%% Extract the workspace name.
+	flora_get_substring(RestFunct,0,N,Module),
+	flora_get_substring(RestFunct,M,-1,Wrap).
+
+/*****************************************************************************
+  flora_is_neg_wrapper(+Wrap)
+  flora_is_transactional_wrapper(+Wrap)
+*****************************************************************************/
+flora_is_neg_wrapper(Wrapper) :-
+        atom(Wrapper),
+	flora_match_substring(FL_NEGPREFIX,Wrapper,forward,_,_).
+
+flora_is_transactional_wrapper(WRAP_NONTABLED_HILOG) :- !.
+flora_is_transactional_wrapper(FLBodyPREFIX(WRAP_NONTABLED_HILOG)) :- !.
+flora_is_transactional_wrapper(WRAP_TRAN) :- !.
+flora_is_transactional_wrapper(FLBodyPREFIX(WRAP_TRAN)) :- !.
+
+flora_is_transactional_call(Call) :-
+	flora_decode_predicate(Call,_,_,_,_,CanonWrap,_),
+	flora_is_transactional_wrapper(CanonWrap).
+
+/*****************************************************************************
+  flora_is_flogic_wrapper(+WrapPrefix,+Base)
+*****************************************************************************/
+flora_is_flogic_wrapper(WrapPrefix,Base) :-
+	( 
+	  WrapPrefix=FL_EMPTYPREFIX
+	; WrapPrefix=FL_HEADPREFIX
+	; WrapPrefix=FL_TRAILERPREFIX
+	; WrapPrefix=FL_BodyPREFIX
+	; WrapPrefix=FL_DYNAPREFIX
+	; WrapPrefix=FL_DYNZPREFIX
+	; WrapPrefix=FL_NEGPREFIX
+	; WrapPrefix=FL_NEGHEADPREFIX
+	; WrapPrefix=FL_NEGTRAILERPREFIX
+	; WrapPrefix=FL_NEGBodyPREFIX
+	; WrapPrefix=FL_NEGDYNAPREFIX
+	; WrapPrefix=FL_NEGDYNZPREFIX
+	; WrapPrefix=FL_NAFBodyPREFIX
+	; WrapPrefix=FL_NAFNEGBodyPREFIX
+	),
+	!,
+	flora_is_flogic_base(Base).
+
+
+/*****************************************************************************
+  flora_is_flogic_base(+Base)
+*****************************************************************************/
+flora_is_flogic_base(WRAP_ISA)        :- !.
+flora_is_flogic_base(WRAP_SUB)        :- !.
+flora_is_flogic_base(WRAP_MVD)        :- !.
+flora_is_flogic_base(WRAP_IMVD)       :- !.
+flora_is_flogic_base(WRAP_METH)       :- !.
+flora_is_flogic_base(WRAP_IMETH)      :- !.
+flora_is_flogic_base(WRAP_EXISTS)     :- !.
+flora_is_flogic_base(WRAP_MVDDEF)     :- !.
+flora_is_flogic_base(WRAP_IMVDDEF)    :- !.
+flora_is_flogic_base(WRAP_TRAN)       :- !.
+flora_is_flogic_base(WRAP_MVDSIG)     :- !.
+flora_is_flogic_base(WRAP_MVDCONDEF)  :- !.
+flora_is_flogic_base(WRAP_MVDCON)     :- !.
+flora_is_flogic_base(WRAP_MVDSIGDEF)  :- !.
+flora_is_flogic_base(WRAP_IMVDSIG)    :- !.
+flora_is_flogic_base(WRAP_IMVDCONDEF) :- !.
+flora_is_flogic_base(WRAP_IMVDCON)    :- !.
+flora_is_flogic_base(WRAP_IMVDSIGDEF) :- !.
+flora_is_flogic_base(WRAP_BOOLSIG)    :- !.
+flora_is_flogic_base(WRAP_IBOOLSIG)   :- !.
+flora_is_flogic_base(WRAP_TRANSIG)    :- !.
+flora_is_flogic_base(WRAP_ITRANSIG)   :- !.
+flora_is_flogic_base(WRAP_MVDINC)     :- !.
+flora_is_flogic_base(WRAP_IMVDINC)    :- !.
+flora_is_flogic_base(WRAP_MVDTOLIST)  :- !.
+flora_is_flogic_base(WRAP_IMVDTOLIST) :- !.
+flora_is_flogic_base(WRAP_OBJEQL)     :- !.
+
+flora_is_hilog_base_wrapper(WRAP_HILOG) :- !.
+flora_is_hilog_base_wrapper(WRAP_NONTABLED_HILOG) :- !.
+flora_is_hilog_base_wrapper(WRAP_TABLED_HILOG) :- !.
+flora_is_neg_hilog_base_wrapper(FLNEGPREFIX(WRAP_TABLED_HILOG)) :- !.
+
+flora_is_base_wrapper(FL_LIBMOD) :- !.
+flora_is_base_wrapper(W) :- flora_is_flogic_base(W), !.
+flora_is_base_wrapper(W) :- flora_is_hilog_base_wrapper(W).
+
+/*****************************************************************************
+  flora_decode_predicate(+Call,-CallType,-ModuleName,
+                         -Wrapper,
+                         -WrapPrefix,-BaseWrapperOrFloraAuxPred,-ArgList)
+
+  This procedure decodes a predicate and returns answers as follows:
+
+  (1) CallType=flogic or neg_flogic if the predicate is encoded as:
+	'FLORA_PREFIX''FLORA_MODULE_TAG''workspace''flogic_wrapper'.
+      ModuleName is a Flora module name.
+      Wrapper is the wrapper used to encode the correponding molecule.
+      WrapPrefix is the
+      prefix of the wrapper (e.g., dyna^, derived^). 
+      BaseWrapperOrFloraAuxPred is the type of the F-logic wrapper: mvd, imvd, etc.
+
+  (2) CallType=flora, if the predicate is encoded as:
+	'FLORA_PREFIX''FLORA_MODULE_TAG''workspace''flora_predicate'.
+      This encoding is for Flora builtin predicates like those in the trailers
+      that are used to implement F-logic, e.g., immediate_sub.
+      Wrapper is the predicate used in the trailer.
+      If the predicate (call)
+      contains an `^' (FLPREFIXSEPARATOR) sign, then it is split into two
+      parts: WrapPrefix is
+      the prefix up until the last `^' while BaseWrapperOrFloraAuxPred is the
+      remaining string. For example, if the predicate is immediate_sub, then
+      WrapPrefix='immediate^', BaseWrapperOrFloraAuxPred='sub'.
+      Otherwise, WrapPrefix='' and BaseWrapperOrFloraAuxPred=flora_predicate.
+
+  (3) CallType=hilog or neg_hilog if the predicate is encoded as:
+      'FLORA_PREFIX''FLORA_MODULE_TAG''workspace''hilog_wrapper'.
+      or their dyna^, dynz^ variants.
+      ModuleName is a Flora module name.
+      Wrapper is the hilog wrapper used to encode the predicate.
+      WrapPrefix is 'dyna^','dynz^', or empty
+      BaseWrapperOrFloraAuxPred is the base HiLog wrapper:
+      WRAP_NONTABLED_HILOG, WRAP_TABLED_HILOG, FLNEGPREFIX(WRAP_TABLED_HILOG)
+
+  (4) CallType=prolog, if the predicate is encoded other than all of the
+      above. ModuleName, Wrapper, and WrapPrefix will be variables.
+      BaseWrapperOrFloraAuxPred will be the prolog predicate
+
+  Note: This procedure can also be used to decode a predicate symbol (without
+        any argument). Then BaseWrapperOrFloraAuxPred is defined and
+        ArgList=[].
+
+*****************************************************************************/
+
+%% Checks if Term is an F-logic or HiLog predicate that can be called
+is_flora_callable_literal(Call) :-
+	flora_decode_predicate(Call,_,ModuleName,_,_,BaseWrap,_),
+	(nonvar(ModuleName) ; BaseWrap == FLLIBMODLIT),
+        !.
+%% flora_decode_predicate/6
+flora_decode_predicate(Call,CallType,ModuleName,
+	               WrapPrefix,BaseWrapperOrFloraAuxPred,ArgList) :-
+	flora_decode_predicate(Call,CallType,ModuleName,
+			       _,
+			       WrapPrefix,BaseWrapperOrFloraAuxPred,ArgList).
+%% flora_decode_predicate/7
+%% This predicate is cached
+flora_decode_predicate(Call,CallType,ModuleName,
+		       Wrapper,
+	               WrapPrefix,BaseWrapperOrFloraAuxPred,ArgList) :-
+        get_self_or_delayed_call(Call,CallOut),
+        flora_decoded_predicate_cache(CallOut,CallType,
+                                      ModuleName, Wrapper,
+                                      WrapPrefix,BaseWrapperOrFloraAuxPred,
+                                      ArgList),
+	!.
+
+%% This does not seems to have much effect. There are more atoms than wrappers,
+%% so this might yield a very small speed up.
+flora_decode_predicate(Call,(prolog),_ModuleName,Call,_WrapPrefix,Call,[]) :-
+	atomic(Call),
+	!.
+
+flora_decode_predicate(Call,CallType,ModuleNameIn,
+		       Wrapper,
+	               WrapPrefix,BaseWrapperOrFloraAuxPred,ArgList) :-
+	%% This branch is to decode an F-logic, a HiLog, or a Flora predicate.
+	Call =.. [Funct|Args],
+	%% Check if it begins with a module predicate prefix.
+	flora_decode_module_prefix(Funct),
+	%% Locate the end of workspace name, assuming the next quote after
+	%% the prefix marks the end of the workspace. This will not work
+	%% correctly if the workspace contains the quote symbol.
+	flora_get_substring(Funct,FLORA_MODULE_PREFIX_LEN_PLUS1,-1,RestFunct),
+	flora_match_substring('''',RestFunct,forward,N,M),
+	%% Extract the workspace name.
+	flora_get_substring(RestFunct,0,N,ModuleName),
+	%% Extract the predicate name.
+	flora_get_substring(RestFunct,M,-1,Wrapper),
+	!,
+	( flora_match_substring(FL_PREFIXSEPARATOR,Wrapper,reverse,_,S) ->
+	    %% The predicate consists of a prefix and a base.
+	    flora_get_substring(Wrapper,0,S,WrapPrefix),
+	    flora_get_substring(Wrapper,S,-1,WrapBase)
+        ;
+	    WrapPrefix=FL_EMPTYPREFIX,
+	    WrapBase=Wrapper
+        ),
+	(flora_match_substring(FL_NEGPREFIX,WrapPrefix,forward,_,_)
+	-> Negated = yes
+	; Negated = no
+	),
+	/*
+	DBGOUTLN('Decode predicate call = ' + Call),
+	DBGOUTLN('Decode predicate wrap = '
+	           + (WrapPrefix,WrapBase,Wrapper,Negated)),
+	*/
+        ( (WrapBase == WRAP_NONTABLED_HILOG ; WrapBase == WRAP_TABLED_HILOG) ->
+	    %% a Hilog Predicate
+	    (Negated == no -> CallType = (hilog)
+	    ; CallType = neg_hilog
+	    ),
+	    BaseWrapperOrFloraAuxPred=WrapBase,
+	    ArgList=Args
+        ;
+	  %% either an F-logic wrapper or Flora system wrapper predicate
+	  Args=ArgList,
+	  BaseWrapperOrFloraAuxPred=WrapBase,
+	  ( flora_is_flogic_wrapper(WrapPrefix,BaseWrapperOrFloraAuxPred) ->
+	      (Negated == no -> CallType = flogic
+	      ; CallType = neg_flogic
+	      )
+	  ;
+	    %% a Flora builtin predicate, like difobjeql/2
+	      (Negated == no -> CallType = (flora)
+	      ; CallType = neg_flora
+	      )
+	  )
+        ),
+	!,
+        (ModuleNameIn = ModuleName -> true
+        ; flora_abort(['internal error: bound ModuleNameIn(=',ModuleNameIn,
+                       ') != ModuleName(=',ModuleName,
+                       ') in a call to flora_decode_predicate/7'])
+        ),
+	%% Cache the result in the most general form
+        (get_self_or_delayed_call(Call,CallOut) ->
+            %% this checker iss now called in flrnegation.P
+            %%FLORA_DELAY_CHECKER([CallOut],[]),
+            functor(CallOut,PredFunctor,Arity),
+            length(OldArgsTempl,Arity),
+            NewArgsTempl = OldArgsTempl, PSTempl=BaseWrapperOrFloraAuxPred,
+            PredTemplate =.. [PredFunctor|OldArgsTempl],
+            asserta(flora_decoded_predicate_cache(PredTemplate,CallType,
+                                                  ModuleName, Wrapper,
+                                                  WrapPrefix,PSTempl,
+                                                  NewArgsTempl))
+        %%; true
+        ).
+
+flora_decode_predicate(Call,CallType,_ModuleName,
+		       BaseWrapperOrFloraAuxPred,
+		       _WrapPrefix,BaseWrapperOrFloraAuxPred,ArgList) :-
+	CallType = prolog,
+	%% prolog catches all other cases.
+	!,
+        (get_self_or_delayed_call(Call,CallOut) ->
+            %% this predicate creates skeleton in the same module as Call
+            skeletonize_prolog_call(CallOut,PredTemplate,BaseWrapperOrFloraAuxPred,ArgList),
+            PredTemplate =.. [_|NewArgsTempl],
+            asserta(flora_decoded_predicate_cache(PredTemplate,CallType,
+                                                  _ModuleName,
+                                                  BaseWrapperOrFloraAuxPred,
+                                                  _WrapPrefix,
+                                                  BaseWrapperOrFloraAuxPred,
+                                                  NewArgsTempl))
+        ;
+            true
+        ).
+
+skeletonize_prolog_call(Call,Skeleton,PredName,ArgList) :-
+	functor(Call,Fun,Arity),
+	(Arity==0 -> Skeleton = Call, PredName = Fun, ArgList = []
+	; Call = [Arg1|Arg2]
+	%% XSB crashes when term_psc/psc_name get a list as an arg
+	-> Skeleton = [_|_], PredName = '.', ArgList = [Arg1,Arg2]
+	;
+	    %% This trickery is needed because we want the skeleton
+	    %% and PredName to be in the same XSB module as Call.
+	    term_psc(Call,PSC),
+	    psc_name(PSC,PredName),
+	    term_new(PSC,Skeleton),
+	    Call =.. [_|ArgList]
+	).
+
+skeletonize_hilog_call(Call,Skeleton,HiLogPredName,HilogArgs) :-
+	functor(Call,HWrap,Arity),
+	arg(1,Call,HiLogPredName),
+	Arity1 is Arity-1,
+	length(HilogArgs,Arity1),
+	Skeleton =.. [HWrap,HiLogPredName|HilogArgs].
+
+
+/*****************************************************************************
+  flora_decode_module_name(+Call,-ModuleName)
+
+  It checks if the predicate symbol is a Flora module predicate.
+  If yes, it returns the name of the module; otherwise, it fails.
+*****************************************************************************/
+flora_decode_module_name(FLLIBMODLIT(_,_,ModuleName,_),ModuleName) :- !.
+flora_decode_module_name(Call,ModuleName) :-
+        \+is_list(Call),
+	flora_decode_predicate(Call,CallType,ModuleName,
+			       _WrapPrefix,_BaseWrapperOrFloraAuxPred,_ArgList),
+	( CallType == flogic
+	; CallType == (hilog)
+	; CallType == neg_hilog
+	; CallType == neg_flogic
+	; CallType == flora, atom(ModuleName)
+	; CallType == neg_flora, atom(ModuleName)
+	),
+	!.
+
+
+/*****************************************************************************
+  flora_is_flogic_wrapper(+Call,-ModuleName,-Base)
+*****************************************************************************/
+flora_is_flogic_wrapper(Call,ModuleName,Base) :-
+	flora_decode_predicate(Call,flogic,ModuleName,_WrapPrefix,Base,_ArgList),
+	!.
+
+/*****************************************************************************
+  flora_canonic_wrapper_symbol(+Wrap,-Canonic)
+  Returns canonical form of the wrapper without any additions, like d_, etc.
+  If the wrapper is negative, then neg_ is prepended.
+  If it is a prolog symbol, then just return it.
+*****************************************************************************/
+flora_canonic_wrapper_symbol(WRAP_HILOG,WRAP_HILOG) :- !.
+flora_canonic_wrapper_symbol(Wrap,Canonic) :-
+	atom(Wrap),
+	flora_match_substring(FL_PREFIXSEPARATOR,Wrap,reverse,_,S) ->
+	flora_get_substring(Wrap,S,-1,Base),
+	flora_is_base_wrapper(Base),
+	!,
+	(flora_match_substring(FL_NEGPREFIX,Wrap,forward,_,_)
+	-> negate_wrapper(Base,Canonic)
+	; Canonic = Base
+	).
+flora_canonic_wrapper_symbol(Wrap,Wrap) :- !.
+
+
+/*****************************************************************************
+  flora_funct_arity(?M,?Funct/Arity/Type)
+
+  It takes a term (supposed to be a method with arguments) and extracts its
+  functor, arity, and type (either hilog or prolog).
+
+  Note that one of these arguments must be bound.
+*****************************************************************************/
+%% Use a cache for this predicate
+flora_funct_arity(M,A) :-
+	(nonvar(M) ; nonvar(A)),
+	functor_arity_cache(M,A),
+	!.
+flora_funct_arity(M,Funct/Arity/Type) :-
+	%% M is unbound but Funct/Arity/Type is known
+	var(M),
+	!,
+	(var(Funct), Type == prolog
+	-> flora_abort('internal error: unbound Prolog functor passed to flora_funct_arity/2, Funct/Arity/Type')
+	; var(Funct), var(Arity)
+	-> flora_abort('internal error: unbound HiLog functor and arity passed to flora_funct_arity/2, Funct/Arity/Type')
+	; true
+	),
+	( Type == prolog ->
+	    functor(M,Funct,Arity)
+	;
+	  %% a HiLog predicate
+	  N is Arity+1,
+	  functor(M,WRAP_HILOG,N), 
+	  arg(1,M,Funct)
+	),
+	asserta(functor_arity_cache(M,Funct/Arity/Type)).
+
+flora_funct_arity(M,Funct/Arity/Type) :-
+	%% M is bound
+	functor(M,FunctTerm,N),
+	( N == 0 ->
+	    Funct=FunctTerm,
+	    MSkeleton = Funct,
+	    Arity=N,
+	    Type=prolog
+
+	; flora_is_hilog_base_wrapper(FunctTerm) ->
+	    %% a HiLog term
+	    Type = (hilog),
+	    skeletonize_hilog_call(M,MSkeleton,Funct,_HilogArgs),
+	    Arity is N-1
+
+	; flora_is_neg_hilog_base_wrapper(FunctTerm) ->
+	    %% a negated HiLog term
+	    Type = neg_hilog,
+	    Arity is N-1,
+	    arg(1,M,Funct)
+
+	;
+	  Funct=FunctTerm,
+	  Arity=N,
+	  skeletonize_prolog_call(M,MSkeleton,_PredName,_ArgList),
+	  Type=prolog
+	),
+	asserta(functor_arity_cache(MSkeleton,Funct/Arity/Type)),
+	!.
+
+
+flora_is_system_module_name(Module) :-
+	%% if we add compound modules, this will need to be extended
+	atom(Module),
+	%%atom_codes(Module,[CH_BACKSLASH|_]).
+	flratom_char_code(Module,0,CH_BACKSLASH).
+
+flora_check_module_name(ModuleName) :-
+	%% most common cases first, for efficiency
+	%%( var(ModuleName) -> flora_module_registry(ModuleName)
+	( var(ModuleName) -> flora_user_module_registry(ModuleName)
+	; valid_flora_module_name(ModuleName) -> true
+	; callable(ModuleName) -> flora_module_registry(ModuleName)
+	; flora_module_name_error(ModuleName)
+	).
+
+valid_flora_module_name(ModuleName) :-
+	nonvar(ModuleName),
+	valid_flora_module_name_cache(ModuleName),
+	!.
+valid_flora_module_name(ModuleName) :-
+	callable(ModuleName),
+	ground(ModuleName),
+	flora_term_to_atom(ModuleName,ModAtom),
+	\+ flora_match_substring('''',ModAtom,_),
+	asserta(valid_flora_module_name_cache(ModuleName)).
+
+/*****************************************************************************
+  flora_module_name_error(+ModuleName)
+*****************************************************************************/
+flora_module_name_error(ModuleName) :-
+	flora_abort([ModuleName, ': Invalid ',FLSYSTEM,' module name']).
+
+%% \neg-negate wrapper
+negate_wrapper(Wrap,NegWrap) :-
+	(flora_match_substring(FL_NEGPREFIX,Wrap,forward,Beg,End)
+	%% Wrap is negative
+	-> flora_get_substring(Wrap,End, -1,BaseWrap),
+	    flora_get_substring(Wrap,0,Beg,Prefix),
+	    flora_concat_atoms([Prefix,BaseWrap],NegWrap)
+	; %% Wrap is positive, with a dyna^, dynz^ prefix
+	    (flora_match_substring(FL_DYNAPREFIX,Wrap,forward,0,End)
+	    ; flora_match_substring(FL_DYNZPREFIX,Wrap,forward,0,End)
+	    )
+	-> flora_get_substring(Wrap,0,End,Prefix),
+	    flora_get_substring(Wrap,End,-1,BaseWrap),
+	    flora_concat_atoms([Prefix,FL_NEGPREFIX,BaseWrap],NegWrap)
+	%% Wrap is positive, without dyna^, dynz^ prefixes
+	;  flora_concat_atoms([FL_NEGPREFIX,Wrap],NegWrap)
+	),
+	!.
+
+%% \neg-negate predicate
+negate_predicate(Pred,NPred) :-
+	flora_decode_predicate(Pred,Type,ModName,FullWrap,_WPref,BaseN,ArgL),
+	(memberchk(Type,[hilog,neg_hilog,flogic,neg_flogic]),
+	    \+memberchk(BaseN,
+			%% non-NEG-negatable wrappers
+			[WRAP_TRAN,WRAP_TRANSIG,WRAP_ITRANSIG,
+                         WRAP_MVDINC,WRAP_IMVDINC, %% +>>
+                         WRAP_MVDTOLIST,WRAP_IMVDTOLIST, %% ->->
+                         WRAP_NONTABLED_HILOG,
+			 WRAP_MVDCON,WRAP_IMVDCON,
+			 WRAP_MVDCONDEF,WRAP_IMVDCONDEF])
+	->
+	    negate_wrapper(FullWrap,NWrap),
+	    flora_module_predicate(NWrap,ArgL,ModName,NPred)
+	;
+	    %% FLLIBMODLIT(FL_LIBMOD,...) or FLLIBMODLIT(FL_NEGLIBMOD,...)
+	    Pred = FLLIBMODLIT(Subwrapper,Arg,ModName,FWContext),
+	    memberchk(Subwrapper,[FL_LIBMOD,FL_NEGLIBMOD]),
+	    negate_wrapper(Subwrapper,NSubwrapper),
+	    NPred = FLLIBMODLIT(NSubwrapper,Arg,ModName,FWContext)
+	).
+
+
+%% remove \neg-negation; if not neg-negated then do nothing
+unnegate_wrapper(Wrap,NegWrap) :-
+	(flora_match_substring(FL_NEGPREFIX,Wrap,forward,Beg,End)
+	%% Wrap is negative
+	-> flora_get_substring(Wrap,End, -1,BaseWrap),
+	    flora_get_substring(Wrap,0,Beg,Prefix),
+	    flora_concat_atoms([Prefix,BaseWrap],NegWrap)
+	; %% Wrap is positive
+            NegWrap = Wrap
+	),
+	!.
+
+%% remove \neg-negation; if not neg-negated then do nothing
+unnegate_predicate(Pred,NPred) :-
+	flora_decode_predicate(Pred,Type,ModName,FullWrap,_WPref,BaseN,ArgL),
+	(memberchk(Type,[hilog,neg_hilog,flogic,neg_flogic]),
+	    \+memberchk(BaseN,
+			%% non-NEG-negatable wrappers
+			[WRAP_TRAN,WRAP_NONTABLED_HILOG,
+			 WRAP_MVDCON,WRAP_IMVDCON,
+			 WRAP_MVDCONDEF,WRAP_IMVDCONDEF])
+	->
+	    unnegate_wrapper(FullWrap,NWrap),
+	    flora_module_predicate(NWrap,ArgL,ModName,NPred)
+	;
+	    %% FLLIBMODLIT(FL_NEGLIBMOD,...)
+	    Pred = FLLIBMODLIT(FL_NEGLIBMOD,Arg,ModName,FWContext)
+        ->
+	    NPred = FLLIBMODLIT(FL_LIBMOD,Arg,ModName,FWContext)
+        ;
+            NPred = Pred
+	).
+
+flora_is_neg_negated_pred(Pred) :-
+        flora_decode_predicate(Pred,_Type,_ModName,FullWrap,_WPref,_BaseN,_ArgL),
+        flora_is_neg_wrapper(FullWrap).
+
+
+%% flora_change_module(+InPred,-OutPred,+NewModule,+RealNewMod,+ErrorMessage)
+%% Replaces the module in InPred with NewModule and return as OutPred
+%% Assumes InPred is a reified predicate or molecule
+%% Error message is a list or an atom
+%% If NewModuleSpec = (M,NewM) and M is NOT the module of InPred
+%% then DON'T change InPred to the new module NewM.
+%% Otherwise, change InPred to module NewM
+%% RealNewMod is the actual module of OutPred (can be the old one or NewM)
+flora_change_module(InPred,_OutPred,_NewModule,_RealNewModule,ErrorMessage) :-
+	var(InPred),
+	!,
+	flora_abort(ErrorMessage).
+
+%% in case the arg was Term@?Var, it will be passed as an FLLIBMODLIT
+flora_change_module(FLLIBMODLIT(F,Args,Mod,_),OutPred,(ModToChange,NewModule),Mod,_ErrorMessage) :-
+	(ModToChange \= Mod -> RealNewMod = Mod
+	; RealNewMod = NewModule
+	),
+	FLLIBMODOBJ(FLLIBMODLIT(F,Args,NewModule,_),OutPred),
+	!.
+flora_change_module(InPred,OutPred,(ModToChange,NewModule),RealNewMod,_ErrorMessage) :-
+	flora_decode_predicate(InPred,_PredType,WS,FullWrapper,_Prefix,_BaseWrap,Args),
+	(ModToChange \= WS -> %% Note: \= and NOT \== here!!!
+	    %% Case: ModToChange = NOT argumentation theory module
+	    %%       It means we have a reified InPred, with an explicit module
+	    OutPred1 = InPred, RealNewMod = WS,
+	    flora_generalize_last(OutPred1,OutPred)
+	; var(WS) ->
+	    %% Case: InPred is a term, not reified
+	    FLLIBMODOBJ(FLLIBMODLIT(FL_LIBMOD,InPred,NewModule,_),OutPred),
+	    RealNewMod = NewModule
+	;
+	    %% Reified InPred with module = arg theory module.
+	    %% Must be changed to NewModule
+	    flora_module_predicate(FullWrapper,Args,NewModule,OutPred1),
+	    flora_generalize_last(OutPred1,OutPred),
+	    RealNewMod = NewModule
+	).
+
+%% change module in tabled_unnumber_call
+flora_change_module_tabled_unnumber_call(FLLIBNAFDELAY(FLORA_NAF_PREDICATE(In,Arg1,Arg2,Arg3)),
+                                         FLLIBNAFDELAY(FLORA_NAF_PREDICATE(Out,Arg1,Arg2,Arg3)),
+                                        (ModToChange,NewModule),RealNewMod) :-
+	flora_decode_predicate(In,_PredType,WS,FullWrapper,_Prefix,_BaseWrap,Args),
+        (ModToChange \= WS -> %% Note: \= and NOT \== here!!!
+	    %% Case: ModToChange = NOT arg theory, \why, or similar module
+	    %%       It means we have a reified InPred, with an explicit module
+	    Out = In, RealNewMod = WS
+	;
+	    %% Reified InPred with module = arg theory module.
+	    %% Must be changed to NewModule
+	    flora_module_predicate(FullWrapper,Args,NewModule,Out),
+	    RealNewMod = NewModule
+	).
+
+
+%% Prepend FLORA_PREFIX and ' to argument
+flora_scramble_atom(Atom,Prefixed) :-
+	atom(Atom),
+	fmt_write_string(Prefixed,'%s''%s', args(FLORA_PREFIX,Atom)).
+flora_unscramble_atom(Scrambled,Unscrambled) :-
+	atom(Scrambled),
+	flora_match_substring(FLORA_PREFIX'',Scrambled,forward,_,End),
+	flora_get_substring(Scrambled,End,-1,Unscrambled).
+
+
+%% Prepend FLORA_MODULE_PREFIX, ', Module,' to argument
+%% Similar to flora_module_predicate_symbol/3.
+%%
+%% To create a modularized Call, use flora_module_predicate/4
+%% That predicate will check the modularized prolog registry and will
+%% create a suitable call: either modprolog or hilog.
+flora_modularize_atom(PRDYNMODATOM(Atom),Module,Prefixed) :-
+	!,
+	fmt_write_string(Prefixed,'%s''%s''%s%s',
+			 args(FLORA_MODULE_PREFIX,Module,FL_DYNZPREFIX,Atom)).
+flora_modularize_atom(Atom,Module,Prefixed) :-
+	fmt_write_string(Prefixed,'%s''%s''%s',
+			 args(FLORA_MODULE_PREFIX,Module,Atom)).
+
+flora_is_modularized_prolog(Call,Mod,Wrap) :-
+	functor(Call,Funct,Arity),
+	Arity1 is Arity-1,
+	flora_get_symbol_module_wrapper(Funct,Mod,Wrap),
+	flora_modular_prolog_registry(Wrap,Arity1,Mod).

@@ -1,0 +1,145 @@
+/* File:      ergo_textit.P  -- light-weight text generation
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) Coherent Knowledge Systems, 2015-2023.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+#include "flora_porting.flh"
+#include "flora_prefix.flh"
+#include "flora_exceptions.flh"
+
+:- dynamic
+        ergo_textit_base_data/4,
+        ergotext_textgen_base_data/3
+        as opaque.
+:- index(ergo_textit_base_data/4,trie),
+        index(ergotext_textgen_base_data/3,trie).
+
+:- import
+        flora_decode_goal_as_mainless_atom_substitute_vars/2,
+        flora_decode_oid_list_as_atom_list_substitute_vars/2,
+        flora_decode_oid_as_atom/2
+   from flrdecode.
+
+:- import
+        flora_abort/2
+   from flrporting.
+
+:- import
+        flora_reconstruct_naf_call_without_delay_checker/3
+   from flrnegation.
+
+:- import is_naf_literal/2 from flrcanon.
+
+:- export
+        ergo_textit_result/5,
+        clear_ergo_textit_facts/1,
+        ergotext_textgen_insert/3,
+        ergotext_textgen_show/3,
+        ergo_textit_show/4,
+        ergo_textit_show/5,
+        ergo_textit_insert/4,
+        ergo_textit_insert/5.
+
+ergo_textit_insert(Formula,Format,Vars,Mod) :-
+        normalize_goal(Formula,FormulaNormalized,insert),
+        assert(ergo_textit_base_data(FormulaNormalized,Format,Vars,Mod)).
+
+ergo_textit_insert(Formula,Format,Vars,Condition,Mod) :-
+        normalize_goal(Formula,FormulaNormalized,insert),
+        %% Requiring Formula in the body is wrong when explaining false answers
+        %%assertz((ergo_textit_base_data(FormulaNormalized,Format,Vars,Mod) :- Formula, Condition)).
+        assertz((ergo_textit_base_data(FormulaNormalized,Format,Vars,Mod) :- Condition)).
+
+
+%% ergo_textit_show/4 is used in the code.
+%% ergo_textit_show/5 is for debugging: shows what's in ergo_textit_base_data/4
+%% _Mod is ignored, but kept for debugging
+ergo_textit_show(Formula,Format,Vars,_Mod) :-
+        normalize_goal(Formula,FormulaNormalized,show),
+        ergo_textit_base_data(FormulaNormalized,Format,Vars,_).
+
+ergo_textit_show(Formula,Body,Format,Vars,_Mod) :-
+        normalize_goal(Formula,FormulaNormalized,show),
+        clause(ergo_textit_base_data(FormulaNormalized,Format,Vars,_),Body).
+
+/*
+    Note: The Mod argument in ergo_textit_base_data/4 is used only to wipe
+    out the textit phrases intoroduced in the module. It is ignored by
+    ergo_textit_show.
+*/
+clear_ergo_textit_facts(Mod) :-
+        retractall(ergo_textit_base_data(_,_,_,Mod)).
+
+ergotext_textgen_insert(Formula,ErgotxtPhrase,Mod) :-
+        assert(ergotext_textgen_base_data(Formula,ErgotxtPhrase,Mod)).
+
+ergotext_textgen_show(Formula,ErgotxtPhrase,Mod) :-
+        ergotext_textgen_base_data(Formula,ErgotxtPhrase,Mod).
+
+%% result of applying textit
+ergo_textit_result(InGoal,Format,Vars,Mod,Result) :-
+        flora_decode_oid_list_as_atom_list_substitute_vars(Vars,VarsDecoded),
+        (VarsDecoded == [] -> Params = _  %% var means no args
+        ; Params =.. [args|VarsDecoded]
+        ),
+        catch(fmt_write_string(Result,Format,Params),
+              Ball,
+              textit_errhandler(Ball,InGoal,Format,VarsDecoded,Mod)).
+
+textit_errhandler(Ball,InGoal,Format,VarsDecoded,Mod) :-
+        error_handler:xsb_error_get_message(Ball,ErrMsg),
+        flora_decode_goal_as_mainless_atom_substitute_vars(InGoal,InGoalDecoded),
+        flora_decode_oid_as_atom(VarsDecoded,VarsAtm),
+        flora_abort(['textit{',
+                     InGoalDecoded,',\'',Format,'\',',VarsAtm,
+                     '} in module ', Mod, ': ', ErrMsg],
+                    FLORA_ABORT_NOTRACE).
+
+
+normalize_goal(G,G,_Context) :-
+        var(G),
+        !.
+normalize_goal((G1,G2),(G1n,G2n),Context) :-
+        !,
+        normalize_goal(G1,G1n,Context),
+        normalize_goal(G2,G2n,Context).
+normalize_goal((G1;G2),(G1n;G2n),Context) :-
+        !,
+        normalize_goal(G1,G1n,Context),
+        normalize_goal(G2,G2n,Context).
+normalize_goal(FLSYSDBUPDATE(G,_),Gn,Context) :-
+        normalize_goal(G,Gn1,Context),
+        flrcanon:convert_to_body_literal(Gn1,Gn).
+normalize_goal(FLSYSDBUPDATE(G,_,_),Gn,Context) :-
+        normalize_goal(G,Gn1,Context),
+        flrcanon:convert_to_body_literal(Gn1,Gn).
+
+normalize_goal(G,Gn,Context) :-
+        %%(is_naf_literal(G,Gn1) -> Gn = FLORA_NAF_PREDICATE(Gn1)
+        (is_naf_literal(G,Gn1), Context == insert ->
+            flora_reconstruct_naf_call_without_delay_checker(G,Gn1,Gn)
+        ; Gn = G
+        ).

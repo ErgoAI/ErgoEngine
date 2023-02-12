@@ -1,0 +1,36 @@
+
+:- symbol_context{object(?,?,?,?,?,?,?)@?}.
+
+?- Method[mustDefine(off,object(?)@?)]@\sys.
+?- Method[mustDefine(off,object(?,?,?,?,?,?,?)@?)]@\sys.
+
+${fact(${(forall(?X5)^(object(?X5)==>(true(${(object(?_X6))}))))})}.
+
+fact(${(
+        true(${(forall(?X1)^(object(sk0,?X1,bird,countable,na,eq,1)==> exists(?X2)^(predicate(sk0,?X2,fly,?X1))))})
+        ==>
+        true(${(forall(?X3)^(object(sk0,?X3,dog,countable,na,eq,1)==> exists(?X4,?X5)^(object(sk0,?X4,bone,countable,na,eq,1),predicate(sk0,?X5,eat,?X3,?X4))))})
+	)}).
+
+${true(?X):-fact(?Y), ?X~?Y}.
+true(?X):-?X.
+
+%test1 :- true(${(forall(?X9)^(object(?X9)==>(true(${(object(?_X10))}))))}),
+	  writeln(test1=ok)@\plg.
+
+%test2 :-
+    true(${(
+        true(${(forall(?X1)^(object(sk0,?X1,bird,countable,na,eq,1)==> exists(?X2)^(predicate(sk0,?X2,fly,?X1))))})
+        ==>
+        true(${(forall(?X3)^(object(sk0,?X3,dog,countable,na,eq,1)==> exists(?X4,?X5)^(object(sk0,?X4,bone,countable,na,eq,1),predicate(sk0,?X5,eat,?X3,?X4))))})
+	)}),
+	writeln(test2=ok)@\plg.
+
+%pretest :- %test1, %test2.
+
+%test :- tell(temp)@\plg(),
+        Method[mustDefine(on)]@\sys,
+        %pretest,
+        Method[mustDefine(off)]@\sys,
+        %pretest,
+        told@\plg().

@@ -1,0 +1,150 @@
+# File: Dockerfile-centos
+#
+# ErgoAI Docker script for CentOS that supports ErgoAI Studio, tomcat:
+# intended for DESKTOPS
+#
+# Author: Michael Kifer
+# Copyright (C) Coherent Knowledge Systems, LLC, 2015 - 2021
+
+# Build image with
+# sudo docker build --rm --tag coherent:ergoai$ergo_version-centos --file Dockerfile-centos . [--squash]
+#
+# This assumes that ergoAI${ergo_version}_ni.run is in the current directory.
+#
+# Docker cheatsheet:
+#  checking host images:
+#    sudo docker images
+#  remove this image::
+#    sudo docker rmi coherent:ergoai$ergo_version-centos
+#  remove all UNTAGGED images - very useful:
+#    sudo docker images -q --filter "dangling=true" | xargs -r docker rmi -f
+#  inspecting container of an image (using bash):
+#    sudo docker run --entrypoint /bin/bash --interactive --tty coherent:ergoai$ergo_version-centos
+#  run Ergo Engine from within an image:
+#    sudo docker run --entrypoint /home/ergouser/Coherent/ErgoAI/ErgoAI/runergo --interactive --tty coherent:ergoai$ergo_version-centos
+#  run Ergo Studio from within an image:
+#    sudo docker run --interactive --tty coherent:ergoai$ergo_version-centos
+#
+# One can also run this as
+#    sudo docker run --interactive --tty --rm coherent:ergoai$ergo_version-centos
+# To retain the container after exit, use this (ie, no --rm):
+#    sudo docker run --interactive --tty coherent:ergoai$ergo_version-centos
+#
+# Saving/loading images:
+#    sudo docker save -o ergoai$ergo_version-centos.tar coherent:ergoai$ergo_version-centos
+#    sudo docker load -i ergoai$ergo_version-centos.tar
+
+# For --squash to work and reduce the file size, create
+#     /etc/docker/daemon.json
+# with this content:
+#     {
+#        "experimental": true
+#     }
+# Then run
+#     sudo service docker restart
+#
+
+
+FROM centos:latest
+MAINTAINER Michael Kifer <michael.kifer@coherentknowledge.com>
+LABEL description="ErgoAI CentOS-based image"
+
+ARG ergo_version
+ENV ERGOVERSION=$ergo_version
+# next ENV must be separate ENV from previous or no ERGOVERSION substitution
+ENV ERGOINSTALLER="ergoAI${ERGOVERSION}_ni.run"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# these must be done before $ERGOINSTALLER /home/ergouser/ are used by RUN
+WORKDIR /home/ergouser/
+COPY "$ERGOINSTALLER"  "/home/ergouser/"
+
+RUN dnf -y install deltarpm &&  \
+    dnf -y install unixODBC-devel &&  \
+    dnf -y install libcurl-devel &&  \
+    dnf -y install libxml2-devel &&  \
+    dnf -y install pcre-devel &&  \
+    dnf -y install libiodbc &&  \
+    dnf -y install libiodbc-devel &&  \
+    dnf -y install gcc-c++ &&  \
+    dnf -y install autoconf &&  \
+    dnf -y install tar &&  \
+    dnf -y install make &&  \
+    dnf -y install imake &&  \
+    dnf -y install libtool &&  \
+    dnf -y install libtool-ltdl-devel &&  \
+    dnf -y install mysql-connector-odbc &&  \
+    dnf -y install mysql-devel &&  \
+    dnf -y install postgresql-odbc &&  \
+    dnf -y install postgresql-devel &&  \
+    dnf -y install rlwrap  &&  \
+    dnf -y clean all &&  \
+    # we should not be able to login with password to this user,
+    # or to root - for security
+    useradd -m -d /home/ergouser docker_ergouser  && \
+#
+# install tomcat after Java 8
+#
+                      # if server, use headless java instead
+                      dnf -y install  java-1.8.0-openjdk-devel  &&  \
+                      # if desktop, omit tomcat libraries
+                      dnf -y install tomcat &&  \
+                      dnf -y install tomcat-lib &&  \
+# some X11 packages - unclear if needed
+                      # if desktop, omit X11 libraries
+                      dnf -y install libXext &&  \
+                      dnf -y install libXtst &&  \
+                      dnf -y install libXi &&  \
+                      dnf -y install libXrender &&  \
+                      dnf -y install xorg-x11-fonts-Type1 && \
+# install ErgoAI, use non-interactive install
+                      /home/ergouser/$ERGOINSTALLER  &&  \
+# Remove unused packages to reduce size.
+# Use the folowing to find the largest packages:
+#      rpm -qa --queryformat '%10{SIZE}\t%{NAME}\n' | sort -k1,1n 
+#
+                      dnf remove -y autoconf imake perl m4 deltarpm grub2-tools &&  \
+                      dnf remove -y adwaita-icon-theme centos-logos firewalld &&  \
+                      dnf remove -y X11-common &&  \
+                      dnf autoremove -y &&  \
+                      rpm --rebuilddb &&  \
+                      dnf -y clean all &&  \
+                      rm -f /home/ergouser/$ERGOINSTALLER  &&  \
+                      chown -R docker_ergouser: /home/ergouser  &&  \
+                      ln --symbolic "/home/ergouser/Coherent/ErgoAI$ERGOVERSION" "/home/ergouser/Coherent/ErgoAI" && \
+# run Ergo initially so that precompilation would stay in the image
+                      /home/ergouser/Coherent/ErgoAI$ERGOVERSION/ErgoAI/runergo
+
+
+ENV \
+    # figure out correct value
+    #JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-x86_64 \
+    HOME=/home/ergouser
+# next ENV must be separate ENV from previous or no PATH substitution
+ENV  PATH=$JAVA_HOME/bin:$PATH
+
+
+# To actually run dockerized ErgoAI Studio, do this on Linux terminal:
+#    xhost +
+#    docker run --interactive --tty -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --rm coherent:ergoai$ergo_version-centos
+
+
+# We had to make /home/ergouser/Coherent/ErgoAI a symlink to
+# /home/ergouser/Coherent/ErgoAI$ERGOVERSION because variable substitution 
+# does not work in the ENTRYPOINT statement, so something like
+# ENTRYPOINT  ["/home/ergouser/Coherent/ErgoAI$ERGOVERSION/......."]
+# will not work.
+
+ENTRYPOINT  ["/home/ergouser/Coherent/ErgoAI/runErgoAI.sh"]
+
+# Setting the default user
+USER docker_ergouser
+
+ENV ERGOVERSION= \
+      ERGOINSTALLER=
+
+
+### Local Variables: 
+### eval: (auto-fill-mode 0)
+### End:

@@ -1,0 +1,1247 @@
+/*  File:      flrpretifydump.P
+**
+** Author(s): Bin Tang
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+/***************************************************************************
+ Pretty-printer for Prolog. Used for dumping Flora code for easier reading
+
+ prettyprint_file/2 reads from file and dumps into file
+ prettyprint_stdin/0 reads from stdin and dumps to stdout
+****************************************************************************/
+:- export prettyprint_file/2, 
+	  prettyprint_stdin/0.
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+:- import file_read/3, vv/2 from xsb_read.
+:- import length/2 from basics.
+:- import catch/3, throw/1 from standard.
+
+:- import
+	flora_atom_length/2,
+	flora_get_counter/2,
+	flora_set_counter/2
+    from flrporting.
+
+%% If the term is longer than  MAX_LINE_LEN chars, use indentation/newline
+#define MAX_LINE_LEN 77
+
+%% indentation number for infix opertor
+#define INFIX_INDENT 8
+
+%% indentation number for prefix operator
+#define PREFIX_INDENT 4
+
+%% Indent inside parentheses
+#define PAREN_INDENT  3
+
+%% We need to do extra indentation for long query '?- a,b.'. However, to avoid 
+%% my previous 'query_flag', after write('?-), I simply change to newline 
+%% and then indent QUERY_INDENT number of spaces,
+%% the output look like ?-       ,instead of  ?- a,
+%%                        a,                  b.
+%%		          b.
+#define QUERY_INDENT 3
+
+%% Indentation for long directive ':- a, b.'.
+#define DIRECTIVE_INDENT 8
+
+%%%%%%%%% Top level calls %%%%%%%%%%%%%%%%%%
+
+/*******************************************************************
+  prettyprint(+InputFileName,+OutputFileName)
+  Pretty prints file.
+*******************************************************************/
+prettyprint_file(InputFileName,OutputFileName) :-
+	see(InputFileName),
+	tell(OutputFileName), 
+        prettyprint_stdin,
+	seen, 
+	told.
+
+/******************************************************************
+  prettyprint_stdin/0
+  Pretty prints from standard input.
+******************************************************************/
+prettyprint_stdin :-
+	current_input_port(IOport),
+  	file_read(IOport,Term,Vars), 
+        ( Term == end_of_file 
+        -> true
+        ;  prettyprint(Term,Vars), %See comments below
+	   writeln('.'), nl,
+           prettyprint_stdin
+        ). 
+
+/*****************************************************************
+  prettyprint(+Term,+Vars)
+  Checks if Term is rule, query, directive or fact.
+*****************************************************************/
+%% Rule. 
+prettyprint(':-'(Head, Body), Vars) :-
+	!,
+ 	prettyprint_head(0,Head,Vars),
+	write(' :- '),
+	term_len(':-'(Head, Body),Vars,Length),
+	( Length > MAX_LINE_LEN 
+	-> nl, 
+ 	   prettyprint_body(INFIX_INDENT,true,Body,Vars)	
+	;  prettyprint_body(0,fail,Body,Vars) 
+	). 
+
+%% Query.
+prettyprint('?-'(Body), Vars) :-
+	!,
+	write('?- '),
+	term_len('?-'(Body),Vars,Length),
+	( Length > MAX_LINE_LEN 
+ 	-> nl, 
+	   prettyprint_body(QUERY_INDENT,true,Body,Vars)	
+	;  prettyprint_body(0,fail,Body,Vars) 
+	).
+	
+%% Directive. 
+prettyprint((:- import Lhs from Rhs),Vars) :-
+        !,
+	writeln(':- import'),
+	prettyprint_body(DIRECTIVE_INDENT,true,Lhs,Vars),
+	nl,
+	write('   from '),
+	writeq(Rhs).
+
+prettyprint(':-'(Dir), Vars) :-
+	Dir =.. [Op|Args],
+	list_to_goals(Args,Body),
+	prefix_op(_,_,Op),
+	!,
+	write(':- '), writeq(Op), nl,
+ 	prettyprint_body(DIRECTIVE_INDENT,true,Body,Vars).
+
+prettyprint(':-'(Body), Vars) :-
+	!,
+	write(':- '),
+	term_len(':-'(Body),Vars,Length),
+	( Length > MAX_LINE_LEN 
+ 	-> nl, 
+	   prettyprint_body(QUERY_INDENT,true,Body,Vars)	
+	;  prettyprint_body(0,fail,Body,Vars) 
+	).
+	
+%% Fact.
+prettyprint(Term, Vars) :-
+	!,
+	prettyprint_head(0,Term,Vars).
+
+/****************************************************************
+  prettyprint_head(+Indent,+Body,+Vars)
+  Pretty prints the head of a rule.
+****************************************************************/
+prettyprint_head(Indent,Term,Vars) :-
+	prettyprint_with_indent(Indent,Term,Vars).
+
+/****************************************************************
+  prettyprint_body(+Indent,+Flag_nl,+Body,+Vars)
+  Pretty prints the body of a rule.
+****************************************************************/
+%% Recursively finds the top level predicates.
+%% Semantic consideration: ',' is both righ and left associative. 
+%% So, ?- (a,b),c will be ?- a,b,c.
+prettyprint_body(Indent,Flag_nl,','(Lhs, Rhs),Vars) :-
+	!,
+	( functor(Lhs,';',_)  
+	%% puts parens around whatever prettyprint_body does
+	-> prettyprint_parens(Indent,Flag_nl,
+			      prettyprint_body(_,Flag_nl,Lhs,Vars))
+	;  prettyprint_body(Indent,Flag_nl,Lhs,Vars) 
+	),
+	write(', '),
+	pp_newline(Flag_nl),
+	( functor(Rhs,';',_)
+	%% Meta predicate
+	-> prettyprint_parens(Indent,Flag_nl,
+			      prettyprint_body(_,Flag_nl,Rhs,Vars))
+	;  prettyprint_body(Indent,Flag_nl,Rhs,Vars) 
+	).
+
+%% Recursively finds the top level predicates(literals).
+%% Here ';' only refers to disjunction, not the one in '...->...;...'.   
+%% Semantic consideration: ';' is both righ and left associative. 
+%% So, ?- (a;b);c will be ?- a;b;c.
+prettyprint_body(Indent,Flag_nl,';'(Lhs, Rhs),Vars) :-
+	functor(Lhs, OpLhs, _), 
+	OpLhs \== '->', !,
+	prettyprint_body(Indent,Flag_nl,Lhs,Vars),
+	write('; '),
+	pp_newline(Flag_nl),
+	prettyprint_body(Indent,Flag_nl,Rhs,Vars).
+
+%% Pretty prints top level predicates(literals) which are arithmetic expressions.
+prettyprint_body(Indent,_Flag_nl,Term,Vars) :-
+	arith_exp(Term),
+	!,
+	prettyprint_arithexp_with_indent(Indent,Term,Vars).
+
+%% Pretty prints top level predicates(literals) which are NOT arithmetic expressions.
+prettyprint_body(Indent,_Flag_nl,Term,Vars) :-
+	prettyprint_with_indent(Indent,Term,Vars).	
+
+
+%%%%%% Some utilities %%%%%%%%%%%%%%
+
+/************************************************************************
+  pp_newline(+Flag_nl)
+  outputs new line when Flag_nl is true.
+************************************************************************/
+pp_newline(Flag_nl) :- Flag_nl -> nl; true.
+
+
+/************************************************************************
+  all_less_than(+List1, +List2)
+  True if all the elements of List1 are smaller than those of List2.
+************************************************************************/
+all_less_than(List1, List2) :-
+	sort(List2, [First_ele|_]),
+	less_than(List1, First_ele).
+
+less_than([], _).
+less_than([Head|Tail], A) :-
+        Head < A, less_than(Tail, A).
+	
+/***********************************************************************
+  infix_op(-Priority,-Associativity,+Op): 
+      True is Op is an infix op.
+  infix_term(+Term):
+      True if principal functor of Term is an infix operator.
+***********************************************************************/
+infix_op(Priority,Assoc,Op) :-
+	guarded_operator(Priority,Assoc,Op),
+	(Assoc == xfx; Assoc == xfy; Assoc == yfx).
+infix_term(Term) :-
+        functor(Term,Op,_), 
+	infix_op(_,_,Op).
+
+/***********************************************************************
+  prefix_op(-Priority, -Assoc, +Op):
+      True if Op is a prefix op
+  prefix_term(+Term):
+      True if principal functor of Term is a prefix operator.
+***********************************************************************/
+prefix_op(Priority,Assoc,Op) :-
+	atom(Op),
+	guarded_operator(Priority,Assoc,Op), (Assoc == fx; Assoc == fy).
+prefix_term(Term) :-
+	functor(Term,Op,_),
+	atom(Op),
+	prefix_op(_,_,Op).
+	
+/***********************************************************************
+  postfix_op(-Priority,-Assoc,+Op):
+      True if Op is a postfix op
+  postfix_term(+Term):
+      True if principal functor of Term is a postfix operator.
+***********************************************************************/
+postfix_op(Priority,Assoc,Op) :-
+	atom(Op),
+	guarded_operator(Priority,Assoc,Op), (Assoc == xf; Assoc == yf).
+postfix_term(Term) :-
+        functor(Term,Op,_), 
+	atom(Op),
+	postfix_op(_,_,Op).
+
+%% a guarded version of current_op
+guarded_operator(Priority,Assoc,Op) :-
+	atom(Op),
+	current_op(Priority,Assoc,Op).
+
+/***********************************************************************
+ arith_exp(+Term)
+ Checks if Term is an arithmetic expression (so we will have semantic
+ consideration when striping '()' if it is a top level predicate).
+***********************************************************************/
+arith_exp(is(_,_)) :- !.
+arith_exp(eval(_,_)) :- !.
+arith_exp('<'(_,_)) :- !.
+arith_exp('=<'(_,_)) :- !.
+arith_exp('>'(_,_)) :- !.
+arith_exp('>='(_,_)) :- !.
+arith_exp('=:='(_,_)) :- !.
+arith_exp('=\='(_,_)) :- !.
+
+/***********************************************************************
+ arith_op(+Term)
+ Checks if the princinple functor of Term is an arithmetic operator. 
+***********************************************************************/
+arith_op('+'(_,_)) :- !.
+arith_op('-'(_,_)) :- !.
+arith_op('*'(_,_)) :- !.
+arith_op('/'(_,_)) :- !.
+arith_op('+'(_)) :- !.
+arith_op('-'(_)) :- !.
+arith_op('//'(_,_)) :- !.
+arith_op(mod(_,_)) :- !.
+
+/***********************************************************************
+  find_var_name(+Var, +Vars, -Name)
+  finds the Name(an atom) of variable Var
+  in the mapping Vars=[vv(Name,Var),...].
+***********************************************************************/
+find_var_name(_,Vars,_) :- var(Vars), !, fail. 
+find_var_name(Var,[vv(Name,Variable)|_],Name) :- Var==Variable, !.
+find_var_name(Var,[_|Vars_tail],Name) :- find_var_name(Var,Vars_tail,Name).
+
+/*********************************************************************
+  num_len(+Num,-Length)
+  Returns the Length of a Number.
+*********************************************************************/
+num_len(Num,Length) :-
+	name(Num,List),
+	length(List,Length).
+
+/*********************************************************************
+  term_len(+Term,+Vars,-Length)
+  Returns the Length of a Term, Vars is a mapping between variable names
+  and variables themselves.
+*********************************************************************/
+%% Length of variable.
+term_len(Term,Vars,Length) :-
+	var(Term),
+	find_var_name(Term,Vars,Name), !,
+	flora_atom_length(Name,Length).
+	
+%% Length of anonymous var '?'.
+term_len(Anon_var,_,1) :-
+	var(Anon_var), !.
+
+%% Length of atom.
+term_len(Term,_,Length) :-
+        atom(Term), !,
+	flora_atom_length(Term,Len),
+	Length is Len + 2. % 2 for possible single quotes ''
+
+%% Length of number.
+term_len(Term,_,Length) :-
+	number(Term), !,
+	num_len(Term,Length).
+	
+%% Length of non-empty list and empty/non-empty string.
+term_len(Term,Vars,Length) :-
+        is_list_term(Term), !,
+        (
+         is_character_list(Term,LenOfString) 
+         -> Length is LenOfString + 2 		% +2 is due to quotes
+         ;  list_len(Term,LenOfList,Vars), 
+	    Length is LenOfList + 2	        % +2 is due to brackets
+        ).
+
+%% Length of term whose principal functor is infix operator.
+term_len(Term,Vars,Length) :-
+	infix_term(Term), 
+	Term =.. [Op,Lhs,Rhs], !,
+	term_len(Op,Vars,LenOfOp), 
+	term_len(Lhs,Vars,LenOfLhs), 
+	term_len(Rhs,Vars,LenOfRhs),
+	%% 2 is due to the empty space on either side of operator.
+	Length is LenOfOp + LenOfLhs + LenOfRhs + 2.
+
+%% length of term whose principal functor is prefix functor
+%% prefix operators don't parenthesize their arguments, while
+%% prefix non-operator functors parethesize their arguments.
+term_len(Term,Vars,Length) :-
+	Term =.. [Op|Args],
+	term_len(Op,Vars,LenOfOp),
+	list_len(Args,LenOfArgs,Vars),
+	
+        (guarded_operator(_,Opa,Op), (Opa==fx; Opa==fy) 
+         -> Length is LenOfOp + LenOfArgs + 1  % +1 due to empty space after op
+	 ;  Length is LenOfOp + LenOfArgs + 2  % +2 due to '()'
+        ).
+
+/*********************************************************************
+  list_len(+List,-Length,+Vars)
+  returns the Length of List.
+*********************************************************************/
+
+%% The regular is_list/1 doesn't recognize [X|Y], so we use our own
+is_list_term([_|_]) :- !.
+is_list_term([]).
+
+%% List is in the form of [Head|Tail], ex, [A|B].
+list_len(List,Length,Vars) :- 
+	var(List), !,
+	term_len(List,Vars,Length).
+
+%% There is no ',' after the last element of the list. However, this ',' 
+%% has been added into Length below. So, we need deduct 1 from Length.
+list_len([], -1, _) :- !. 
+
+list_len([Head|Tail], Length, Vars) :-
+	term_len(Head, Vars, LenOfHead),
+	list_len(Tail,LenOfTail, Vars), 
+	Length is LenOfHead + LenOfTail + 1. % 1 is due to ',' or '|'
+
+
+/*******************************************************************
+    is_character_list(+List,-Length)
+*******************************************************************/
+is_character_list([Ch],1) :- !, is_printable_char(Ch).
+is_character_list([Ch|Rest],L) :-
+	is_printable_char(Ch),
+	is_character_list(Rest,L1),
+	L is L1+1.
+
+is_printable_char(Ch) :- integer(Ch), Ch > 31, Ch < 127.
+
+/*******************************************************************
+  write_string(+Indent,+String)
+  Prints a character string represented as a list.
+  Assumes that the argument is a list of characters.
+*******************************************************************/
+write_string(Indent,String) :-
+	tab(Indent),
+	put(0'"), % " - to balance quotes
+	write_string1(String),
+	put(0'"). % " - to balance quotes
+write_string1([]) :- !.
+write_string1([Head|Tail]) :- put(Head), write_string1(Tail).
+
+/*******************************************************************
+  write_list(+Indent,+Flag_nl,+List,+Vars)
+  prints List, Vars is the mapping between variables and their names.
+*******************************************************************/
+write_list(Indent,Flag_nl,List,Vars) :- 
+	tab(Indent),
+	put(0'[),
+	(Flag_nl
+	-> nl, write_list1(Indent,Flag_nl,List,Vars), 
+	   nl, tab(Indent)
+	;  write_list1(0,Flag_nl,List,Vars) 
+	),
+	put(0']).
+
+%% write the B in [A|B].
+write_list1(Indent,_Flag_nl,Head,Vars) :- 
+        var(Head), !, 
+    	prettyprint_with_indent(Indent,Head,Vars).
+
+write_list1(_,_,[],_) :- !.
+
+write_list1(Indent,Flag_nl,[Head|Tail],Vars):-
+        prettyprint_with_indent(Indent,Head,Vars),
+	(
+	  var(Tail) 
+	 -> write('|')
+	 ;  Tail == []
+	    -> true
+	    ;  write(','), pp_newline(Flag_nl)
+	),
+	write_list1(Indent,Flag_nl,Tail,Vars).
+
+
+/*******************************************************************
+    list_to_goals(+List,-Goals)
+*******************************************************************/
+list_to_goals([L],L) :- !.
+list_to_goals([H|T],(H,Goals)) :-
+	list_to_goals(T,Goals).
+
+
+
+%%%%%%%%%%%%% Main program %%%%%%%%%%%%%%%%%%%%%%
+
+/***************************************************************
+   set_nl_flag(+Indent,+Term,+Vars,-NewFlag)
+
+   Set NewFlag to indicate whether we should print each term on a separate line
+***************************************************************/
+set_nl_flag(Indent,Term,Vars,NewFlag) :-
+	term_len(Term,Vars,Length1), 
+	Length is Length1+Indent,
+        (  Length > MAX_LINE_LEN -> NewFlag = true ; NewFlag = fail ).
+
+/**************************************************************************
+  prettyprint_with_indent(+Indent,+Term,+Vars)
+  pretty prints a Term and indents it with Indent number of spaces;
+
+**************************************************************************/
+%%  Handle simple objects (atoms, numbers, variables).
+prettyprint_with_indent(Indent,Term,Vars) :-
+        (atomic(Term); var(Term)),
+	!,
+	tab(Indent),
+        (
+           find_var_name(Term,Vars,Name)
+	-> write(Name)  		         % Term is a named variable
+	;  var(Term) 
+	-> write('?') 			         % Term is anonymous var
+	;
+	  guarded_operator(_,_,Term)	% Term is an operator  
+        -> writeq(Term)     	     	     	 % Term is an atom
+        ;  write_canonical(Term)    	
+	).
+
+%% Handle lists and character strings. 
+prettyprint_with_indent(Indent,Term,Vars) :- 
+      	is_list_term(Term),
+	!, 
+	set_nl_flag(Indent,Term,Vars,Flag_nl),
+        (
+	 is_character_list(Term,_) 
+	 ->  write_string(Indent,Term)
+         ;   write_list(Indent,Flag_nl,Term,Vars)
+        ).
+
+/*****************************************************************************
+  Pretty prints '...->...;...'.
+  
+  the style for '...->...;...' in long term is:
+  
+  p(X,Y) :-
+            LLhs            
+            ->
+            RLhs 
+            ;
+            Rhs.
+****************************************************************************/ 
+prettyprint_with_indent(Indent,';'(Lhs,Rhs),Vars) :-
+   	( var(Lhs) 
+	  -> fail
+	  ;  Lhs = '->'(LLhs, RLhs)
+	),
+	!,
+	set_nl_flag(Indent,';'(Lhs,Rhs),Vars,Flag_nl),
+	prettyprint_lhs(Indent,Flag_nl,'->',LLhs,Vars),
+	(Flag_nl -> RealIndent = Indent ; RealIndent = 0),
+
+	pp_newline(Flag_nl),
+	tab(RealIndent), write(' -> '),
+
+	pp_newline(Flag_nl),
+	prettyprint_rhs(RealIndent,Flag_nl,'->',RLhs,Vars),
+	pp_newline(Flag_nl),
+	tab(RealIndent),
+
+	write(' ; '),
+
+	pp_newline(Flag_nl),
+	prettyprint_rhs(RealIndent,Flag_nl,';',Rhs,Vars).
+	
+/*****************************************************************************
+  Handle terms whose principal functor is an infix operator.
+  
+  To pretty print a term, the algorithm is to recursively pretty prints
+  its lhs, then the infix operator, then recursively pretty print its rhs.
+****************************************************************************/ 
+prettyprint_with_indent(Indent,Term,Vars) :-
+   	infix_term(Term), 
+   	Term =.. [Op,Lhs,Rhs],
+	(Op == ',' ; Op == ';'),
+	!,
+	set_nl_flag(Indent,Term,Vars,Flag_nl),
+  	prettyprint_lhs(Indent,Flag_nl,Op,Lhs,Vars),
+   	tab(1), write(Op), tab(1), 
+	(Flag_nl -> RealIndent = Indent ; RealIndent = 0),
+	pp_newline(Flag_nl),
+	prettyprint_rhs(RealIndent,Flag_nl,Op,Rhs,Vars).
+
+prettyprint_with_indent(Indent,Term,Vars) :-
+   	infix_term(Term), 
+   	Term =.. [Op,Lhs,Rhs],
+	(Op == '/' ; Op == '^'),
+	!, 
+	set_nl_flag(Indent,Term,Vars,Flag_nl),
+  	prettyprint_lhs(Indent,Flag_nl,Op,Lhs,Vars),
+   	write(Op),
+	(Flag_nl -> RealIndent = Indent ; RealIndent = 0),
+	prettyprint_rhs(0,Flag_nl,Op,Rhs,Vars).
+
+prettyprint_with_indent(Indent,Term,Vars) :-
+   	infix_term(Term), 
+   	Term =.. [Op,Lhs,Rhs],
+	!, 
+	set_nl_flag(Indent,Term,Vars,Flag_nl),
+  	prettyprint_lhs(Indent,Flag_nl,Op,Lhs,Vars),
+   	tab(1), write(Op), tab(1), 
+	(Flag_nl -> RealIndent = Indent ; RealIndent = 0),
+	prettyprint_rhs(0,Flag_nl,Op,Rhs,Vars).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Handle terms whose principal functor is a prefix operator
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+prettyprint_with_indent(Indent,Term,Vars) :- 
+	prefix_term(Term),
+	Term =.. [Op,Arg],
+	var(Arg),  	      % case:  Op X
+	!,
+	set_nl_flag(Indent,Term,Vars,Flag_nl),
+        tab(Indent),
+	write(Op),tab(1),
+
+	(Flag_nl -> NewIndent is Indent + PREFIX_INDENT ; NewIndent = 0),
+	pp_newline(Flag_nl),
+	prettyprint_with_indent(NewIndent,Arg,Vars).
+		
+prettyprint_with_indent(Indent,Term,Vars) :- 
+	prefix_term(Term),
+	Term =.. [Op, Arg],
+	!,
+	set_nl_flag(Indent,Term,Vars,Flag_nl),
+	functor(Arg, OpArg, _),  % case:  Op (...OpArg...)
+	tab(Indent),
+	write(Op), tab(1),
+	
+	(Flag_nl -> NewIndent is Indent + PREFIX_INDENT ; NewIndent = 0),
+	pp_newline(Flag_nl),
+	
+        (  guarded_operator(_,_,OpArg) 
+	-> ( can_strip_parens_prefix(Op, OpArg)
+	   -> prettyprint_with_indent(NewIndent,Arg,Vars) 
+	   ;  prettyprint_parens(NewIndent,Flag_nl,
+				 prettyprint_with_indent(_,Arg,Vars))
+           )
+	;  prettyprint_with_indent(NewIndent,Arg,Vars) 
+	).	
+          
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%i%%%%%%%%
+%%  Handle terms whose principal functor is a postfix operator 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+prettyprint_with_indent(Indent,Term,Vars) :- 
+	postfix_term(Term),
+	Term =.. [Op, Arg],
+	var(Arg),  % case: X Op
+	!,
+	prettyprint_with_indent(Indent,Arg,Vars),
+	tab(1),
+	write(Op).
+
+prettyprint_with_indent(Indent,Term,Vars) :- 
+	postfix_term(Term),
+        Term =.. [Op, Arg],
+	!,
+	set_nl_flag(Indent,Term,Vars,Flag_nl),
+	functor(Arg, OpArg, _), % case: (...OpArg...) Op
+        (  guarded_operator(_,_,OpArg) 
+	-> ( can_strip_parens_post(Op, OpArg)
+	     ->  prettyprint_with_indent(Indent,Arg,Vars), tab(1) 
+	     %% Meta predicate
+	     ;   prettyprint_parens(Indent,Flag_nl,
+				    prettyprint_with_indent(_,Arg,Vars))
+           )
+	;  prettyprint_with_indent(Indent,Arg,Vars), tab(1)
+	),
+	write(Op).   
+
+/****************************************************************************
+  Handle terms whose principal functor is NOT an operator.
+****************************************************************************/
+prettyprint_with_indent(Indent,Term,Vars) :- 
+	Term =.. [Op|ArgsList],
+	set_nl_flag(Indent,Term,Vars,Flag_nl),
+	tab(Indent), 
+	write_canonical(Op), 
+	write('('), 
+
+	(Flag_nl -> NewIndent is Indent + PAREN_INDENT ; NewIndent = 0),
+	pp_newline(Flag_nl),
+	prettyprint_arguments(NewIndent,Flag_nl,ArgsList,Vars,
+			      pp_print_arg(_,_,_,_)),
+	write(')').
+
+
+/***********************************************************************
+  prettyprint_arithexp_with_indent(+Indent,+Term,+Vars)
+  Pretty prints top level predicates which are arithmetic expression.
+***********************************************************************/
+%% Prints simple objects in arithmetic exp.
+prettyprint_arithexp_with_indent(Indent,Term,Vars) :-
+        (atomic(Term); var(Term)), 
+	tab(Indent),
+	!,
+        ( find_var_name(Term,Vars,Name)
+	-> write(Name)
+	;  write(Term)
+	).
+
+%% Semantic consideration: unary plus is stripped when it is in the argument
+%% of top level arithmetic expression and no deeper than that.
+prettyprint_arithexp_with_indent(Indent,'+'(Arg),Vars) :- 
+	!,
+        prettyprint_arithexp_with_indent(Indent,Arg,Vars).
+
+%% Prints top level arithmetic expression whose functor is binary.(ex: is/2, >/2)
+prettyprint_arithexp_with_indent(Indent,Term,Vars) :-
+   	infix_term(Term), 
+   	Term =.. [Op, Lhs, Rhs],
+	!, 
+	set_nl_flag(Indent,Term,Vars,Flag_nl),
+  	prettyprint_arithexp_lhs(Indent,Flag_nl,Op,Lhs,Vars),
+   	tab(1), write(Op), tab(1), 
+	( Flag_nl
+	-> nl, prettyprint_arithexp_rhs(Indent,Flag_nl,Op,Rhs,Vars)
+	;  prettyprint_arithexp_rhs(0,Flag_nl,Op,Rhs,Vars)
+	).
+
+%% Prints top level arithmetic expression whose functor is unary.(ex: eval/2)
+prettyprint_arithexp_with_indent(Indent,Term,Vars) :- 
+	Term =.. [Op|ArgsList],
+	!,
+	set_nl_flag(Indent,Term,Vars,Flag_nl),
+	tab(Indent),
+	write(Op), 
+	write('('),
+	
+	(Flag_nl -> NewIndent is Indent + PAREN_INDENT ; NewIndent = 0),
+	pp_newline(Flag_nl),
+	prettyprint_arguments(NewIndent,Flag_nl,ArgsList,Vars,
+			      pp_print_arithexp_arg(_,_,_,_)),
+        write(')').
+
+%%%%%%%%%%%%%%%%%Meta predicates%%%%%%%%%%%%%%%%%%%%%%
+
+/*****************************************************************************
+  prettyprint_parens(+Indent,+Flag_nl,+Call)
+  Is the meta predicate to print parentheses around what Call prints.
+  Assumes that Call has at least one arg: Indent
+*****************************************************************************/
+prettyprint_parens(Indent,Flag_nl,Call) :-
+	arg(1,Call,CallIndent),
+        tab(Indent),
+        write('('),
+	(Flag_nl -> nl, CallIndent is Indent +PAREN_INDENT
+	; CallIndent=0
+	),
+        call(Call),
+	(Flag_nl -> nl, tab(Indent) ; true),
+	write(')').
+
+
+/***********************************************************************
+  prettyprint_arguments(+Indent,+Flag_nl,+ArgsList,+Vars,+CallSkeleton)
+  is the meta predicate to pretty print argument list of a fucntor.
+
+  Func could be pp_print_arg/4, which prints argument list of a 
+  				  non-operator functor, 
+  or
+                pp_print_arithexp_arg/4, which prints argument list of a
+					arithmetic expression functor.
+*****************************************************************************/
+
+prettyprint_arguments(Indent,Flag_nl,[],_,_) :-
+	pp_newline(Flag_nl),
+	(Flag_nl -> NewIndent is Indent - PAREN_INDENT ; NewIndent = Indent),
+	tab(NewIndent),
+	!.
+
+prettyprint_arguments(Indent,Flag_nl,[Head|Tail],Vars,Call) :-
+	(
+	  bind_args(Call,Indent,Flag_nl,Head,Vars)
+	; true
+	),
+	( Tail == []
+   	-> true
+   	;  write(', '), pp_newline(Flag_nl)
+   	),
+   	prettyprint_arguments(Indent,Flag_nl,Tail,Vars,Call).
+
+%% This hack binds the arguments of Call (which is assumed
+%% to be bound to a 4-ary predicate), makes a call and fails
+%% in order to unbind the arguments, so the skeleton of the call can be reused
+bind_args(Call,Indent,Flag_nl,Head,Vars) :-
+	Call =.. [_Funct,Indent,Flag_nl,Head,Vars], call(Call), !, fail.
+
+/**********************************************************************
+  pp_print_arithexp_arg(+Indent,+Flag_nl,+Arg,+Vars)
+  Pretty prints the arguments of a top level arithmetic expression, in 
+  which we have semantic consideration.
+**********************************************************************/
+pp_print_arithexp_arg(Indent,_Flag_nl,Arg,Vars) :- 
+   	( var(Arg) 
+	-> prettyprint_with_indent(Indent,Arg,Vars)
+   	;  arith_op(Arg)
+	-> prettyprint_arithexp_with_indent(Indent,Arg,Vars)
+	;  prettyprint_with_indent(Indent,Arg,Vars)
+	).
+
+/*****************************************************************************
+  pp_print_arg(+Indent,+Flag_nl,+Arg,+Vars)
+
+  Print the argument list, ArgsList, of a functor, which is NOT arithmetic exp.
+  
+  Pretty printing of a(b,c) should be a(b,c) because the ',' is delimiter,
+  while pretty printing of a(','(b,c)) should be a((b,c)) because the ',' is 
+  a conjuction. Similarly for ';'.
+
+  Also, the case of a(_,A,_,...) is considered (argument could be '_').
+*****************************************************************************/
+pp_print_arg(Indent,Flag_nl,Arg,Vars) :- 
+   	( var(Arg)
+   	-> NewIndent = Indent
+   	;  ( functor(Arg, ',', _); functor(Arg, ';', _)),
+   	   Arg \== ',', Arg \== ';'
+  	-> tab(Indent), 
+	    write('('), pp_newline(Flag_nl),
+	    (Flag_nl -> NewIndent is Indent + PAREN_INDENT ; NewIndent = 0)
+        ;  NewIndent = Indent
+   	),
+ 
+   	prettyprint_with_indent(NewIndent,Arg,Vars),
+
+   	( var(Arg) 
+   	-> true
+   	;  ( functor(Arg, ',', _); functor(Arg, ';', _)),
+   	   Arg \== ',', Arg \== ';'
+   	-> pp_newline(Flag_nl),
+           tab(Indent), write(')')	
+   	;  true 
+   	).
+	
+/*********************************************************************
+ prettyprint_arithexp_lhs(+Indent,+Flag_nl,+Op,+Lhs,+Vars)
+ Pretty prints the left hand side of a top level arithmetic expression.
+
+ Case:  Lhs Op ..., where Lhs has OpLhs as its main functor.
+
+ If OpLhs is an operator, the cases where we strip '()' are: 
+  
+ Only syntatic consideration: 
+         a. precedence number of OpLhs is lower than that of Op
+         b. if Op and OpLhs have the same level of precedence,
+            we check unparsability, ambiguity, etc.
+
+ This is determined by the predicate can_strip_parens_binary_left/2.
+*********************************************************************/
+%% Lhs is a variable.
+prettyprint_arithexp_lhs(Indent,_Flag_nl,_Op,Lhs,Vars) :- 
+	var(Lhs), !, 
+        prettyprint_with_indent(Indent,Lhs,Vars).
+
+%% Lhs has its own operator. 
+prettyprint_arithexp_lhs(Indent,Flag_nl,Op,Lhs,Vars) :-
+	functor(Lhs,OpLhs,_),
+        (  guarded_operator(_,_,OpLhs)
+	-> (  %% Cases we can strip '()'.
+               can_strip_parens_binary_left(Op,OpLhs) % syntactic consideration
+            -> prettyprint_arithexp_with_indent(Indent,Lhs,Vars)
+	    %% Meta predicate
+	    ;  prettyprint_parens(Indent,Flag_nl,
+				  prettyprint_arithexp_with_indent(_,Lhs,Vars))
+	   )
+	;  %% For non-operator functors, don't need to consider striping '()'.
+	   prettyprint_with_indent(Indent,Lhs,Vars) 
+	).
+
+/*********************************************************************
+ prettyprint_arithexp_rhs(+Indent,+Flag_nl,+Op,+Rhs,+Vars)
+ Pretty prints the right hand side of a top level arithmetic expression.
+
+ Case:  ... Op  Rhs, where Rhs has OpRhs as its main functor.
+  
+ If OpRhs is an operator, the cases where we strip '()' are: 
+  
+ 1. syntatic consideration: 
+	    a. precedence number of OpRhs is lower than that of Op
+            b. if Op and OpRhs have the same level of precedence,
+	       we check unparsabiliy, ambiguity, etc.
+
+   This is determined by the predicate can_strip_parens_binary_right/2
+ 2. semantic consideration:
+            Op == +, OpRhs == +   
+            Op == +, OpRhs == -
+            Op == *, OpRhs == *
+            Op == *, OpRhs == /
+
+*********************************************************************/
+%% Rhs is a variable.
+prettyprint_arithexp_rhs(Indent,_Flag_nl,_Op,Rhs,Vars) :-
+	var(Rhs), !, 
+     	prettyprint_with_indent(Indent,Rhs,Vars).
+
+%% Rhs has its own operator.
+prettyprint_arithexp_rhs(Indent,Flag_nl,Op,Rhs,Vars) :-
+	functor(Rhs,OpRhs,_),
+        ( guarded_operator(_,_,OpRhs)   
+        -> (  %% Cases we can strip '()'.
+	      ( can_strip_parens_binary_right(Op,OpRhs); % syntactic consideration
+                Op == ('+'), OpRhs == ('+');             % semantic consideration
+		Op == ('+'), OpRhs == ('-');
+		Op == ('*'), OpRhs == ('*');
+		Op == ('*'), OpRhs == ('/') )
+	    -> prettyprint_arithexp_with_indent(Indent,Rhs,Vars)
+	    %% Meta predicate
+	    ;  prettyprint_parens(Indent,Flag_nl,
+				  prettyprint_arithexp_with_indent(_,Rhs,Vars))
+	   )
+	;  %% For non-operator functors, don't need to consider striping '()' 
+	   prettyprint_with_indent(Indent,Rhs,Vars) 
+	).
+
+/*****************************************************************************
+  prettyprint_lhs(+Indent,+Flag_nl,+Op,+Lhs,+Vars)
+
+  Print the left hand side of an infix operator Op, which is not the 
+  one for the top level arithmetic expression.
+
+  Case:  Lhs Op ..., where Lhs has OpLhs as its main functor.
+
+  If OpLhs is an operator, the cases where we strip '()' are: 
+  
+  Only syntatic consideration: 
+         a. precedence number of OpLhs is lower than that of Op
+         b. if Op and OpLhs have the same level of precedence,
+            we check unparsability, ambiguity, etc.
+
+  This is determined by the predicate can_strip_parens_binary_left/2.
+
+*****************************************************************************/
+%% Lhs is a variable.
+prettyprint_lhs(Indent, _Flag_nl, _, Lhs, Vars) :- 
+	var(Lhs), !, 
+        prettyprint_with_indent(Indent, Lhs, Vars).
+
+%% Lhs has its own operator. 
+prettyprint_lhs(Indent, Flag_nl, Op, Lhs, Vars) :-
+	functor(Lhs,OpLhs,_),
+        (  guarded_operator(_,_,OpLhs)
+	-> (  %% Cases we can strip '()'.
+              can_strip_parens_binary_left(Op,OpLhs) % syntactic consideration
+            -> prettyprint_with_indent(Indent,Lhs,Vars)
+            %% Meta predicate
+	    ;  prettyprint_parens(Indent,Flag_nl,
+				  prettyprint_with_indent(_,Lhs,Vars))
+           )
+	; %% For non-operator functors, don't need to consider striping '()'.
+	   prettyprint_with_indent(Indent, Lhs, Vars) 
+	).
+
+/******************************************************************************
+  prettyprint_rhs(+Indent,+Flag_nl,+Op,+Rhs,+Vars)
+
+  Print the right hand side of an infix operator Op, which is not the operator
+  of top level arithmetic expression.
+
+  Case:  ... Op  Rhs, where Rhs has OpRhs as its main functor.
+
+  If OpRhs is an operator, the cases where we strip '()' are: 
+  
+  Only syntatic consideration: 
+	    a. precedence number of OpRhs is lower than that of Op
+            b. if Op and OpRhs have the same level of precedence,
+	       we check unparsabiliy, ambiguity, etc.
+
+   This is determined by the predicate can_strip_parens_binary_right/2
+	    
+******************************************************************************/
+%% Rhs is a variable.
+prettyprint_rhs(Indent, _Flag_nl, _, Rhs, Vars) :-
+	var(Rhs),
+	!, 
+     	prettyprint_with_indent(Indent, Rhs, Vars).
+
+%% Rhs is a 0-ary term which is an operator by itself.
+%% We need to put parens around so XSB won't issue a syntax error
+prettyprint_rhs(Indent, _Flag_nl, _, Rhs, Vars) :-
+     	functor(Rhs,OpRhs,0),  
+     	guarded_operator(_,_,OpRhs),
+	!,
+     	write('('), 
+     	prettyprint_with_indent(Indent, Rhs, Vars),
+     	write(')').
+
+%% Rhs has its own operator.
+prettyprint_rhs(Indent, Flag_nl, Op, Rhs, Vars) :-
+	functor(Rhs,OpRhs,_),
+        ( guarded_operator(_,_,OpRhs)   
+        -> (  %% Cases we can strip '()'.
+	      can_strip_parens_binary_right(Op,OpRhs) % syntactic consideration
+            -> prettyprint_with_indent(Indent,Rhs,Vars)
+            %% Meta predicate
+	    ;  prettyprint_parens(Indent,Flag_nl,
+				  prettyprint_with_indent(_,Rhs,Vars))
+	   )
+	;  %% For non-operator functors, don't need to consider striping '()' 
+	   prettyprint_with_indent(Indent,Rhs,Vars) 
+	).
+
+/*****************************************************************************
+  can_strip_parens_binary_left(+Op1,+Op2)
+  
+  For binary operator and its left argument:
+         (a Op2 b) Op1 c, (Op2 a) Op1 b, (a Op2) Op1 b
+  returns true if parens can be stripped; false otherwise.
+
+  Global variable
+      can_strip_parens = 1 means it can strip parentheses, 
+		       = 0 means it can't.
+
+  Considering mutiple definitions for both operators, if in all cases:
+  
+  1. Priorities(Op2) = Priorities(Op1), call strip_parens_binary_left/2
+					to set can_strip_parens, accordingly.
+  2. Priority(Op2) < Priority(Op1), can_strip_parens = 1,
+  3. Other cases, can_strip_parens = 0,
+
+  setof/3 is to delete duplicates.
+*****************************************************************************/
+can_strip_parens_binary_left(Op1,Op2) :-  
+	flora_set_counter(can_strip_parens,0),
+	setof(Opp1, Opa1 ^ infix_op(Opp1,Opa1,Op1), Pre_Op1),
+	setof(Opp2, Opa2 ^ guarded_operator(Opp2,Opa2,Op2), Pre_Op2),
+	
+	( Pre_Op1 = [A], Pre_Op2 = [A]  % All priorities of Op1,Op2 are equal
+	-> findall([Opp1,Opa1,Op1], infix_op(Opp1,Opa1,Op1), Def_Op1),
+	    findall([Opp2,Opa2,Op2], guarded_operator(Opp2,Opa2,Op2), Def_Op2),
+	    %% The list version of same function
+	    catch(strip_parens_binary_left(Def_Op1,Def_Op2),
+		  quit(_),
+		  true)
+	;  all_less_than(Pre_Op2,Pre_Op1)
+	-> flora_set_counter(can_strip_parens,1) % can strip
+	;  flora_set_counter(can_strip_parens,0) % can't
+	),
+	!,
+	flora_get_counter(can_strip_parens,1).
+
+/****************************************************************************
+  strip_parens_binary_left(+ListOfOpDefs1,+ListOfOpDefs2)
+
+  Given ListOfOp1 and ListOfOp1, which are two lists of different definitions 
+  of two operators, where
+  
+      (a Op2 b) Op1 c, (Op2 a) Op1 b, (a Op2) Op1 b
+	      Op1, Op2 have same priorities
+
+  sets can_strip_parens based on following algorithm:
+      
+      if  unparsable -> can_strip_parens=0,continue
+      else  if  ambiguous -> can_strip_paren=0,fail and exit
+      else  can_strip_paren=1.
+****************************************************************************/
+strip_parens_binary_left([],_) :- !.
+strip_parens_binary_left(_,[]) :- !.
+
+strip_parens_binary_left(L1,L2) :-
+	L1 = [L1H|L1T], L2 = [L2H|L2T],   
+	L1H = [_,Opa1,_], L2H = [_,Opa2,_], 
+	( (Opa1 == xfy; Opa1 == xfx) % unparsable
+	-> flora_set_counter(can_strip_parens,0),
+	    strip_parens_binary_left(L1T,L2)
+	;  Opa1 == yfx, (Opa2 == xfy; Opa2 == fy)  % ambiguous
+	-> flora_set_counter(can_strip_parens,0), throw(quit(a))
+	;  flora_set_counter(can_strip_parens,1)
+	), 
+	strip_parens_binary_left(L1, L2T). %% next iteration
+
+/***************************************************************************
+  can_strip_parens_binary_right(+Op1,+Op2)
+  
+  For binary operator and its right argument
+           a Op1 (b Op2 c), a Op1 (Op2 b), a Op1 (b Op2)
+  returns true if it can strip parentheses; false otherwise.
+
+  Set can_strip_parens to 1 if it can strip parentheses; 0 otherwise.
+  
+  Considering mutiple definitions for both operators, in all the cases:
+  
+  1. Priorities(Op2) = Priorities(Op1), call strip_parenns_binary_right/2
+     				    to set can_strip_parens, accordingly.
+  2. Priority(Op2) < Priority(Op1), can_strip_parens = 1,
+  3. Other cases, can_strip_parens = 0,
+     
+***************************************************************************/
+can_strip_parens_binary_right(Op1,Op2) :-  
+	flora_set_counter(can_strip_parens,0),
+	setof(Opp1, Opa1 ^ infix_op(Opp1,Opa1,Op1), Pre_Op1),
+	setof(Opp2, Opa2 ^ guarded_operator(Opp2,Opa2,Op2), Pre_Op2),
+	
+	( Pre_Op1 = [A], Pre_Op2 = [A]  % all priorities are equal
+	-> findall([Opp1,Opa1,Op1], infix_op(Opp1,Opa1,Op1), Def_Op1),
+	   findall([Opp2,Opa2,Op2], guarded_operator(Opp2,Opa2,Op2), Def_Op2),
+	   catch(strip_parens_binary_right(Def_Op1,Def_Op2),
+		 quit(_),
+		 true)
+	; all_less_than(Pre_Op2,Pre_Op1)
+	-> flora_set_counter(can_strip_parens,1) % can strip
+	; flora_set_counter(can_strip_parens,0)  % can't
+	),
+	!,
+	flora_get_counter(can_strip_parens,1).
+
+
+/***************************************************************************
+  strip_parens_binary_right(+ListOfOp1,+ListOfOp2)
+
+  Given ListOfOp1 and ListOfOp1, which are two lists of different definitions 
+  for two operators, where
+  
+       a Op1 (b Op2 c), a Op1 (Op2 b), a Op1 (b Op2)
+              priorities of Op1,Op2 are same
+
+  sets can_strip_parens based on following algorithm:
+      
+      if  unparsable -> can_strip_parens=0,continue
+      else if  ambiguous -> can_strip_paren=0,fail and exit
+      else  can_strip_paren=1.
+***************************************************************************/
+strip_parens_binary_right([],_) :- !.
+strip_parens_binary_right(_,[]) :- !.
+
+strip_parens_binary_right(L1,L2) :-
+	L1 = [L1H|L1T], L2 = [L2H|L2T],
+	L1H = [_,Opa1,_], L2H = [_,Opa2,_],
+	(Opa1 == yfx; Opa1 == xfx; Opa1 == xfy),
+	( (Opa1 == yfx; Opa1 == xfx)   % unparsable
+	-> flora_set_counter(can_strip_parens,0),
+	    strip_parens_binary_right(L1T,L2)
+	;  Opa1 == xfy, (Opa2 == yfx; Opa2 == yf)   % ambiguous
+	-> flora_set_counter(can_strip_parens,0),throw(quit(a))
+	;  flora_set_counter(can_strip_parens,1) 
+	),
+	strip_parens_binary_right(L1, L2T).
+
+/***************************************************************************
+  can_strip_parens_prefix(+Op1,+Op2)
+  For prefix operator: Op1 (a Op2 b), Op1 (Op2 b), Op1 (b Op2),
+  returns true if it can strip parentheses; false otherwise.
+
+  Set can_strip_parens to 1 if it can strip parentheses; 0 otherwise.
+  
+  Considering mutiple definitions for both operators:
+  
+  1. Priority(Op2) = Priority(Op1), call strip_parenns_prefix/2
+     				    to set can_strip_parens, accordingly.
+  2. Priority(Op2) < Priority(Op1), can_strip_parens = 1,
+  3. Other cases, can_strip_parens = 0,
+     
+***************************************************************************/
+can_strip_parens_prefix(Op1,Op2) :-  
+	flora_set_counter(can_strip_parens,0),
+	setof(Opp1, Opa1 ^ prefix_op(Opp1,Opa1,Op1), Pre_Op1),
+	setof(Opp2, Opa2 ^ guarded_operator(Opp2,Opa2,Op2), Pre_Op2),
+	
+	( Pre_Op1 = [A], Pre_Op2 = [A]  % all priorities are equal
+	-> findall([Opp1,Opa1,Op1], prefix_op(Opp1,Opa1,Op1), Def_Op1),
+	   findall([Opp2,Opa2,Op2], guarded_operator(Opp2,Opa2,Op2), Def_Op2),
+	   catch(strip_parens_prefix(Def_Op1,Def_Op2),
+		 quit(_),
+		 true)
+	; all_less_than(Pre_Op2,Pre_Op1) % can strip
+	-> flora_set_counter(can_strip_parens,1)
+	; flora_set_counter(can_strip_parens,0)     % can't
+	),
+	!,
+	flora_get_counter(can_strip_parens,1).
+
+
+/***************************************************************************
+  strip_parens_prefix(+ListOfOp1,+ListOfOp2)
+  
+  Given ListOfOp1 and ListOfOp1, which are two lists of different definitions 
+  for two operators, where
+
+      Op1 (a Op2 b), Op1 (Op2 b), Op1 (b Op2),  Priorities of Op1, Op2 are same
+
+  sets can_strip_parens based on following algorithm:
+      
+      if unparsable -> can_strip_parens=0,continue
+      else if  ambiguous -> can_strip_paren=0,fail and exit
+      else  can_strip_paren=1.
+***************************************************************************/
+strip_parens_prefix([],_) :- !.
+strip_parens_prefix(_,[]) :- !.
+     
+strip_parens_prefix(L1,L2) :-
+	L1 = [L1H|L1T], L2 = [L2H|L2T],
+	L1H = [_,Opa1,_], L2H = [_,Opa2,_], 
+	(Opa1 == fx; Opa1== fy),
+	( Opa1 == fx    % unparsable
+	-> flora_set_counter(can_strip_parens,0),strip_parens_prefix(L1T,L2)
+	;  Opa1 == fy, (Opa2 == yfx; Opa2 == yf)  % ambiguous
+	-> flora_set_counter(can_strip_parens,0),throw(quit(a))
+	;  flora_set_counter(can_strip_parens,1) 
+	),
+        strip_parens_prefix(L1, L2T).
+
+/*************************************************************************
+  can_strip_parens_post(+Op1,+Op2)
+  For postfix operator: (a Op2 b) Op1 , (Op2 b) Op1, ( b Op2) Op1,
+  returns true if it can strip parentheses; false otherwise.
+
+  Set can_strip_parens to 1 if it can strip parentheses; 0 otherwise.
+  
+  Considering mutiple definitions for both operators:
+  
+  1. Priority(Op2) = Priority(Op1), call strip_parenns_post/2
+     				    to set can_strip_parens, accordingly.
+  2. Priority(Op2) < Priority(Op1), can_strip_parens = 1,
+  3. Other cases, can_strip_parens = 0,
+     
+**************************************************************************/
+can_strip_parens_post(Op1,Op2) :-  
+	flora_set_counter(can_strip_parens,0),
+	setof(Opp1, Opa1 ^ postfix_op(Opp1,Opa1,Op1), Pre_Op1),
+	setof(Opp2, Opa2 ^ guarded_operator(Opp2,Opa2,Op2), Pre_Op2),
+	
+	( Pre_Op1 = [A], Pre_Op2 = [A]  % all priorities equal
+	-> findall([Opp1,Opa1,Op1], postfix_op(Opp1,Opa1,Op1), Def_Op1),
+	   findall([Opp2,Opa2,Op2], guarded_operator(Opp2,Opa2,Op2), Def_Op2),
+	   catch(strip_parens_post(Def_Op1,Def_Op2),
+		 quit(_),
+		 true)
+	; all_less_than(Pre_Op2,Pre_Op1)  % can strip
+	-> flora_set_counter(can_strip_parens,1)
+	; flora_set_counter(can_strip_parens,0)      % can't
+	),
+	!,
+	flora_get_counter(can_strip_parens,1).
+
+/*************************************************************************
+  strip_parens_post(+ListOfOp1,+ListOfOp2)
+  
+  Given ListOfOp1 and ListOfOp1, which are two lists of different definitions 
+  for two operators, where
+
+      (a Op2 b) Op1 , (Op2 b) Op1, ( b Op2) Op1,  priorities equal
+
+  sets can_strip_parens based on following algorithm:
+      
+     if unparsable -> can_strip_parens=0,continue
+     else if  ambiguous -> can_strip_paren=0,fail and exit
+     else  can_strip_paren=1.
+
+**************************************************************************/
+strip_parens_post([],_) :- !.
+strip_parens_post(_,[]) :- !.
+
+strip_parens_post(L1,L2) :-
+	L1 = [L1H|L1T], L2 = [L2H|L2T],
+	L1H = [_,Opa1,_], L2H = [_,Opa2,_], 
+	(Opa1 == xf; Opa1 == yf),
+	( Opa1 == xf      % unparsable
+	-> flora_set_counter(can_strip_parens,0),strip_parens_post(L1T,L2) 
+	; Opa1 == yf, (Opa2 == xfy; Opa2 == fy)  % ambiguous
+	-> flora_set_counter(can_strip_parens,0),throw(quit(a))
+	;  flora_set_counter(can_strip_parens,1)
+	),
+	strip_parens_post(L1, L2T).

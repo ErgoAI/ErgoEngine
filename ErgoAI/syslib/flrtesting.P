@@ -1,0 +1,52 @@
+/* File:      flrtesting.P
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 2012-2018;
+**      and Vulcan, Inc., 2012-2013.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+/*
+   This module contains various calls that can change XSB and FLORA-2
+   flags that are set for debugging purposes.
+*/
+
+:- export
+	set_abolish_tables_flag/1.
+
+%% MK: test_mode/1: support for testing. Need something more general, like
+%% catch. But catch does not work in  a usual way, as delayed literals
+%% are slipped from under catch/3, so catch/3 applies vacuously to when/2.
+:- dynamic test_mode/1.
+:- export set_test_mode/1, clear_test_mode/1, clear_test_mode/0.
+:- export has_test_mode/1.
+
+set_test_mode(Mode) :- assert(test_mode(Mode)). 
+clear_test_mode :- retractall(test_mode(_)). 
+clear_test_mode(Mode) :- retractall(test_mode(Mode)). 
+has_test_mode(Mode) :- test_mode(Mode).
+
+
+%% Change the default behavior of abolishing tables
+%% This is used to work around an XSB bug.
+set_abolish_tables_flag(singly) :-
+	set_prolog_flag(table_gc_action,abolish_tables_singly).
+set_abolish_tables_flag(default) :-
+	set_prolog_flag(table_gc_action,abolish_tables_transitively).

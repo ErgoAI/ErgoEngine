@@ -1,0 +1,310 @@
+/* File:      flrauxil.P - various auxiliary predicates, eg. for type checking
+**
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**     The Research Foundation of the State University of New York, 2014 - 2020.
+**     Coherent Knowledge Systems, 2016-2020.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+/*
+   sub_compound(?Term,?Term1,+IsaPred,+SubPred)
+   sub_compound_eq(+M,+M1,+IsaPred,+SubPred,+EqPred)
+
+   This is called from closure/flrsigaxioms.fli
+
+   If Term or Term1 are compound, check if ?Term and ?Term have the same
+   method name and the arglist of ?Term is a subtype of the arglist of ?Term1
+
+   IsaPred is WRAP_ISA(A,A1,FL_CONTEXT(Caller,_,_))
+   SubPred is WRAP_SUB(A,A1,FL_CONTEXT(Caller,_,_)))
+*/
+
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_terms.flh"
+
+:- export
+	generalize_method/4,
+	generalize_method_eq/5,
+	sub_compound/4,
+	sub_compound_eq/5,
+	ground_memberchk/1,
+	static_pred_has_clauses/2,
+	list_isa_eq/4,
+	is_native/1,
+        is_quasi_var/1,
+        is_quasi_varlist/1,
+        is_varlist/1,
+	conjunct_code/2.
+
+:- export
+        list2commalist/2,
+        commalist2list/2.
+
+:- export
+        squash_variants/2,
+        flora_term_variables/2.
+
+:- import
+        append/3,
+	memberchk/2,
+	length/2
+   from basics.
+
+:- import
+	flora_reserved_symbol/2,
+	flora_reserved_builtin/2
+   from flrnodefp.
+
+:- import flrterm_vars/3 from flora_ground.
+
+%% checks if M is a specialization of M1.
+%% M  == Meth(Arg1,...,ArgN)
+%% M1 == Meth(Arg1',...,ArgN')
+%% and each ArgI:ArgI' or ArgI::ArgI' or ArgI=ArgI'
+sub_compound(M,M1,IsaPred,SubPred) :-
+	M \== M1,
+    	(generalize_method(M,M1,Args,Args1)
+	; generalize_method(M1,M,Args1,Args)
+	),
+	!,
+	list_sub(Args,Args1,IsaPred,SubPred).
+
+list_sub([],[],_,_) :- !.
+list_sub([A|Rest],[A1|Rest1],IsaPred,SubPred) :-
+	copy_term(IsaPred,NewIsaPred),
+	copy_term(SubPred,NewSubPred),
+	arg(1,IsaPred,A), arg(2,IsaPred,A1), %% construct A:A1
+	arg(1,SubPred,A), arg(2,SubPred,A1), %% construct A::A1
+    	(A = A1 ; IsaPred ; SubPred),
+	!,
+	list_sub(Rest,Rest1,NewIsaPred,NewSubPred).
+
+sub_compound_eq(M,M1,IsaPred,SubPred,EqPred) :-
+	M \== M1,
+    	(generalize_method_eq(M,M1,Args,Args1,EqPred)
+	; generalize_method_eq(M1,M,Args1,Args,EqPred)
+	),
+	!,
+	list_sub_eq(Args,Args1,IsaPred,SubPred,EqPred).
+
+list_sub_eq([],[],_,_,_) :- !.
+list_sub_eq([A|Rest],[A1|Rest1],IsaPred,SubPred,EqPred) :-
+	copy_term(IsaPred,NewIsaPred),
+	copy_term(SubPred,NewSubPred),
+	copy_term(EqPred,NewEqPred),
+	arg(1,IsaPred,A), arg(2,IsaPred,A1), %% construct A:A1
+	arg(1,SubPred,A), arg(2,SubPred,A1), %% construct A::A1
+	arg(1,EqPred,A),  arg(2,EqPred,A1),  %% construct A:=:A1
+    	(A = A1 ; IsaPred ; SubPred ; EqPred),
+	!,
+	list_sub_eq(Rest,Rest1,NewIsaPred,NewSubPred,NewEqPred).
+
+list_isa_eq([],[],_,_) :- !.
+list_isa_eq([A|Rest],[A1|Rest1],IsaPred,EqPred) :-
+	copy_term(IsaPred,NewIsaPred),
+	copy_term(EqPred,NewEqPred),
+	arg(1,IsaPred,A), arg(2,IsaPred,A1), %% construct A:A1
+	arg(1,EqPred,A),  arg(2,EqPred,A1),  %% construct A:=:A1
+    	(IsaPred ; EqPred),
+	list_isa_eq(Rest,Rest1,NewIsaPred,NewEqPred).
+
+%% replace method args with variables
+generalize_method(Method,Method,_,_) :-
+	var(Method),
+	!.
+
+generalize_method(Method,GenMethod,Args,NewArgs) :-
+	compound(Method),
+	!,
+	functor(Method,MethMainFunc,N), NN is N-1,
+	\+ reserved_functor(MethMainFunc,N),
+	Method =.. [MethMainFunc,MethName|Args],
+	\+ reserved_functor(MethName,NN),
+	length(NewArgs,NN),
+	GenMethod =.. [MethMainFunc,MethName|NewArgs].
+generalize_method(Method,Method,[],[]).
+
+
+%% replace method args with variables
+generalize_method_eq(Method,Method,_,_,_) :-
+	var(Method),
+	!.
+
+generalize_method_eq(Method,GenMethod,Args,NewArgs,EqPred) :-
+	compound(Method),
+	!,
+	functor(Method,MethMainFunc,N), NN is N-1,
+	\+ reserved_functor(MethMainFunc,N),
+	Method =.. [MethMainFunc,MethName|Args],
+	\+ reserved_functor(MethName,NN),
+	length(NewArgs,NN),
+	(nonvar(GenMethod) ->
+	    GenMethod =.. [MethMainFunc,MethName1|NewArgs],
+	    copy_term(EqPred,NewEqPred),
+	    arg(1,NewEqPred,MethName),  arg(2,NewEqPred,MethName1),
+	    NewEqPred    %% test MethName :=: MethName1
+	; GenMethod =.. [MethMainFunc,MethName|NewArgs]
+	).
+generalize_method_eq(Method,GenMethod,[],[],EqPred) :-
+        atom(Method),
+        !,
+        copy_term(EqPred,NewEqPred),
+        arg(1,NewEqPred,Method),  arg(2,NewEqPred,GenMethod),
+        NewEqPred.    %% test Method :=: GenMethod
+generalize_method_eq(Method,Method,[],[],_EqPred).
+
+conjunct_code([],FL_TRUE) :- !.
+conjunct_code([NULL],FL_TRUECONST) :- !.
+conjunct_code([C],C) :- !.
+conjunct_code([C|Rest],Result) :-
+	(skiptest(C) -> conjunct_code(Rest,Result)
+	; conjunct_code(Rest,RestResult),
+	    (skiptest(RestResult) -> Result=C
+	    ; Result = (C,RestResult)
+	    )
+	).
+
+%% literals that are to be ignored in conjuncting code
+skiptest(X) :- var(X), !.
+skiptest(X) :- memberchk(X,[NULL,FL_TRUE,FL_TRUECONST]).
+
+%% true if any list member is ground
+ground_memberchk([]) :- !, fail.
+ground_memberchk([H|_]) :-
+	ground(H),
+	!.
+ground_memberchk([_|T]) :- ground_memberchk(T).
+
+
+reserved_functor(F,N) :-
+	flora_reserved_builtin(F,N),
+	!.
+reserved_functor(F,N) :-
+	flora_reserved_symbol(F,N).
+
+%% check if a literal matches a rule or a fact
+%% There was a cut after the first clause, which was wrong, as it was losing
+%% answers in case X is non-ground.
+is_native(X) :-
+	flrcanon:matching_rule_signature(_,_,_,_,X,_B,_Sig).
+is_native(X) :- flrstorageutils:FL_ISBASEFACT(X).
+
+/*
+%% this one causes gpmanager_test.flr to loop forever
+static_pred_has_clauses(Call,YesNo) :-
+    	functor(Call,F,Arity),
+	(current_predicate(F/Arity) -> YesNo=1
+	; YesNo=0
+	).
+*/
+
+#include "psc_defs.h"
+:- import term_psc/2, psc_type/2 from machine.
+
+static_pred_has_clauses(Term,N):-
+    term_psc(Term,Psc),
+    psc_type(Psc,Type),
+    (Type == T_PRED -> N = 1 ; N = 0).
+
+
+/***************************************************************************
+        commalist2list(+CommaList,-List) - convert a comma list to list
+
+        list2commalist(+List,-CommaList) - convert a list to commalist
+***************************************************************************/
+commalist2list(A,[]) :-
+	var(A),
+	!.
+commalist2list((A,L), [A|LL]) :-
+	!,
+	commalist2list(L,LL).
+commalist2list(A,[A]).
+
+
+%% convert list [...] to (...,...) commalist
+list2commalist([A],A) :- !.
+list2commalist([A|L], (A,LL)) :- list2commalist(L,LL).
+
+
+flora_term_variables(FLSYSRULEUPDATE(_RuleId,_FileName,_DescrVarTerm,_RuleNum,_DescrMetaFacts,HeadList,Body,_HV,_BV,_DTvars,H2BFList,H2BBList,_PreBody,_PostBodyList,_DefeatCond),
+                     Vars) :-
+        !,
+        flrterm_vars((HeadList,H2BFList,Body,H2BBList),Vars,0).
+flora_term_variables((_:flora_put_attr(_,_,_),Term),Vars) :-
+        !,
+        flora_term_variables(Term,Vars).
+flora_term_variables(FLLIBINSERTRULE_A(_,Rules),Vars) :-
+        !,
+        flora_term_variables(Rules,Vars).
+flora_term_variables(FLLIBINSERTRULE_Z(_,Rules),Vars) :-
+        !,
+        flora_term_variables(Rules,Vars).
+flora_term_variables(FLLIBDELETERULE_A(_,Rules),Vars) :-
+        !,
+        flora_term_variables(Rules,Vars).
+flora_term_variables(FLLIBDELETERULE_Z(_,Rules),Vars) :-
+        !,
+        flora_term_variables(Rules,Vars).
+flora_term_variables(FLLIBDELETERULE(_,Rules),Vars) :-
+        !,
+        flora_term_variables(Rules,Vars).
+flora_term_variables(FLLIBINSERT(_,Rules),Vars) :-
+        !,
+        flora_term_variables(Rules,Vars).
+flora_term_variables(FLLIBDELETE(_,Rules),Vars) :-
+        !,
+        flora_term_variables(Rules,Vars).
+flora_term_variables(FLLIBINSERTALL(_,Rules),Vars) :-
+        !,
+        flora_term_variables(Rules,Vars).
+flora_term_variables(FLLIBDELETEALL(_,Rules),Vars) :-
+        !,
+        flora_term_variables(Rules,Vars).
+flora_term_variables([Term|Rest],Vars) :-
+        !,
+        flora_term_variables(Term,Vars1),
+        flora_term_variables(Rest,Vars2),
+        append(Vars1,Vars2,Vars).
+flora_term_variables(Term,Vars) :-
+        flrterm_vars(Term,Vars,0).
+
+
+%% Eliminates adjacent variants from lists
+squash_variants([],[]) :- !.
+squash_variants([H,Nxt|T],Result) :-
+        subsumes:variant(H,Nxt),
+        !,
+        squash_variants([H|T],Result).
+squash_variants([H|T],[H|TRest]) :-
+        squash_variants(T,TRest).
+
+is_quasi_var(V) :- nonvar(V), V = '_$VAR'(_).
+
+is_varlist([]) :- !.
+is_varlist([Var|VarList]) :-
+        var(Var),
+        is_varlist(VarList).
+is_quasi_varlist([]) :- !.
+is_quasi_varlist([Var|VarList]) :-
+        is_quasi_var(Var),
+        is_quasi_varlist(VarList).

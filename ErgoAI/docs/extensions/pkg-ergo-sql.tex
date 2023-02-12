@@ -1,0 +1,225 @@
+\chapter[Querying SQL Databases]
+{Querying SQL Databases\\
+  {\Large by Michael Kifer}}
+
+
+This chapter describes the API for SQL queries against relational
+databases.
+
+\section{Connecting to a Database}
+
+The \ERGO-to-SQL API is available in the system module
+\texttt{\bs{}sql}
+and calling anything \texttt{@\bs{}sql}  will load that module. If, for
+some reason, it is necessary to load this module without executing any
+operations, one can accomplish this by calling 
+%% 
+\begin{itemize}
+\item  \texttt{ensure\_loaded@\bs{}sql}. 
+\end{itemize}
+%% 
+
+Prior to performing any operation on an SQL database the user must
+\emph{open} a \emph{connection} to that database.
+\ERGO supports two database drivers:
+%% 
+\begin{itemize}
+\item  \texttt{odbc}: the general driver to all relational databases that
+  support the ODBC protocol. All major database products and open-source
+  databases support this protocol.\footnote{
+    There have been serious problems with ODBC support on Linux and Mac for
+    MySQL server 5.7.
+    }
+  The user must be familiar with the
+  basics of setting up ODBC data sources (called DSNs),
+  which specify database drivers and the target databases.
+\item \texttt{mysql}: the native driver for MySQL databases (for Linux,
+  Mac, Windows (64 bit)). 
+\end{itemize}
+%% 
+
+The commands to connect to a database for these two drivers are slightly
+different.
+%% 
+\begin{itemize}
+\item The ODBC driver:\footnote{
+    The ODBC driver for MySQL 5.7 has a number of problems on Linux and
+    Mac, so we recommend to use MySQL 5.6, if ODBC is required.
+    }
+  \\
+  \texttt{odbc[open(?ConnectId,?DSN,?User,?Password)]@\bs{}sql}.
+  \\
+  Here \texttt{?ConnectId} must be bound to a Prolog atom (note: an atom,
+  not a variable) that will henceforth identify the connection.
+  \texttt{?DSN} must be bound to an ODBC DSN (data source name), and
+  \texttt{?User} and \texttt{?Password} must be the user name and the
+  password to be used to log into the database---both must be Prolog atoms.   
+  \\
+  Example:
+  \texttt{odbc[open(id1,mydbn,me,mypwd)]@\bs{}sql.}
+\item The MySQL driver (Linux, Mac, Windows (64 bit)):\\
+  \texttt{mysql[open(?ConnectId,?Server,?Database,?User,?Password)]@\bs{}sql}.
+  \\
+  \texttt{?Server} must be bound to the address of the desired database server.
+  Usually this is an IP address such as 123.45.67.89 (with optional
+  port number, e.g., 123.45.67.89:6666) or a domain name, like
+  \texttt{abc.example.com} --- again with optional port number. On a local
+  machine, the server would usually be just \texttt{localhost}.
+  
+  The meaning of the other parameters is the same as for the ODBC driver.
+
+  Example: \texttt{mysql[open(id2,localhost,test,me,mypwd)]@\bs{}sql.}  
+
+  Note that one can use the two drivers simultaneously for different
+  connections. However, the connection Ids must be distinct whether the
+  same or different drivers are used. A connection Id can be \emph{reused}
+  if it was previously \emph{closed} (see below).  
+\end{itemize}
+%% 
+When done with the database, it is recommended to close the connection to
+that database for two
+reasons:
+%% 
+\begin{itemize}
+\item To avoid hitting the limit of 200 on the number of databases that one
+  can work with at the same time.
+\item  To release the resources allocated by the OS to work with that open
+  connection.
+\end{itemize}
+%% 
+The syntax for closing connections is
+%% 
+\begin{verbatim}
+    ?ConnectId[close]@\sql.
+\end{verbatim}
+%% 
+For example,  \texttt{id2[close]@\bs{}sql.}  
+
+\section{Queries}
+
+The \ERGO-to-SQL API provides a simple query interface to send SQL queries
+(\texttt{SELECT}), updates (\texttt{INSERT}, \texttt{DELETE}, etc.),
+schema definition
+(\texttt{CREATE}),  and other commands.
+%% 
+\begin{itemize}
+\item  \texttt{?ConnectId[query(?QueryId,?QueryList,?ReturnList)]@\bs{}sql.}
+  \\
+  \texttt{?ConnectId} is the Id of a previously open (and not closed)
+  connection. \texttt{?QueryId} must be bound to an atom that will
+  represent the query statement that will be created as a result of this
+  command. \texttt{?QueryList} is a list that must concatenate into a
+  Prolog atom that forms a valid
+  SQL statement. Components of the list can be variables and terms, and in
+  this way the query can be constructed at run time. \texttt{?ReturnList}
+  is a list of variables that must correspond to the list of items in the
+  \texttt{SELECT} query. For other types of SQL statements,
+  \texttt{?ReturnList} should be an empty list.
+
+  Examples: Assume that our database has a table
+  \texttt{Person(name char(40),addr char(100),age integer)}. Then
+  the following is a legal query:
+  %% 
+\begin{verbatim}
+    ?- ?Tbl=Person, ?Age = 33,
+       id1[query(qid,['SELECT name, addr FROM ',?Tbl, ' WHERE age=', ?Age],
+                     [?Name,?Address]
+                )
+          ]@\sql.  
+\end{verbatim}
+  %% 
+  Observe how the SQL query here is constructed at runtime: the table and the
+  value of \texttt{age} are bound only when the above \ERGO query is
+  executed. 
+
+  Here is an example of an update statement:
+  %% 
+\begin{verbatim}
+    id2[query(qa,
+              ['insert into Person(name,addr,age)
+                            values("mike","unknown",NULL)'],
+              []
+             )
+       ]@\sql.  
+\end{verbatim}
+  %% 
+  
+
+\item Preparing queries.\\
+  Frequent databases queries can be precompiled and optimized once and then
+  executed multiple times, which is the recommended modus of operandi.
+  (The previously described query interface is more flexible, but less
+  efficient; it is typically used for infrequent queries or queries that
+  must be constructed at run time, as in the above example.)
+
+  For frequent queries that are known in advance, a two-step process is
+  used. First, the query is \emph{prepared} (i.e., compiled and optimized)
+  and then \emph{executed}. The preparation and execution of such queries
+  allows certain level of flexibility by letting the user to place question
+  marks \texttt{?} in lieu of some of the constants (these cannot be column
+  names, table names, variable names, etc. --- only regular constants).
+  These question marks can be replaced by actual constants at the query
+  execution time.
+  %% 
+  \begin{itemize}
+  \item    \texttt{?ConnectId[prepare(?QueryId,?QueryList)]@\bs{}sql.} \\
+    The meaning of the parameters is the same as before.
+
+    Example:
+    %% 
+\begin{verbatim}
+      id1[prepare(qid,['SELECT T.addr FROM ', Person,
+                       ' T where T.name = ? and T.age = ?']
+                 )
+         ]@\sql.    
+\end{verbatim}
+    %%
+    The query Id \texttt{qid} can then be used to execute the above query,
+    as shown below. 
+    \item  \texttt{?QueryId[execute(?BindList,?ReturnList)]@\bs{}sql.} \\
+      \texttt{?QueryId} must be bound to the query Id of a previously
+      prepared query. \texttt{?BindList} must be a list of values that
+      is supposed to be substituted for the \texttt{?}'s in the
+      \texttt{prepare} command; the \texttt{?}'s are substituted in the
+      order in which they appear in the \texttt{prepare} statement.
+    
+      Example:
+      %% 
+\begin{verbatim}
+       qid[execute([mike,44],[?Address])]@\sql.      
+\end{verbatim}
+      %% 
+  \end{itemize}
+  %% 
+  \item Closing query Ids.\\
+    Like database connections, query Ids must be closed in order to release
+    the resources that the OS allocates to the query. There is also a limit of
+    2000 on the number of active queries, which can be easily reached in
+    applications that query the database heavily. The command for closing the
+    query Ids is:
+    %% 
+\begin{verbatim}
+      ?QueryId[qclose]@\sql.    
+\end{verbatim}
+    %% 
+    For instance,
+    %% 
+\begin{verbatim}
+      qid[qclose]@\sql.    
+\end{verbatim}
+    %% 
+\end{itemize}
+%% 
+Finally, we need to mention that when a NULL value is returned as a result
+of a query, it is returned as a Prolog term \texttt{NULL(?)@\bs{}plg},
+which is the internal representation of the \FLSYSTEM null quasi-constant
+\texttt{\bs{}@?}. 
+This implies that if such a term is used as an argument to a
+literal that is to be inserted into the database, it
+will be converted to the NULL value.
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora-packages"
+%%% End: 

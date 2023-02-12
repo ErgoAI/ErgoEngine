@@ -1,0 +1,31 @@
+
+:- symbol_context{salary/2}.
+John[salary(2015) -> 50000].
+John[salary(2016) -> 60000].
+Jim[salary(2013) -> big].
+James[salary(wrongyear) -> 50000].
+Bill[salary(2015,bla) -> 50000].
+Mary[salary(2015) -> {50000,60000}].
+
+{Mary,John,Jim,James}:employee.
+
+employee[|salary(\integer){0..1}=>\integer|].
+
+%tst1 :- Cardinality[check(?E[salary(?y) => ?])]@\typecheck,
+         writeln(test1=?E+?y)@\io.
+
+%tst2 :- Type[check(?[?->?],?Result)]@\typecheck,
+         writeln(test2=?Result)@\io.
+
+
+%pretest :- %tst1, %tst2.
+
+%test :- 
+	tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	!,
+	Method[mustDefine(off)]@\sys,
+	Tables[abolish]@\sys,
+	%pretest,
+	told@\plg.

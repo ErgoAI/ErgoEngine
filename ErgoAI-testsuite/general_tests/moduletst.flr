@@ -1,0 +1,147 @@
+
+
+?- expand_filename('../datafiles', ?_X)@\plg(machine),
+	assert(library_directory(?_X)@\plg())@\plg().
+
+%insert_stuff :-
+	newmodule{foobar},
+	insert{mary[salary(1990)->40]@foobar, mary[salary(1991)->30]@foobar},
+	insert{%p, %p@foobar, q[a], q[a]@foobar, q[c]@marymodule},
+	insert{%p(${%f@main}), %p(${%f@foobar}),
+		%p(${%f(a)@main}), %p(${%f(b)@foobar}),
+		q[aaa-> ${%g(c)@main}], q[aaa-> ${%g(h)@foobar}],
+		q[aaa-> ${%c@foobar}]@marymodule},
+        insert{tstobj1[tstattr1->tstobj2[tstattr2->1]]@foobar},
+        insert{tstobj3[tstattr3->tstobj4[tstattr4->1,tstattr5->2]]@foobar}.
+
+john:employee.
+
+john[salary(1990) -> 20].
+john[salary(1991) -> 40].
+john[salary(1992) -> 60].
+john[salary(1993) -> 70].
+john[salary(1994) -> 70].
+john[salary(1995) -> 80].
+john[salary(1996) -> 70].
+john[salary(1997) -> 50].
+john[salary(1998) -> 80].
+
+rrr(aaa,${?_X@main}).
+qqq(aaa,${bbb@main}).
+
+ppp(${yyy(?X)@?M}) :- yyy(?X,?M).
+yyy(1,mmm).
+
+zzz(${?X@?M}) :- ccc(?X,?M).
+ccc(1,mmm).
+
+
+%tst1 :- ?Z = max{?X|john[salary(?_Year)->?X]},
+	 !!,
+	writeln(?Z)@\plg().
+
+%tst2 :- ?Z = max{?X|john[salary(?Year) ->?X], ?Year < 1996},
+	 !!,
+	writeln(?Z)@\plg().
+
+%tst3 :- ?Z = max{?X|mary[salary(?_Year)->?X] @ marymodule},
+	 !,
+	 writeln(?Z)@\plg().
+
+%tst4 :- ?Z=count{?Year|john.salary(?Year) < max{?X|john[salary(?Y2)->?X], ?Y2<?Year} },
+	 !!,
+    	writeln(?Z)@\plg().
+
+%tst5 :- ?Z=count{?Year|john.salary(?Year) < mary.salary(?Year) @ marymodule},
+	 !!,
+	writeln(?Z)@\plg().
+
+%tst6 :- ?Z= avg{?X[?Who]|?Who[salary(?Year)->?X]; ?Who[salary(?Year)->?X] @ marymodule},
+	 !!,
+	write(?Z)@\plg(), write('   ')@\plg(), writeln(?Who)@\io, \false.
+%tst6 :- \true.
+
+%tst7 :- (write('Module: '), writeln(\@))@\plg().
+
+%tst8 :- mary[salary(1990) -> ?X]@?Mod,
+	 !!,
+	write('tst8: ')@\plg(), writeln(?X = ?Mod)@\plg(), \false.
+%tst8 :- \true.
+
+%tst9 :- mary[salary(1991) -> ?X]@?Mod,
+	 !!,
+	write('tst9: ')@\plg(), writeln(?X = ?Mod)@\plg(), \false.
+%tst9 :- \true.
+
+%tst10 :- %p@?Mod,
+	 !!,
+	 write('tst10: ')@\plg(), writeln(?Mod)@\plg(), \false.
+%tst10 :- \true.
+
+%tst11 :- q[?X]@?Mod,
+	 !!,
+	 write('tst11: ')@\plg(), writeln(?X=?Mod)@\plg(), \false.
+%tst11 :- \true.
+
+%tst12 :- %p(${%f@?Mod}), %p(${%?P(?A)@?Mod2}),
+	 !!,
+	 write('tst12: ')@\plg(), writeln(?P+?A=?Mod2+?Mod)@\plg(), \false.
+%tst12 :- \true.
+
+%tst13 :- %p(${%?X(?Y)@?Mod}),
+	 !!,
+	 write('tst13: ')@\plg(), writeln(?X+?Y=?Mod)@\plg(), \false.
+%tst13 :- \true.
+
+%tst14 :- q[aaa-> ${%g(?X)@?Mod}],
+	 !!,
+	 write('tst14: ')@\plg(), writeln(?X=?Mod)@\plg(), \false.
+%tst14 :- q[aaa-> ${%c@?Mod}]@?Mod2,
+	 !!,
+	 write('tst14: ')@\plg(), writeln(?Mod+?Mod2)@\plg().
+
+foo(a).
+%tst15 :- ?X = ${\naf foo(b)}, ?X,
+	  writeln('tst15: done')@\plg().
+
+%tst16 :- ppp(${yyy(?X)@?M}),
+	  write('tst16: ')@\plg, writeln(?X+?M)@\plg.
+
+%tst17 :- ppp(${?X@?M}),
+	  write('tst17: ')@\plg, writeln(?X+?M)@\io.
+
+%tst18 :- ppp(?X),
+	  write('tst18: ')@\plg, writeln(?X)@\io.
+
+%tst19 :- zzz(?X),
+	  write('tst19: ')@\plg, writeln(?X)@\io.
+
+%tst20 :- zzz(?X),
+	  write('tst20: ')@\plg, writeln(?X)@\io.
+
+%tst21 :- rrr(aaa,${?_X@main}), isvar{?_X},
+	  rrr(aaa,${?_X@?_M}), ?_M=main, isvar{?_X},
+	  rrr(aaa,?_X), ?_X = ${?@\@},
+	  qqq(aaa,${bbb@main}),
+	  writeln('tst21: done')@\plg().
+
+%tst22 :- (tstobj1.tstattr1.tstattr2 = tstobj3.tstattr3.tstattr4)@foobar,
+          (tstobj1.tstattr1.tstattr2 < tstobj3.tstattr3.tstattr5)@foobar,
+          writeln(tst22=ok)@\plg.
+
+%prepare :- [marymodule >> marymodule], %insert_stuff.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, 
+           %tst8, %tst9, %tst10, %tst11, %tst12, %tst13, %tst14,
+	   %tst15, %tst16, %tst17, %tst18, %tst19, %tst20, %tst21, %tst22.
+
+%test :- tell(temp)@\plg(),
+	%prepare,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().
+
+
+

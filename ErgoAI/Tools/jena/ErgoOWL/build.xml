@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project default="create_run_jar" name="Create Runnable Jar for Project ErgoOWL with libraries in sub-folder">
+  <property environment="env"/>
+  <property name="ErgoOWL.location" value="../ErgoOWL"/>
+  <property name="debuglevel" value="source,lines,vars"/>
+  <property name="target" value="1.8"/>
+  <property name="source" value="1.8"/>
+  <path id="ErgoOWL.classpath">
+    <pathelement location="classes"/>
+    <!--
+        <pathelement location="../lib/commons-codec-1.6.jar"/>
+        <pathelement location="../lib/commons-csv-1.0.jar"/>
+        <pathelement location="../lib/commons-lang3-3.1.jar"/>
+        <pathelement location="../lib/httpclient-4.2.6.jar"/>
+        <pathelement location="../lib/httpclient-cache-4.2.6.jar"/>
+        <pathelement location="../lib/httpcore-4.2.5.jar"/>
+        <pathelement location="../lib/jackson-annotations-2.3.0.jar"/>
+        <pathelement location="../lib/jackson-core-2.3.3.jar"/>
+        <pathelement location="../lib/jackson-databind-2.3.3.jar"/>
+        <pathelement location="../lib/jcl-over-slf4j-1.7.6.jar"/>
+        <pathelement location="../lib/jena-arq-2.12.1.jar"/>
+        <pathelement location="../lib/jena-core-2.12.1.jar"/>
+        <pathelement location="../lib/jena-iri-1.1.1.jar"/>
+        <pathelement location="../lib/jena-sdb-1.5.1.jar"/>
+        <pathelement location="../lib/jena-tdb-1.1.1.jar"/>
+        <pathelement location="../lib/jsonld-java-0.5.0.jar"/>
+        <pathelement location="../lib/libthrift-0.9.1.jar"/>
+        <pathelement location="../lib/log4j-1.2.17.jar"/>
+        <pathelement location="../lib/slf4j-api-1.7.6.jar"/>
+        <pathelement location="../lib/slf4j-log4j12-1.7.6.jar"/>
+        <pathelement location="../lib/xercesImpl-2.11.0.jar"/>
+        <pathelement location="../lib/xml-apis-1.4.01.jar"/>
+    -->
+    <pathelement location="../JenaAllInOne.jar"/>
+    <pathelement location="../../../ergo_lib/ergo2java/java/ergoStudio.jar"/>
+  </path>
+  <target depends="build" name="create_run_jar">
+    <jar destfile="../../../ergo_lib/ergo2owl/java/ergoOWL.jar">
+      <manifest>
+        <attribute name="Main-Class" value="ErgoOWL_GUI"/>
+        <attribute name="Class-Path" value="../JenaAllInOne.jar"/>
+      </manifest>
+      <fileset dir="classes"/>
+    </jar>
+  </target>
+  <target depends="init" name="build">
+    <echo message="${ant.project.name}: ${ant.file}"/>
+    <javac debug="true" debuglevel="${debuglevel}" destdir="classes" includeantruntime="false" source="${source}" target="${target}">
+      <src path="src"/>
+      <classpath refid="ErgoOWL.classpath"/>
+    </javac>
+  </target>
+  <target name="init">
+    <mkdir dir="classes"/>
+    <copy includeemptydirs="false" todir="classes">
+      <fileset dir="src">
+        <exclude name="**/*.java"/>
+      </fileset>
+    </copy>
+  </target>
+</project>

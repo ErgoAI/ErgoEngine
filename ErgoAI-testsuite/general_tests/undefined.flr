@@ -1,0 +1,54 @@
+:- ignore_depchk{%p(?_)}.
+
+?- Method[mustDefine(on)]@\sys.
+
+%p(a).
+%q(b)(a,b).
+
+p(a).
+q(b)(a,b).
+
+?_X[b->?_Y] :- %p(c).
+?_X[b->?_Y] :- p(c).
+
+
+%tst1 :- %p(?X),
+	write('tst1 succeeded, as expected: ')@\io,
+	writeln(x=?X)@\io.
+
+%tst2 :- %q(?X)(?_Y,?_Z),
+	write('tst2 succeeded, as expected: ')@\io,
+	writeln(x=?X)@\io.
+
+%tst3 :- write('tst3 should cause an error: ')@\io,
+	catch{%r(a)(?_X,?_Y),?_,\false},
+	writeln('tst3: undefinedness check doesn''t work')@\io.
+%tst3 :- !.
+
+%tst4 :- \unless a[?_Y->?_Z] \do
+            writeln('tst4 failed, as expected: ')@\io.
+
+%tst5 :- write('tst5 should cause an error: ')@\io,
+	catch{?_X[c->?_Y], ?_, \false},
+	writeln('tst5: undefinedness check doesn''t work')@\io.
+%tst5 :- !.
+
+%tst1_2 :- p(?X),
+	write('tst1_2 succeeded, as expected: ')@\io,
+	writeln(x=?X)@\io.
+
+%tst2_2 :- q(?X)(?_Y,?_Z),
+	write('tst2_2 succeeded, as expected: ')@\io,
+	writeln(x=?X)@\io.
+
+%tst3_2 :- write('tst3_2 should cause an error: ')@\io,
+	catch{r(a)(?_X,?_Y),?_,\false},
+	writeln('tst3_2: undefinedness check doesn''t work')@\io.
+%tst3_2 :- !.
+
+
+%test :- tell(temp)@\plg,
+	%tst1, %tst2, %tst3, %tst4, %tst5, %tst1_2, %tst2_2, %tst3_2,
+	told@\plg.
+
+

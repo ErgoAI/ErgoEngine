@@ -1,0 +1,146 @@
+/* File:      cc_config.P -- loader for the prolog to hilog module
+** Author(s): Michael Kifer
+**
+** Contact:   flora-users@lists.sourceforge.net
+**
+** Copyright (C) by
+**      The Research Foundation of the State University of New York, 1999-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+**
+*/
+
+
+
+%% bootstrap_flora/0 adds this directory to the library search path.
+%% Loading cc_config.P ensures that the module prolog2hilog is compiled 
+%% and loaded.
+
+:- compiler_options([xpp_on]).
+#mode standard Prolog
+
+#include "flora_porting.flh"
+
+
+:- import
+	flora_slash/1,
+	flora_concat_atoms/2,
+	flora_file_op/3,
+	flora_file_op/2,
+	flora_running_under/1,
+	flora_running_under/2,
+	flora_abort/1
+    from flrporting.
+:- import flora_configuration/2 from flrregistry.
+:- import search_module/6 from consult.
+:- import xsb_configuration/2 from xsb_configuration.
+:- import shell/1 from shell.
+
+?- '_$_$_flora_load_cc'(prolog2hilog),
+   '_$_$_flora_load_cc'(flora_ground).
+   
+'_$_$_flora_load_cc'(Basename) :-
+    flora_slash(Slash),
+    flora_configuration(installdir, FloraDir),
+    '_$_$_flora_target_shared_lib'(Basename,TrgSharedLib,_TrgSharedLibDos,TrgPrlgObjFile),
+    flora_concat_atoms([FloraDir,Slash,cc,Slash,Basename],Module),
+    flora_concat_atoms([Module,'.', PROLOG_OBJFILE_EXT], Objfile),
+    (   %% avoid recompilation: check if FILE.OBJ exists and 
+	%% is newer than FILE.c.
+	search_module(Basename,_Dir,_Mod,_Ext,_Base,ModuleO),
+	flora_concat_atoms([Module, '.c'], ModuleSourceFile),
+	flora_file_op(newerthan,ModuleO,ModuleSourceFile),
+	flora_file_op(newerthan,TrgSharedLib,ModuleSourceFile)
+    %% module compiled and is current, so just load
+    -> [Basename]
+
+    ; (flora_running_under(windows) ; flora_running_under(cygwin)) ->
+	flora_concat_atoms([Module, '.dll'],CygModDLL),
+	(flora_running_under(windows,'64') -> DLLdir = 'cc\\windows64'
+	; DLLdir = 'cc\\windows'
+	),
+	flora_concat_atoms([FloraDir,Slash,DLLdir,Slash,Basename,'.dll'],WinModDLL),
+	(flora_running_under(cygwin) ->
+	    consult(Module, []),
+	    (flora_file_op(unlink,TrgSharedLib), ! ; true),
+	    flora_file_op(rename,CygModDLL, TrgSharedLib),
+	    %% clean up
+	    flora_concat_atoms([Module, '.a'],CygModA),
+	    flora_concat_atoms([Module, '.o'],CygModO),
+	    flora_concat_atoms([Module, '.def'],CygModDEF),
+	    (flora_file_op(unlink,CygModA), ! ; true),
+	    (flora_file_op(unlink,CygModO), ! ; true),
+	    (flora_file_op(unlink,CygModDEF), ! ; true),
+	    (flora_file_op(unlink,TrgPrlgObjFile), ! ; true),
+	    flora_file_op(rename,Objfile,TrgPrlgObjFile),
+	    [Basename]
+	; 
+	    (flora_file_op(unlink,TrgSharedLib), ! ; true),
+	    %% Important to quote WinModDLL below!
+	    shell(['copy /B /Y "', WinModDLL, '" ', _TrgSharedLibDos]),
+            %% this copy has a problem: works only for text files
+	    %%flora_file_op(copy,WinModDLL,TrgSharedLib),
+	    %% In windows Objfile is created by ?- [Basename], so it
+	    %% is copied after
+	    (flora_file_op(unlink,TrgPrlgObjFile), ! ; true),
+	    [Basename],
+	    flora_file_op(rename,Objfile,TrgPrlgObjFile)
+	)
+
+    %% If Module isn't compiled or is old --- recompile
+    ;   xsb_configuration(compiler, CC),
+	consult(Module, [cc(CC), cc_opts(' ')]),
+	flora_file_op(rename,Objfile, TrgPrlgObjFile),
+	( % MacOS
+	flora_running_under(darwin)
+	->
+	    %% Note: the .dylib ending is Mac-specific.
+	    flora_concat_atoms([Module, '.dylib'], SharedLib),
+	    flora_file_op(rename,SharedLib,TrgSharedLib)
+
+	; flora_running_under(unix)
+	->
+	    %% Note: the .so ending is Unix-specific.
+	    %% We don't need to run this script under Windows
+	    flora_concat_atoms([Module, '.so'], SharedLib),
+	    flora_file_op(rename,SharedLib,TrgSharedLib)
+	;
+	  true
+	)
+     ).
+
+
+%% TrgSharedLibDos is like TrgSharedLib, but quoted with "..." in case the file
+%% hame has spaces. Used in the DOS copy command.
+'_$_$_flora_target_shared_lib'(Basename,TrgSharedLib,TrgSharedLibDos,TrgPrlgObjFile) :-
+	flora_slash(Slash),
+	xsb_configuration(config_libdir, ConfigLibdir),
+	xsb_configuration(config_bindir, ConfigBindir),
+	flora_concat_atoms([ConfigLibdir,Slash,Basename,'.',PROLOG_OBJFILE_EXT],
+			    TrgPrlgObjFile),
+    	(flora_running_under(windows)
+	%% Important to quote TrgSharedLib below
+	-> flora_concat_atoms([ConfigBindir,Slash,Basename,'.dll'],TrgSharedLib),
+	    flora_concat_atoms(['"',ConfigBindir,Slash,Basename,'.dll"'],TrgSharedLibDos)
+	; flora_running_under(cygwin)
+	-> flora_concat_atoms([ConfigLibdir,Slash,Basename,'.dll'],TrgSharedLib),
+	    TrgSharedLibDos = TrgSharedLib
+	; flora_running_under(darwin)
+	-> flora_concat_atoms([ConfigLibdir,Slash,Basename,'.dylib'],TrgSharedLib),
+	    TrgSharedLibDos = TrgSharedLib
+	; flora_running_under(unix)
+	-> flora_concat_atoms([ConfigLibdir,Slash,Basename,'.so'],TrgSharedLib),
+	    TrgSharedLibDos = TrgSharedLib
+	; flora_abort('Cannot determine the type of the operating system')
+	).

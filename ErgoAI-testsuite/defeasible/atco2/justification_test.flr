@@ -1,0 +1,34 @@
+
+?- [atco_init], [+justification_test_fl],
+	[+justification_test_prog], [+justification_test_prog_aux],
+	[justification_test_just>>builtin].
+
+%tst1 :- write('tst1=')@\plg,
+	\naf rif#defeatedr(anomaly(ordinaryCC))@builtin,
+	writeln(ok)@\plg.
+
+%tst2 :- write('tst2=')@\plg,
+	rif#defeatedr(anomaly(?_c))@builtin,
+	\isnonvar(?_c),
+	writeln(?_c)@\plg.
+
+%tst3 :- write('tst3=')@\plg,
+	?_c = ordinaryCC,
+	\naf ((rif#instRule(anomaly(?_c), normalBehavior, ${replicatedDNA(?_c)@main}, [${starts(interPhase(?))@main}])@builtin,
+	status(normalBehavior,?,${replicatedDNA(?_c)@main})[howDefeated->?_]@AT)),
+	writeln(ok)@\plg.
+
+%tst4 :- write('tst4=')@\plg,
+	rif#instRule(anomaly(?_c), normalBehavior, ${replicatedDNA(?_c)@main}, [${starts(interPhase(?))@main}])@builtin \and status(normalBehavior,?,${replicatedDNA(?_c)@main})[howDefeated->?_]@AT,
+	\isnonvar(?_c),
+	writeln(?_c)@\plg.
+
+%pretest :- %tst1, %tst2, %tst3, %tst4.
+
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\prolog.

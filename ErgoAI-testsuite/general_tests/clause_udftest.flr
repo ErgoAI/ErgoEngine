@@ -1,0 +1,23 @@
+:- ignore_depchk{writeln(?)@\io}.
+
+X [| value -> 10 |]. 
+Y [| value -> 100 |]. 
+
+\udf valueOf(?a^^X) :=  ?result \if ?result \is ?a.value + 1. 
+
+\udf valueOf(?a^^Y) :=  ?result \if ?result \is ?a.value + 2. 
+
+tst1 :- clause{@!{?id[type -> udf]} ?h, ?b},
+        (?h+?b)[show->?hb]@\show,
+        writeln(test1=?id+?hb)@\io.
+tst2 :- clause{@!{?id[type -> udf]} (valueOf(?_a) := ?r), ?p},
+        (?r+?p)[show->?rp]@\show,
+        writeln(test2=?id+?rp)@\io.
+tst3 :- clause{@!{?id[type -> udf]} (valueOf(?_b^^X) := ?r), ?p},
+        (?r+?p)[show->?rp]@\show,
+        writeln(test3=?id+?rp)@\io.
+
+%pretest :- tst1, tst2, tst3.
+%test :- tell(temp)@\plg,
+	%pretest,
+	told@\plg.

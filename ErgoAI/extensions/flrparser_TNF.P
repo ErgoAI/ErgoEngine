@@ -1,0 +1,128 @@
+/* File:   extensions/flrparser_TNF.P  -- the Ergo head TNF hook
+**
+** Author(s): Michael Kifer
+**
+** Contact:   michael.kifer@coherentknowledge.com
+**
+** Copyright (C) Coherent Knowledge Systems, LLC, 2014-2018.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**      http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+**
+*/
+
+/*
+**  Tight Normal Form (TNF): Heads only
+**
+**      neg-and       ->  or-neg
+**      neg-or        ->  and-neg
+**      neg-exists    ->  forall-neg
+**      neg-forall    ->  exists-neg
+**      neg neg       ->  nothing: cancels out
+**
+**   The following are not implemented. Unclear if they make any difference
+**
+**      exists-or     ->  or-exists
+**      forall-and    ->  and-forall
+**
+**   Also: pushing quantifiers might cause errors in the compiler:
+**   forall(?X,?Y)^(p(?X),q(?Y)) --> forall(?X,?Y)^p(?X),forall(?X,?Y)^q(?Y)
+**   We could delete extra vars: forall(?X)^p(?X),forall(?Y)^q(?Y)
+**   but then we won't be able to issue errors in cases like this:
+**      forall(?X,?Y)^p(?X).
+**   Proper treatment requires a lot of extra work. Either to check free vars
+**   during the push (requiring an extra pass) or to enhance the data
+**   structures and keep free vars at every AND/OR node.
+**
+**   The following are also not implemented. Unclear if they make any difference
+**
+**      exists(X)-and -> and-exists(X)  if one of the conjuncts does not use X
+**      forall(X)-or  -> or-forall(X)   if one of the disjuncts does not use X
+**
+**
+**
+**    to_TNF_top(+Head,-TNF,-HasOmni,-Status)
+**    to_TNF(+Head,-TN,-HasOmni)
+**
+*/
+
+
+:- import has_compiler_persistentoption/1 from flrcompiler.
+
+%% for omnis, disjunction is ok
+%% except if the OmniFlag is NULL.
+%% This stricter error policy is used in clause{...}, refresh{...},
+%% insert{head|...}, delete{head|...}, etc.
+%% HasOmni is a Boolean 0/1. Indicates if the result of a push is a disjunction
+%%         We perform \/ on HasOmni's, so 0/1 is essential.
+to_TNF_top(Head,If,TNF,OmniFlag,Status) :-
+	!,
+#ifdef TNFDBG
+	DBGOUTLN('***TNF_IN '=OmniFlag+Head),
+#endif
+	to_TNF(Head,TNF,HasOmni),
+#ifdef TNFDBG
+	DBGOUTLN('***TNF_OUT'=OmniFlag+HasOmni+TNF),
+#endif
+	(HasOmni == 1, OmniFlag == NULL ->
+            parsing_error(If,NO_DISJUNCTION,Status)
+        ; HasOmni == 1,
+            %% The restriction on omniform is not applied in ErgoText:
+            %% Too much work to get it handle compiler_options and one can say
+            %% that whoever does ErgoText is expert enough.
+            \+ has_compiler_persistentoption(FL_OMNIFORM),
+            \+ has_context(CONTEXT_PARSER_NL_TEMPLATES),
+            \+ has_context(CONTEXT_PARSER_USING_NL_TEMPLATE)
+        ->
+            parsing_error(If,NO_OMNIFORM,Status)
+	; var(OmniFlag) -> OmniFlag = HasOmni, Status = NO_ERRORS
+	; Status = NO_ERRORS
+	).
+
+%% logical quantifiers also set the omni flag on
+to_TNF(Head,TNF,1) :-
+	is_fllogicquantifier(Head,Q,V,VarsCode,Form,Idx),
+	!,
+	to_TNF(Form,FormC,_),
+	is_fllogicquantifier(TNF,Q,V,VarsCode,FormC,Idx).
+propagate_neg(Goal,Idx,Result,1) :-
+	is_fllogicquantifier(Goal,Quant,Vars,VarsCode,Formula,Idx2),
+	!,
+	flneg_struct(Formula,Idx,NegF),
+	to_TNF(NegF,FC,_),
+	dual_quantifier(Quant,DualQuant),
+	flquantifier_struct(DualQuant,Vars,VarsCode,FC,Idx2,Result).
+
+%% check if any lits in insert{...}/delete{...} should be treated as rules
+%% called from parse_dbinsert/6, parse_dbdelete/6
+postprocess_db_literals([],[],_,_,[]) :- !.
+postprocess_db_literals([Lit|LitCodeL],[Flag|FlagL],RuleUpdateOp,DWS,OutLitList) :-
+	(Flag==0 -> flconjunct_list2list([Lit],RLit) %% just facts
+	; %% convert fact to rule by adding ":- true"
+	    %% Here we don't split head-conjuncts, since this will be done
+	    %% by the second stage omni transform
+	    trueconst_obj(TruePredObject),
+	    flobject_struct(TruePredObject,BodyCode),
+	    %%flatom_struct(FL_TRUE,NO_INDEX,BodyCode1),
+	    %%flplib_struct(BodyCode1,BodyCode),
+	    flora_get_module_from_spec(DWS,ModuleType,Module),
+	    flmodule_struct(ModuleType,BodyCode,Module,WSBodyCode),
+	    fldynrule_struct([Lit],WSBodyCode,[],RuleCode),
+	    %% add default workspace, if any
+	    flmodule_struct(FLORARULEWORKSPACE,RuleCode,Module,WSRuleCode),
+	    flatom_struct(RuleUpdateOp,NO_INDEX,RuleOpCode),
+	    flupdaterule_struct(RuleOpCode,[WSRuleCode],RLit1),
+	    RLit = [RLit1]
+	),
+	postprocess_db_literals(LitCodeL,FlagL,RuleUpdateOp,DWS,RLitL),
+	append(RLit,RLitL,OutLitList).
+

@@ -1,0 +1,41 @@
+
+?- Method[mustDefine(off,?_[b->?_]@main)]@\sys.
+
+
+%test1 :- write('test1: ')@\plg,
+	\if \naf a[b->c] \then writeln(yes)@\plg \else writeln(no)@\plg.
+%test2 :- write('test2: ')@\plg,
+	\if insert{a[b->c]} \then writeln(yes)@\plg \else writeln(no)@\plg.
+%test3 :- write('test3: ')@\plg,
+	// this should print no for reactive and passive tabling
+	\if \naf a[b->c] \then writeln('yes (INcorrect)')@\plg \else writeln('no (correct)')@\plg.
+%test4 :- write('test4: ')@\plg,
+	/*
+	  Note: if we don't delete a[b->c] below then BOTH \naf delete{a[b->c]}
+	        & \naf \naf delete{a[b->c]} will be false:
+		    \naf delete{a[b->c]}
+	        is false because delete{a[b->c]} is true, since a[b->c] is true
+	        at this point. However, since at this also deletes a[b->c],
+	        the next call to delete{a[b->c]} will be FALSE. Therefore
+	            \naf \naf delete{a[b->c]}
+	        will also be false. This means that NONE of the branches of
+		    if \naf delete{a[b->c]} \then ... \else ...
+	        will execute.
+	*/
+	delete{a[b->c]}, 
+	\if \naf delete{a[b->c]}
+        \then writeln(yes)@\plg \else writeln(no)@\plg.
+%test5 :- write('test5: ')@\plg,
+	\if \naf delete{a[b->c]}
+        \then writeln(yes)@\plg \else writeln(no)@\plg.
+
+
+%pretest :- %test1, %test2, %test3, %test4, %test5.
+
+%test :- tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	\abolishtables,
+	%pretest,
+	told@\plg.
