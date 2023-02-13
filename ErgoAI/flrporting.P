@@ -347,7 +347,11 @@ flora_user_floradir(Dir) :-
 	    %% something like $HOME/.xsb/flora-version
 	    flora_build_id(Build),
 	    url_encode(Build,Buildnumber),
-	    flora_concat_atoms([PlgUserAuxDir,S,FLENGINENAME,'-',ERGO_VERSION,'-',Buildnumber],Dir),
+            (Buildnumber=='' ->
+                flora_concat_atoms([PlgUserAuxDir,S,FLENGINENAME,'-',ERGO_VERSION],Dir)
+                ;
+                flora_concat_atoms([PlgUserAuxDir,S,FLENGINENAME,'-',ERGO_VERSION,'-',Buildnumber],Dir)
+            ),
 	    ( flora_file_op(exists,Dir) -> true
 	    ;
 		( flora_file_op(mkdir,Dir) -> true

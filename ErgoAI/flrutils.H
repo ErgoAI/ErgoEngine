@@ -67,7 +67,6 @@
 	flora_delete_from_list/3,
 	flora_set_banner_control/2,
         flora_get_user/1,
-	flora_running_as/1,
 	flora_running_under/1
    from flrporting.
 

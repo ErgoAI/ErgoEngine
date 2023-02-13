@@ -33,10 +33,8 @@
 \newcommand{\FLORA}{{\mbox{\smaller{\sc ${\cal F}${lora}\rm\emph{-2}}}}\xspace}
 \newcommand{\ERGO}{\mbox{\smaller{\ensuremath{\cal{E}}\smaller{{\sc{RGO}}}}}\xspace}
 \newcommand{\ERGOAI}{\mbox{\smaller{\ensuremath{\cal{E}}\smaller{{\sc{RGO}}}\ensuremath{\cal{AI}}}}\xspace}
-\newcommand{\ERGOLITE}{\mbox{\smaller{\ensuremath{\cal{E}}\smaller{{\sc{RGO}\ensuremath{^{Lite}}}}}}\xspace}
 %%\newcommand{\ERGO}{\ensuremath{\cal{E}\mbox{\smaller{\sc{RGO}}}}\xspace}
 %%\newcommand{\ERGO}{\ensuremath{\cal{E}\mbox{\smaller{\ensuremath{\cal{RGO}}}}}\xspace}
-%%\newcommand{\ERGOLITE}{\ensuremath{\cal{E}\mbox{\smaller{\sc{RGO}\ensuremath{^{Lite}}}}}\xspace}
 \newcommand{\FLSYSTEM}{\ERGO}
 \newcommand{\FLRCFILE}{\texttt{ERGO\_RC\_FILE}\xspace}
 \newcommand{\FLABORT}{ERGO\_ABORT}
@@ -52,9 +50,9 @@
 \newcommand{\FLBOOTSTRAP}{bootstrap\_ergo}
 \newcommand{\FLQUERYCMD}{ergo\_query}
 
-\newcommand{\FLORAMODE}{ergo-mode}
-\newcommand{\FLORAFILE}{ergo.elc}
-\newcommand{\FLORAFILEBASE}{ergo}
+\newcommand{\ERGOMODE}{ergo-mode}
+\newcommand{\ERGOFILE}{ergo.elc}
+\newcommand{\ERGOFILEBASE}{ergo}
 
 \newcommand{\ENGINENAME}{ergo}
 \newcommand{\ENGINENAMEALT}{ergo}
@@ -78,6 +76,7 @@
 \newenvironment{Prog}{\begin{tt}\begin{tabular}[c]{l}}{\end{tabular}\end{tt}}
 
 \newcommand{\comment}[1]{}
+\newcommand{\ignore}[1]{}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -253,16 +252,7 @@
 \setcounter{page}{1}
 
 
-\ifdef{\isfloraman}{
-\section{Introduction}\label{sec-intro}
-
-\ERGOLITE
-(also known as \FLSYSTEM)
-is a sophisticated object-based  knowledge representation and
-reasoning system. \ERGOLITE is an open source subset of its commercial
-cousin called \emph{\ERGO Reasoner},\footnote{
-  \url{http://coherentknowledge.com}
-}
+\comment{
 which contains many important extensions and enhancements to \FLORA,
 and is proprietary to Coherent Knowledge Systems.
 \FLSYSTEM is implemented as a set of run-time
@@ -277,7 +267,7 @@ management, integration of information, and others.
 \index{FLIP}
 \index{FLORID}
 %%
-The language of \ERGOLITE/\FLSYSTEM is a dialect of \fl with
+The language of \FLSYSTEM is a dialect of \fl with
 numerous extensions, which include a natural way to do meta-programming in
 the style of HiLog, logical updates in the style of Transaction
 Logic, and a form of \emph{defeasible reasoning} described in
@@ -298,11 +288,41 @@ important ways from \FLORID, from the original version of \fl, as described
 in \cite{KLW95}, and from an earlier implementation, \FLORAone. These
 syntax changes made the system more user-friendly and practical.
 
-\ERGOLITE/\FLSYSTEM is available at \url{http://flora.sourceforge.net}.
+\FLSYSTEM is available at \url{http://flora.sourceforge.net}.
 This manual will mostly refer to the system under its traditional name,
 \FLSYSTEM.
 }
-{\input{./extensions/intro}}
+
+\section{Introduction}\label{sec-intro}
+
+\ERGOAI is a software suite that contains \ERGOAI Reasoner
+(also called \ERGO reasoner or just \ERGO),
+\ERGOAI Studio, and various packages that connect the reasoner to
+external software (e.g., databases), languages (Java, Python),
+or formats (like JSON, RDF, XML, etc.).
+This manual describes the \ERGO reasoner.
+Manuals and tutorials describing all parts of \ERGOAI
+can be found at \url{http://coherentknowledge.com/ergo-documentation/}.
+
+
+The Coherent \FLSYSTEM reasoner
+is a sophisticated object-based  knowledge representation and
+reasoning platform. It is based on decades of research into logic rules
+systems and it presents a unified language of \fl
+\cite{KLW95}, HiLog \cite{hilog-jlp}, Transaction Logic
+\cite{trans-chapter-98,trans-tcs94}, and defeasible reasoning
+\cite{lpda-iclp-09}.
+
+\FLSYSTEM is based on the open-source \FLORA inference system,\footnote{
+  \url{http://flora.sourceforge.net}
+}
+%% 
+but is much more scalable and extends \FLORA in numerous ways that
+are crucial for enterprise use.
+\ERGO used to be proprietary to Coherent Knowledge
+Systems but was open-sourced in Spring 2023 under the Apache 2 license
+and now it completely replaces \FLORA,
+while the latter is no longer maintained.
 
 
 \ifdef{\isfloraman}{
@@ -343,7 +363,8 @@ Thus, there is no need to download XSB separately.
 
 
 \paragraph{Unix-based systems (Linux, Mac, BSD, etc.).}
-The Unix-style download is the file \texttt{flora2.run}. 
+The Unix-style download is the file \texttt{ergoAI_X.Y.run},
+where \texttt{X.Y} is a version number. 
 This is a self-extracting archive. Put it in
 a suitable installation directory, \textbf{DIR} and then execute
 %% 
@@ -351,15 +372,17 @@ a suitable installation directory, \textbf{DIR} and then execute
   \tt
   cd \textbf{DIR}\\
   \tt
-   sh ./flora2.run
+   sh ./ergoAI_X.Y.run
 \end{quote}
 %% 
-This will create the folder \texttt{Flora-2} with
-two subfolders: \texttt{flora2} and \texttt{XSB}.
-The script to run \FLSYSTEM is \texttt{\textbf{DIR}/Flora-2/\ENGINENAMEALT/\ENGINERUN}.  
+This will create the folder \texttt{Coherent} with
+subfolder \texttt{ERGOAI_X.Y}.
+The script to run \FLSYSTEM is\\
+\texttt{\textbf{DIR}/Coherent/ERGOAI_X.Y/ErgoAI/\ENGINERUN}.  
+Also, icons to run \ERGO will appear on the desktop.
 
 \paragraph{Windows.}
-The Windows installer is called \texttt{flora2.exe}.
+The Windows installer is called \texttt{ergoAI_X.Y.exe}.
 Put it on your desktop and double-click on it. You will be asked a series
 of questions, as usual with Windows installers. In the end, both XSB and 
 \FLSYSTEM will be installed with the appropriate shortcuts placed on the
@@ -368,9 +391,9 @@ desktop and in the Start menu.
 Note: The machine must be 64 bit and the OS must be 64 bit capable.
 
 \paragraph{Starting \FLSYSTEM.}
-The command to run \FLSYSTEM is \texttt{./\ENGINERUN} (Linux/Mac/BSD/etc.)
+The command to run \FLSYSTEM is \texttt{./\ENGINERUN} (Linux/Mac/etc.)
 or \texttt{\ENGINERUN.bat} (Windows). These scripts are located in the
-\texttt{flora2} subfolder of the installation folder. 
+\texttt{Coherent/ERGOAI_X.Y/ErgoAI} subfolder of the installation folder. 
 In most cases, the installer will place a \FLSYSTEM icon on your desktop,
 and you can run  the software by double-clicking on that icon.
 
@@ -380,7 +403,7 @@ This is normal and is due to the compilation of some libraries. The delay
 will disappear after a few uses.
 
 
-\subsection{Installing \FLSYSTEM from SVN}
+\subsection{Installing \FLSYSTEM from Git}
 
 This procedure is significantly more complex than the one for installing
 the official \FLSYSTEM releases described above. It is suitable only for the
@@ -403,7 +426,9 @@ make sure that the appropriate boxes are checked. Otherwise, the installer
 will install only the basic system and the subsequent installation of
 \FLSYSTEM might fail.
 
-Compile XSB, as explained in XSB's manual, Section 2.2.2.
+Compile XSB \textbf{as a 64-bit application}, as explained in XSB's manual,
+Section ``Compiling XSB for Windows''
+(32 bit applications might work, but that version of \ERGO is unsupported).
 It is highly recommended that you compile XSB as a 64-bit application (if
 your hardware is 64 bit).
 Note that XSB \emph{cannot} be compiled in a directory whose path contains
@@ -411,15 +436,13 @@ spaces.  However, once compiled, XSB can be moved to another directory,
 which may contain spaces. No recompilation is necessary after the move.
 
 \sloppy
-Next, check out \FLSYSTEM from its SVN repository\footnote{
-  To download, use:
-\texttt{svn~checkout~svn://svn.code.sf.net/p/flora/src/trunk flora-src}
+Next, clone \FLSYSTEM from its git repository\footnote{
+\texttt{???}
 }
 %%
 into a
 separate directory \emph{outside} the XSB installation tree.  The \FLSYSTEM
-sources will be placed in the {\tt flora2} subdirectory of the main
-development branch.
+sources will be placed in the {\tt ErgoAI} subdirectory.
 
 Make sure that the typical development software is installed on your
 machine. On Unix-based systems, this includes the GCC compiler, Make, and
@@ -431,16 +454,16 @@ Configure \FLSYSTEM as follows:
 %%
 \begin{quote}
   \tt
-   cd flora2\\
+   cd ErgoAI\\
    \tt
    make clean\\
    \tt
-   ./makeflora all \textnormal{\emph{path-to-}}/XSB/bin/xsb
+   ./makeergo all \textnormal{\emph{path-to-}}/XSB/bin/xsb
 \end{quote}
 %%
 If the XSB executable is on your program search {\tt PATH}, then instead of the
 third command above you can simply type
-\texttt{./makeflora}. 
+\texttt{./makeergo}. 
 
 \paragraph{Windows.}
 You need Microsoft's Visual Studio with the C++ component installed.
@@ -461,20 +484,20 @@ Then configure \FLSYSTEM as follows:
 %%
 \begin{quote}
   \tt
-   cd flora2\\
+   cd ErgoAI\\
    \tt
-   makeflora clean\\
+   makeergo clean\\
    \tt
-   makeflora \textnormal{\emph{path-to-}}{\bs}XSB{\bs}bin{\bs}xsb64.bat
+   makeergo \textnormal{\emph{path-to-}}{\bs}XSB{\bs}bin{\bs}xsb64.bat
 \end{quote}
 %%
-Here \texttt{flora2}  is the root directory 
-for \FLSYSTEM in your SVN checkout; it should have the form
-\emph{something}$\backslash${\tt flora2}. The argument
+Here \texttt{ErgoAI}  is the root directory 
+for \FLSYSTEM in your git repository; it should have the form
+\emph{something}$\backslash${\tt ErgoAI}. The argument
 \textnormal{\emph{path-for-}}\texttt{{\bs}XSB{\bs}bin{\bs}xsb64.bat}
 must be the full path name for the XSB invocation script.
 Note, that unlike Linux/Mac, there should be no ``all'' keyword
-in the Windows version of the \texttt{makeflora} command.
+in the Windows version of the \texttt{makeergo} command.
 
 If you are a developer and wish to recompile the C part of \FLSYSTEM
 (say, because you changed it to fix a bug or added a feature)
@@ -482,15 +505,15 @@ then you can type
 %%
 \begin{quote}
 \tt
-   makeflora -c64 \textnormal{\emph{path-for-}}{\bs}XSB{\bs}bin{\bs}xsb64.bat
+   makeergo -c64 \textnormal{\emph{path-for-}}{\bs}XSB{\bs}bin{\bs}xsb64.bat
 \end{quote}
 %%
 For this, the C++ component of Visual Studio must be installed.
 Normally, however, there is no need to perform this step.
-For ``\texttt{makeflora -c64}'' to work,  
+For ``\texttt{makeergo -c64}'' to work,  
 it may be necessary to locate the file
 \texttt{vcvars64.bat} --- and execute that batch file
-in the command window where \texttt{makeflora -c64} is to be run.
+in the command window where \texttt{makeergo -c64} is to be run.
 
 \textbf{Note}: \FLSYSTEM does not work with Cygwin 
 due to a problem with XSB calling external C procedures under Cygwin.
@@ -515,13 +538,13 @@ The easiest way to get a feel of the system
 is to start the \FLSYSTEM shell and enter some queries interactively:
 %%
 \begin{alltt}
- .../\ENGINENAMEALT/\ENGINERUN  
+ .../ErgoAI/\ENGINERUN  
 \end{alltt}
 %%
 Here ``...'' stands for the directory in which \FLSYSTEM is installed. For instance,
 %%
 \begin{alltt}
- ~/ENGINEDIR/\ENGINENAMEALT/\ENGINERUN  
+ ~/ENGINEDIR/ErgoAI/\ENGINERUN  
 \end{alltt}
 %%
 (We will keep using \texttt{ENGINEDIR} to denote the installation
@@ -541,7 +564,7 @@ If you are using the \FLSYSTEM shell frequently, it pays to define an alias, say
 (in Bash):
 %%
 \begin{alltt}
- alias \ENGINENAME='~/ENGINEDIR/\ENGINENAMEALT/\ENGINERUN'
+ alias \ENGINENAME='~/ENGINEDIR/ErgoAI/\ENGINERUN'
 \end{alltt}
 %%
 \FLSYSTEM can then be invoked directly from the shell prompt by typing
@@ -562,7 +585,7 @@ initialization. Then the usual \FLSYSTEM shell prompt is displayed.
 \FLSYSTEM comes with a number of demos that live in
 %%
 \begin{alltt}
- .../\ENGINENAMEALT/demos/
+ .../ErgoAI/demos/
 \end{alltt}
 %%
 The demos can be run with the command
@@ -601,7 +624,7 @@ For instance, if
 then the message ``Welcome!'' will be printed and the fact \texttt{foo(bar)}
 will be inserted into the knowledge base.
 
-There is one restrictions on the initialization file: a comment cannot be the
+There is one restriction on the initialization file: a comment cannot be the
 last statement.
 Also note that the command-line option \texttt{-e} mentioned earlier is
 executed \emph{after} all the initialization file commands are processed. 
@@ -710,6 +733,8 @@ For instance,
 will compile (if necessary) and load the \FLSYSTEM files
 {\tt test1.\ergoext} and
 {\tt test2.\ergoext}
+(or {\tt test1.\flrext} and
+{\tt test2.\flrext})
 found at the Web site {\tt http://example.com/}.   
 
 If there is neither \texttt{\textit{myfile}.\ergoext} nor
@@ -723,9 +748,21 @@ program must use the appropriate module attribution --- see
 Section~\ref{sec:flora-modules} for the details about the module system in
 \FLSYSTEM.
 
-\ifdef{\isfloraman}{}
-{
-    \input{./extensions/file-ext.tex}
+%%For backward compatibility with \FLORA,
+%%\FLSYSTEM will also try to compile and load files with the \texttt{.flr}
+%%extension, such as \texttt{program.flr}.
+\ignore{
+However, if there are both
+\texttt{program.ergo} and \texttt{program.flr} then \texttt{program.flr}
+is ignored unless the \texttt{.flr} extension is \emph{explicitly}
+mentioned. For instance, if the command \texttt{load\{'program.flr'\}}
+is executed, then \texttt{program.flr} will be taken even if
+\texttt{program.ergo} exists. On the other hand,
+\texttt{load\{program\}} (without an explicit extension)
+will try to load \texttt{program.ergo}
+first. If this file does not exist, \texttt{program.flr} will be tried.
+If that file is not found, \texttt{program.P} will be attempted followed by
+\texttt{program.xwam}.
 }
 
 
@@ -864,16 +901,18 @@ the current version of \FLSYSTEM and the underlying OS. For instance,
 %% 
 \begin{alltt}
  \prompt system\{system=?X\}.
- ?X = Ergo
+ ?X = ErgoAI
  \prompt system\{version=?X\}.
- ?X = '1.3'
+ ?X = '3.0'
  \prompt system\{info=?X\}.
- ?X = 'Ergo 1.3 (Zeno; build: aa9225b, 2018-01-27) on x86_64-unknown-linux-gnu'
+ ?X = 'ErgoAI 3.0 (Philo; build: , 2022-12-11) on x86_64-pc-linux-gnu'
  \prompt system\{cwd=?X\}.     // cwd: current working directory
  ?X = '/home/foo/test'
- // auxdir: hidden files dir; may be needed for some installations (e.g. Tomcat)
+ \prompt system\{installdir=?X\}.
+ ?X = '/home/foo/ERGOAI/ErgoEngine/ErgoAI'
+ // auxdir: .xsb/ergo-version files dir; may be needed for some installations (e.g. Tomcat)
  \prompt system\{auxdir=?X\}.
- ?X = '/home/foo/.xsb/flora2-1.3-ad77352'
+ ?X = '/home/foo/.xsb/ergo-3.0'
 \end{alltt}
 %% 
 To see all the available system information and all the valid property
@@ -953,8 +992,6 @@ If none of these tries are successful, an error is reported.
       \textnormal{\emph{module}}}.
     The files can optionally be prefixed with a ``+'', which means that the
     file should be added to the module rather than loaded into it.
-\ifdef{\isfloraman}{}
-{
 \item {\tt setmonitor\{\textnormal{\emph{Secs}},\textnormal{\emph{Type}}\}}:
   Start monitoring query execution. Statistics will be printed to the
   standard output every \textit{Secs} seconds. \textit{Type} is the type of
@@ -962,7 +999,6 @@ If none of these tries are successful, an error is reported.
   The \texttt{performance} monitor shows time, memory, and other
   key statistics. The \texttt{extended} monitor shows additional
   statistics of interest.
-  }
 
 \item \texttt{\bs{}cwd(}\emph{variable}\texttt{)} and
   \texttt{\bs{}cd(}\emph{directory}\texttt{)}:
@@ -1051,98 +1087,9 @@ prompt:
 \end{quote}
 
  
-\ifdef{\isfloraman}{
-\section{\fl and \FLSYSTEM by Example}\label{sec-byexample}
-
-In the future, this section will contain a number of small
-introductory examples illustrating the use of \fl and \FLSYSTEM. Meanwhile, the
-reader can read the \FLSYSTEM tutorial
-available on the \FLSYSTEM Web site: 
-\url{http://flora.sourceforge.net/tutorial.html}. 
-}
-{
-  \input{./extensions/byexample}
-}
+\input{./extensions/byexample}
 
 
-\ifdef{\isfloraman}{
-\section{Differences Between \FLSYSTEM and the F-logic Syntax}
-
-\FLSYSTEM was developed years after the publication of the initial
-works on F-logic \cite{KLW95} and so it benefits from the experience gained
-in the use and implementation of the logic. This experience suggested a
-number of changes to the syntax (and to some degree also to the
-semantics). The main differences are enumerated below.
-
-%%
-\begin{enumerate}
-\item \FLSYSTEM uses ``,'' to separate methods in F-logic frame formulas. The version of
-  the logic in \cite{KLW95} used ``;''. In \FLSYSTEM, ``;'' represents
-  disjunction instead. It is also possible to use ``\bs{}and'' instead of ``,''
-  and ``\bs{}or'' instead of ``;''.
-\item \FLSYSTEM does not use the @-sign to separate method names from their
-  arguments. With HiLog extensions the ``@'' sign is redundant.
-\item  {\tt p::p} is not a tautology in \FLSYSTEM, i.e., ``::'' is not
-  reflexive. This is because our experience showed that the non-reflexive
-  use of ``::'' is a more common idiom in knowledge representation.
-\item In \cite{KLW95}, types are always inheritable, but values are not.
-  In \FLSYSTEM, information about an object
-  is strictly separated into information about the object proper
-  and information about its superclasses. The latter information is
-  \emph{inherited} by the objects. 
-  The original F-logic in
-  \cite{KLW95} used four types of arrows:
-  \texttt{->}, \texttt{->{}>},   {\tt =>} (and {\tt =>{}>}
-  because it distinguished
-  between functional and set-valued methods), and both were inheritable.
-  \FLSYSTEM uses only two types of arrows: \texttt{->} for values and
-  \texttt{=>} for types. However, there is now a new type of a formula that
-  employs these arrows: \texttt{obj[|meth->val|]}  and
-  \texttt{obj[|meth=>type|]}. Here, \texttt{obj} is considered as a class
-  and \texttt{obj[|meth->val|]} specifies the default value of the method
-  \texttt{meth}, which is inherited by the subclasses and
-  members of \texttt{obj}, while \texttt{obj[|meth=>type|]} specifies
-  the type of \texttt{meth}, which is also inherited by the subclasses and
-  members of the class \texttt{obj}.  
-
-  The semantics of this new type of formulas can be
-  characterized by the following logical entailments ($\phi \models \psi$
-  means $\phi$ logically entails $\psi$):
-  %%
-  \begin{quote}
-    {\tt X[|M => T|], Y::X $\models$ Y[|M => T|]}\\
-    {\tt X[|M => T|], Y:X $\models$ Y[M => T]}
-  \end{quote}
-  %%
-\item Instead of {\tt class[method => \{\}]}
-  one should use {\tt class[method => ()]}.
-\item Equality (the {\tt :=:} predicate) is implemented only partially in
-  \FLSYSTEM. The main limitation is that the congruence axiom for equality
-  (``substitution by equals'') works only at the top level and the first
-  level of nesting.  For deeper levels of nesting, substitution by equals
-  has not been implemented. This is discussed in more detail in
-  Section~\ref{sec-eqmaintain}.
-\item Behavioral inheritance has a different (and better) semantics in
-  \FLSYSTEM compared to \cite{KLW95}.
-  This is discussed in Section~\ref{sec-inheritance}.
-\item \FLSYSTEM also has many extensions compared to F-logic. First, it
-  supports HiLog \cite{hilog-jlp,hilog-icdt-95} and Transaction Logic
-  \cite{trans-iclp93,trans-tcs94,trans-chapter-98}.
-  Second, it supports a form of defeasible reasoning known as LPDA (logic
-  programs with argumentation theories) \cite{lpda-iclp-09}. Third,
-  \FLSYSTEM has many syntactic extensions, including full first-order
-  formulas that can appear in the rule bodies, many useful builtins, set
-  notation, etc.
-\ifundef{\isfloraman}{
-\item Proprietary \FLSYSTEM-specific extensions include arbitrary
-  first-order formulas in the rule head, scalability
-  improvements, OWL/SPARQL connectivity, JSON interface, the integrated
-  development environment (Studio), and more.
-}{}
-\end{enumerate}
-%%
-}
-{}
 
 \section{Main Syntactic Elements of \FLSYSTEM}
 
@@ -1498,12 +1445,9 @@ if-then-else).
 
   \noindent
   {\bf Note}: \FLSYSTEM does not automatically enforce type constraints.
-  \ifdef{\isfloraman}{}
-  {
     However, one can \emph{request} that
     an integrity constraint is to be maintained automatically, as described
     in Section~\ref{sec-kb-constraints}.
-  }
   Also, run-time type checking is possible---see Section~\ref{sec-typechecking}.
   \hfill$\Box$
 
@@ -1713,10 +1657,7 @@ p(?X), \neg ?Y[foo->bar(?X)] :-
   Also, compared to \FLORA,
   \ERGO supports  much richer syntax in the rule \emph{heads} as well,
   including disjunction and quantifiers.
-  \ifdef{\isfloraman}{}
-  {
     See Section~\ref{sec-omniform} for details.
-  }
 
   As usual in logic languages, a single rule 
   with a disjunction in the body
@@ -2284,12 +2225,9 @@ arithmetic operators $+$, $-$, etc.
  \texttt{$\backslash$+} & Prolog-style negation & not applicable & unary \\ \hline
  \texttt{$\sim$} & semantic unification & left & binary \\ \cline{1-4}
  \texttt{$!\sim$} or \texttt{$\backslash\sim$} & semantic disunification & left & binary \\ \hline
-\ifdef{\isfloraman}{}
-{
  \texttt{$\mid\mid$} & string/term concatenation & right & binary \\ \hline
 \tt ++~ -\,-~ \&\& & list append/set union/difference/intersection & right & binary \\ \cline{1-4}
 \hline
-}
 \end{tabular}
 }
 \caption{Operators in increasing precedence order}
@@ -2334,11 +2272,7 @@ Similarly, the whitespace around ``{\tt +}'', ``{\tt -}'', and ``{\tt *}''
 are also needed in these examples to avoid {\tt *-} and {\tt +--} being
 interpreted as distinct tokens.
 
-\ifdef{\isfloraman}{}
-{
-  \input{./extensions/ergo-is-extension}
-}
-
+\input{./extensions/ergo-is-extension}
 
 In addition to the operators, the builtin function, and constants
 listed in Table~\ref{tab:arith-funcs}
@@ -2349,12 +2283,7 @@ can occur in arithmetic expressions, i.e., on the right side of
 \noindent
 Note: the expression on the right side of \texttt{\bs{}is/2} must not
 contain any variables at the time the \texttt{\bs{}is/2} predicate is
-\ifdef{\isfloraman}{
-  evaluated.
-}
-{
-  evaluated (except in case of the $\mid\mid$ operator illustrated above).
-}
+evaluated (except in case of the $\mid\mid$ operator illustrated above).
 Otherwise, an error is issued. If you want to solve equations and
 constraints (e.g., find $?X$ such that $5 = ?X+2$), \texttt{\bs{}is/2} is a wrong predicate to do so: see
 Section~\ref{sec-clp} for the proper way to do this.
@@ -2386,8 +2315,6 @@ log & 1 & logarithm base E \\
 log10 & 1 & logarithm base 10 \\
 $\wedge$, $\vee$ & 2 & bit-wise AND and bit-wise OR \\
 \bs{}e, \bs{}pi & 0 & the E and PI numbers\\
-\ifdef{\isfloraman}{}
-{
   min,max,sum,avg& 1 & take a list of numbers; return min, max,
   sum, and average
   \\
@@ -2404,7 +2331,6 @@ $\wedge$, $\vee$ & 2 & bit-wise AND and bit-wise OR \\
   length & 1& if the argument is a list, an \FLSYSTEM symbol, string, or IRI,
   return the length
   \\
-}
 \hline
 \end{tabular}
 }
@@ -2428,11 +2354,8 @@ recognized both in \texttt{\bs{}is/2} expressions and inside constraints
 \texttt{sum}, \texttt{min}, \texttt{max}, \texttt{avg}, \texttt{last},
 \texttt{count}, \texttt{delete}, \texttt{reverse},  
 and \texttt{nth}.
-\ifdef{\isfloraman}{
-}
-{
+
 \input{./extensions/inline-arith}
-}
 
 
 \subsection{Quasi-constants and Quasi-variables}\label{sec-quasi-constants}
@@ -3777,12 +3700,8 @@ bound to \texttt{[cde,?Y,pqr]} and \texttt{?X} to 33.
 \textbf{Set} (along with maps, dictionaries) is a data structure that is
 supported in \ERGO only. It provides for efficient ways to store and search
 unordered collections of data.
-\ifdef{\isfloraman}{
-}
-{
-  Details of these data structures can be found in
-  Section~\ref{sec-data-types-set}.
-}
+Details of these data structures can be found in
+Section~\ref{sec-data-types-set}.
 
 \index{range}
 \noindent
@@ -4735,10 +4654,10 @@ twice in the various commands in the rest of this section.
 \noindent
 {\bf Note:} You must let Prolog know the location of your installation of \FLSYSTEM.
 This is done by executing the prolog instruction 
-{\tt asserta(library\_directory(path-to-flora))}. For instance
+{\tt asserta(library\_directory(path-to-ergo))}. For instance
 %%
 \begin{alltt}
- ?- add_lib_dir(a('/home/me/\ENGINENAMEALT')).  
+ ?- add_lib_dir(a('/home/me/Coherent/ERGOAI_X.Y/ErgoAI')).  
 \end{alltt}
 %%
 before calling any of the \FLSYSTEM modules. Observe that {\tt asserta} and
@@ -4780,17 +4699,17 @@ queries (again,  {\tt \FLBOOTSTRAP} must be executed in advance):
 \begin{quote}
  \tt
  :- import '\bs{}\bs{}load'/1, '\bs{}\bs{}compile'/1 from flora2.\\
- ?- '\bs{}\bs{}load'({\it flora-file} >{}> {\it flora-module}).\\
- ?- '\bs{}\bs{}load'({\it flora-file}).\\
- ?- '\bs{}\bs{}compile'({\it flora-file} >{}> {\it flora-module}).\\
- ?- '\bs{}\bs{}compile'({\it flora-file}).
+ ?- '\bs{}\bs{}load'({\it ergo-file} >{}> {\it ergo-module}).\\
+ ?- '\bs{}\bs{}load'({\it ergo-file}).\\
+ ?- '\bs{}\bs{}compile'({\it ergo-file} >{}> {\it ergo-module}).\\
+ ?- '\bs{}\bs{}compile'({\it ergo-file}).
 \end{quote}
 %%
-The first query loads the file {\it flora-file\/} into the given user
+The first query loads the file {\it ergo-file\/} into the given user
 module and compiles it, if necessary. The second query loads the knowledge
 base
 into the default module {\tt main}. The last two queries compile the file
-for loading into the module {\it flora-module} and {\tt main},
+for loading into the module {\it ergo-module} and {\tt main},
 respectively, but do not load it.
 
 Finally, a Prolog program can check if a certain \FLSYSTEM user module has been
@@ -4800,7 +4719,7 @@ loaded using the following call:
 \begin{quote}
  \tt
  :- import '\bs{}\bs{}isloaded'/1 from flora2.\\
- ?- '\bs{}\bs{}isloaded'({\it flora-module-name}).
+ ?- '\bs{}\bs{}isloaded'({\it ergo-module-name}).
 \end{quote}
 %%
 Note that in Prolog the {\tt '\bs{}\bs{}isloaded'} predicate
@@ -4873,7 +4792,7 @@ the following steps are necessary:
     the XSB search path:
 %%
 \begin{alltt}
- ?- add_lib_dir(a('/home/myHomeDir/\ENGINENAMEALT')).  
+ ?- add_lib_dir(a('/home/me/Coherent/ERGOAI_X.Y/ErgoAI')).  
 \end{alltt}
 %%
   \item The query
@@ -4892,7 +4811,7 @@ queries a \FLSYSTEM file, flrtest.\ergoext:
 %%
 \begin{alltt}
 :- import \FLBOOTSTRAP/0 from flora2.
-?- add_lib_dir(a('/home/myHomeDir/\ENGINENAMEALT')),
+?- add_lib_dir(a('/home/me/Coherent/ERGOAI_X.Y/ErgoAI')).  
    [flora2],
    \FLBOOTSTRAP. 
 :- import \FLQUERYCMD/5 from flora2.
@@ -5326,11 +5245,7 @@ The \FLSYSTEM package {\tt persistentmodules}  allows one to make
 the \emph{Guide to \FLSYSTEM Packages}.
 
 
-\ifdef{\isfloraman}{
-}
-{
-    \input{./extensions/fastload.tex}
-}
+\input{./extensions/fastload.tex}
 
 
 \section{On Relative File Names and Current Directories}
@@ -6570,11 +6485,6 @@ Section~\ref{sec-defeasible}.
 
 The explicit negation connective, {\tt \RULELOGNEG}, can be applied to
 conjunctions or disjunctions of literals.
-\ifdef{\isfloraman}{
-However, {\tt \RULELOGNEG p,q} is not allowed in the
-rule head, since this is tantamount to a disjunction, {\tt \RULELOGNEG p \bs{}or \RULELOGNEG q}.  
-}
-{}
 In a rule body, the idioms {\tt \RULELOGNEG \RULELOGNAF p} and {\tt \RULELOGNEG \PLGNAF p} are
 illegal, but {\tt \RULELOGNAF \RULELOGNEG p} and {\tt \PLGNAF \RULELOGNEG p} are legal and should be
 informally understood as statements that {\tt p} is not known to be false. 
@@ -6902,12 +6812,9 @@ line of the example \emph{derives} the fact \texttt{w(2)}.
 It is important
 to understand that, in contrast, neither \texttt{p(?Y) \rnafarr q(?Y)} nor
 \texttt{p(?Y) \rnegarr q(?Y)}  derive anything.
-\ifdef{\isfloraman}{}
-{
-  In \ERGO, \texttt{p(?Y) \rnegarr q(?Y)} may also occur in rule heads,
-  in which case it will take part in derivation of new facts. This is
-  discussed in Section~\ref{sec-omniform}.
-}
+However, \texttt{p(?Y) \rnegarr q(?Y)} may also occur in rule heads,
+in which case it will take part in derivation of new facts. This is
+discussed in Section~\ref{sec-omniform}.
 
 \subsection{Unsafe Negation} \label{sec-unsafe-negation}
 
@@ -7009,12 +6916,7 @@ occur in the first argument of \texttt{q(...,...)}.
 When such determination is not easy to made automatically, user's help
 with query reformulation could make a difference, as in the above examples.
 
-
-\ifdef{\isfloraman}{}
-{
-    \input{./extensions/omniform.tex}
-}
-
+\input{./extensions/omniform.tex}
 
 
 \section{Inheritance of Default Properties and Types}\label{sec-inheritance}
@@ -7192,16 +7094,9 @@ is because, as we said earlier, \texttt{Spanish} and \texttt{Gaelic} are
 known to be in class \texttt{language}, but it is impossible to derive
 \texttt{abracadabra:language} given our knowledge
 base.
-\ifdef{\isfloraman}{
-Section~\ref{sec-typechecking} explains how type constraints can be
-checked and \ERGO has also means of automatic enforcement of such
-constraints.
-}
-{
 Section~\ref{sec-typechecking} explains how type constraints can be
 checked and Section~\ref{sec-kb-constraints} also explains the mechanism for
 automatic enforcement of such constraints.
-}
 
 Like defaults,
 type information is inheritable. For instance, suppose the knowledge base
@@ -8711,28 +8606,18 @@ For instance,
 %% 
 will return only one answer (probably \texttt{?X=1}).
 
-The \texttt{once\{UnitaryGoal\}} primitive
+The primitive \texttt{once\{UnitaryGoal\}}
 will always return the same answer
 even if  \texttt{UnitaryGoal} has multiple answers.
-\ifdef{\isfloraman}{
-  \ERGO also has a \texttt{random\{UnitaryGoal\}} primitive, which would
-  return randomly chosen answers (each time different) instead.
-}
-{
 \index{random\{...\} primitive}
 \index{primitive random\{...\}}
 \index{random answers}
-  The \texttt{random\{UnitaryGoal\}}
-  primitive will instead return randomly chosen answers of \texttt{UnitaryGoal}. 
-  Other uses of the \texttt{random\{...\}} primitive are described in
-  Section~\ref{sec-random-num}. 
-}
+In contrast, the primitive \texttt{random\{UnitaryGoal\}}
+will return randomly chosen answers for \texttt{UnitaryGoal}. 
+Other uses of the \texttt{random\{...\}} primitive are described in
+Section~\ref{sec-random-num}. 
 
-
-\ifdef{\isfloraman}{}
-{
-    \input{./extensions/peek.tex}
-}
+\input{./extensions/peek.tex}
 
 \subsection{Operational Semantics of \FLSYSTEM}\label{sec-flora-operational}
 
@@ -9108,12 +8993,9 @@ likely occur at runtime:
 ++Error[\FLSYSTEM{}]> non-transactional head-literal foo(...) := ?A depends on an update
 \end{alltt}
 %% 
-\ifdef{\isfloraman}{}
-{
-Stealth updates (Section~\ref{sec-stealth-updates})
-\emph{are} allowed in UDF definitions (in
-$\ERGO$ only).
-Example:
+However,
+stealth updates (Section~\ref{sec-stealth-updates})
+\emph{are} allowed in UDF definitions. For example,
 %% 
 {\tt
 \begin{quote}
@@ -9133,7 +9015,6 @@ Example:
 \end{quote}
   }
 %% 
-}
 
 
 \paragraph{Advanced examples.}
@@ -10365,14 +10246,11 @@ reactive tabling.
 \ERGO does allow such dependency by providing
 the special feature of ``stealth mode'' updates.
 
-\ifdef{\isfloraman}{}
-{
-  \index{stealth update}
-  \index{update!stealth}
-  %%
-  See the \texttt{stealth\{...\}} primitive described in
-  Section~\ref{sec-stealth-updates}. 
-}
+\index{stealth update}
+\index{update!stealth}
+%% 
+See the \texttt{stealth\{...\}} primitive described in
+Section~\ref{sec-stealth-updates}. 
 
 
 \label{page-histogram}
@@ -10525,10 +10403,7 @@ Examples:
 %% 
 
 
-\ifdef{\isfloraman}{}
-{
-    \input{./extensions/stealth-updates.tex}
-}
+\input{./extensions/stealth-updates.tex}
 
 
 \subsection{Counter Support}
@@ -10823,23 +10698,21 @@ only the dynamic part of p(?X), instead of all the rules for {\tt p/1}.
 \section{Querying the Rule Base}
 \label{sec:clause}
 
-\ifdef{\isfloraman}{}{
-  Rule bases in \ERGO can be queried in two ways. For basic
-  querying, \ERGO provides the \texttt{clause\{...\}} primitive, which is
-  severely limited: to query rules 
-  using rule heads the user must know the exact structure of thees rule heads
-  after the omnification transformation (which is not always obvious---see
-  Section~\ref{sec-omniform}); to query via the subformulas in the rule
-  body, the user must know the structure of the body or to write programs
-  for parsing rule bodies, which is fairly complicated.
-  To simplify this task, \ERGO maintains the structural database of the
-  rules, which provides flexible interface for querying the rules.
+Rule bases in \ERGO can be queried in two ways. For basic
+querying, \ERGO provides the \texttt{clause\{...\}} primitive, which is
+severely limited: to query rules 
+using rule heads the user must know the exact structure of thees rule heads
+after the omnification transformation (which is not always obvious---see
+Section~\ref{sec-omniform}); to query via the subformulas in the rule
+body, the user must know the structure of the body or to write programs
+for parsing rule bodies, which is fairly complicated.
+To simplify this task, \ERGO maintains the structural database of the
+rules, which provides flexible interface for querying the rules.
 
-  \subsection{Basic Querying of Rules via \texttt{clause\{...\}}} 
-}
+\subsection{Basic Querying of Rules via \texttt{clause\{...\}}}
 
 The rule base can be queried using the primitive {\tt clause}.  The
-  syntax of {\tt clause} is as follows:
+syntax of {\tt clause} is as follows:
 
 \index{clause\{...\} primitive}
 \index{primitive!clause\{...\}}
@@ -11010,10 +10883,7 @@ No
 %% 
 
 
-\ifdef{\isfloraman}{}
-{
-    \input{./extensions/struct-db.tex}
-}
+\input{./extensions/struct-db.tex}
 
 
 
@@ -12135,8 +12005,6 @@ However, the user must explicitly tell \FLSYSTEM which view
   See 
 the \emph{Guide to \FLSYSTEM Packages}.
 
-\ifdef{\isfloraman}{}
-{
 \section{Random Numbers} \label{sec-random-num}
 
 \index{random\{...\} primitive}
@@ -12162,7 +12030,6 @@ the \emph{Guide to \FLSYSTEM Packages}.
   number.
 \end{itemize}
 %% 
-}
 
 \section{Low-level Predicates}
 \label{sec-lowlevel}
@@ -13184,8 +13051,7 @@ development, but because these queries can have arbitrary properties
 attached to them via descriptors, they can be used for various other,
 specialized needs (e.g., as standing queries that are called periodically
 to update user views).
-At the same time, latent queries is an older mechanism, which is primarily
-retained for \FLORA and \ERGOLITE users. \ERGO has newer, much more
+\ERGO also has more
 powerful mechanisms of \emph{integrity constraints} and
 \emph{alerts}.   
 
@@ -13330,15 +13196,8 @@ two queries. This is a special builtin descriptor property, which can be
 used only in rule bodies. The value of that property is \texttt{query} for
 latent queries and \texttt{rule} for rules.  
 
-
-\ifdef{\isfloraman}{
-  In \ERGO, latent queries are used for automatic maintenance of integrity
-  constraints---a feature not available in \FLORA/\ERGOLITE.
-}
-{
-    \input{./extensions/dbconstraints.tex}
-    \input{./extensions/alerts.tex}
-}
+\input{./extensions/dbconstraints.tex}
+\input{./extensions/alerts.tex}
 
 
 \section{Defeasible Reasoning}
@@ -14587,11 +14446,8 @@ not necessarily of other symbols. For instance,
 \end{itemize}
 %% 
 
-\ifdef{\isfloraman}{}
-{
   Additional methods, which enable matching and string substitution using
   regular expressions, are described in Section~\ref{sec-regexp}.
-}
 
 
 \subsection{The \bs{}iri Data Type}\label{sec-uri}
@@ -15090,9 +14946,6 @@ The following methods are available in the \FLSYSTEM system module {\tt
 \item {\tt \bs{}dateTime[|time => \bs{}time|]}  
 \end{itemize}
 %%
-\ifdef{\isfloraman}{
-  Note: the methods \texttt{date} and \texttt{time} listed above exist only in \ERGO.
-}
 
 \paragraph{Other methods:}
 \begin{itemize}
@@ -15178,10 +15031,6 @@ The following methods are available in the \FLSYSTEM system module {\tt
   will bind \texttt{?z} to  \verb|"2021-03-05T09:08:07"^^\dateTime|.
 \end{itemize}
 %%
-\ifdef{\isfloraman}{
- Note: the methods \texttt{toDate}, \texttt{minus} and \texttt{weekday}
- through \texttt{weekend} exist only in \ERGO.
-}
 
 \paragraph{Examples:}
 \begin{itemize}
@@ -15255,12 +15104,6 @@ The following methods are available in the \FLSYSTEM system module {\tt
 \end{verbatim}
 \end{itemize}
 %% 
-\ifdef{\isfloraman}{
-  Note: the examples involving \texttt{minus} and \texttt{weekday} through
-  \texttt{weekend} 
-  will not work in \FLORA ---
-  only in \ERGO.
-}
 
 \subsection{ The Primitive Type \bs{}date}
 
@@ -15456,10 +15299,6 @@ the system module {\tt \bs{}basetype} (or \texttt{\bs{}btp}).
   will bind \texttt{?z} to  \verb|"2019-08-05"^^\date|.
 \end{itemize}
 %%
-\ifdef{\isfloraman}{
- Note: the methods \texttt{toDateTime}, \texttt{minus} and \texttt{weekday}
- through \texttt{weekend} exist only in \ERGO.
-}
 
 
 \paragraph{Examples:}
@@ -15474,19 +15313,10 @@ the system module {\tt \bs{}basetype} (or \texttt{\bs{}btp}).
   \item \texttt{?- "2011-12-22"$\hat{~}\hat{~}$\bs{}date[toDateTime(11,15,7.6) ->}
     \\
     \hspace*{5cm}\texttt{"2011-12-22T11:15:07.6"$\hat{~}\hat{~}$\bs{}dateTime]@\bs{}basetype.}
-    \ifdef{\isfloraman}{
-    \\
-    This example will not work in \FLORA --- only in \ERGO.
-    \\
-    }
   \item \texttt{?- "2011-12-22+2:09"$\hat{~}\hat{~}$\bs{}d[minus("2019-10-29+3:19"$\hat{~}\hat{~}$\bs{}d)->}
     \\
     \hspace*{5cm}\texttt{"-P0007Y10M07DT00H00M00S"$\hat{~}\hat{~}$\bs{}du]@\bs{}btp.}
     \\
-    \ifdef{\isfloraman}{
-    This example will not work in \FLORA --- only in \ERGO.
-    \\
-    }
   \item {\tt ?- "2001-11-23-02:30"$\hat{~}\hat{~}$\bs{}date[add("-P2Y2M10DT"$\hat{~}\hat{~}$\bs{}duration) ->}\\
   \hspace*{7cm}{\tt
     "1999-09-13-02:30"$\hat{~}\hat{~}$\bs{}date]@\bs{}basetype}.\\
@@ -15545,13 +15375,6 @@ the system module {\tt \bs{}basetype} (or \texttt{\bs{}btp}).
     to 0:0:0.
 \end{itemize}
 %% 
-\ifdef{\isfloraman}{
-  Note: the examples involving \texttt{toDateTime},
-  \texttt{minus} and \texttt{weekday} through
-  \texttt{weekend} 
-  will not work in \FLORA ---
-  only in \ERGO.
-}
 
 \subsection{ The Primitive Type \bs{}time}
 
@@ -15707,9 +15530,6 @@ provided by the module {\tt \bs{}basetype}.  Their signatures are given below.
   will bind \texttt{?z} to  \verb|"20:02:58"^^\time|.
 \end{itemize}
 %%
-\ifdef{\isfloraman}{
-  Note: the  methods \texttt{minus} and \texttt{toDateTime} exist only in \ERGO.
-}
 
 \paragraph{Examples:}
 \begin{itemize}
@@ -15723,19 +15543,9 @@ provided by the module {\tt \bs{}basetype}.  Their signatures are given below.
   \\
   \hspace*{5cm}
   \texttt{"2011-12-22T20:12:22"$\hat{~}\hat{~}$\bs{}dateTime]@\bs{}basetype.}
-  \ifdef{\isfloraman}{
-    \\
-    This example will not work in \FLORA --- only in \ERGO.
-    \\
-    }
 \item \texttt{?- "11:22:33+2:22"$\hat{~}\hat{~}$\bs{}t[minus("12:23:44+2:09"$\hat{~}\hat{~}$\bs{}t)->}
   \\
   \hspace*{5cm}\texttt{"-P0000Y00M00DT01H01M11S"$\hat{~}\hat{~}$\bs{}du]@\bs{}btp.}
-  \ifdef{\isfloraman}{
-    \\
-    This example will not work in \FLORA --- only in \ERGO.
-    \\
-  }
 \item {\tt ?- "12:44:55"$\hat{~}\hat{~}$\bs{}time[add("PT2M3S"$\hat{~}\hat{~}$\bs{}duration) -> "12:46:58"$\hat{~}\hat{~}$\bs{}time]@\bs{}btp. }\\
  or {\tt
    "12:40:5"$\hat{~}\hat{~}$\bs{}time[add(-"PT4M1S"$\hat{~}\hat{~}$\bs{}duration)
@@ -16210,11 +16020,8 @@ serialize any term as a string. For instance,
 \item {\tt \bs{}string[|typeName => \bs{}symbol|]}  
 \end{itemize}
 
-\ifdef{\isfloraman}{}
-{
   Additional methods, which enable matching and string substitution using
   regular expressions, are described in Section~\ref{sec-regexp}.
-}
 
 \paragraph{Examples:}
 \begin{itemize}
@@ -16577,10 +16384,7 @@ class \texttt{foo}. That last possibility is illustrated by the last line
 in the above example.  
 
 
-\ifdef{\isfloraman}{}
-{
-  \input{./extensions/pcre}
-}
+\input{./extensions/pcre}
 
 
 \section{Cardinality Constraints}\label{sec-card-in-signatures}
@@ -17626,11 +17430,8 @@ will be in the file \texttt{temp} and will have the same structure as before:
 computations without the need to modify the program rules and in a more
 focused way.
 
-\ifdef{\isfloraman}{}
-{
-  \input{./extensions/terminyzer}
-  \input{./extensions/runtime}
-}
+\input{./extensions/terminyzer}
+\input{./extensions/runtime}
 
 
 \subsection{Tracing Tabled Calls via Forest Logging}\label{sec-logforest}
@@ -17946,15 +17747,12 @@ specifications must have one of the following forms:
     only there.}
   The \texttt{pause} interrupt handler is perhaps the most useful when the
   system runs in interactive mode. 
-\ifdef{\isfloraman}{}
-{
   For instance,
   %% 
   \begin{quote}
     \texttt{?- setruntime\{timeout(repeating(20,pause))\}.}     
   \end{quote}
   %% 
-  }
   \end{itemize}
   %% 
 
@@ -18248,7 +18046,6 @@ To return back to the regular mode, execute
 %% 
 
 
-\ifdef{\isfloraman} {
 \subsection{Non-termination Analysis}\label{sec-terminyzer}
 \index{non-termination}
 \index{Terminyzer}
@@ -18385,7 +18182,6 @@ The information produced by {\tt Terminyzer} can be used to locate
 the rules and specific calls that cause
 non-terminating behavior.
 %%
-}
 
 
 \subsection{Saving Modules in Files}
@@ -18789,12 +18585,9 @@ the following options are supported:
   Also, unlike \texttt{expert} and \texttt{production} options, the
   \texttt{prolog} option cannot be issued at run time via the \FLSYSTEM
   shell.
-  \ifdef{\isfloraman}{}
-  {
-  \item In \ERGO, there is also the option \texttt{omni=on} (and
+  \item There is also the option \texttt{omni=on} (and
     \texttt{omni=off}) with the corresponding primitive
     \texttt{omni\{...\}}---see Section~\ref{sec-omniform}.
-  }
 \end{itemize}
 %% 
 Example:
@@ -19053,11 +18846,7 @@ described below.
   \texttt{prolog\_read} method described earlier, but it cannot read
   non-canonical terms like \texttt{a+b}. So, if a file contains only
 \item
-  \ifdef{\isfloraman}{
-    \texttt{?Stream[flora\_read->?Term]} 
-  }{
     \texttt{?Stream[ergo\_read->?Term]} 
-  }
   --- reads \FLSYSTEM terms from \texttt{?Stream}, including HiLog and
   reified terms. Each term must be terminated with a period. If input is
   not a valid \FLSYSTEM term, \texttt{?Term} gets bound to
@@ -19069,7 +18858,7 @@ described below.
   terms.  The three methods have significant overlap, where
   \texttt{read\_canonical} is least general, but also the fastest,
   \texttt{prolog\_read} is more general, but slower, and
-  \ifdef{\isfloraman}{\texttt{flora\_read}}{\texttt{ergo\_read}}
+  \texttt{ergo\_read}
   is most general and also the slowest. Therefore, if the contents of a
   file permits so, \texttt{read\_canonical} should be preferred.
 
@@ -19555,10 +19344,7 @@ of data types such as {\tt \bs{}dateTime}, {\tt \bs{}iri}, and so on.
 Data types are described in Section~\ref{sec-data-types}.
 
 
-\ifdef{\isfloraman}{}
-{
-    \input{./extensions/set-module}
-}
+\input{./extensions/set-module}
 
 
 
@@ -19663,9 +19449,9 @@ above.
 \noindent
 Note: there is a simpler version of this method in the system module
 \texttt{\bs{}io}. It is called
-\ifdef{\isfloraman}{\texttt{flora\_read}}{\texttt{ergo\_read}}
+\texttt{ergo\_read}
 (and
-\ifdef{\isfloraman}{\texttt{flora\_read(?Module)}}{\texttt{ergo\_read(?Module)}})
+\texttt{ergo\_read(?Module)},
 and is described in Section~\ref{sec-io-mod}.
 
 
@@ -19758,17 +19544,8 @@ The available methods are:
 \end{itemize}
 %% 
 
-\ifdef{\isfloraman}{}
-{
-  \input{./extensions/ergotext}
-}
-
-\ifdef{\isfloraman}{}
-{
-  \input{./extensions/justifier}
-}
-
-
+\input{./extensions/ergotext}
+\input{./extensions/justifier}
 
 
 \section{Unicode and Character Encodings}
@@ -20798,7 +20575,7 @@ the facts are in the low-level Prolog form, not \FLSYSTEM form.
 \section{For Emacs Aficionados: Editing and Invoking \FLSYSTEM in Emacs}
 
 For power-users who prefer Emacs to all other editors, \FLSYSTEM includes a
-special major mode, \emph{\FLORAMODE}.
+special major mode, \emph{\ERGOMODE}.
 This mode provides support for syntactic
 highlighting, automatic indentation, and the ability to load knowledge
 bases and pose \FLSYSTEM
@@ -20808,20 +20585,20 @@ queries right out of the Emacs buffer.
 Note that this mode has \emph{not} been tested in XEmacs---only in Emacs.
 
 
-\subsection{Installation of \FLORAMODE}
+\subsection{Installation of ergo-mode}
 
 
-To install \emph{\FLORAMODE}, you must perform the following steps. Put the
+To install \emph{\ERGOMODE}, you must perform the following steps. Put the
 file
 %%
 \begin{quote}
-  {\tt .../\ENGINENAMEALT/emacs/\FLORAFILE}
+  {\tt .../ErgoAI/emacs/\ERGOFILE}
 \end{quote}
 %%
 found in your \FLSYSTEM distribution on the load path of Emacs.
 The best way to work with Emacs is to make a
 separate directory for Emacs libraries (if you do not already have one), and put
-\texttt{\FLORAFILE}  there. Such a directory can be added to the emacs search path by
+\texttt{\ERGOFILE}  there. Such a directory can be added to the emacs search path by
 putting the following command in the file
 \texttt{\ensuremath{\sim}/.emacs} (in Windows the \texttt{.emacs}
 file will likely be in your home directory):
@@ -20835,30 +20612,21 @@ file will likely be in your home directory):
 
 \noindent
 Finally, one must tell Emacs how to recognize \FLSYSTEM files, so
-Emacs will be able to invoke \texttt{\FLORAMODE} automatically when you
+Emacs will be able to invoke \texttt{\ERGOMODE} automatically when you
 are editing such files:
 %%
 \begin{alltt}
 \small
 (setq auto-mode-alist
-      (cons \textquotesingle(\ergoextemacs . \FLORAMODE) auto-mode-alist))
-(autoload \textquotesingle{}\FLORAMODE "\FLORAFILEBASE" "Major mode for editing \FLSYSTEM knowledge bases." t)
+      (cons \textquotesingle(\ergoextemacs . \ERGOMODE) auto-mode-alist))
+(autoload \textquotesingle{}\ERGOMODE "\ERGOFILEBASE" "Major mode for editing \FLSYSTEM knowledge bases." t)
 \end{alltt}
 %%
 and where the \FLSYSTEM startup script is:
-\ifdef{\isfloraman}{
-%% 
-\begin{alltt}
- (setq flora-program-path "full-path-to-your-runflora-script") 
-\end{alltt}
-%% 
-  }{
 %% 
 \begin{alltt}
  (setq ergo-program-path "full-path-to-your-runergo-script") 
 \end{alltt}
-%% 
-    }
 %%
     This script is found in the \FLSYSTEM reasoner's installation folder.
     In Linux and Mac it is called \texttt{\ENGINERUN}{} and in Windows it is
@@ -20890,7 +20658,7 @@ and where the \FLSYSTEM startup script is:
 %%
 
 
-\subsection{Functionality of \FLORAMODE}
+\subsection{Functionality of ergo-mode}
 
 
 \paragraph{The \emph{\floraname} menu.}
@@ -20911,7 +20679,7 @@ buffer is much faster than typing the corresponding commands to the \FLSYSTEM
 shell.
 
 \paragraph{Keystrokes.}
-In addition to the menu, \emph{\FLORAMODE} lets you execute most of the
+In addition to the menu, \emph{\ERGOMODE} lets you execute most of the
 menu commands using the keyboard. Once you get the hang of it, keyboard
 commands are much faster to invoke:
 %%
@@ -20951,17 +20719,16 @@ control constructs are used (e.g., nested \bs{}if-\bs{}then-\bs{}else,
 \bs{}while-\bs{}do, etc.).
 
 The most common way of using the indentation facility is by typing the {\tt
-  TAB}-key. This tells \emph{\FLORAMODE}
+  TAB}-key. This tells \emph{\ERGOMODE}
 to indent the line according to its taste.
 In most cases, after you finish the previous line and type <Enter>,
-\emph{\FLORAMODE}  will guess correctly where the next line should start.
+\emph{\ERGOMODE}  will guess correctly where the next line should start.
 If it cannot guess, typing \texttt{TAB}   after the line is finished will
 indent the line properly. Closing parentheses and some other characters are
 \emph{electric}, meaning that typing them may also cause Emacs to indent the
 current line.  
 
 
-\ifdef{\isfloraman}{
 \newpage
 \section{Inside \FLSYSTEM}
 
@@ -21495,7 +21262,77 @@ The directory {\tt cc} contains several C programs used by \FLSYSTEM.
 Finally, the {\tt
   pkgs/} directory contains a number of \FLSYSTEM packages that are not
 core part of the system.
-}
+
+\newpage
+\section{Differences Between \FLSYSTEM and the F-logic Syntax}
+
+\FLSYSTEM was developed years after the publication of the initial
+works on F-logic \cite{KLW95} and so it benefits from the experience gained
+in the use and implementation of the logic. This experience suggested a
+number of changes to the syntax (and to some degree also to the
+semantics). The main differences are enumerated below.
+
+%%
+\begin{enumerate}
+\item \FLSYSTEM uses ``,'' to separate methods in F-logic frame formulas. The version of
+  the logic in \cite{KLW95} used ``;''. In \FLSYSTEM, ``;'' represents
+  disjunction instead. It is also possible to use ``\bs{}and'' instead of ``,''
+  and ``\bs{}or'' instead of ``;''.
+\item \FLSYSTEM does not use the @-sign to separate method names from their
+  arguments. With HiLog extensions the ``@'' sign is redundant.
+\item  {\tt p::p} is not a tautology in \FLSYSTEM, i.e., ``::'' is not
+  reflexive. This is because our experience showed that the non-reflexive
+  use of ``::'' is a more common idiom in knowledge representation.
+\item In \cite{KLW95}, types are always inheritable, but values are not.
+  In \FLSYSTEM, information about an object
+  is strictly separated into information about the object proper
+  and information about its superclasses. The latter information is
+  \emph{inherited} by the objects. 
+  The original F-logic in
+  \cite{KLW95} used four types of arrows:
+  \texttt{->}, \texttt{->{}>},   {\tt =>} (and {\tt =>{}>}
+  because it distinguished
+  between functional and set-valued methods), and both were inheritable.
+  \FLSYSTEM uses only two types of arrows: \texttt{->} for values and
+  \texttt{=>} for types. However, there is now a new type of a formula that
+  employs these arrows: \texttt{obj[|meth->val|]}  and
+  \texttt{obj[|meth=>type|]}. Here, \texttt{obj} is considered as a class
+  and \texttt{obj[|meth->val|]} specifies the default value of the method
+  \texttt{meth}, which is inherited by the subclasses and
+  members of \texttt{obj}, while \texttt{obj[|meth=>type|]} specifies
+  the type of \texttt{meth}, which is also inherited by the subclasses and
+  members of the class \texttt{obj}.  
+
+  The semantics of this new type of formulas can be
+  characterized by the following logical entailments ($\phi \models \psi$
+  means $\phi$ logically entails $\psi$):
+  %%
+  \begin{quote}
+    {\tt X[|M => T|], Y::X $\models$ Y[|M => T|]}\\
+    {\tt X[|M => T|], Y:X $\models$ Y[M => T]}
+  \end{quote}
+  %%
+\item Instead of {\tt class[method => \{\}]}
+  one should use {\tt class[method => ()]}.
+\item Equality (the {\tt :=:} predicate) is implemented only partially in
+  \FLSYSTEM. The main limitation is that the congruence axiom for equality
+  (``substitution by equals'') works only at the top level and the first
+  level of nesting.  For deeper levels of nesting, substitution by equals
+  has not been implemented. This is discussed in more detail in
+  Section~\ref{sec-eqmaintain}.
+\item Behavioral inheritance has a different (and better) semantics in
+  \FLSYSTEM compared to \cite{KLW95}.
+  This is discussed in Section~\ref{sec-inheritance}.
+\item \FLSYSTEM also has many extensions compared to F-logic. First, it
+  supports HiLog \cite{hilog-jlp,hilog-icdt-95} and Transaction Logic
+  \cite{trans-iclp93,trans-tcs94,trans-chapter-98}.
+  Second, it supports a form of defeasible reasoning known as LPDA (logic
+  programs with argumentation theories) \cite{lpda-iclp-09}. Third,
+  \FLSYSTEM has many syntactic extensions, including full first-order
+  formulas that can appear in the rule bodies, many useful builtins, set
+  notation, etc.
+\end{enumerate}
+%%
 
 \newpage
 
