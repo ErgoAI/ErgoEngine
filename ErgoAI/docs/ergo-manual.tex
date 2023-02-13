@@ -940,15 +940,15 @@ binds the variable to the current working directory. For instance,
 \index{file extension!.flr}
 \index{file extension!.P}
 \index{file extension!.xwam}
-\paragraph{Summary of shell commands.}
-In the following command list, the suffixes {\tt .\flrext}, \texttt{\ergoext},
+\paragraph{Summary of the shell commands.}
+In the following command list, the suffixes {\tt .\flrext}, \texttt{.\ergoext},
 {\tt .P}, {\tt
   .\ofile} are optional. If the file suffix is specified explicitly, the
 system uses the file with the given name without any modification. The {\tt
-  .\flrext/.ergoext} file extensions indicate \FLSYSTEM knowledge bases, the {\tt .P} suffix indicates that
+  .\flrext/.\ergoext} file extensions indicate \FLSYSTEM knowledge bases, the {\tt .P} suffix indicates that
 it is a Prolog program, and {\tt .\ofile} means that it is a bytecode file,
 which can be executed by Prolog.  If no suffix is given, the system tries
-\texttt{\ergoext}, \texttt{\flrext}, \texttt{.P}, and
+\texttt{.\ergoext}, \texttt{.\flrext}, \texttt{.P}, and
 \texttt{\ofile} in that order.
 If none of these tries are successful, an error is reported.
 %
@@ -1048,24 +1048,24 @@ If none of these tries are successful, an error is reported.
     Quit both \FLSYSTEM and Prolog.
 \end{itemize}
 %%
-Of course, many other executable directives and queries can be executed at
-the \FLSYSTEM shell. These are described further in this manual
+Many other executable directives and queries can be executed at
+the \FLSYSTEM shell, as further described in this manual.
 
-In general, \FLSYSTEM built-in predicates whose name is of the form {\tt
-  fl[A-Z]...} are either the \FLSYSTEM shell commands or predicates that can
-be used in Prolog to control the execution of \FLSYSTEM modules. We will
-discuss the latter in Section~\ref{sec-flora-from-prolog}. Some of these
-commands --- mostly dealing with loading and compilation of \FLSYSTEM modules
-  --- can also be useful within \FLSYSTEM applications.
+%%In general, \FLSYSTEM built-in predicates whose name is of the form {\tt
+%%fl[A-Z]...} are either the \FLSYSTEM shell commands or predicates that
+%%may be used in Prolog to control the execution of \FLSYSTEM modules. We will
+%%discuss the latter in Section~\ref{sec-flora-from-prolog}. Some of these
+%%commands --- mostly dealing with loading and compilation of \FLSYSTEM modules
+%%--- can also be useful within \FLSYSTEM applications.
 
 All commands with a FILE argument passed to them use the Prolog
 {\tt library\_directory} predicate to search for the file, except that the
 command {\tt demo\{FILE\}} first looks for {\tt FILE} in the \FLSYSTEM demo
 directory. The search path typically includes the standard system's
-directories used by Prolog followed by the current directory. 
+directories used by Prolog and \ERGO followed by the current directory. 
 
-All Prolog commands can be executed from \FLSYSTEM shell, if the corresponding
-Prolog library has already been loaded.
+All Prolog commands can be executed from the \FLSYSTEM shell, if the
+corresponding Prolog library has already been loaded.
 
 After a parsing or compilation error, \FLSYSTEM shell will
 discard tokens read from the current input stream until the end of file or a
@@ -1087,7 +1087,28 @@ prompt:
 \end{quote}
 
  
-\input{./extensions/byexample}
+\section{\FLSYSTEM by Example}\label{sec-byexample}
+
+Many simple examples of the use of \ERGO are found in this manual. More
+advanced examples are found in various tutorials. The
+reader can consult the \ERGO tutorials
+available on the Coherent Web site: \url{https://sites.google.com/a/coherentknowledge.com/ergo-suite-tutorial/}
+and
+{\small\url{https://sites.google.com/a/coherentknowledge.com/tutorial-capturing-real-world-knowledge/}}.
+\\
+The Ergo Example Bank on the same site,
+{\small\url{https://sites.google.com/a/coherentknowledge.com/ergo-suite-tutorial/example-bank-of-advanced-uses}},
+provides a number of advanced examples, many dealing with importing
+information from external sources.
+
+Another source of examples and background material is the \FLORA tutorial,
+found at
+\url{http://flora.sourceforge.net/tutorial.html}. 
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "../flora2-manual"
+%%% End: 
 
 
 
@@ -2034,19 +2055,24 @@ In \FLSYSTEM, any combination of conjunction, disjunction, and
 negation of literals can appear wherever a logical formula is allowed,
 e.g., in a rule body.
 
-Conjunction is made with the infix operator ``{\tt ,}'' and
-disjunction is made using the infix operator ``{\tt ;}''.  Negation is
+Conjunction is made with the infix operator ``{\tt ,}'' (or
+\texttt{\bs{}and})  and
+disjunction is made using the infix operator ``{\tt ;}' (or
+\texttt{\bs{}or})'.  Negation is
 specified
-using the prefix operators ``\PLGNAF'' and ``\RULELOGNAF''.\footnote{
+using the prefix operators ``\PLGNAF'', ``\RULELOGNAF'', and ``\RULELOGNEG''.\footnote{
   %%
   In brief, ``{\tt $\backslash$+}'' represents Prolog-style negation, which
   does not have an acceptable logical semantics. It is useful, however,
   when applied
   to non-tabled Prolog predicates, F-logic frames, or HiLog
   predicates. ``\RULELOGNAF'', on the other hand, is negation that
-  implements the logical well-founded semantics.  Refer to
+  implements the logical well-founded semantics.
+  ``\RULELOGNEG'' is a form of negation that permits explicit statements of
+  the form ``It is known that X is false.''
+  Refer to
   Section~\ref{sec:negation} for more information on the difference between
-  negation operators. 
+   the negation operators. 
   %%
   }
 %%
@@ -2453,6 +2479,10 @@ in place of the most commonly used symbols:
   \texttt{->}   & \texttt{\bs{}hasvalue} 
   \\
   \texttt{+>{}>}   & \texttt{\bs{}contains} 
+  \\
+  \texttt{,}   & \texttt{\bs{}and} 
+  \\
+  \texttt{;}   & \texttt{\bs{}or} 
   \\ \hline
 \end{tabular}
 
@@ -3138,7 +3168,7 @@ error-prone. We recommend global Skolems for that---see next.
   Skolems.}
 When the scope of a Skolem quasi-constant must cover several rules or facts,
 the most convenient way is to use \emph{global Skolems}.   
-\emph{Global Skolems} are  always numbered or named (no \verb|\##|),
+\emph{Global Skolems} are  always numbered or named (no analog for \verb|\#|),
 and the scope of
 the these symbols is controlled by the programmer explicitly.
 
@@ -4633,13 +4663,13 @@ the following additional directive  must appear near the top of {\tt test.P}, \e
   One of the following {\tt '\bs{}\bs{}flimport'} queries must be executed in the shell:
   \begin{quote}
     \tt
-        ?- '\bs{}\bs{}flimport' {\it flora-predicate/arity} as {\it
+        ?- '\bs{}\bs{}flimport' {\it ergo-predicate/arity} as {\it
       xsb-name}(\_,\_,...,\_)\\
-    \hspace*{5cm}from {\it filename} >{}> {\it flora-module-name}
+    \hspace*{5cm}from {\it filename} >{}> {\it ergo-module-name}
     \\
-        ?- '\bs{}\bs{}flimport' {\it flora-predicate/arity} as {\it 
+        ?- '\bs{}\bs{}flimport' {\it ergo-predicate/arity} as {\it 
       xsb-name}(\_,\_,...,\_)\\
-    \hspace*{5cm}from {\it flora-module-name}
+    \hspace*{5cm}from {\it ergo-module-name}
   \end{quote}
 %%
 We will explain shortly which {\tt '\bs{}\bs{}flimport'} query should be
@@ -4671,9 +4701,9 @@ is already loaded into a module and we only need to import the
 corresponding predicate.
 
 \index{non-tabled predicates!importing into Prolog}
-In {\tt '\bs{}\bs{}flimport'}, \emph{flora-predicate} is the name of the imported
+In {\tt '\bs{}\bs{}flimport'}, \emph{ergo-predicate} is the name of the imported
 predicate as it is known in the \FLSYSTEM module. For non-tabled predicates,
-whose names start with {\tt \%} in \FLSYSTEM, \emph{flora-predicate} should
+whose names start with {\tt \%} in \FLSYSTEM, \emph{ergo-predicate} should
 have the following syntax: {\tt \%(predicate-name)}. For instance, to
 import a \FLSYSTEM non-tabled predicate {\tt \%foobar} of arity 3 one can use
 the following statement:
