@@ -273,7 +273,7 @@ the style of HiLog, logical updates in the style of Transaction
 Logic, and a form of \emph{defeasible reasoning} described in
 \cite{lpda-iclp-09}. \FLSYSTEM was designed with extensibility and flexibility in mind, and
 it provides strong support for modular software development through its unique
-feature of dynamic modules.
+feature of on-the-fly modules.
 Other extensions, such as the versatile syntax of \FLORID path
 expressions, are borrowed from
 \FLORID, a C++-based \fl system developed at
@@ -5302,7 +5302,7 @@ do not depend on the location of the \FLSYSTEM file in which they appear
 and so they can be used in load/add commands
 and in I/O operations without the fear
 of ambiguity. Not so with \emph{relative} file names like
-\texttt{foo/bar.flr} or \texttt{../moo.flr}. These depend on the \emph{current
+\texttt{foo/bar.flr} or \texttt{../moo.ergo}. These depend on the \emph{current
 directory} in which \FLSYSTEM executes at the moment when these files are
 being used. So, what is this ``current directory?''     
 This can be summarized as follows:
@@ -5313,8 +5313,8 @@ This can be summarized as follows:
   \begin{itemize}
   \item If \FLSYSTEM was started from a command
     window then the current directory of \FLSYSTEM is the current directory
-    of that window unless that directory is non-writable or is \FLSYSTEM's
-    installation directory. In the latter cases,  the current
+    of that window unless that directory is non-writable or it is \FLSYSTEM's
+    installation directory. In these latter cases,  the current
     directory is user's home directory.
   \item If it was started by clicking on an icon (via \ERGO
     Studio) then the current directory is the user's home directory.
@@ -5327,8 +5327,12 @@ This can be summarized as follows:
   before the loading.
 \item The current directory of \FLSYSTEM
   can be changed at run time by executing the subgoal\\
-  \texttt{File[chdir(\emph{myNewDir})]@\bs{}io} --- see
-  Section~\ref{sec-io-mod}.  
+  \index{\bs{}cwd}
+  \index{\bs{}cd}
+  \texttt{File[chdir(\emph{myNewDir})]@\bs{}io} (see
+  Section~\ref{sec-io-mod}) or simply \texttt{\bs{}cd(\emph{myNewDir})}.  
+  One can also ask \ERGO ``what is the current directory?'' as follows:
+  \texttt{\bs{}cwd(?answer)}. 
 \end{itemize}
 %% 
 
@@ -5342,13 +5346,13 @@ the following natural rule holds:
   file in which that load/add command occurs.  
 \end{itemize}
 %%
-This behavior is desirable because it greatly facilitates creation of
+This behavior is desired because it greatly facilitates creation of
 location-independent multi-file knowledge bases.
 
 The other common place where file names occur are I/O
 operations, like \texttt{tell(myfile)}, which opens \texttt{myfile} for
 writing (see Section~\ref{sec-io-mod} for more details on I/O).  
-Here the situation is more subtle because I/O commands can execute in
+Here the situation is more subtle because I/O commands can occur in
 many different contexts, not necessarily in the context of the file in
 which they are physically located. For that reason,
 the rule is that
@@ -5379,7 +5383,7 @@ In contrast, if our file has a rule
 \end{verbatim}
 %% 
 and \texttt{makefile(cde)} is called at some point, this will create a
-file, called \texttt{cde} and containing the single line   \texttt{12345678},
+file, called \texttt{cde} that will contain a single line   \texttt{12345678},
 in the directory that was current at the time \texttt{tell(?X)@\bs{}io} (and
 \texttt{makefile(cde)}) was called. 
 
@@ -6232,7 +6236,8 @@ to frames that do not contain transactional methods (i.e., methods
 prefixed with a {\tt \%}).
 
 The semantics for Prolog negation is simple. To find out whether {\tt
-  \PLGNAF UnitaryGoal} is true (\texttt{UnitaryGoal} is a unitary goal),
+  \PLGNAF UnitaryGoal} is true (\texttt{UnitaryGoal} is a unitary
+goal---see Section~\ref{sec-basic-flogic}),
 the system first asks the query {\tt ?- UnitaryGoal}. If the query
 fails then {\tt \PLGNAF UnitaryGoal} is said to be satisfied. Unfortunately, this
 semantics is problematic. It cannot be characterized model-theoretically
@@ -7008,7 +7013,7 @@ subclasses, and is specified using the frame formulas of the form
 %% 
 These formulas normally occur as part of the specifications for classes.
 Object-specific information is given using the formulas of
-the form (no vertical bars!):
+the form (note: no vertical bars in object-specific information!):
 %% 
 \begin{verbatim}
     obj[Meth->Val]
@@ -7639,8 +7644,8 @@ that \emph{it is known that} \verb|att->1| \emph{is not a default for
 it is also known that \verb|att->1| is false for \texttt{obj} or that 
 \verb|att->1| is not a default for the subclass \texttt{cc} of \texttt{c}.  
 
-Neither does negative information propagate upwards the class hierarchy as
-was the case with monotonic inheritance of signatures and behavior. For
+Neither does negative information propagate upwards in the class hierarchy as
+in the case of monotonic inheritance of signatures and behavior. For
 instance, given
 %% 
 \begin{verbatim}
@@ -7684,19 +7689,19 @@ information specified for subclasses and class members is treated as
 explicit local statements that override (block) the inherited information. For
 instance, in
 %% 
-\begin{verbatim}
+\begin{alltt}
     c[|attr1->{1,2}, attr2->{3,4}, attr3->{5,6}|].
     cc::c.
     obj:cc.
-    cc[|\neg attr1->1|].   // blocks inheritance of attr1->1 only
-    obj[\neg attr2->{}].   // blocks inheritance of attr2->anything
+    cc[|\bs{}neg attr1->1|].   // blocks inheritance of attr1->1 only
+    obj[\bs{}neg attr2->\{\}].   // blocks inheritance of attr2->\textnormal{\emph{anything}}
     ?- obj[attr1->?X].     // ?X = 2. Inheritance of atr->1 is blocked
     ?- cc[|attr1->?X|].    // same
     ?- obj[attr2->?X].     // no answers: all inheritance is blocked
     ?- cc[|attr2->?X|].    // ?X = 3,4: inheritance is blocked at obj, below cc
     ?- obj[attr3->?X].     // ?X = 5,6: inheritance occurs, nothing is blocked
     ?- cc[|attr3->?Y|].    // same
-\end{verbatim}
+\end{alltt}
 %% 
 the explicit negative statement \texttt{cc[|\RULELOGNEG attr1->1|]} blocks the
 inheritance of \texttt{c[|attr1->1|]} down to both \texttt{cc} and \texttt{obj}.
@@ -7746,10 +7751,10 @@ method. Then the code is executed in the context of that class member.
 \index{inheritance!of code}
 %%
 In \fl this kind of inheritance is called \emph{code inheritance} and it was
-studied in \cite{code-inheritance-2003,kifer-yang-inheritance-2006}. Code inheritance is not yet
-supported by \FLSYSTEM. However, with some loss of
+studied in \cite{code-inheritance-2003,kifer-yang-inheritance-2006}. Code inheritance is not 
+supported in \FLSYSTEM directly. However, with some loss of
 elegance and extra work, code inheritance can often be simulated using value
-inheritance. The idea consists of three steps.
+inheritance. The idea has three steps.
 %%
 \begin{enumerate}
 \item  Define the desired methods for all appropriate objects irrespective of
@@ -7788,7 +7793,7 @@ Step 1: define auxiliary methods.
 ?X[bar(?Y) -> ?Z] :- ?X[attr2->?V], ?Z \is ?V*?Y.  
 \end{verbatim}
 %%
-Unlike Java, the above code is not really local to any class, and this is
+Unlike in Java, the above code is not really local to any class, and this is
 one aspect in which simulation of code inheritance by value inheritance is
 inelegant.
 
@@ -7920,10 +7925,10 @@ The order of the options in the directive does not matter.
 
 \paragraph{Changing module semantics --- precautions.}
 Changing module semantics on the fly at run-time is a rather drastic operation.
-It is therefore \emph{not} recommended to do this in the body of a rule,
+It is therefore \emph{not} recommended to do it in the body of a rule,
 especially if the rule defines a tabled HiLog predicate or a frame.
 The only safe way to execute {\tt setsemantics} is in a query at the top
-level. For instance, 
+level, as in
   %%
   \begin{verbatim}
     ?- setsemantics{...}.
@@ -8037,17 +8042,17 @@ of equality maintenance in another user module:
     ?- setsemantics{equality=basic}@foobar.
 \end{verbatim}
 %%
-\index{dynamic module}
+\index{on-the-fly module}
 %%
-This might be useful for \emph{dynamic} modules, i.e., modules that
-are not associated with any files and whose content is generated completely
-dynamically. (See Section~\ref{sec-updates}.)
+This might be useful for \emph{on-the-fly} modules, i.e., modules that
+are not associated with any file and whose content is generated completely
+dynamically (see Section~\ref{sec-updates}).
 
-\paragraph{Using the preprocessor to avoid the need for equality maintenance.}
+\paragraph{Using the preprocessor to avoid equality.}
 One final bit of advice regarding equality: In many cases, knowledge
 engineers tend to use
 equality as an aliasing technique for long messages, numbers, etc. In this
-case, we recommend the use of preprocessor commands, which achieve the same
+case, we recommend preprocessor commands instead, which achieve the same
 result without loss of performance. For instance,
 
 %%
@@ -8111,14 +8116,14 @@ corresponding module.  This can significantly improve performance in cases
 when inheritance is not needed.
 Note that {\tt inheritance=none} does \emph{not} turn off inheritance of
 signatures. Inheritance of signatures can be used for run-time type checking
-and it makes no good sense to disable it. Preserving inheritance of
-signatures does not affect the performance either.
+and it makes no good sense to disable it. Note that inheritance of
+signatures does not affect the performance if it is not used explicitly.
 
-Monotonic inheritance, \texttt{inheritance=monotonic}, is also sometimes
+Monotonic behavioral inheritance, \texttt{inheritance=monotonic}, is also sometimes
 appropriate---mostly in situations when information from superclasses is to
 be propagated and accumulated by subclasses and members without overriding.
 This type of inheritance is also significantly cheaper resource-wise than
-the \fl inheritance, although it is more expensive than turning inheritance
+the default \fl inheritance, although it is more expensive than turning inheritance
 off completely.
 Examples:
 %% 
@@ -8144,7 +8149,7 @@ appropriate in a given application.
 The default semantics for the subclass relationship \texttt{::} in
 \FLSYSTEM is \emph{strict}. This means that there can be no loops in the
 subclass hierarchy. If \FLSYSTEM detects a cycle at run time, it issues an
-error.  The user can change this semantics by executing the runtime directive
+error.  The user can change this behavior by executing the runtime directive
 %%
 \index{setsemantics!subclassing=strict}
 \index{setsemantics!subclassing=nonstrict}
@@ -8154,7 +8159,7 @@ error.  The user can change this semantics by executing the runtime directive
 \end{verbatim}
 %% 
 Note that the above sets the nonstrict semantics for subclassing in the
-current module only. To change back to the strict semantics, one can execute
+current module only. To change back to the strict semantics, one can use
 %% 
 \begin{verbatim}
    ?- setsemantics{subclassing=strict}.
@@ -8175,8 +8180,8 @@ by executing the following query:
 \end{verbatim}
 %% 
 Note: the \texttt{subclassing} option is not available as a static
-\texttt{setsemantics} directive (i.e., it works only with ``$\query$''
-and not with ``:--'').
+\texttt{setsemantics} directive (i.e., it works with ``$\query$'' only,
+not with ``:--'').
 
 \subsection{Choosing a Semantics for Tabling}
 
@@ -8188,7 +8193,7 @@ Section~\ref{sec-updates-tabling}.
 The options for the identification dimension are
 \texttt{tabling=variant} (the default) and \texttt{tabling=subsumptive}.
 Subsumptive tabling currently works only in conjunction with passive tabling,
-and it is experimental at present.  In some cases, subsumptive tabling may
+and is experimental at present.  In some cases, subsumptive tabling may
 significantly speed up computation time and save memory.
 
 
@@ -8274,12 +8279,14 @@ option that allows the user to disable these relationships for situations
 that do not need them, which is why this feature is off, by default.
 
 \noindent
-{\bf Note}: Type expressions introduce a potential for infinite answers
+{\bf Note}: Type expressions introduce a potential for infinite sets of answers
 for seemingly innocuous queries and so this feature is disabled by default,
 as explained earlier in this section. For instance, suppose that {\tt a:c} is
-true. Then also {\tt a:(c,c)}, {\tt a:(c;c)}, {\tt a:(c,(c,c))}, {\tt
-  a:(c;(c;c))}, etc. So, the query {\tt ?- a:?X.} will not terminate.
-To mitigate this problem, when class expressions are involved
+true. Then also these are true: {\tt a:(c,c)}, {\tt a:(c;c)}, {\tt a:(c,(c,c))}, {\tt
+  a:(c;(c;c))}, etc. So, the query {\tt ?- a:?X.} will not terminate, as it
+has an infinite number of answers, if class expressions feature is turned
+on.
+To mitigate this problem, when the class expressions feature is on,
 \FLSYSTEM guarantees to provide sound answers to queries about class
 membership and subclasses only when the arguments are ground; it does
 not guarantee that all class expressions will be returned to 
@@ -8309,8 +8316,8 @@ However, the default is  {\tt custom=none}.\footnote{
 %%
 To take advantage of this feature, the user must write the axioms using the
 same API that is used for \FLSYSTEM trailers, which are located in the {\tt
-  closure} directory of the distribution. This API will be described at a
-later date.
+  closure} directory of the distribution. This API has not been documented
+yet.
 
 \subsection{Querying the Module Semantics}\label{sec-query-semantics}
 
@@ -8361,7 +8368,7 @@ Tabling is a fundamental deduction technique that augments query evaluation
 with a mechanism that remembers previously inferred conclusions.
 The result is a very efficient deductive engine.
 
-\FLSYSTEM automatically tables frames and HiLog predicates, but allows the
+\FLSYSTEM automatically tables (i.e., caches) frames and HiLog predicates, but allows the
 user to have non-tabled predicates as well. Such predicates are called
 \emph{transactional} and are mostly used for
 side-effects, such as writing to or reading from files (or to/from the
@@ -8755,7 +8762,8 @@ use Prolog-like cuts.
 
 A Prolog cut is akin to the switch/case-statements in languages
 like C or Java, but the full explanation of cuts is quite involved
-and we leave it out, assuming the reader is familiar with this concept.
+and we leave it out, assuming the reader is familiar with this concept from
+Prolog.
 
 \index{cut ("!) !across tables}
 \paragraph{Cuts across tables.}
@@ -9969,19 +9977,19 @@ non-transactional ones and the names are similar, too.  The syntax for
 transactional insertion is:
 %%
 \begin{quote}
-\emph{t\_insop}\{\emph{literals} [$\mid$ \emph{formula}]\}
+\emph{t\_insop}\{\emph{literals} [ $\mid$ \emph{formula}]\}
 \end{quote}
 %%
 while the syntax of a transactional deletion is:
 %%
 \begin{quote}
-\emph{t\_delop}\{\emph{literals} [$\mid$ \emph{query}]\}
+\emph{t\_delop}\{\emph{literals} [ $\mid$ \emph{query}]\}
 \end{quote}
 %%
-where {\tt t\_insop} stands for either {\tt t\_insert} or {\tt t\_insertall},
+Here {\tt t\_insop} stands for either {\tt t\_insert} or {\tt t\_insertall},
 and {\tt t\_delop} stands for either of the following four deletion
 operations: {\tt t\_delete}, {\tt t\_deleteall}, {\tt t\_erase}, and {\tt
-  t\_eraseall}. The meaning of {\it literals} and {\it query} is
+  t\_eraseall}. The meaning of {\it literals} and the optional {\it query} is
 the same as in Section~\ref{sec:non-transactional-updates}.
 
 The new update operators {\tt t\_insert}, {\tt t\_insertall},
@@ -11634,21 +11642,23 @@ Note that \texttt{?L}  in {\tt ?O[?M->->?L]}  and {\tt ?O[|?M->->?L|]} is a list
 
 The special meaning for {\tt ->->} implies that this
 construct \emph{cannot} appear in the head of a rule.
-One other caveat: recursion through aggregation is not supported and can
-produce incorrect results.
+One other caveat: \underline{recursion through aggregation is not supported and can
+produce incorrect results}.
 
 
 
 \index{\tt +>{}>}
   %%
 Sets collected in the above manner often  need to be compared to other
-sets. For this, \FLSYSTEM provides another the primitive {\tt +>{}>}.
+sets. For this, \FLSYSTEM provides another primitive, {\tt +>{}>}.
 A statement of the form {\tt o[m+>{}>s]} is true if the list of all values of the
 attribute {\tt m} for object {\tt o} \emph{contains} every
 element in the list {\tt s}.  
-A statement of the form \texttt{o[|m+>{}>s|]}  is true if \texttt{s} is the
+A statement of the form \texttt{o[|m+>{}>s|]}  is true (note 
+\texttt{...[|...+>{}>...|]}   vs. \texttt{...[...+>{}>...]})
+if \texttt{s} is the
 list of all values of \texttt{m} on the object \texttt{o}, which are
-obtained by inheritance from the superclasses of \texttt{o}.   
+obtained by \emph{inheritance} from the superclasses of \texttt{o}.   
 
 For instance, the following query tests whether all Mary's children are
 also John's children:
@@ -11778,8 +11788,7 @@ If {\tt Cond} is true, it succeeds without executing the action.
 Otherwise, it executes {\tt Action} and succeeds or fails depending on
 whether {\tt Action} succeeds or fails.
 
-\subsubsection{The while-do and do-until Loops}
-
+\paragraph{while-do and do-until.}
 %%
 \index{\bs{}while-\bs{}do}
 \index{\bs{}until}
@@ -11897,8 +11906,8 @@ unbound variables.
 
 
 
-\subsubsection{The while-loop and loop-until Loops}
-
+\paragraph{while-loop and loop-until.}
+%%
 \index{while-loop}
 \index{\bs{}until}
 \index{loop-until}
@@ -12141,9 +12150,9 @@ is loaded into a module, \texttt{foo}, that declaration is automatically made
 available to the \FLSYSTEM shell. So, such predicates are readily accessible
 from the shell (e.g., as \texttt{p(?X)@foo}). 
 
-\index{\bs{}nontabled\_module directive}
-\index{directive!\bs{}nontabled\_module}
-\paragraph{The \texttt{\bs{}nontabled\_module}  directive.}
+\index{nontabled\_module directive}
+\index{directive!nontabled\_module}
+\paragraph{The \texttt{nontabled\_module}  directive.}
 For simple modules that \emph{do not have recursive rules}, significant
 amount of main memory can be saved by telling \FLSYSTEM to not table
 predicates and methods.  This is especially useful for modules that process
@@ -12151,7 +12160,7 @@ large amounts of data and can be done by placing the following directive
 in the module file:
 %% 
 \begin{verbatim}
-    :- \nontabled_module.
+    :- nontabled_module.
 \end{verbatim}
 %% 
 
@@ -12916,7 +12925,7 @@ The major differences are:
 \end{enumerate}
 %% 
 
-\subsection{Changing the Defeasibility at Run Time}
+\subsection{Changing Rule's Defeasibility Status at Run Time}
 The defeasibility status of a rule can be changed via the following
 statements:
 \index{makedefeasible\{...\}}
@@ -12925,10 +12934,10 @@ statements:
 \index{isstrict\{...\}}
 %% 
 \begin{itemize}
-\item  makedefeasible\{Id,File,Module\}
-\item  makestrict\{Id,File,Module\}
-\item  isdefeasible\{Id,File,Module\}
-\item  isstrict\{Id,File,Module\}
+\item  \texttt{makedefeasible}\{\emph{Id},\emph{File},\emph{Module}\}
+\item  \texttt{makestrict}\{\emph{Id},\emph{File},\emph{Module}\}
+\item  \texttt{isdefeasible}\{\emph{Id},\emph{File},\emph{Module}\}
+\item  \texttt{isstrict}\{\emph{Id},\emph{File},\emph{Module}\}
 \end{itemize}
 %% 
 The last two primitives are queries. The primitive \texttt{makedefeasible}
@@ -13055,8 +13064,9 @@ queries (described in Section~\ref{sec-descr-queries}) are reserved:
 \end{itemize}
 %% 
 The properties \texttt{module}, \texttt{file}, and \texttt{type}  are not allowed in rule
-descriptors (i.e., in \texttt{@!\{...\}} in rule heads)---only in rule descriptor queries (i.e.,
-in \texttt{@!\{...\}} and \texttt{clause\{...\}} in rule bodies)---because they are assigned
+descriptors (i.e., inside \texttt{@!\{...\}} in rule heads)---only in rule descriptor queries (i.e.,
+inside \texttt{@!\{...\}} and \texttt{clause\{...\}} in rule
+bodies)---because these properties are set
 at compile or load time.  
 
 
@@ -13082,8 +13092,9 @@ attached to them via descriptors, they can be used for various other,
 specialized needs (e.g., as standing queries that are called periodically
 to update user views).
 \ERGO also has more
-powerful mechanisms of \emph{integrity constraints} and
-\emph{alerts}.   
+powerful mechanisms for handling \emph{integrity constraints} and
+\emph{alerts}, described in Sections~\ref{sec-kb-constraints}
+and~\ref{sec-alerts}.
 
 A latent query has the following form:
 %% 
@@ -13727,9 +13738,9 @@ policy, \FLSYSTEM provides two compiler directives:
 :- default_is_strict.           // short form
 \end{verbatim}
 %% 
-The \verb|\default_is_defeasible_rules| directive changes the default so
+The \verb|default_is_defeasible_rules| directive changes the default so
 that untagged rules become defeasible. The directive
-\verb|\default_is_strict_rules| changes the default back to strict.
+\verb|default_is_strict_rules| changes the default back to strict.
 These directives can appear any number of times in the file,
 changing the treatment of the untagged rules to the desired default.
 (Of course, such frequent switching is not advisable.)
@@ -16540,7 +16551,8 @@ constraint from {\tt C}.
 can be any \FLSYSTEM query (it must be a based or parenthesized formula), {\tt ?Error} is a HiLog (or Prolog) term, and {\tt
   ?Handler} is a \FLSYSTEM query that will be called if an exception that
 unifies with {\tt ?Error} is thrown during the execution of {\tt ?UnitaryGoal}. 
-Syntactically, the handler must be a unitary goal.
+Syntactically, the handler must be a \emph{unitary} goal, defined in
+Section~\ref{sec-basic-flogic}.
 For instance,
 
 %%
