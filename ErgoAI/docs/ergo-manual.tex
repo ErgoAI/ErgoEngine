@@ -2000,7 +2000,8 @@ It is possible to have more than one operator with the same name provided
 they have different uses ({\it e.g.}, one infix and the other postfix).
 However, the \FLSYSTEM built-in operators are not allowed to be redefined.
 In particular, any symbol that is part of \fl syntax, such as ``,'', ``.'',
-``[``, ``:'', etc., as well as any name that begins with {\tt flora} or
+``[``, ``:'', etc., as well as any name that begins with {\tt flora},
+\texttt{ergo},  or
 {\tt fl} followed by a capital letter should be considered as reserved for
 internal use.
 
@@ -6824,8 +6825,8 @@ aforementioned ones, as it is the only one that forms what we call
 \emph{rules}. What's on the left of \texttt{:-} is the head of the rule and
 what's on the right is the body. Neither  $\rnafarr $ nor $\rnegarr $ (nor
 their leftward brethren $\lnafarr$ and $\lnegarr$)
-form rules: they can appear only in rule bodies in \FLORA
-(but in \ERGO $\rnegarr$ can also appear in rule heads).
+form rules: they can normally appear only in rule bodies; their use in rule
+heads is experimental.
 But the main difference is
 that these connectives \emph{test} if, say, $\phi \rnafarr
 \psi$ is true (false, or undefined) for some variable bindings in $\phi$ and
@@ -10277,18 +10278,18 @@ Boolean methods of the form {\tt \%foo(...)}) when a tabled literal depends
 on them. Moreover, because non-tabled HiLog predicates are regarded as having
 transactional side-effect by default, this warning is also issued when a
 tabled literal depends on non-tabled HiLog predicates.
-\FLORA also
-imposes restrictions on the use of updates that affect tabled
-facts: it does not allow such dependency to occur in modules with
-reactive tabling.
-\ERGO does allow such dependency by providing
-the special feature of ``stealth mode'' updates.
-
-\index{stealth update}
-\index{update!stealth}
-%% 
-See the \texttt{stealth\{...\}} primitive described in
-Section~\ref{sec-stealth-updates}. 
+%%\FLORA also
+%%imposes restrictions on the use of updates that affect tabled
+%%facts: it does not allow such dependency to occur in modules with
+%%reactive tabling.
+%%\ERGO does allow such dependency by providing
+%%the special feature of ``stealth mode'' updates.
+%%
+%%\index{stealth update}
+%%\index{update!stealth}
+%%%% 
+%%See the \texttt{stealth\{...\}} primitive described in
+%%Section~\ref{sec-stealth-updates}. 
 
 
 \label{page-histogram}
@@ -10809,7 +10810,7 @@ example, the query
 %%
 \begin{quote}
 \begin{verbatim}
-      ?- clause{?X, e(?_,?_)}.
+      ?- clause{?X, e(?,?)}.
 \end{verbatim}
 \end{quote}
 %%
@@ -11073,7 +11074,7 @@ as the operator names might suggest.
 \emph{Caveat}: \texttt{setof} eliminates all duplicates only if the bindings for
 the aggregate variable are all ground HiLog or Prolog terms. 
 If some terms are non-ground or are reified formulas, some duplicates may remain.
-To tell \texttt{setof} to eliminate them all, execute the query
+To tell \texttt{setof} to eliminate them all, execute the command
 \index{setof!strict mode}
 \index{strict setof mode}
 %% 
@@ -14364,7 +14365,7 @@ leaves \texttt{?X} unbound.
 The following subsections
 describe each data type separately and in greater detail.
 
-\subsection{The \FLSYSTEM \bs{}symbol Data Type}
+\subsection{The \bs{}symbol Data Type}
 
 \index{datatype!\bs{}symbol}
 \index{general constant symbol}
@@ -14664,7 +14665,7 @@ However, one can always override these built-in definitions using either a
 compile time directive {\tt iriprefix} or a runtime query {\tt iriprefix}.
 
 
-\paragraph{File locality.}
+\paragraph{File name locality.}
 \index{irilocalprefix directive}
 The \texttt{iriprefix}  directives are \emph{global} within the module. 
 This means that these directives take effect not only in the file in which they appear,
@@ -16547,8 +16548,9 @@ constraint from {\tt C}.
 \index{primitive!throw\{...\}}
 %%
 \FLSYSTEM supports the common catch/throw paradigm through the primitives {\tt
-  catch\{?UnitaryGoal, ?Error, ?Handler\}} and {\tt throw\{?Error\}}.  Here {\tt ?Goal}
-can be any \FLSYSTEM query (it must be a based or parenthesized formula), {\tt ?Error} is a HiLog (or Prolog) term, and {\tt
+  catch\{?UnitaryGoal, ?Error, ?Handler\}} and {\tt throw\{?Error\}}.  Here
+{\tt ?UnitaryGoal}
+can be any \FLSYSTEM query (it must be a unitary goal), {\tt ?Error} is a HiLog (or Prolog) term, and {\tt
   ?Handler} is a \FLSYSTEM query that will be called if an exception that
 unifies with {\tt ?Error} is thrown during the execution of {\tt ?UnitaryGoal}. 
 Syntactically, the handler must be a \emph{unitary} goal, defined in
@@ -16625,9 +16627,9 @@ names. For instance,
 \begin{alltt}
 #include "flora_exceptions.flh"
 ?- ..., catch\{myQuery(?Y),
-               \FLABORT(\FLUNDEFEXCEPTION(?MethSpec,?Message),?_),
+               \FLABORT(\FLUNDEFEXCEPTION(?MethSpec,?Message),?),
                myHandler(?MethSpec)\}.
-?- ..., catch\{yourQuery(?Y),\FLABORT(?Message,?_),yourHandler(?Message)\}.
+?- ..., catch\{yourQuery(?Y),\FLABORT(?Message,?),yourHandler(?Message)\}.
 \end{alltt}
 %%
 
@@ -16683,8 +16685,9 @@ errors are reported.
 
 The \textbf{most important rule}  
 in debugging \FLSYSTEM knowledge bases is: \textbf{never
-  ignore any kind of warnings} issued by the system. This golden rule actually
-applies to programming in \emph{any} language.  In addition, it is possible
+  ignore any kind of warnings} issued by the system. In fact, this golden rule 
+applies to programming in \emph{any} language, especially  a logic programming
+language.  In addition, it is possible
 to tell \FLSYSTEM to perform various run-time checks, as described below.
 
 \subsection{Checking for Undefined Methods and Predicates}\label{sec-undef}
@@ -16714,8 +16717,8 @@ The argument {\tt ?Module} must be a valid loaded \FLSYSTEM module name
 or it can be a variable. When the flag argument is {\tt on}, the first
 method turns on the checks for undefinedness in all \emph{existing} 
 modules. The second
-method does it in a specific module. When the flag argument is off, the
-above methods turn the undefinedness checks off globally or in a specific
+method does it in the specified module. When the flag argument is off, the
+above methods turn the undefinedness checks off globally or in the specified
 module, respectively.
 
 Note: \texttt{Method[mustDefine(on)]@\bs{}sys} does not apply to \emph{newly-created} modules and 
@@ -16809,7 +16812,7 @@ which will be called when an undefinedness exception occurs. The variable
 predicate call that caused the exception. For instance, if we define
 %%
 \begin{verbatim}
-  handler(?_) :- !.  
+  handler(?) :- !.  
 \end{verbatim}
 %%
 then the undefinedness exception that occurs while executing $FOO$ will be
@@ -17428,14 +17431,14 @@ More often, though, one might need to examine incomplete tables after an
 exception, if the user suspects that the exception has something to do with
 tabled subgoals. Such a table dump looks exactly like the dump produced by
 \texttt{\bs{}dump\_incomplete\_tables/1} but it is requested differently.
-First, one must execute the query
+First, one must execute the command
 \index{\small\bs{}set\_dump\_incomplete\_tables\_on\_exception/0}
 %% 
 \begin{verbatim}
     ?- \set_dump_incomplete_tables_on_exception.
 \end{verbatim}
 %% 
-Then, after an exception took place, the user should execute the query
+Then, after an exception took place, the user should execute the command
 \index{\small{\bs{}dump\_incomplete\_tables\_after\_exception/1}}
 %% 
 \begin{alltt}
@@ -17866,7 +17869,7 @@ The following options provide subgoal size control:
 \begin{alltt}
     goalsize(\emph{TermSize},abort)
     goalsize(\emph{TermSize},abstract)
-    goalsize(\emph{TermSize},pause)        \textnormal{// Ergo only}
+    goalsize(\emph{TermSize},pause)
 \end{alltt}
 %% 
 These options control the maximum size of the subgoals called during the
@@ -17902,7 +17905,7 @@ The following options enable answer size control:
 \begin{alltt}
     answersize(\emph{TermSize},abort)
     answersize(\emph{TermSize},abstract)
-    answersize(\emph{TermSize},pause)        \textnormal{// Ergo only}
+    answersize(\emph{TermSize},pause)
 \end{alltt}
 %% 
 The meaning of the \texttt{abort} options is the same as
@@ -17934,12 +17937,18 @@ useful for termination and performance analysis.
 \index{activegoals option}
 %%
 \begin{alltt}
-    activegoals(\emph{TermSize},abort)
-    activegoals(\emph{TermSize},pause)        \textnormal{// Ergo only}
+    activegoals(\emph{number-of-goals},abort)
+    activegoals(\emph{number-of-goals},pause)
 \end{alltt}
 %%
 The meaning of the \texttt{abort}   and \texttt{pause}  actions
 is the same as in the case of subgoal and answer size controls.
+Example:
+%% 
+\begin{alltt}
+    ?- setruntime\{activegoals(100,pause)\}.
+\end{alltt}
+%% 
 
 \subsubsection{Memory Usage Limit}
 
@@ -17959,7 +17968,7 @@ will set the limit to 12 GBs. If the \FLSYSTEM process exceeds this amount,
 the computation will be aborted.
 
 \noindent
-\ERGO (but not \FLORA) also supports the following:
+\ERGO also supports the following:
 %% 
 \begin{alltt}
     memory(\textit{memory-limit-in-GBs,Action})
@@ -18064,8 +18073,8 @@ eliminate duplicates. This is not a complete description, however.
 For example, the sort function considers \texttt{f(?I)} and \texttt{f(?J)}
 (i.e., terms that are isomorphic up to a variable renaming) as being
 different. In addition, identical reified terms like \texttt{\$\{d(c)\}} and
-\texttt{\$\{d(c)\}} may also be considered different because it takes an extra
-step to tell them apart. Since reified and non-ground
+\texttt{\$\{d(c)\}} may also be considered different because it takes  extra
+steps to tell them apart. Since reified and non-ground
 terms occur in aggregate primitives
 rather infrequently, expending the overhead to eliminate duplicates among
 such terms is unjustified. If it is nevertheless desired to do such
@@ -18337,7 +18346,7 @@ Based on this, the oids of the objects {\tt ?X.?Y} are computed, and
 then the attribute {\tt ?Z} is applied. In other words, the translation will
 be {\tt ?X[?Y->?Newvar1], ?Newvar1[?Z->?Newvar2]}.
 
-Unfortunately, unlike databases, statistical information is not
+Unfortunately, unlike in databases, statistical information is not
 available to the \FLSYSTEM compiler and only a few heuristics (such as
 variable binding analysis, which the compiler does not perform) can be used
 to optimize such queries. If the order chosen by the compiler is not right,
@@ -18657,9 +18666,9 @@ so  it will perform the specialization optimization.\footnote{
 \index{module!system}
 \index{system module}
 %%
-\FLSYSTEM provides a number of useful libraries that the user can use.
+\FLSYSTEM provides a number of useful libraries for the user.
 These libraries are statically preloaded into modules that are accessible
-through the special {\tt @\bs{}modname} syntax, and they are called
+through the special {\tt @\bs{}modname} syntax and they are called
 \emph{system modules}.  We describe the functionality of these modules
 below. Some of these modules also have longer synonyms.
 These synonyms are mentioned below, if they exist.
@@ -19035,7 +19044,7 @@ or, for instance,
 %% 
 
 
-\subsubsection{Display Mode and Schema}\label{sec-display-mode}
+\subsubsection{Display Mode and  Display Schema}\label{sec-display-mode}
 
 \index{setdisplaymode\{...\} primitive}
 \index{primitive!setdisplaymode\{...\}}
@@ -19054,7 +19063,7 @@ There are these display modes:
 At present, the only difference between \texttt{debug} and \texttt{default}
 is that in the \texttt{debug} mode
 the Skolems are written out using their internal representation while in
-the default mode the output looks like a \FLSYSTEM term.
+the default mode the output looks like an \FLSYSTEM term.
 For instance,
 %% 
 \begin{verbatim}
@@ -19097,8 +19106,8 @@ being printed, while in the \texttt{stickydefault} mode this automatic
 switch does not happen.
 
 The \texttt{explanation} mode may be desirable when presenting explanations
-to the user, which is a feature in \ERGO, but may also be useful in some
-other special cases. The main difference between this and \texttt{default}
+to the user or in dialogues with humans.
+The main difference between this and \texttt{default}
 is that in the explanation mode the names of the primitive types are not
 shown. For instance, in the default mode, a date would be shown as
 \verb|"2018-09-19"^^\date|, while in the explanation mode it will appear
@@ -19146,7 +19155,7 @@ representation or the internal Prolog representation. For instance,
   ?X = flapply(p,_h9195)
 \end{verbatim}
 %% 
-while in the default schema, \texttt{flora} (or \texttt{ergo}, in \ERGO),
+while in the default schema, \texttt{ergo},
 the answer would be shown as
 %% 
 \begin{verbatim}
@@ -19157,14 +19166,14 @@ the answer would be shown as
 This display schema also affects the \texttt{write(...)@\bs{}io} predicates. 
 Another useful display schema is \texttt{tmpraw}. As the name suggests,
 this is a temporary raw mode that has effect only during one query. When
-the query is finished, the display schema returns to be \texttt{flora} or
-\texttt{ergo}, depending on the system. For instance,
+the query is finished, the display schema returns back to
+\texttt{ergo}. For instance,
 %% 
 \begin{verbatim}
    ?- setdisplayschema{tmpraw}, ?X=p(?).  // has effect just for this query
    ?X = flapply(p,_h12379)   // temporarily used the raw schema to show ?X
    ?- ?X=p(?).
-   ?X = p(?_h12)       // display schema returned to be flora/ergo in next query
+   ?X = p(?_h12)       // display schema returned to be ergo in next query
 \end{verbatim}
 %% 
 
@@ -19176,7 +19185,7 @@ For instance,
 %% 
 \begin{verbatim}
    ?- displayschema{?X}.
-   ?X = flora
+   ?X = ergo
 \end{verbatim}
 %% 
 
@@ -19258,9 +19267,9 @@ Additional commands:
 \item  \verb|\ls.|
   \\
   Sends the listing of the current directory to the standard output.
-\item  \verb|\ls.|
+\item  \verb|\lsls.|
   \\
-  Like \verb|\lsls.| but in Unix-based systems uses the \texttt{ls -ls}
+  Like \verb|\ls.| but in Unix-based systems uses the \texttt{ls -ls}
     command.
 \item \verb|\ls(?Directory,?Result).|
   \\
@@ -19345,14 +19354,14 @@ This module also provides the following amenities:
   User aborts can be caught as follows:
   %%
   \begin{alltt}
-   ?- catch\{?Goal, \FLABORT(\FLUSERABORT(?Message),?_), ?Handler\}
+   ?- catch\{?Goal, \FLABORT(\FLUSERABORT(?Message),?), ?Handler\}
   \end{alltt}
   %%
   In order to be able to use the predefined constants {\tt \FLABORT} and
   {\tt \FLUSERABORT} the file must contain the include statement
   %%
   \begin{verbatim}
-    #include "flora_exceptions"    
+    #include "flora_exceptions.flh"    
   \end{verbatim}
   %%
 \item {\tt warning(?Message)} --- prints a warning header, then message,
@@ -19785,7 +19794,7 @@ an employee works in the same building where the employee's department is
 located:
 %%
 \begin{verbatim}
- ?X[building->?B] :- ?X:employee[department->?_[building->?B]].  
+ ?X[building->?B] :- ?X:employee[department->?[building->?B]].  
 \end{verbatim}
 %%
 Our experience in teaching F-logic-based knowledge engineering
@@ -19801,8 +19810,8 @@ A minute of reflection should convince the reader that this is incorrect, since
 the above rule is equivalent to two statements:
 %%
 \begin{verbatim}
- ?X[building->?B] :- ?X[department->?_[building->?B]].  
- ?X:employee :- ?X[department->?_[building->?B]].
+ ?X[building->?B] :- ?X[department->?[building->?B]].  
+ ?X:employee :- ?X[department->?[building->?B]].
 \end{verbatim}
 %%
 It is the second statement, which is problematic. Certainly, we did not
@@ -20223,8 +20232,26 @@ for a novice and certain constructs are especially prone
 to be misused by such users to detrimental effect.
 To fence off these features from a novice, \FLSYSTEM's parser works in the
 novice mode by default. Only very experienced users should work in the
-expert mode---see Section~\ref{misc-options} for how to do that.
+expert mode.
 
+To remind from Section~\ref{misc-options}, expert mode is enabled either at
+compile time:
+  \index{expert compiler option}
+  \index{expert\{...\} primitive}
+  \index{primitive expert\{...\}}
+%% 
+\begin{verbatim}
+ :- compiler_options{expert=on}. 
+\end{verbatim}
+%% 
+or at runtime:
+%% 
+\begin{verbatim}
+ ?- expert{on}. 
+\end{verbatim}
+%% 
+
+\noindent
 The following syntactic constructs are available only in the expert mode:
 %% 
 \begin{itemize}
@@ -20285,7 +20312,7 @@ The following syntactic constructs are available only in the expert mode:
   \index{$\rlnafarr$}
 \item \emph{The $\rlnegarr$ and $\rlnafarr$ double implications.}  
   These double-implications are blocked off in the novice mode because
-  inexperienced users tend make logical mistakes by using ``iff'' when only
+  inexperienced users tend to commit logical fallacies by using ``iff'' when only
   ``if'' is called for.
 \end{itemize}
 %% 
@@ -20312,7 +20339,7 @@ non-logical commands) are listed in this BNF.
 %% (e.g., parentheses and brackets are part of BNF and also of the language
 %% being described), we enclose some symbols in single quotes to make it
 %% clear that they are part of the language syntax, not of the grammar.
-%% However, in \FLSYSTEM these symbols can be used with or without the quotes.
+%% However, in ERGO these symbols can be used with or without the quotes.
 
 Statement := (Rule | Query | LatentQuery | Directive) '.'
 
@@ -20336,7 +20363,7 @@ BooleanRuleDescriptor := Term
 DescrBody := DescrBodyElement (',' DescrBodyElement)*
 DescrBodyElement := Term | Term '->' Term
 
-%% Heads in \ERGO (not \FLORA) can also have ==>, <==, <==>, \bs{}or, and quantifiers
+%% Heads in \ERGO can also have ==>, <==, <==>, \bs{}or, and quantifiers
 Head := ('\RULELOGNEG')? HeadLiteral
 Head := Head (',' | '\bs{}and') Head
 
@@ -20736,7 +20763,7 @@ unless it is already running. However, if you want to invoke this process
 explicitly, type
 %%
 \begin{alltt}
-ESC x run-flora  
+ESC x run-ergo  
 \end{alltt}
 %%
 You can control the \FLSYSTEM process using the following commands:
@@ -20790,9 +20817,10 @@ following files: {\tt mykb.P}, {\tt mykb\_main.\ofile}, and {\tt
   mykb.fdb} (if {\tt mykb.\ergoext} contains facts in addition to rules).
 By default, {\tt load\{mykb\}} loads the knowledge base into the default user
 module named {\tt main}. If {\tt mykb.\ergoext} contains \fl facts, all these
-facts will be compiled separately into the file {\tt mykb.fdb} that is
-dynamically loaded at runtime.  Next, the file {\tt mykb.P} is generated
---- take a look at ``{\tt mykb\_main.P}'' to see what has become of your
+facts will be compiled separately into the file {\tt .ergo\_aux\_files/mykb.fdb} that is
+dynamically loaded at runtime.  Next, the file
+``\texttt{.ergo\_aux\_files/mykb.pl}''  is generated
+--- take a look at that file to see what has become of your
 \FLSYSTEM knowledge base(!) --- and passed to the Prolog compiler, yielding Prolog byte
 code {\tt mykb.\ofile}, which is then renamed to {\tt
   mykb\_main.\ofile}. This file is then loaded and executed.  If {\tt
@@ -20812,17 +20840,17 @@ file \texttt{default.\ergoext} from the demo directory by launching
 the command \texttt{?-~demo\{default\}.}, pose the following query
 and see what happens.
 \begin{alltt}
- \hspace*{4mm}   ?-  ?X.kids[                       // Whose kids\\
- \hspace*{15mm}           self -> ?K,             // ... (list them by name)\\
- \hspace*{15mm}           hobbies ->              // ... have hobbies \\
- \hspace*{15mm}             ?H:dangerous\_hobby    // ... that are dangerous? \\
+ \hspace*{4mm}   ?-  ?X.kids[                       // Whose kids
+ \hspace*{15mm}           self -> ?K,             // ... (list them by name)
+ \hspace*{15mm}           hobbies ->              // ... have hobbies
+ \hspace*{15mm}             ?H:dangerous\_hobby    // ... that are dangerous? 
  \hspace*{10mm}           ]. 
 \end{alltt}
 
 
 \paragraph{\FLSYSTEM compilation.}
-The basic idea behind the implementation of \fl by translating it into
-predicate calculus is described in \cite{KLW95}. It consists of two parts:
+The basic idea behind the implementation of \fl is translating it into
+predicate calculus, as described in \cite{KLW95}. It consists of two parts:
 translation of frames into various kinds of Prolog predicates, and
 addition of appropriate ``closure rules'' that implement the
 object-oriented semantics of the logic.
@@ -20844,10 +20872,10 @@ instance, the result of translating the above frame might be:
 
 \begin{quote}
 \begin{alltt}
-isa(Mary,employee).            // Mary:employee. \\
-mvd(Mary,age,29).               // Mary[age->29]. \\
-mvd(Mary,kids,Tim).            // Mary[kids->\{Tim\}]. \\
-mvd(Mary,kids,Leo).            // Mary[kids->\{Leo\}]. \\
+isa(Mary,employee).            // Mary:employee. 
+mvd(Mary,age,29).               // Mary[age->29].
+mvd(Mary,kids,Tim).            // Mary[kids->\{Tim\}].
+mvd(Mary,kids,Leo).            // Mary[kids->\{Leo\}].
 mvd(Mary,salary(1998),100000).  // Mary[salary(1998)->100000].
 \end{alltt}
 \end{quote}
@@ -20870,7 +20898,7 @@ called a {\rm trie}, and are retrieved using  ``patch rules'', which have the
 form
 %%
 \begin{alltt}
-~~~~ mvd(Obj,Meth,Val) :- storage\_find\_fact(TrieName, mvd(Obj,Meth,Val)).  
+   mvd(Obj,Meth,Val) :- storage\_find\_fact(TrieName, mvd(Obj,Meth,Val)).  
 \end{alltt}
 %%
 where {\tt storage\_find\_fact/2} is an XSB predicate that retrieves facts
@@ -20884,16 +20912,16 @@ thus are different for different modules. Moreover, since module names are
 determined at the load time, the names of the wrapper predicates are
 also generated at that time from predefined templates.
 
-The way \FLSYSTEM rules are encoded is more complex. Consider the following rule:
+The actual way in which \FLSYSTEM rules are encoded is more complex. Consider the following rule:
 %%
 \begin{alltt}
-~~~~Mary[parent->?X] :- Mary[father->?X].  
+    Mary[parent->?X] :- Mary[father->?X].  
 \end{alltt}
 %%
 This is translated as follows:
 %%
 \begin{alltt}
- derived\_mvd(Mary,parent,?X) :- d\_mvd(Mary,father,?X).  
+    derived\_mvd(Mary,parent,?X) :- d\_mvd(Mary,father,?X).  
 \end{alltt}
 %%
 This is done for a number of reasons. The prefix {\tt derived\_} is used to
@@ -20924,21 +20952,21 @@ derived\_mvd <--- d\_mvd
 In auxiliary runtime libraries:
 %%
 \begin{alltt}
-d\_mvd  <---  mvd \\
-d\_imvd <--- imvd \\
-          mvd <---      inferred\_mvd \\
-          mvd <--- \RULELOGNAF inferred\_mvd        <--- derived\_mvd \\
-          mvd <--- \RULELOGNAF conflict\_obj\_imvd   <--- imvddef <--- mvd \\
-          mvd <---      imvd \\
-          mvd <---      immediate\_isa \\
- \\
-         imvd <---      immediate\_sub \\
-         imvd <---      inferred\_imvd             <--- derived\_imvd \\
-         imvd <--- \RULELOGNAF inferred\_imvd \\
-         imvd <--- \RULELOGNAF conflict\_imvd      <--- imvddef \\
- \\
-      imvddef <---      imvd \\
- \\
+d\_mvd  <---  mvd 
+d\_imvd <--- imvd 
+          mvd <---      inferred\_mvd 
+          mvd <--- \RULELOGNAF inferred\_mvd        <--- derived\_mvd 
+          mvd <--- \RULELOGNAF conflict\_obj\_imvd   <--- imvddef <--- mvd 
+          mvd <---      imvd 
+          mvd <---      immediate\_isa 
+ 
+         imvd <---      immediate\_sub 
+         imvd <---      inferred\_imvd             <--- derived\_imvd 
+         imvd <--- \RULELOGNAF inferred\_imvd 
+         imvd <--- \RULELOGNAF conflict\_imvd      <--- imvddef 
+ 
+      imvddef <---      imvd 
+ 
   derived\_mvd <--- storage\_find\_fact(...trie\_name..., mvd(...))
 \end{alltt}
 %%
@@ -21006,7 +21034,8 @@ part of their content.  When an equality maintenance instruction is executed
 for a particular module, the trailer for that module must be compiled and
 loaded dynamically.  (The need for this compilation will become clear after
 we explain the implementation of the module system.)  These trailers are
-stored in the user home directory in the subdirectory {\tt .xsb/flora/}.
+stored in the user home directory in the subdirectory {\tt
+  .xsb/ergo-\emph{version}/}.
 As mentioned earlier, \FLSYSTEM uses different names for the wrapper predicates
 that appear in the rule heads and those that appear in the
 rule heads in trailers. This makes it possible to load the trailers (by
@@ -21029,7 +21058,7 @@ are described in \cite{guiz-flora-00}.
 providing separate namespaces for the various predicates used to encode \fl
 formulas. First, all predicates have a ``weird'' prefix to make clashes with
 other Prolog programs unlikely. The prefix is defined in {\tt
-  includes/header.flh} and currently is {\tt \_\$\_\$\_flora}. The user, of
+  includes/header.flh} and currently is {\tt \_\$\_\$\_ergo}. The user, of
 course, does not need to worry about it, unless she runs \FLSYSTEM in
 a very unfriendly Prolog environment in which other programs also use this
 prefix. In this case, the prefix can be made
@@ -21037,7 +21066,7 @@ even harder to match.\footnote{
   %%
   It is necessary to ensure that the resulting predicate names are symbol
   strings acceptable to the Prolog compiler. Look at the macros
-  {\tt FLORA\_THIS\_WORKSPACE} and {\tt FLORA\_THIS\_FDB\_STORAGE} in
+  {\tt ERGO\_THIS\_WORKSPACE} and {\tt ERGO\_THIS\_FDB\_STORAGE} in
   {\tt includes/flrheader.flh} to see what is involved.
   %%
   }
@@ -21051,33 +21080,33 @@ code where each predicate is wrapped with a preprocessor macro. For
 instance, the predicate {\tt mvd} would be dumped as
 %%
 \begin{quote}
- \tt FLORA\_THIS\_WORKSPACE(FLORA\_USER\_WORKSPACE,mvd)  
+ \tt ERGO\_THIS\_WORKSPACE(mvd)(....)  
 \end{quote}
 %%
-where {\tt FLORA\_THIS\_WORKSPACE} and {\tt FLORA\_USER\_WORKSPACE} are
-preprocessor macros. 
+where {\tt ERGO\_THIS\_WORKSPACE} is a preprocessor macro. 
 When a program, {\tt mykb.P}, which is generated by the \FLSYSTEM compiler,
-needs to be loaded into a user module, say {\tt main}, the preprocessor, {\tt
-  gpp}, is called with the macro {\tt FLORA\_USER\_WORKSPACE} set to {\tt
-  main}. Gpp replaces all macros with the actual values.
+needs to be loaded into a user module, say {\tt foo}, the preprocessor, {\tt
+  gpp}, sets a macro variable inside {\tt ERGO\_THIS\_WORKSPACE} to {\tt
+  foo} and evaluates the macros.
 For instance, the above macro expression will be replaced with something like
 %%
 \begin{alltt}
- \_\$\_\$\_flora'usermod'main'mvd  
+ \_\$\_\$\_ergo'mod'foo'mvd  
 \end{alltt}
 %%
 Gpp then includes all the
-necessary files, and then pipes the result to the Prolog compiler. The latter
+necessary files, and pipes the result to the Prolog compiler. The latter
 produces the object {\tt mykb.\ofile} file where all the predicate names are
 wrapped with the user module name, as described above.  This object file is
-renamed to {\tt mykb\_main.\ofile}. If later we need to compile {\tt mykb.P}
-for another user module, {\tt foo}, {\tt gpp} is called again, but this time it
-sets {\tt FLORA\_USER\_WORKSPACE} to {\tt foo}. When Prolog finally compiles
-the program into an object file, the file is renames to {\tt
-  mykb\_foo.\ofile}.
+renamed to {\tt mykb\_foo.\ofile}. If later we need to compile {\tt mykb.P}
+for another user module, {\tt moo}, {\tt gpp} is called again, but this time it
+arranges {\tt ERGO\_THIS\_WORKSPACE} to use \texttt{moo} instead of
+{\tt foo}. When Prolog finally compiles
+the program into an object file, the file is renamed to {\tt
+  mykb\_moo.\ofile}.
 
 It is important to keep in mind that only the predicate names are wrapped
-with the {\tt FLORA\_PREFIX} macro and a module name. Predicate arguments
+with the {\tt ERGO\_PREFIX} macro and a module name. Predicate arguments
 are not wrapped and thus, the space of object Ids is shared among modules.
 However, this is not a problem and, actually, is very convenient: we can
 easily refer to objects defined in other modules and yet the same object
@@ -21093,7 +21122,7 @@ would be encoded as
 %%
 \begin{quote}
  \tt
- FLORA\_THIS\_WORKSPACE(FLORA\_USER\_WORKSPACE,apply)(p,a,FLORA\_PREFIX'apply(f,b))  
+ ERGO\_THIS\_WORKSPACE(apply)(p,a,ERGO\_PREFIX'apply(f,b))  
 \end{quote}
 %%
 The same term would be encoded differently if it occurs as an argument of a
@@ -21101,13 +21130,13 @@ predicate of another functor:
 %%
 \begin{quote}
  \tt
- FLORA\_PREFIX'apply(p,a,FLORA\_PREFIX'apply(f,b))    
+ ERGO\_PREFIX'apply(p,a,ERGO\_PREFIX'apply(f,b))    
 \end{quote}
 %%
 Thus, \FLSYSTEM implements a 2-sorted version of HiLog \cite{hilog-icdt-95}.
 
 \paragraph{The updatable part of the database.}
-All objects and facts that are explicitly inserted by the user knowledge
+All objects and facts that are explicitly inserted into the knowledge
 base are kept
 in the special \emph{storage trie} associated with the user module where the
 knowledge base is loaded. A trie is a special data structure, which is
@@ -21137,14 +21166,16 @@ The first two methods insert and delete in a non-transactional manner,
 while the last two are transactional.
 
 \FLSYSTEM associates a separate triehandle (and, thus, a separate trie) with
-each module. The mechanism is similar to that used for predicate names:
+each module. The mechanism is similar to that used for predicate names and
+uses the macro
 %%
 \begin{quote}
- \tt FLORA\_THIS\_FDB\_STORAGE(FLORA\_USER\_WORKSPACE)  
+ \tt ERGO\_THIS\_FDB\_STORAGE
 \end{quote}
 %%
 As explained earlier, when Prolog compiles the file generated by the
-\FLSYSTEM compiler, the macro {\tt FLORA\_USER\_WORKSPACE} gets replaced with
+\FLSYSTEM compiler, an internal variable inside
+the macro {\tt ERGO\_THIS\_FDB\_STORAGE} gets replaced with
 the module name and out comes a unique, hard to replicate triehandle.
 
 Unfortunately, putting something in a trie does not mean that Prolog will find
@@ -21194,7 +21225,7 @@ by the \FLSYSTEM compiler. For the \FLSYSTEM shell, however, these rules are
 loaded when the corresponding shell module is created (either the default
 ``main'' module or any module that was created by the {\tt newmodule}
 command). This patch file is loaded exactly once per shell module and is
-kept in the file {\tt .xsb/flora/patch.P}, in the user's home directory.
+kept in the file {\tt .xsb/ErgoAI-\emph{version}/patch.P}, in the user's home directory.
 
 
 \subsection{System Architecture}
@@ -21291,7 +21322,7 @@ patch rules. The file {\tt flrpatch.fli} is a template, and {\tt
 
 The directory {\tt includes/} contains (among others) the header file,
 which defines a number of important macros ({\it e.g.}, {\tt
-  FLORA\_THIS\_WORKSPACE}) that wrap all the names with prefixes to
+  ERGO\_THIS\_WORKSPACE}) that wrap all the names with prefixes to
 separate the different modules found in the user knowledge base.  The directory {\tt
   headerinc/} is another place where the template files are located. Each
 of these files contains just a few {\tt \#include} statements, mostly for
