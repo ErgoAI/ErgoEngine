@@ -325,201 +325,292 @@ and now it completely replaces \FLORA,
 while the latter is no longer maintained.
 
 
-\ifdef{\isfloraman}{
 \section{Installation}\label{sec-install}
 
-\FLSYSTEM has a \emph{simplified} installation procedure for the
-official, pre-compiled releases of the system\footnote{
-  \url{https://sourceforge.net/projects/flora/files/FLORA-2/}
-}
+Coherent \ERGOAI includes
+the \FLSYSTEM reasoner,
+\ERGOAI Studio, and various \ERGO connectors (e.g., to
+RDF, Java, Python, SPARQL, etc.).
+The easiest way to install \ERGOAI is to download an official release,
+which consists of an installer for pre-built copies of the reasoner and the studio. 
+Still, the installer has prerequisites that are different for Linux, Mac,
+and Windows.
+
+Alternatively, one can download \ERGOAI from Github and \emph{build} the
+system from the sources. This option is
+suitable only for developers and those who absolutely must use an
+intermediate version of \ERGOAI for various reasons. However, this option
+is much more involved  on Windows and a bit more involved on Linux and Mac.   
+For that reason, the process of building \ERGOAI from sources is relegated
+to Appendix \ref{app-building-ergo}.
+
+\subsection{Prerequisites for Installation}\label{sec-inst-prereq}
+
+To run \ERGOAI, it is recommended to have at least \textbf{8GB of RAM}, but
+16GB is much preferred, especially under Windows. Also, \textbf{Java 8} is
+required if one is planning to use \ERGOAI Studio and Java-based packages
+like the OWL/RDF import. Some functions in the studio will not work with
+Java 9 and later versions.  \textbf{Python 3.7 or later} is also
+recommended if one plans to use Python-based packages.
+
+\noindent
+In addition, the following is needed:
 %% 
-and a full procedure for those who downloaded the very latest
-development version of the software directly from the SVN repository.\footnote{
-  For online browsing:
-  \url{https://sourceforge.net/p/flora/src/HEAD/tree/}.
-  \\
-  \hspace*{7mm}For downloading:
-  \texttt{svn~checkout~svn://svn.code.sf.net/p/flora/src/trunk flora-src}.
-}
+\begin{itemize}
+\item[] \textbf{Windows:}  no additional prerequisites.
+\item[] \textbf{Linux:} Ubuntu, Mint, Fedora, SUSE, etc., are likely to be
+  ready for installation out of the box unless they are configured in
+  unusual ways.  Verify that the utility make and the gcc compiler are
+  installed (using the system's package manager).
+
+  \begin{itemize}
+  \item A possible Java 8 issue on Linux.  If your installation of Java 8 JDK
+    is headless, you might see this error when starting \ERGOAI:
+    
+    %% 
+    \begin{quote}
+      \it
+      Exception in thread "main" java.awt.AWTError: Assistive Technology not found:\\
+      org.GNOME.Accessibility.AtkWrapperat
+    \end{quote}
+    %% 
+    
+    To avoid this, you can install the Java package with the full JDK or
+    locate the file accessibility.properties (which could be in
+    /etc/java-8-openjdk/accessibility.properties or similar) and comment
+    out the line
+    \\
+    \hspace*{8mm}
+    \emph{\#assistive\_technologies=org.GNOME.Accessibility.AtkWrapper}
+    \\
+    (i.e., add \#, as shown).
+    
+  \item  One may also want to install these \textbf{optional} items:
+    \begin{itemize}
+    \item MySQL, UnixODBC and MyODBC developer's packages. These are required
+      for database connectivity. Note that here we need developer's
+      packages. These packages usually have names like unixODBC-devel,
+      unixodbc-dev, MySQL-devel, mysql-client, mysql-connector-odbc, or
+      similar.  Use your system's package manager to find if these packages are
+      installed (and the packages' exact names) and install them if not.
+    \item The package pcre-devel, libpcre-devel, libpcre++-dev, or a similarly
+      named package---needed if one wants to use Perl-style regular
+      expressions.
+    \item The package curl-devel, libcurl-devel, libcurl4-openssl-dev, or
+      similar -- install if fetching remote Web pages is going to be needed.
+    \item The package rlwrap is useful for the overall experience with the
+      \ERGOAI engine in the non-Studio (terminal) mode. This package provides
+      command history, which can be browsed via the Up/Down arrows on the
+      keyboard.
+    \end{itemize}
+  \end{itemize}
+\item[] \textbf{Mac:}
+  %% 
+  \begin{itemize}
+  \item Under MacOS, \ERGOAI requires Xcode to be installed and be
+    \emph{up-to-date}.  This package contains a C compiler and other
+    utilities needed for the \ERGOAI installation.
+    %% 
+    \begin{itemize}
+    \item Go to the Mac Apps store, find Xcode, click "Get" then "Install
+      App" (Xcode is free and is an optional part of MacOS).
+    \item After installing Xcode, please also install the Xcode command
+      line tools:
+      \begin{itemize}
+      \item Open Terminal (in the /Macintosh HD/Applications/Utilities
+        folder)
+      \item Type xcode-select --install then hit <Enter>
+      \item Note: if you upgrade MacOS, Xcode must also be updated and the
+        above xcode-select command be rerun.
+      \end{itemize}
+    \item A number of optional \ERGOAI packages need additional software to be
+      installed through a package manager called Homebrew. To install
+      Homebrew, perform the following steps:
+      \begin{itemize}
+      \item Open the Terminal application
+      \item Type this on one line
+        \\
+        \texttt{ruby -e "\$(curl -fsSL\\
+          \hspace*{2mm}
+          https://raw.githubusercontent.com/Homebrew/install/master/install)}
+        \\
+        then hit \texttt{<Enter>}.
+      \item Type \texttt{brew doctor} 
+        to verify that the installation was successful.
+      \end{itemize}
+    \item The following optional packages used by \ERGOAI can be installed via
+      Homebrew. All the commands below must be typed into a terminal window:
+      
+    \begin{itemize}
+    \item \texttt{brew install g++} --- if clang is not installed, then
+      install g++; needed for compilation.
+    \item \texttt{brew install autoconf} --- configuration system; needed for
+      compilation.
+    \item \texttt{brew install rlwrap} --- provides command history for the
+      \ERGOAI engine in the non-Studio (terminal) mode; the history can be
+      browsed using the Up/Down arrows on the keyboard.
+    \item \texttt{brew install pcre} --- used by the \ERGO pattern matching
+      package.
+    \item \texttt{brew install curl} --- used for the Web access.
+    \item \texttt{brew install unixodbc} --- used for database connectivity.
+    \end{itemize}
+  \item Note: The MySQL ODBC driver has a number of problems interfacing
+    with MySQL 5.7 on Linux and MacOS, so MySQL 5.6 is recommended instead.
+  \end{itemize}
+\end{itemize}
+\end{itemize}
 %% 
-Most users would use the simplified installation procedure, especially on
-Windows.
 
+\subsection{Installing \ERGOAI with an Officially Released Installer}\label{sec-inst-prereq}
 
-
-\subsection{Simplified Installation}
-
-
-You can use this procedure, if you downloaded an official pre-compiled
-release of \FLSYSTEM; it \emph{cannot} be used if you obtained the software
-from the SVN repository.
-The advantage of this procedure is that everything installs with just one
-command and on Windows it does not require any special
-software, such as the C++ compiler or nmake.
-
-The official release also includes
-one of the latest versions of XSB that is compatible with the \FLSYSTEM release.
-Thus, there is no need to download XSB separately.
-
-
-\paragraph{Unix-based systems (Linux, Mac, BSD, etc.).}
-The Unix-style download is the file \texttt{ergoAI_X.Y.run},
-where \texttt{X.Y} is a version number. 
-This is a self-extracting archive. Put it in
-a suitable installation directory, \textbf{DIR} and then execute
 %% 
-\begin{quote}
-  \tt
-  cd \textbf{DIR}\\
-  \tt
-   sh ./ergoAI_X.Y.run
-\end{quote}
+\begin{itemize}
+\item[] \textbf{Windows:} 
+  %% 
+  \begin{itemize}
+  \item Download the file \texttt{ergoAI\_\textnormal{\emph{versn}}.exe}  from Github, where
+    \emph{versn} is the version number. 
+  \item Close any other running copy of \ERGOAI.
+  \item Double click on \texttt{ergoAI\_\textnormal{\emph{versn}}.exe}
+    to open a setup
+    wizard.  Follow the prompts to install \ERGOAI.
+
+    \textbf{Note:} During the installation you will be asked to choose a
+    folder in which to install \ERGOAI. It is required to choose a directory
+    for which you have both read and write privileges.  Therefore, it is
+    recommended to choose a directory owned by your account. If you choose
+    Program Files or some other system directory, your account would need
+    to have administrative privileges not just during the installation but
+    also each time you use \ERGOAI.
+  \item Your desktop will now have two icons for two \ERGOAI shortcuts. One
+    icon is for starting \ERGOAI Studio, the graphical IDE for \ERGO; the
+    other (that has a small black DOS window in it) is for starting the
+    \ERGOAI Engine on command line in a DOS window.
+  \item \textbf{A note on anti-virus software:} During installation, your
+    anti-virus software may ask you to 'Trust' the file. Please follow
+    instructions to do so.  If at any time after installation \ERGOAI Studio
+    fails to start, the anti-virus software may again be involved. It may
+    be necessary to 'Trust' the file again even if it had been previously
+    trusted by the user.
+  
+    We have heard reports about this problem with Norton Anti-virus
+    products in particular.  To fix this, navigate to the runErgoAI.exe
+    file in your \ERGOAI installation, which is typically located at
+    \\
+    \textbf{C:\bs{}Users\bs{}YourUsername\bs{}Coherent\bs{}ERGOAI\_\textnormal{\emph{versn}}\bs{}ErgoAI\bs{}runErgoAI.exe}
+
+    If you are using a Norton anti-virus product, right-click on the file
+    and select 'File Insight' then 'Trust'
+    the file.
+  \item \textbf{A note on the .jar-to-Java association:} 
+    Check that .jar files are
+    associated with Java, so that double-clicking on such files opens them
+    with Java (Java must be already installed). If this is not the case,
+    change the association (right-click on a .jar file and select "Open
+    With").
+
+    In 99.9\% of the cases the association is already correct, but if
+    double-clicking on the \ERGOAI icon opens something other than \ERGO then
+    fixing the .jar-to-Java association will solve that problem.
+  \item \textbf{Windows misconfiguration.}  A not uncommon problem with
+    Windows is that it gets misconfigured from time to time after
+    upgrades. One of these unfortunate misconfigurations affects \ERGO, so
+    you might get the following cryptic message during the installation:
+    "Missing VCRUNTIME140.DLL" .  This is usually the result of a Windows
+    misconfiguration caused by a failed upgrade or a failed program install
+    (of something other than \ERGOAI).
+
+    Make sure you don't rush to download this DLL from a random place on
+    the Internet, but follow the steps prescribed by Microsoft. An
+    installer for the missing DLL can be downloaded from Microsoft at
+    \url{https://www.microsoft.com/en-us/download/details.aspx?id=52685}. Install
+    the x64 bit version of the DLL.
+
+    After this update you will need to restart your PC.
+  \end{itemize}
+  %%
+\item[] \textbf{Mac and Linux:}  
+  %% 
+  \begin{itemize}
+  \item  Download the file \texttt{ergoAI\_}\textnormal{\it
+      \textit{versn}}\texttt{.run}  from Github.
+  \item Move that file to the installation directory of your choice.
+  \item Type
+    %% 
+\begin{alltt}
+    sh ergoAI\_\textnormal{\it{}versn}.run 
+\end{alltt}
+    %% 
+  \item Follow the prompts. At the end of the process, you will be given
+    the path names to use in order to run \ERGOAI Studio as well as the
+    command line version of Ergo. These path names have the following
+    structure:
+    %% 
+    \begin{quote}
+      \emph{the-folder-where-you-ran-"sh ergoAI.run"}\texttt{/Coherent/.../runErgoAI.sh}\\
+      \emph{the-folder-where-you-ran-"sh ergoAI.run"}\texttt{/Coherent/.../runergo}
+    \end{quote}
+    %% 
+    The first is to be used for running the \ERGOAI Studio GUI, while the
+    latter is for running \ERGOAI engine on command line (in a terminal).
+
+    \textbf{Note 1:} \ERGOAI requires read, write, and execute permissions
+    on all sub directories of the folder where you ran the "sh ergoAI.run"
+    command for all users who are going to use \ERGOAI. If
+    you are installing \ERGOAI in your home directory then the permissions
+    will be set automatically. However, if you are installing it elsewhere,
+    like in /opt/, then these permissions might have to be set manually
+    after the installation. For instance:
+    %% 
+\begin{verbatim}
+     chmod -R g+rwX   /opt/Coherent/ 
+\end{verbatim}
+    %% 
+    will set the right permissions for all users who are in the same user
+    group as the \texttt{.../Coherent/} folder.  (One can also use
+    \texttt{a+rwX} instead of \texttt{g+rwX}, but this will give the
+    permissions to everybody, which may not be a good idea.)
+
+    \textbf{Note 2:} Normally, \ERGO creates a directory called
+    \texttt{.xsb} in the user's home directory: \texttt{\$HOME/.xsb}. If
+    you are using \ERGOAI via the OS account that was also used to install
+    \ERGOAI, nothing needs to be done. However, if the usage account differs
+    from the installation account (which is often the case with servlets
+    and other \emph{nologin} usage accounts) then it is necessary to tell
+    Ergo where it can create the \texttt{.xsb} directory via the
+    environment variable \texttt{XSB\_USER\_AUXDIR}. The location must have
+    the \texttt{rwx} permissions for the usage account. For instance,
+    %% 
+\begin{verbatim}
+     export XSB_USER_AUXDIR=/opt/Coherent/ERGOAI/ErgoAI/.xsb 
+\end{verbatim}
+    %% 
+    \textbf{Note 3:} On \textbf{MacOS}, if you upgrade the OS, \ERGOAI must be
+    reinstalled.
+  \end{itemize}
+  %% 
+\item[] \textbf{Desktop icons:} Two desktop icons (ErgoAI IDE and \ERGOAI
+  Terminal) are normally installed if:
+    %% 
+    \begin{itemize}
+    \item[] \textbf{Linux:} the user has a desktop environment that is LSB
+      (Linux standard) compliant.
+    \item[] \textbf{Mac:}  XCode command line tools are installed.
+
+      On the Mac, one might have to reboot in order for the \ERGOAI icons to
+      display the right pictures.
+
+      If the icons do not get installed for some reason (which is more
+      likely to happen with the latest versions of MacOS X), use command
+      line invocation mentioned above, i.e.,
+      \\
+      \emph{the folder where you ran "sh ergoAI.run"}\texttt{/Coherent/.../runErgoAI.sh}
+      \\
+      \emph{the folder where you ran "sh ergoAI.run"}\texttt{/Coherent/.../runergo} 
+    \end{itemize}
+    %% 
+\end{itemize}
 %% 
-This will create the folder \texttt{Coherent} with
-subfolder \texttt{ERGOAI_X.Y}.
-The script to run \FLSYSTEM is\\
-\texttt{\textbf{DIR}/Coherent/ERGOAI_X.Y/ErgoAI/\ENGINERUN}.  
-Also, icons to run \ERGO will appear on the desktop.
-
-\paragraph{Windows.}
-The Windows installer is called \texttt{ergoAI_X.Y.exe}.
-Put it on your desktop and double-click on it. You will be asked a series
-of questions, as usual with Windows installers. In the end, both XSB and 
-\FLSYSTEM will be installed with the appropriate shortcuts placed on the
-desktop and in the Start menu.
-
-Note: The machine must be 64 bit and the OS must be 64 bit capable.
-
-\paragraph{Starting \FLSYSTEM.}
-The command to run \FLSYSTEM is \texttt{./\ENGINERUN} (Linux/Mac/etc.)
-or \texttt{\ENGINERUN.bat} (Windows). These scripts are located in the
-\texttt{Coherent/ERGOAI_X.Y/ErgoAI} subfolder of the installation folder. 
-In most cases, the installer will place a \FLSYSTEM icon on your desktop,
-and you can run  the software by double-clicking on that icon.
-
-You may notice that during the first couple of uses of the
-system, the system startup and some queries are delayed by 2-4 seconds.
-This is normal and is due to the compilation of some libraries. The delay
-will disappear after a few uses.
-
-
-\subsection{Installing \FLSYSTEM from Git}
-
-This procedure is significantly more complex than the one for installing
-the official \FLSYSTEM releases described above. It is suitable only for the
-users who need the very latest development version of \FLSYSTEM---either in
-order to be up-to-date with respect to the bug fixes or in
-order to try the new cutting-edge features.
-
-First, install the most recent version of the XSB engine from
-XSB's SVN repository.\footnote{
-  For browsing:
-  \url{https://sourceforge.net/p/xsb/src/HEAD/tree/}.
-  \\
-  \hspace*{7mm}For downloading:
-  \texttt{svn~checkout~svn://svn.code.sf.net/p/xsb/src/trunk xsb-src}.
-  }
-
-XSB sources must be installed.
-If you used the XSB Windows installer,
-make sure that the appropriate boxes are checked. Otherwise, the installer
-will install only the basic system and the subsequent installation of
-\FLSYSTEM might fail.
-
-Compile XSB \textbf{as a 64-bit application}, as explained in XSB's manual,
-Section ``Compiling XSB for Windows''
-(32 bit applications might work, but that version of \ERGO is unsupported).
-It is highly recommended that you compile XSB as a 64-bit application (if
-your hardware is 64 bit).
-Note that XSB \emph{cannot} be compiled in a directory whose path contains
-spaces.  However, once compiled, XSB can be moved to another directory,
-which may contain spaces. No recompilation is necessary after the move.
-
-\sloppy
-Next, clone \FLSYSTEM from its git repository\footnote{
-\texttt{???}
-}
-%%
-into a
-separate directory \emph{outside} the XSB installation tree.  The \FLSYSTEM
-sources will be placed in the {\tt ErgoAI} subdirectory.
-
-Make sure that the typical development software is installed on your
-machine. On Unix-based systems, this includes the GCC compiler, Make, and
-Autoconf. On Windows, this means Microsoft Visual Studio, Community Edition
-(a free download) or a full (paid) Studio version.
-
-\paragraph{Linux, Mac, BSD, etc.}
-Configure \FLSYSTEM as follows:
-%%
-\begin{quote}
-  \tt
-   cd ErgoAI\\
-   \tt
-   make clean\\
-   \tt
-   ./makeergo all \textnormal{\emph{path-to-}}/XSB/bin/xsb
-\end{quote}
-%%
-If the XSB executable is on your program search {\tt PATH}, then instead of the
-third command above you can simply type
-\texttt{./makeergo}. 
-
-\paragraph{Windows.}
-You need Microsoft's Visual Studio with the C++ component installed.
-The free of charge Microsoft Visual Studio, Community Edition, can be
-downloaded from
-%% 
-\begin{quote}
-\tt
- https://www.visualstudio.com/vs/community/
-\end{quote}
-%% 
-Next, find the \texttt{nmake.exe} program within Visual Studio and put the
-folder it is in on the \texttt{PATH} environment variable.  
-In fact, you really only need this \texttt{nmake.exe}, not the entire
-studio, unless you are planning to add components written in C.
-
-Then configure \FLSYSTEM as follows:
-%%
-\begin{quote}
-  \tt
-   cd ErgoAI\\
-   \tt
-   makeergo clean\\
-   \tt
-   makeergo \textnormal{\emph{path-to-}}{\bs}XSB{\bs}bin{\bs}xsb64.bat
-\end{quote}
-%%
-Here \texttt{ErgoAI}  is the root directory 
-for \FLSYSTEM in your git repository; it should have the form
-\emph{something}$\backslash${\tt ErgoAI}. The argument
-\textnormal{\emph{path-for-}}\texttt{{\bs}XSB{\bs}bin{\bs}xsb64.bat}
-must be the full path name for the XSB invocation script.
-Note, that unlike Linux/Mac, there should be no ``all'' keyword
-in the Windows version of the \texttt{makeergo} command.
-
-If you are a developer and wish to recompile the C part of \FLSYSTEM
-(say, because you changed it to fix a bug or added a feature)
-then you can type
-%%
-\begin{quote}
-\tt
-   makeergo -c64 \textnormal{\emph{path-for-}}{\bs}XSB{\bs}bin{\bs}xsb64.bat
-\end{quote}
-%%
-For this, the C++ component of Visual Studio must be installed.
-Normally, however, there is no need to perform this step.
-For ``\texttt{makeergo -c64}'' to work,  
-it may be necessary to locate the file
-\texttt{vcvars64.bat} --- and execute that batch file
-in the command window where \texttt{makeergo -c64} is to be run.
-
-\textbf{Note}: \FLSYSTEM does not work with Cygwin 
-due to a problem with XSB calling external C procedures under Cygwin.
-}
-{\input{./extensions/install}}
-
 
 \section{Running \FLSYSTEM}\label{sec-running}
 
@@ -1096,7 +1187,7 @@ available on the Coherent Web site: \url{https://sites.google.com/a/coherentknow
 and
 {\small\url{https://sites.google.com/a/coherentknowledge.com/tutorial-capturing-real-world-knowledge/}}.
 \\
-The Ergo Example Bank on the same site,
+The \ERGO Example Bank on the same site,
 {\small\url{https://sites.google.com/a/coherentknowledge.com/ergo-suite-tutorial/example-bank-of-advanced-uses}},
 provides a number of advanced examples, many dealing with importing
 information from external sources.
@@ -17476,6 +17567,151 @@ computations without the need to modify the program rules and in a more
 focused way.
 
 \input{./extensions/terminyzer}
+
+
+
+\comment{
+  %% old non-termination stuff from the Flora-2 manual
+\subsection{Non-termination Analysis}\label{sec-terminyzer}
+\index{non-termination}
+\index{Terminyzer}
+
+There are two main non-termination causes in \FLSYSTEM: infinite number of
+calls and infinite number of answers, and both of them arise due to
+recursive rules together with function symbols. 
+Since non-termination is normally very hard to debug, \FLSYSTEM provides 
+a tool, called a
+non-\emph{Termin}ation Anal\emph{yzer}, or the
+\texttt{Terminyzer}, to help the user to locate and understand
+non-terminating behavior. 
+
+When a runaway computation is suspected, the user should stop the execution
+manually or he could set a 
+time limit or a term-size limit prior to starting the query, as explained
+in Section~\ref{sec-timeout}.
+\texttt{Terminyzer} then analyzes the execution's forest logging trace
+and reports the sequences of tabled unfinished calls and their
+respective rule ids (the rules in the knowledge base from which these
+calls were issued) that actually caused the non-termination.
+Below, we describe the usage of \texttt{Terminyzer}; more
+information can be found in \cite{terminyzer2,liang-padl-13}.
+
+To start \texttt{Terminyzer}, the user issues the following command
+%% 
+\begin{alltt}
+    ?- terminyzer(XSBTraceFile,SummaryFile)@\bs{}prolog(flrterminyzer).
+\end{alltt}
+%% 
+where {\tt XSBTraceFile} is the XSB logforest trace that can be
+obtained by executing the query 
+{\tt \bs{}logforest(\emph{FloraTraceFile},\emph{XSBTraceFile})}, as described in
+Section~\ref{sec-logforest} and \emph{SummaryFile} is the non-termination
+analysis summary in the \FLSYSTEM loadable format.  (Note: the input to
+Terminyzer is \emph{XSBTraceFile}, not \emph{FloraTraceFile}.)   
+The entries in the summary file can be used to explain non-terminating
+behavior, if it has occurred. They are as follows:
+%% 
+\begin{itemize}
+\item \emph{Logforest file}. The logforest trace file being analyzed
+  is reported as:
+  %%
+  \begin{quote}
+    {\tt logfile(XSBTraceFile).}
+  \end{quote}
+  %%
+
+\item \emph{Unfinished tabled calls}.
+  If a tabled subgoal $\tt S_1$ is called from a
+  derivation tree for subgoal $\tt S_2$ because of the rule with id
+  {\tt RId} (i.e., $\tt S_2$ matches this rule's head and $\tt S_1$
+  matches one of its body subgoals) and $\tt S_1$ if is not completely
+  evaluated, the
+  following two frames are reported: 
+  %%
+\begin{alltt}
+   unfinished\_subgoal(SubgoalId1)[subgoal->S1,ruleid->RId].\\
+   unfinished\_call(CallId)[parent->SubgoalId2,child->SubgoalId1,ruleid->RId].
+\end{alltt}
+  %%
+  where {\tt SubgoalId1} and {\tt SubgoalId2} are unique ids generated
+  for $\tt S_1$ and $\tt S_2$. 
+  (Note: only one id is generated for each non-variant subgoal.)
+  {\tt CallId} is the unique id generated for this call from $\tt S_2$
+  to $\tt S_1$. 
+  Both subgoal ids and call ids are non-negative integers generated in the
+  temporal order of subgoal and call creation during the evaluation.
+
+  Besides, the number of unfinished subgoals and calls are also
+  recorded as follows:
+%% 
+\begin{alltt}
+   number\_of\_subgoals(unfinished,NumOfSubgoals).\\
+   number\_of\_calls(unfinished,NumOfCalls).
+\end{alltt}
+%% 
+
+\item \emph{Non-termination due to infinite number of subgoals}. 
+  If the trace is generated by an execution that
+  generates infinitely many
+  subgoals, these subgoals must be generated by a set of
+  recursive predicates that generate subgoals with increasing term-size.
+  Furthermore, each cycle of recursive calls to these predicates
+  produces a set of deeper and deeper subgoals.
+  The id sequence of subgoals produced by the first recursive cycle is
+  recorded in the following form:
+%% 
+\begin{alltt}
+   call\_loop[subgoals->SubgoalIdSequence].
+\end{alltt}
+%% 
+  The number of subgoals in the sequence is reported as:
+%% 
+\begin{alltt}
+   number\_of\_subgoals(callloop,NumOfSubgoals).
+\end{alltt}
+%% 
+  
+\item \emph{Non-termination due to infinite number of answers}. 
+  When the trace is generated by an execution that produces
+  infinitely many answers, these answers are produced by a set of
+  recursive predicates that generate answers of increasingly large
+  term-size.
+  This set of recursive unfinished subgoals and their relationships
+  are reported as follows. 
+%% 
+\begin{alltt}
+   answerflow[subgoals->SubgoalIds,calls->CallIds,loop->LoopSubgoalIds].
+\end{alltt}
+%% 
+  where {\tt subgoals} and {\tt calls} are the ids of those unfinished
+  subgoals and calls that are involved in answer generation 
+  and {\tt loop} is the sequence of subgoal ids that form the
+  recursive loop. 
+  The {\tt loop} also indicates the call-relationship among the subgoals in
+  the sequence. 
+  For instance, {\tt [5,6,5]} says
+  that subgoal 5 calls subgoal 6 and subgoal 6 calls subgoal 5, and
+  this recursion is producing infinitely many answers. 
+
+  The number of recursive subgoals and calls and the size of the loop
+  are recorded as follows:
+%% 
+\begin{alltt}
+   number\_of\_subgoals(answerflow,NumOfSubgoals).\\
+   number\_of\_calls(answerflow,NumOfCalls).\\
+   number\_of\_subgoals(answerflowloop,LoopSize).
+\end{alltt}
+%% 
+\end{itemize}
+%%
+The information produced by {\tt Terminyzer} can be used to locate
+the rules and specific calls that cause
+non-terminating behavior.
+%%
+
+} %% end of Non-termination from Flora-2
+
+
 \input{./extensions/runtime}
 
 
@@ -18095,144 +18331,6 @@ To return back to the regular mode, execute
     ?- setruntime{setof(lax)}.
 \end{verbatim}
 %% 
-
-
-\subsection{Non-termination Analysis}\label{sec-terminyzer}
-\index{non-termination}
-\index{Terminyzer}
-
-There are two main non-termination causes in \FLSYSTEM: infinite number of
-calls and infinite number of answers, and both of them arise due to
-recursive rules together with function symbols. 
-Since non-termination is normally very hard to debug, \FLSYSTEM provides 
-a tool, called a
-non-\emph{Termin}ation Anal\emph{yzer}, or the
-\texttt{Terminyzer}, to help the user to locate and understand
-non-terminating behavior. 
-
-When a runaway computation is suspected, the user should stop the execution
-manually or he could set a 
-time limit or a term-size limit prior to starting the query, as explained
-in Section~\ref{sec-timeout}.
-\texttt{Terminyzer} then analyzes the execution's forest logging trace
-and reports the sequences of tabled unfinished calls and their
-respective rule ids (the rules in the knowledge base from which these
-calls were issued) that actually caused the non-termination.
-Below, we describe the usage of \texttt{Terminyzer}; more
-information can be found in \cite{terminyzer2,liang-padl-13}.
-
-To start \texttt{Terminyzer}, the user issues the following command
-%% 
-\begin{alltt}
-    ?- terminyzer(XSBTraceFile,SummaryFile)@\bs{}prolog(flrterminyzer).
-\end{alltt}
-%% 
-where {\tt XSBTraceFile} is the XSB logforest trace that can be
-obtained by executing the query 
-{\tt \bs{}logforest(\emph{FloraTraceFile},\emph{XSBTraceFile})}, as described in
-Section~\ref{sec-logforest} and \emph{SummaryFile} is the non-termination
-analysis summary in the \FLSYSTEM loadable format.  (Note: the input to
-Terminyzer is \emph{XSBTraceFile}, not \emph{FloraTraceFile}.)   
-The entries in the summary file can be used to explain non-terminating
-behavior, if it has occurred. They are as follows:
-%% 
-\begin{itemize}
-\item \emph{Logforest file}. The logforest trace file being analyzed
-  is reported as:
-  %%
-  \begin{quote}
-    {\tt logfile(XSBTraceFile).}
-  \end{quote}
-  %%
-
-\item \emph{Unfinished tabled calls}.
-  If a tabled subgoal $\tt S_1$ is called from a
-  derivation tree for subgoal $\tt S_2$ because of the rule with id
-  {\tt RId} (i.e., $\tt S_2$ matches this rule's head and $\tt S_1$
-  matches one of its body subgoals) and $\tt S_1$ if is not completely
-  evaluated, the
-  following two frames are reported: 
-  %%
-\begin{alltt}
-   unfinished\_subgoal(SubgoalId1)[subgoal->S1,ruleid->RId].\\
-   unfinished\_call(CallId)[parent->SubgoalId2,child->SubgoalId1,ruleid->RId].
-\end{alltt}
-  %%
-  where {\tt SubgoalId1} and {\tt SubgoalId2} are unique ids generated
-  for $\tt S_1$ and $\tt S_2$. 
-  (Note: only one id is generated for each non-variant subgoal.)
-  {\tt CallId} is the unique id generated for this call from $\tt S_2$
-  to $\tt S_1$. 
-  Both subgoal ids and call ids are non-negative integers generated in the
-  temporal order of subgoal and call creation during the evaluation.
-
-  Besides, the number of unfinished subgoals and calls are also
-  recorded as follows:
-%% 
-\begin{alltt}
-   number\_of\_subgoals(unfinished,NumOfSubgoals).\\
-   number\_of\_calls(unfinished,NumOfCalls).
-\end{alltt}
-%% 
-
-\item \emph{Non-termination due to infinite number of subgoals}. 
-  If the trace is generated by an execution that
-  generates infinitely many
-  subgoals, these subgoals must be generated by a set of
-  recursive predicates that generate subgoals with increasing term-size.
-  Furthermore, each cycle of recursive calls to these predicates
-  produces a set of deeper and deeper subgoals.
-  The id sequence of subgoals produced by the first recursive cycle is
-  recorded in the following form:
-%% 
-\begin{alltt}
-   call\_loop[subgoals->SubgoalIdSequence].
-\end{alltt}
-%% 
-  The number of subgoals in the sequence is reported as:
-%% 
-\begin{alltt}
-   number\_of\_subgoals(callloop,NumOfSubgoals).
-\end{alltt}
-%% 
-  
-\item \emph{Non-termination due to infinite number of answers}. 
-  When the trace is generated by an execution that produces
-  infinitely many answers, these answers are produced by a set of
-  recursive predicates that generate answers of increasingly large
-  term-size.
-  This set of recursive unfinished subgoals and their relationships
-  are reported as follows. 
-%% 
-\begin{alltt}
-   answerflow[subgoals->SubgoalIds,calls->CallIds,loop->LoopSubgoalIds].
-\end{alltt}
-%% 
-  where {\tt subgoals} and {\tt calls} are the ids of those unfinished
-  subgoals and calls that are involved in answer generation 
-  and {\tt loop} is the sequence of subgoal ids that form the
-  recursive loop. 
-  The {\tt loop} also indicates the call-relationship among the subgoals in
-  the sequence. 
-  For instance, {\tt [5,6,5]} says
-  that subgoal 5 calls subgoal 6 and subgoal 6 calls subgoal 5, and
-  this recursion is producing infinitely many answers. 
-
-  The number of recursive subgoals and calls and the size of the loop
-  are recorded as follows:
-%% 
-\begin{alltt}
-   number\_of\_subgoals(answerflow,NumOfSubgoals).\\
-   number\_of\_calls(answerflow,NumOfCalls).\\
-   number\_of\_subgoals(answerflowloop,LoopSize).
-\end{alltt}
-%% 
-\end{itemize}
-%%
-The information produced by {\tt Terminyzer} can be used to locate
-the rules and specific calls that cause
-non-terminating behavior.
-%%
 
 
 \subsection{Saving Modules in Files}
@@ -20325,6 +20423,120 @@ The following syntactic constructs are available only in the expert mode:
 {\LARGE\bf Appendices}
 \addcontentsline{toc}{section}{Appendices}
 
+\section{Building \FLSYSTEM from the Git Repository}
+\label{app-building-ergo}
+
+This procedure is significantly more complex than the one for installing
+the official \FLSYSTEM releases described in Section~\ref{sec-install}. It is suitable only for the
+users who need the very latest development version of \FLSYSTEM---either in
+order to be up-to-date with respect to the bug fixes or in
+order to try the new cutting-edge features.
+
+First, install the most recent version of the XSB engine from
+XSB's Git repository.\footnote{
+  For browsing:
+  \url{https://sourceforge.net/p/xsb/code/ci/git-origin/tree/}.
+  \\
+  \hspace*{7mm}For downloading:
+  \texttt{svn~checkout~svn://svn.code.sf.net/p/xsb/src/trunk xsb-src}.
+  }
+
+
+Compile XSB \textbf{as a 64-bit application}, as explained in XSB's manual,
+Section ``Compiling XSB for Windows''
+(32 bit applications might work, but that version of \ERGO is unsupported).
+It is highly recommended that you compile XSB as a 64-bit application (if
+your hardware is 64 bit).
+Note that XSB \emph{cannot} be compiled in a directory whose path contains
+spaces.  However, once compiled, XSB can be moved to another directory,
+which may contain spaces. No recompilation is necessary after the move.
+
+\sloppy
+Next, clone \FLSYSTEM from its git repository\footnote{
+\texttt{???}
+}
+%%
+into a
+separate directory \emph{outside} the XSB installation tree.  The \FLSYSTEM
+sources will be placed in the {\tt ErgoAI} subdirectory.
+
+Make sure that the typical development software is installed on your
+machine. On Unix-based systems, this includes the GCC compiler, Make, and
+Autoconf. On Windows, this means Microsoft Visual Studio, Community Edition
+(a free download) or a full (paid) Studio version.
+See Section~\ref{sec-inst-prereq} for other prerequisites.
+
+\paragraph{Linux and Mac}
+Configure \FLSYSTEM as follows:
+%%
+\begin{quote}
+  \tt
+   cd ErgoAI\\
+   \tt
+   make clean\\
+   \tt
+   ./makeergo all \textnormal{\emph{path-to-}}/XSB/bin/xsb
+\end{quote}
+%%
+If the XSB executable is on your program search {\tt PATH}, then instead of the
+third command above you can simply type
+\texttt{./makeergo}. 
+
+\paragraph{Windows.}
+You need Microsoft's Visual Studio with the C++ component installed.
+The free of charge Microsoft Visual Studio, Community Edition, can be
+downloaded from
+%% 
+\begin{quote}
+\tt
+ https://www.visualstudio.com/vs/community/
+\end{quote}
+%% 
+Next, find the \texttt{nmake.exe} program within Visual Studio and put the
+folder it is in on the \texttt{PATH} environment variable.  
+In fact, you really only need this \texttt{nmake.exe}, not the entire
+studio, unless you are planning to add components written in C.
+
+Then configure \FLSYSTEM as follows:
+%%
+\begin{quote}
+  \tt
+   cd ErgoAI\\
+   \tt
+   makeergo clean\\
+   \tt
+   makeergo \textnormal{\emph{path-to-}}{\bs}XSB{\bs}bin{\bs}xsb64.bat
+\end{quote}
+%%
+Here \texttt{ErgoAI}  is the root directory 
+for \FLSYSTEM in your git repository; it should have the form
+\emph{something}$\backslash${\tt ErgoAI}. The argument
+\textnormal{\emph{path-for-}}\texttt{{\bs}XSB{\bs}bin{\bs}xsb64.bat}
+must be the full path name for the XSB invocation script.
+Note, that unlike Linux/Mac, there should be no ``all'' keyword
+in the Windows version of the \texttt{makeergo} command.
+
+If you are a developer and wish to recompile the C part of \FLSYSTEM
+(say, because you changed it to fix a bug or added a feature)
+then you can type
+%%
+\begin{quote}
+\tt
+   makeergo -c64 \textnormal{\emph{path-for-}}{\bs}XSB{\bs}bin{\bs}xsb64.bat
+\end{quote}
+%%
+For this, the C++ component of Visual Studio must be installed.
+Normally, however, there is no need to perform this step.
+For ``\texttt{makeergo -c64}'' to work,  
+it may be necessary to locate the file
+\texttt{vcvars64.bat} --- and execute that batch file
+in the command window where \texttt{makeergo -c64} is to be run.
+
+\textbf{Note}: \FLSYSTEM has not been tested with Cygwin or BSD,
+and there are no
+plans to support a port to these platforms.
+
+
 \section{A BNF-style Grammar for (most of) \FLSYSTEM}\label{app-bnf}
 
 This BNF is an approximation of the operator-based,
@@ -21035,7 +21247,7 @@ for a particular module, the trailer for that module must be compiled and
 loaded dynamically.  (The need for this compilation will become clear after
 we explain the implementation of the module system.)  These trailers are
 stored in the user home directory in the subdirectory {\tt
-  .xsb/ergo-\emph{version}/}.
+  .xsb/ergo-\emph{versn}/}.
 As mentioned earlier, \FLSYSTEM uses different names for the wrapper predicates
 that appear in the rule heads and those that appear in the
 rule heads in trailers. This makes it possible to load the trailers (by
@@ -21225,7 +21437,7 @@ by the \FLSYSTEM compiler. For the \FLSYSTEM shell, however, these rules are
 loaded when the corresponding shell module is created (either the default
 ``main'' module or any module that was created by the {\tt newmodule}
 command). This patch file is loaded exactly once per shell module and is
-kept in the file {\tt .xsb/ErgoAI-\emph{version}/patch.P}, in the user's home directory.
+kept in the file {\tt .xsb/ErgoAI-\emph{versn}/patch.P}, in the user's home directory.
 
 
 \subsection{System Architecture}
