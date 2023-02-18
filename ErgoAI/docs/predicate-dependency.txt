@@ -1,0 +1,69 @@
+
+		    Predicate dependencies in FLORA-2
+		    =================================
+
+
+                            flrcommon.fli
+			    flrpredeql.fli
+			    flrprednoeql.fli
+			    flrpredeql.fli
+			         :
+                                 :
+                                 :
+			         v
+FLTRAILERPREFIX: inferred^Wrap <--- FLHEADPREFIX: derived^Wrap
+       |                                 ^
+       |                                /|\
+       |			         |
+       |	     flrpatch.fli ....>  |
+       |		                 |
+       |                                 +<---flora_db_find_base
+       |		      	         |      (FLORA_THIS_FDB_STORAGE,
+       |		  	         |       FLORA_THIS_WORKSPACE(Wrap))
+       |              flrdyna.fli ....>  |
+       |                                 |
+       |		                 +<--- FLDYNAPREFIX: dyna^Wrap
+       |	                         |
+       |	      flrdynz.fli ....>  |
+       |		                 |
+       |       from the compiler ....    +<--- FLDYNZPREFIX: dynz^Wrap
+       |		            :    |
+       | <---- flrcommon_pred.fli   :..> |
+       |       flrnoeqltrailer.fli       +---- FLBodyPREFIX: d^Wrap <------ Wrap
+       |       flreqltrailer.fli                 ^                     ^     ^
+       |                                        /|\                    :    /|\
+       |                                         |                     :     |
+       +-----------------------------------------+---------------------:-----+
+                                                 |                     :
+                                                 |                     :
+                     flrpreddef.fli ...................................:
+		          :      :               |
+                          :      :               |           flrpreddef.fli
+                          :      :               |                 :
+                          v      :               |                 :
+       +-------------------------:---------------+                 :
+       |                         :                                 :
+       |                         V                                 :
+FLUndefinedPREFIX: undef^Wrap <------------- FLDefinedPREFIX: defined^Wrap
+                                                ^                  :
+					       /|\                 :
+						|                  :
+                                                |<.................:
+						|
+                                                |
+				flora_db_find_base(FLORA_THIS_FLD_STORAGE,
+						   FLORA_THIS_WORKSPACE(Wrap))
+
+FLTRAILERPREFIX:     inferred^
+FLHEADPREFIX:        derived^
+FLDYNAPREFIX:        dyna^
+FLDYNZPREFIX:        dynz^
+FLBodyPREFIX:        d^
+FLDefinedPREFIX:     defined^
+FLUndefinedPREFIX:   undef^
+
+FLNEGTRAILERPREFIX:  neg^inferred^
+FLNEGHEADPREFIX:     neg^derived^
+FLNEGDYNAPREFIX:     neg^dyna^
+FLNEGDYNZPREFIX:     neg^dynz^
+FLNEGBodyPREFIX:     neg^d^
