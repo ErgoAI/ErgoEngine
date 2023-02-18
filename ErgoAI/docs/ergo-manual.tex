@@ -360,8 +360,9 @@ In addition, the following is needed:
 \item[] \textbf{Windows:}  no additional prerequisites.
 \item[] \textbf{Linux:} Ubuntu, Mint, Fedora, SUSE, etc., are likely to be
   ready for installation out of the box unless they are configured in
-  unusual ways.  Verify that the utility make and the gcc compiler are
-  installed (using the system's package manager).
+  unusual ways.  Verify that the utility \texttt{make}  and the
+  \texttt{gcc} or \texttt{clang}    compiler are
+  installed (via the system's package manager).
 
   \begin{itemize}
   \item A possible Java 8 issue on Linux.  If your installation of Java 8 JDK
@@ -375,15 +376,15 @@ In addition, the following is needed:
     \end{quote}
     %% 
     
-    To avoid this, you can install the Java package with the full JDK or
+    To avoid this, you can install a Java package that has the full JDK or
     locate the file accessibility.properties (which could be in
-    /etc/java-8-openjdk/accessibility.properties or similar) and comment
+    \texttt{/etc/java-8-openjdk/accessibility.properties} or similar) and comment
     out the line
     \\
     \hspace*{8mm}
     \emph{\#assistive\_technologies=org.GNOME.Accessibility.AtkWrapper}
     \\
-    (i.e., add \#, as shown).
+    (by adding a \#, as shown).
     
   \item  One may also want to install these \textbf{optional} items:
     \begin{itemize}
@@ -482,19 +483,21 @@ In addition, the following is needed:
     Program Files or some other system directory, your account would need
     to have administrative privileges not just during the installation but
     also each time you use \ERGOAI.
+    So, you probably want to avoid this.
   \item Your desktop will now have two icons for two \ERGOAI shortcuts. One
     icon is for starting \ERGOAI Studio, the graphical IDE for \ERGO; the
     other (that has a small black DOS window in it) is for starting the
     \ERGOAI Engine on command line in a DOS window.
   \item \textbf{A note on anti-virus software:} During installation, your
-    anti-virus software may ask you to 'Trust' the file. Please follow
-    instructions to do so.  If at any time after installation \ERGOAI Studio
+    anti-virus software may ask you to 'Trust' the installer file. Please follow
+    the instructions and do so.  If at any time after installation \ERGOAI Studio
     fails to start, the anti-virus software may again be involved. It may
     be necessary to 'Trust' the file again even if it had been previously
     trusted by the user.
   
     We have heard reports about this problem with Norton Anti-virus
-    products in particular.  To fix this, navigate to the runErgoAI.exe
+    products in particular.  To fix this, navigate to the
+    \texttt{runErgoAI.exe} 
     file in your \ERGOAI installation, which is typically located at
     \\
     \textbf{C:\bs{}Users\bs{}YourUsername\bs{}Coherent\bs{}ERGOAI\_\textnormal{\emph{versn}}\bs{}ErgoAI\bs{}runErgoAI.exe}
@@ -20423,36 +20426,79 @@ The following syntactic constructs are available only in the expert mode:
 {\LARGE\bf Appendices}
 \addcontentsline{toc}{section}{Appendices}
 
-\section{Building \FLSYSTEM from the Git Repository}
+\section{Building \ERGOAI from the Git Repository}
 \label{app-building-ergo}
 
 This procedure is significantly more complex than the one for installing
 the official \FLSYSTEM releases described in Section~\ref{sec-install}. It is suitable only for the
-users who need the very latest development version of \FLSYSTEM---either in
-order to be up-to-date with respect to the bug fixes or in
-order to try the new cutting-edge features.
+users who need the very latest development version of \FLSYSTEM---in
+order to be up-to-date with respect to new features and bug fixes.
+The overall process has three main stages:
+%% 
+\begin{enumerate}
+\item  Building XSB
+\item  Building the \ERGOAI reasoning engine
+\item Building the \ERGOAI studio
+\end{enumerate}
+%% 
 
-First, install the most recent version of the XSB engine from
+\subsection{Building XSB}\label{sec-vc-compile}
+
+Install the most recent version of the XSB engine from
 XSB's Git repository.\footnote{
-  For browsing:
   \url{https://sourceforge.net/p/xsb/code/ci/git-origin/tree/}.
-  \\
-  \hspace*{7mm}For downloading:
-  \texttt{svn~checkout~svn://svn.code.sf.net/p/xsb/src/trunk xsb-src}.
   }
 
 
-Compile XSB \textbf{as a 64-bit application}, as explained in XSB's manual,
-Section ``Compiling XSB for Windows''
-(32 bit applications might work, but that version of \ERGO is unsupported).
-It is highly recommended that you compile XSB as a 64-bit application (if
-your hardware is 64 bit).
+Compile XSB \textbf{as a 64-bit application}---32 bit version is not
+supported.
 Note that XSB \emph{cannot} be compiled in a directory whose path contains
 spaces.  However, once compiled, XSB can be moved to another directory,
 which may contain spaces. No recompilation is necessary after the move.
 
+\paragraph{Linux/Mac.}
+A C compiler and the build tools, such as Make, must be installed.
+See Section~\ref{sec-inst-prereq} for the details on prerequisites.
+Change directory to \texttt{XSB/build} in the XSB sources and type:
+%% 
+\begin{verbatim}
+    ./configure
+    ./makexsb
+\end{verbatim}
+%% 
+
+\paragraph{Windows.}
+To compile XSB under Windows, one needs to download Microsoft Visual Studio,
+with the C++ component installed.
+The free of charge Microsoft Visual Studio, Community Edition, can be
+downloaded from
+%% 
+\begin{quote}
+\tt
+ https://www.visualstudio.com/vs/community/
+\end{quote}
+%% 
+
+Open a terminal window and drag the file \texttt{vcvars64.bat} into it.
+Hit \texttt{<Enter>} to execute it. 
+In Visual Studio 2017, Community edition, this file is in
+%% 
+\begin{verbatim}
+C:\Program Files(x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build
+\end{verbatim}
+%% 
+In Visual Studio 2022, Community edition, this file is in
+%% 
+\begin{verbatim}
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build
+\end{verbatim}
+%% 
+
+
+\subsection{Building the \ERGOAI Reasoning Engine}
+
 \sloppy
-Next, clone \FLSYSTEM from its git repository\footnote{
+Next, clone \FLSYSTEM from its repository on Github\footnote{
 \texttt{???}
 }
 %%
@@ -20466,7 +20512,7 @@ Autoconf. On Windows, this means Microsoft Visual Studio, Community Edition
 (a free download) or a full (paid) Studio version.
 See Section~\ref{sec-inst-prereq} for other prerequisites.
 
-\paragraph{Linux and Mac}
+\paragraph{Linux and Mac.}
 Configure \FLSYSTEM as follows:
 %%
 \begin{quote}
@@ -20483,21 +20529,11 @@ third command above you can simply type
 \texttt{./makeergo}. 
 
 \paragraph{Windows.}
-You need Microsoft's Visual Studio with the C++ component installed.
-The free of charge Microsoft Visual Studio, Community Edition, can be
-downloaded from
-%% 
-\begin{quote}
-\tt
- https://www.visualstudio.com/vs/community/
-\end{quote}
-%% 
-Next, find the \texttt{nmake.exe} program within Visual Studio and put the
-folder it is in on the \texttt{PATH} environment variable.  
-In fact, you really only need this \texttt{nmake.exe}, not the entire
-studio, unless you are planning to add components written in C.
-
-Then configure \FLSYSTEM as follows:
+You need Microsoft's Visual Studio with the C++ component installed,
+as explained earlier.
+Open a terminal window and drag the file
+\texttt{vcvars64.bat}, as explained earlier.
+Then, in the same terminal window, configure \FLSYSTEM as follows:
 %%
 \begin{quote}
   \tt
@@ -20509,11 +20545,11 @@ Then configure \FLSYSTEM as follows:
 \end{quote}
 %%
 Here \texttt{ErgoAI}  is the root directory 
-for \FLSYSTEM in your git repository; it should have the form
+for the \FLSYSTEM engine in your git repository; it should have the form
 \emph{something}$\backslash${\tt ErgoAI}. The argument
 \textnormal{\emph{path-for-}}\texttt{{\bs}XSB{\bs}bin{\bs}xsb64.bat}
 must be the full path name for the XSB invocation script.
-Note, that unlike Linux/Mac, there should be no ``all'' keyword
+Note, that unlike Linux/Mac, there is no ``all'' keyword
 in the Windows version of the \texttt{makeergo} command.
 
 If you are a developer and wish to recompile the C part of \FLSYSTEM
@@ -20525,16 +20561,68 @@ then you can type
    makeergo -c64 \textnormal{\emph{path-for-}}{\bs}XSB{\bs}bin{\bs}xsb64.bat
 \end{quote}
 %%
-For this, the C++ component of Visual Studio must be installed.
-Normally, however, there is no need to perform this step.
-For ``\texttt{makeergo -c64}'' to work,  
-it may be necessary to locate the file
-\texttt{vcvars64.bat} --- and execute that batch file
-in the command window where \texttt{makeergo -c64} is to be run.
 
 \textbf{Note}: \FLSYSTEM has not been tested with Cygwin or BSD,
 and there are no
 plans to support a port to these platforms.
+
+\subsection{Building the \ERGOAI Studio}
+
+If you are not planning to use \ERGOAI Studio
+or any of the Java based tools, you do not need to perform the following
+steps. Otherwise, keep reading.
+
+It is best to arrange the sources of \ERGOAI as follows. Make a new folder,
+e.g., \texttt{ERGOAI} with two subfolders: \texttt{ErgoEngine} and
+\texttt{Studio\_fidji}. Also symbolically link the XSB's top directory, XSB,  
+to the \texttt{ERGOAI} folder:
+%% 
+\begin{verbatim}
+  /home/me/ERGOAI:
+  drwxrwxr-x   7 me me   4096 Feb 11 22:01 ErgoEngine
+  drwxrwxr-x   5 me me   4096 Feb 11 22:41 Studio_fidji
+  lrwxrwxrwx   1 me me     27 Nov 29 22:54 XSB -> /home/me/XSB
+\end{verbatim}
+%% 
+To create such a link, use \texttt{ln -s} on Linux/Mac and   
+\texttt{mklink /j} on Windows:
+%% 
+\begin{verbatim}
+  ln -s XSB path-to-XSB-top-folder
+  mlink /j XSB path-to-XSB-top-folder
+\end{verbatim}
+%% 
+\noindent
+Next, change to the \texttt{ERGOAI} folder and type
+%% 
+\begin{verbatim}
+    ErgoEngine/ErgoAI/Studio_scripts/buildErgoStudio.sh
+\end{verbatim}
+%% 
+for Linux/Mac and this for Windows:
+%% 
+\begin{verbatim}
+    ErgoEngine/ErgoAI/Studio_scripts/buildErgoStudio.bat
+\end{verbatim}
+%% 
+Scroll back to verify that all builds ended with the BUILD SUCCESSFUL message.
+For this, \texttt{ant} must be installed and be found through the
+\texttt{PATH} variable.  
+
+\noindent
+Change back to \texttt{ERGOAI} and  you can
+now run the studio by typing
+%% 
+\begin{verbatim}
+    ./runErgoAI.sh
+\end{verbatim}
+%%
+in Linux/Mac. In Windows, type this:
+%% 
+\begin{verbatim}
+     ./runErgoAI.exe
+\end{verbatim}
+%% 
 
 
 \section{A BNF-style Grammar for (most of) \FLSYSTEM}\label{app-bnf}
