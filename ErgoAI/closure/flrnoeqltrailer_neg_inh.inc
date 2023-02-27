@@ -4,7 +4,7 @@
                                               inheritance. This mode
 					      does not support equality.
   Author(s): Michael Kifer
-  Contact:   flora-users@lists.sourceforge.net
+  Contact:   see  ../CONTACTS.txt
 
   Copyright (C) by
        The Research Foundation of the State University of New York, 2013-2018;

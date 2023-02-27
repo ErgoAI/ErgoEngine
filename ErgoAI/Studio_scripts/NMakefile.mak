@@ -2,7 +2,7 @@
 ##
 ## Author(s): Michael Kifer
 ##
-## Contact:   michael.kifer@coherentknowledge.com
+## Contact:   see  ../CONTACTS.txt
 ##
 ## Copyright (C) by  Coherent Knowledge Systems, 2014
 ##

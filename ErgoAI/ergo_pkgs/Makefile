@@ -1,9 +1,8 @@
 ## File:      ErgoAI/ergo_pkgs/Makefile
 ## Author(s): Michael Kifer
 ##
-## Contact:   flora-users@lists.sourceforge.net
+## Contact:   see  ../CONTACTS.txt
 ##
-## Contact:   michael.kifer@coherentknowledge.com
 ##
 ## Copyright (C) Coherent Knowledge Systems, 2014-2018.
 ##

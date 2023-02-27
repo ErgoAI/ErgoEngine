@@ -1,6 +1,6 @@
 /* File:      orient_flora.c - find out where FLORA-2 is installed.
 ** Author(s): kifer
-** Contact:   flora-users@lists.sf.net
+** Contact:   see  ../CONTACTS.txt
 ** 
 ** Copyright (C)  by
 **      The Research Foundation of the State University of New York, 2013-2018.

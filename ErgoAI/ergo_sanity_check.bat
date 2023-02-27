@@ -64,7 +64,7 @@ goto end
 @echo.
 @echo.
 @echo +++++ Failed to configure ErgoAI Engine
-@echo +++++ Please report to ergoai-flora2-xsb-forum@coherentknowledge.com and include the log
+@echo +++++ Please report to ergoai-xsb-forum@coherentknowledge.com and include the log
 @echo.
 goto end
 

@@ -5,7 +5,7 @@
   					Inheritance of signatures is supported.
   Author(s): Michael Kifer
 
-  Contact:   flora-users@lists.sourceforge.net
+  Contact:   see  ../CONTACTS.txt
 
   Copyright (C) by
        The Research Foundation of the State University of New York, 1999-2018;

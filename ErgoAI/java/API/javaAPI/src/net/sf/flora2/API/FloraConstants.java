@@ -2,7 +2,7 @@
 **
 ** Author(s): Michael Kifer
 **
-** Contact:   flora-users@lists.sourceforge.net
+** Contact:   see  ../CONTACTS.txt
 ** 
 ** Copyright (C) The Research Foundation of SUNY, 2006-2018.
 ** 

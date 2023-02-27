@@ -2,7 +2,7 @@
 **
 ** Author(s): Aditi Pandit, Michael Kifer
 **
-** Contact:   flora-users@lists.sourceforge.net
+** Contact:   see  ../CONTACTS.txt
 ** 
 ** Copyright (C) The Research Foundation of SUNY, 2005-2018.
 ** 

@@ -1,8 +1,7 @@
 ## File:      ErgoAI/lib/Makefile
 ## Author(s): kifer
-## Contact:   flora-users@lists.sourceforge.net
 ## 
-## Contact:   flora-users@lists.sourceforge.net
+## Contact:   see  ../CONTACTS.txt
 ##
 ## Copyright (C) by
 ##      The Research Foundation of the State University of New York, 1999-2018.

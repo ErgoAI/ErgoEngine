@@ -4,7 +4,7 @@
                                       in explaning monotonic inheritance
   Author(s): Michael Kifer
 
-   Contact:   flora-users@lists.sourceforge.net
+   Contact:   see  ../CONTACTS.txt
   
    Copyright (C) Coherent Knowledge Systems, 2014-2023.
   

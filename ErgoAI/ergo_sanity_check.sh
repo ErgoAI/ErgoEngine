@@ -65,7 +65,7 @@ fi
 if test -n "$ergousageerror" ; then
     echo ""
     echo "+++++ Failed to configure ErgoAI Reasoner"
-    echo "+++++ Please report to ergoai-flora2-xsb-forum@coherentknowledge.com and include the installation log"
+    echo "+++++ Please report to ergoai-xsb-forum@coherentknowledge.com and include the installation log"
     echo ""
     exit 1
 fi

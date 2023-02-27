@@ -4,7 +4,7 @@
 ##
 ## Author: Michael Kifer
 ##
-## Contact:   michael.kifer@coherentknowledge.com
+## Contact:   see  ../CONTACTS.txt
 ##
 ## Copyright (C) 2017, 2018 Guenter Bartsch
 ## Copyright (C) Coherent Knowledge Systems, LLC, 2018-2023.
