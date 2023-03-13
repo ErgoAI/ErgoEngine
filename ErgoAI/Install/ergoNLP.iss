@@ -15,8 +15,8 @@
 
 #define ERGOAI_DIR "{reg:HKLM\SYSTEM\CurrentControlSet\Control\Session
 #Manager\Environment,ERGOAI_NLP_DIR|{pf}\Coherent\ErgoAI}"
-#define ErgoBaseDir "H:\FLORA\ergoAI\Ergo"
-#define ErgoNLPBaseDir "H:\FLORA\ergoAI\NLP"
+#define ErgoBaseDir "H:\ERGOAI\ErgoEngine\ErgoAI"
+#define ErgoNLPBaseDir "H:\ERGOAI\NLP"
 
 #define ergoNLPapp   "{app}\NLP"
 #define ergoAIapp      "{app}"
