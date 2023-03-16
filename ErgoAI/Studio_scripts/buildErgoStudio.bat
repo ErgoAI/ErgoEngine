@@ -83,13 +83,13 @@ call %AntDirDos%ant -DXSB_BIN_DIRECTORY=%XSBBIN% -DERGODIR=%ErgoDir% -DERGO_RUNN
 @echo **** Building Interprolog
 call %AntDirDos%ant -DXSB_BIN_DIRECTORY=%XSBBIN% -DERGODIR=%ErgoDir% -DERGO_RUNNER=%RUNNER% -f build.xml interprologJar
 
-REM call %AntDirDos%ant -DXSB_BIN_DIRECTORY=%XSBBIN% -DERGODIR=%ErgoDir% -DERGO_RUNNER=%RUNNER% -f build.xml ergo2javaJar
+REM call %AntDirDos%ant -DXSB_BIN_DIRECTORY=%XSBBIN% -DERGODIR=%ErgoDir% -DERGO_RUNNER=%RUNNER% -f build.xml ergoCallsJavaJar
 
 @REM copy ergoStudio.jar "%CurDirDos%\ergoStudio.jar"
 copy ergoStudio.jar "%ErgoDirDos%\ergo_lib\ergo2java\java\ergoStudio-pure.jar"
 @REM copy interprolog.jar "%CurDirDos%\interprolog.jar"
 copy interprolog.jar "%ErgoDirDos%\java\interprolog.jar"
-@REM copy ergo2java.jar "%ErgoDirDos%\ergo_lib\ergo2java\java\ergo2java.jar"
+@REM copy ergoCallsJava.jar "%ErgoDirDos%\ergo_lib\ergo2java\java\ergoCallsJava.jar"
 
 copy "src\com\declarativa\interprolog\interprolog.P" "%ErgoDirDos%\ergo_lib\ergo2java\interprolog.P"
 

@@ -51,7 +51,7 @@ ant -DXSB_BIN_DIRECTORY=$XSBBIN -DERGODIR=$ErgoDir -f build.xml
 echo
 echo '**** Building Interprolog'
 ant -DXSB_BIN_DIRECTORY=$XSBBIN -DERGODIR=$ErgoDir -f build.xml interprologJar
-#ant -DXSB_BIN_DIRECTORY=$XSBBIN -DERGODIR=$ErgoDir -f build.xml ergo2javaJar
+#ant -DXSB_BIN_DIRECTORY=$XSBBIN -DERGODIR=$ErgoDir -f build.xml ergoCallsJavaJar
 
 echo ""
 echo Setting up $CurDir and $ErgoDir ...
@@ -59,7 +59,8 @@ echo Setting up $CurDir and $ErgoDir ...
 cp ergoStudio.jar $ErgoDir/ergo_lib/ergo2java/java/ergoStudio-pure.jar
 #cp interprolog.jar $CurDir
 cp interprolog.jar $ErgoDir/java
-#cp ergo2java.jar $ErgoDir/ergo_lib/ergo2java/java
+# ergoCallsJava.jar is not being built at present
+#cp ergoCallsJava.jar $ErgoDir/ergo_lib/ergo2java/java
 
 cp src/com/declarativa/interprolog/interprolog.P $ErgoDir/ergo_lib/ergo2java
 
