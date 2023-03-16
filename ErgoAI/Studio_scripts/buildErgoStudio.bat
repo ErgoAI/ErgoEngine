@@ -1,17 +1,13 @@
 @REM This script is supposed to be run as
 @REM
-@REM    .\ErgoEngine\ErgoAI\Studio_scripts\buildErgoStudio.sh win-type
-@REM or
-@REM    .\ErgoEngine\ErgoAI\Studio_scripts\buildErgoStudio.sh wintype ant-dir
+@REM  .\ErgoEngine\ErgoAI\Studio_scripts\buildErgoStudio.bat [-update] [ant-dir]
 @REM
 @REM from a directory in where the ErgoAI souces are accessible via
 @REM .\ErgoEngine\ErgoAI and XSB sources are in the subdirectory .\XSB.
 @REM Both 'ErgoEngine' and 'XSB' can be symlinks to the directories where
 @REM ErgoAI and XSB reside physically.
 
-@REM The first argument, win-type is MANDATORY.
-@REM It must be 32 (for 32 bit Windows) or 64 (for 64 bit Windows)
-
+@REM If -update is given, update interprolog.jar in the ErgoEngine repository.
 @REM The optional ant-dir argument can be used to supply the directory where
 @REM Apache Ant is installed. This is needed only if the 'ant' executable
 @REM is not found through the Windows %Path% environment variable.
@@ -27,7 +23,7 @@
 @REM src\com\, src\org\, among others.
 
 @REM Example of a call (MK, Win64):
-@REM    .\ErgoEngine\ErgoAI\Studio_scripts\buildErgoStudio.bat  64  C:\Users\Michael\Downloads\apache-ant-1.9.13-bin\apache-ant-1.9.13\bin
+@REM    .\ErgoEngine\ErgoAI\Studio_scripts\buildErgoStudio.bat  C:\Users\Michael\Downloads\apache-ant-1.9.13-bin\apache-ant-1.9.13\bin
 
 @REM How to create a folder satisfying all the above requirements?
 @REM =============================================================
@@ -48,13 +44,10 @@
 @REM  4. You might also need to set ANT_HOME appropriatly, if you have not
 @REM     provided the ant-dir argument (the optional 2nd argument).
 
-@REM Is it 32 or 64 bit windoze?
-
 @echo off
 
-if [%1] == [32] (
-   set WINYTPE=x86
-) else set WINTYPE=x64
+@REM only 64 bit windows is supported
+set WINTYPE=x64
 
 @set ThisScript=%~dp0
 @set ThisScript=%ThisScript:\=/%
@@ -64,7 +57,11 @@ if [%1] == [32] (
 @set Studio="%CurDir%/Studio_fidji/interprologForJDK"
 
 @REM The \ at the end of next line is important - to separate the dir from 'ant'
-@if NOT [%2] == []  set AntDirDos=%2\
+@if [%1] == [-update] (
+    set update=true
+    shift
+)
+@if NOT [%1] == []  set AntDirDos=%1\
 
 @set CurDirDos=%~dp0\..\..\..
 @set ErgoDirDos=%CurDirDos%\ErgoEngine\ErgoAI
@@ -87,8 +84,12 @@ REM call %AntDirDos%ant -DXSB_BIN_DIRECTORY=%XSBBIN% -DERGODIR=%ErgoDir% -DERGO_
 
 @REM copy ergoStudio.jar "%CurDirDos%\ergoStudio.jar"
 copy ergoStudio.jar "%ErgoDirDos%\ergo_lib\ergo2java\java\ergoStudio-pure.jar"
-@REM copy interprolog.jar "%CurDirDos%\interprolog.jar"
-copy interprolog.jar "%ErgoDirDos%\java\interprolog.jar"
+
+@if NOT [%update%] == [] (
+    @REM copy interprolog.jar "%CurDirDos%\interprolog.jar"
+    copy interprolog.jar "%ErgoDirDos%\java\interprolog.jar"
+)
+
 @REM copy ergoCallsJava.jar "%ErgoDirDos%\ergo_lib\ergo2java\java\ergoCallsJava.jar"
 
 copy "src\com\declarativa\interprolog\interprolog.P" "%ErgoDirDos%\ergo_lib\ergo2java\interprolog.P"

@@ -2,14 +2,15 @@
 
 # This script is supposed to be run as
 #
-#    ./ErgoEngine/ErgoAI/Studio_scripts/buildErgoStudio.sh
-# or
-#    ./ErgoEngine/ErgoAI/Studio_scripts/buildErgoStudio.sh  studio-directory
+#   ./ErgoEngine/ErgoAI/Studio_scripts/buildErgoStudio.sh [-update] [studio-directory]
 #
-# from a directory in which the Ergo souces are in the subdirectory ./ErgoEngine
+# from a directory in which the Ergo sources are in the folder ./ErgoEngine
 # and XSB sources are in the subdirectory ./XSB.
 # Both 'ErgoEngine' and 'XSB' can be symlinks to the directories where ErgoAI
 # and XSB reside physically.
+
+# -update: update interprolog.jar in the ErgoEngine repository.
+# studio-directory: path to the studio directory if not in ./Studio_fidji
 
 # The studio Git sources (the Git top level) should be in the subdirectory
 # called 'Studio_fidji' (can be a symlink). This should have the subdirectory
@@ -38,6 +39,10 @@ CurDir=`pwd`
 XSBBIN=$CurDir/XSB/bin
 ErgoDir=$CurDir/ErgoEngine/ErgoAI
 
+if [ "$1" = "-update" ]; then
+    update=true
+    shift
+fi
 if [ "$1" = "" ]; then
     Studio=$CurDir/Studio_fidji/interprologForJDK
 else
@@ -58,7 +63,11 @@ echo Setting up $CurDir and $ErgoDir ...
 #cp ergoStudio.jar $CurDir
 cp ergoStudio.jar $ErgoDir/ergo_lib/ergo2java/java/ergoStudio-pure.jar
 #cp interprolog.jar $CurDir
-cp interprolog.jar $ErgoDir/java
+
+if [ -n "$update" ]; then
+    cp interprolog.jar $ErgoDir/java
+fi
+
 # ergoCallsJava.jar is not being built at present
 #cp ergoCallsJava.jar $ErgoDir/ergo_lib/ergo2java/java
 
