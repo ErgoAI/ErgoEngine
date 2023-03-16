@@ -31,8 +31,8 @@ CALL ..\windowsVariables.bat
 CALL ..\flora_settings.bat
 
 REM clean up *.class
-for /d %%i in ("javaAPI\util\net\sf\ErgoAI\API\util\*.class") do del %%i
-for /d %%i in ("javaAPI\src\net\sf\ErgoAI\API\*.class") do del %%i
+for /d %%i in ("javaAPI\util\net\sf\flora2\API\util\*.class") do del %%i
+for /d %%i in ("javaAPI\src\net\sf\flora2\API\*.class") do del %%i
 
 echo ------------------------------
 echo Compiling files ...
@@ -41,7 +41,7 @@ echo ------------------------------
 REM Change the location of interprolog, if needed
 set INTERPROLOG="..\interprolog.jar"
 
-%JAVA_BIN%\javac -Xlint  -classpath ..;%INTERPROLOG% javaAPI\util\net\sf\ErgoAI\API\util\*.java javaAPI\src\net\sf\ErgoAI\API\*.java 
+%JAVA_BIN%\javac -Xlint  -classpath ..;%INTERPROLOG% javaAPI\util\net\sf\flora2\API\util\*.java javaAPI\src\net\sf\flora2\API\*.java 
 
 echo.
 echo *** If you saw the warning "The system cannot find the path specified",
@@ -49,8 +49,9 @@ echo *** change the variable JAVA_BIN in ..\java\windowsVariables.bat
 echo *** appropriately for your system.
 
 echo.
-echo The API has been packaged as a jar file ..\flora2java.jar
+echo The API has been packaged as ..\flora2java.jar and ..\ergojava.jar
 %JAVA_BIN%\jar -cf ..\flora2java.jar javaAPI\src\ javaAPI\util\
+%JAVA_BIN%\jar -cf ..\ergojava.jar javaAPI\src\ javaAPI\util\
 
 
 REM Local Variables:

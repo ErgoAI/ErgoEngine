@@ -26,14 +26,15 @@
 . ../unixVariables.sh
 . ../flora_settings.sh
 
-rm -f javaAPI/util/net/sf/ErgoAI/API/util/*.class
-rm -f javaAPI/src/net/sf/ErgoAI/API/*.class
+rm -f javaAPI/util/net/sf/flora2/API/util/*.class
+rm -f javaAPI/src/net/sf/flora2/API/*.class
 
 # Change the location of interprolog, if needed
 INTERPROLOG=../interprolog.jar
 
-${JAVA_BIN}/javac -deprecation -Xlint:unchecked -Xlint -classpath ..:${INTERPROLOG} javaAPI/util/net/sf/ErgoAI/API/util/*.java javaAPI/src/net/sf/ErgoAI/API/*.java  
+${JAVA_BIN}/javac -deprecation -Xlint:unchecked -Xlint -classpath ..:${INTERPROLOG} javaAPI/util/net/sf/flora2/API/util/*.java javaAPI/src/net/sf/flora2/API/*.java  
 
 echo
-echo The API has been packaged as a jar file ../flora2java.jar
-${JAVA_BIN}/jar -cf ../flora2java.jar -C javaAPI/src net/sf/ErgoAI/API -C javaAPI/util net/sf/ErgoAI/API/util
+echo The API has been packaged as ../flora2java.jar and ../ergojava.jar
+${JAVA_BIN}/jar -cf ../flora2java.jar -C javaAPI/src net/sf/flora2/API -C javaAPI/util net/sf/flora2/API/util
+${JAVA_BIN}/jar -cf ../ergojava.jar -C javaAPI/src net/sf/flora2/API -C javaAPI/util net/sf/flora2/API/util
