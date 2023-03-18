@@ -1,2 +1,1 @@
-* Install and configure the ErgoAI engine.
-* Run it using runergo.sh or runergo.bat depending on the system.
+This repository contains the reasoning engine part of ErgoAI. Read about ErgoAI [here](https://github.com/ErgoAI/.github/blob/main/profile/README.md) and check out the [installation instructions](https://github.com/ErgoAI/.github/blob/main/profile/README.md#installation).
