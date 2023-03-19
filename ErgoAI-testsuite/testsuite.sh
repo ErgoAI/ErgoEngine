@@ -2,10 +2,10 @@
 
 ## File:      testsuite.sh
 ## Author(s): XSB team
-## Contact:   kifer@cs.stonybrook.edu
+## Contact:   See ErgoAI/CONTACTS.tex
 ## 
 ## Copyright (C) by
-##      The Research Foundation of the State University of New York, 2000-2008
+##      The Research Foundation of the State University of New York, 2000-2023
 ##
 ## 
 ##

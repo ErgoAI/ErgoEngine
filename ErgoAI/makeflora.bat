@@ -1,5 +1,4 @@
 @echo off
-REM build Ergo with expiration date
 
 REM  Call:
 REM    makeflora [-S] [-P] [-c|-c64] path-for-\XSB\bin\xsb[64].bat
