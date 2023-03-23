@@ -27,6 +27,7 @@
 :- compiler_options([xpp_on]).
 #mode standard Prolog
 
+#include "standard.h"
 #include "flora_terms.flh"
 #include "flora_exceptions.flh"
 #include "flora_status_codes.flh"
@@ -147,6 +148,8 @@ flora_shell_loop_handler(Ball) :-
             flora_stderr_nl,
             flora_stderr_nl
         ),
+        %% Want the backtrace? - dump the raw error ball, too. What's the heck?
+        (flora_backtrace_enabled -> writeln(STDERR,Ball) ; true),
         (Trace = force(Trace1) -> flora_print_backtrace(Trace1)
         ; flora_backtrace_enabled -> flora_print_backtrace(Trace)
         ; true
