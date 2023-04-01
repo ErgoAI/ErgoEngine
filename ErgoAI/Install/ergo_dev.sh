@@ -58,7 +58,7 @@ files="./XSB/LICENSE ./XSB/INSTALL \
     	$Ergo_base/run* \
         $Ergo_base/make* \
         $Ergo_base/Makefile \
-    	$Ergo_base/etc \
+    	$Ergo_base/etc/*.png $Ergo_base/etc/*.eps $Ergo_base/etc/*.ico $Ergo_base/etc/*.icns \
     	$Ergo_base/extensions \
     	$Ergo_base/opt \
         $Ergo_base/*.sh \

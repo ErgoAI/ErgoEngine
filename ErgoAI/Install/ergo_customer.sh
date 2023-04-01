@@ -50,14 +50,14 @@ files="./XSB/LICENSE ./XSB/INSTALL \
 	./XSB/gpp \
 	./XSB/bin \
 	./XSB/prolog_includes \
-        ./XSB/etc \
+        ./XSB/etc/ \
         ./XSB/packages \
         ./XSB/installer \
         ./XSB/InstallXSB.jar \
         ./XSB/examples \
     	$Ergo_base/runflora $Ergo_base/runergo \
         $Ergo_base/ergo_sanity_check.sh \
-    	$Ergo_base/etc \
+    	$Ergo_base/etc/*.png $Ergo_base/etc/*.eps $Ergo_base/etc/*.ico $Ergo_base/etc/*.icns \
     	$Ergo_base/opt/*.xwam \
     	$Ergo_base/opt/optstructures.P \
         $Ergo_base/*.sh \

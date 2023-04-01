@@ -119,8 +119,8 @@ Source: "{#ErgoBaseDir}\runflora.bat"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoap
 Source: "{#ErgoBaseDir}\LICENSE_ergo"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\"; Components: base; Flags: ignoreversion recursesubdirs 
 Source: "{#ErgoBaseDir}\rlwrap_keywords.txt"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\"; Components: base; Flags: ignoreversion 
 
-Source: "{#ErgoBaseDir}\etc\ergo-desktop.ico"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\etc"; Components: base; Flags: ignoreversion recursesubdirs 
-Source: "{#ErgoBaseDir}\etc\ergo-desktop-cmd.ico"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\etc"; Components: base; Flags: ignoreversion recursesubdirs 
+Source: "{#ErgoBaseDir}\etc\ergoAI-desktop-studio.ico"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\etc"; Components: base; Flags: ignoreversion recursesubdirs 
+Source: "{#ErgoBaseDir}\etc\ergoAI-desktop-reasoner.ico"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\etc"; Components: base; Flags: ignoreversion recursesubdirs 
 Source: "{#ErgoBaseDir}\etc\ergo.ico"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\etc"; Components: base; Flags: ignoreversion recursesubdirs 
 
 ;; exclude flrcompiler.[PH], flrparser.[PH], flrcomposer.[PH], flrshell.[PH],
@@ -298,13 +298,13 @@ Filename: "{#ergoAIapp}\{#XSBLicenseUrlName}"; Section: "InternetShortcut"; Key:
 
 
 [Icons]
-Name: "{commondesktop}\ErgoAI IDE {#ErgoAIVersion}"; Filename: "{#ergoAIapp}\runErgoAI.exe" ; Comment: "Runs ErgoAI in graphical mode"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergo-desktop.ico"; Tasks: shortcut
+Name: "{commondesktop}\ErgoAI IDE {#ErgoAIVersion}"; Filename: "{#ergoAIapp}\runErgoAI.exe" ; Comment: "Runs ErgoAI in the Studio mode"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergoAI-desktop-studio.ico"; Tasks: shortcut
 
-Name: "{commondesktop}\ErgoAI Engine {#ErgoAIVersion}"; Filename: "cmd"; Parameters: "/k """"{#ergoapp}\runergo.bat""""" ; Comment: "Runs ErgoAI in batch mode"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergo-desktop-cmd.ico"; Tasks: shortcut
+Name: "{commondesktop}\ErgoAI Engine {#ErgoAIVersion}"; Filename: "cmd"; Parameters: "/k """"{#ergoapp}\runergo.bat""""" ; Comment: "Runs ErgoAI Reasoner in batch mode"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergoAI-desktop-reasoner.ico"; Tasks: shortcut
 
-Name: "{group}\ErgoAI IDE"; Filename: "{#ergoAIapp}\runErgoAI.exe" ; Comment: "Runs ErgoAI in graphical mode"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergo.ico"
+Name: "{group}\ErgoAI Studio"; Filename: "{#ergoAIapp}\runErgoAI.exe" ; Comment: "Runs ErgoAI in the Studio mode"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergo.ico"
 
-Name: "{group}\ErgoAI Engine"; Filename: "cmd"; Parameters: "/k """"{#ergoapp}\runergo.bat""""" ; Comment: "Runs ErgoAI in batch mode"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergo-desktop-cmd.ico"; Tasks: shortcut
+Name: "{group}\ErgoAI Reasoner"; Filename: "cmd"; Parameters: "/k """"{#ergoapp}\runergo.bat""""" ; Comment: "Runs ErgoAI Reasoner in batch mode"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergoAI-desktop-reasoner.ico"; Tasks: shortcut
 
 Name: "{group}\ErgoAI License"; Filename: "{#FlrLicenseURL}"; Components: base
 
