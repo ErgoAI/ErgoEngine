@@ -23,6 +23,7 @@
 
 ;;#define ERGOAI_DIR "{reg:HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment,ERGOAI_DEV_DIR|{pf}\Coherent\ERGOAI-dev}"
 #define ERGOAI_DIR "{reg:HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment,ERGOAI_DEV_DIR|{%USERPROFILE}\Coherent\ERGOAI-dev}"
+;; Change H:\ERGOAI as appropriate
 #define ErgoBaseDir "H:\ERGOAI\ErgoEngine\ErgoAI"
 #define XSBBaseDir "H:\ERGOAI\XSB"
 ;;#define ErgoAIBaseDir "H:\ERGOAI"
@@ -93,15 +94,14 @@ Name: "{#ergoAIapp}" ; Permissions: users-modify users-full
 Name: "{userdocs}\ErgoAI uninstaller"
 
 [Files]
-Source: "{#ErgoBaseDir}\*.flh"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\"; Components: base; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#ErgoBaseDir}\ergo_sanity_check.bat"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\"; Components: base; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#ErgoBaseDir}\runergo.bat"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\"; Components: base; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#ErgoBaseDir}\*.flh"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\"; Components: base; Flags: ignoreversion recursesubdirs
+Source: "{#ErgoBaseDir}\ergo_sanity_check.bat"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\"; Components: base; Flags: ignoreversion recursesubdirs
+Source: "{#ErgoBaseDir}\runergo.bat"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\"; Components: base; Flags: ignoreversion recursesubdirs
 
-Source: "{#ErgoBaseDir}\LICENSE_ergo"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\"; Components: base; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#ErgoBaseDir}\LICENSE_ergo"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\"; Components: base; Flags: ignoreversion recursesubdirs
 Source: "{#ErgoBaseDir}\rlwrap_keywords.txt"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\"; Components: base; Flags: ignoreversion
 
-Source: "{#ErgoBaseDir}\etc\ergo-desktop.ico"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\etc"; Components: base; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#ErgoBaseDir}\etc\ergo.ico"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\etc"; Components: base; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#ErgoBaseDir}\etc\ergoAI-desktop-*.ico"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\etc"; Components: base; Flags: ignoreversion recursesubdirs
 
 Source: "{#ErgoBaseDir}\*.P"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\"; Components: base\sources; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#ErgoBaseDir}\*.H"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\"; Components: base\sources; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -209,8 +209,14 @@ Source: "{#ErgoBaseDir}\ergo_pkgs\*"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp
 Source: "{#ErgoBaseDir}\ergo_demos\*"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\ergo_demos"; Components: base\sources; Flags: ignoreversion recursesubdirs createallsubdirs
 
 
-;;;; .xwam's are at the end so they will have later time stamps ;;;;;;
+;; copy python interface
+Source: "{#ErgoBaseDir}\python\*.py"; Excludes: ".*,*~"; DestDir: "{#ergoapp}\python"; Components: base; Flags: ignoreversion
+Source: "{#ErgoBaseDir}\python\*.bat"; Excludes: ".*,*~"; DestDir: "{#ergoapp}\python"; Components: base; Flags: ignoreversion
+Source: "{#ErgoBaseDir}\python\pyergo\*.py"; Excludes: ".*,*~"; DestDir: "{#ergoapp}\python\pyergo"; Components: base; Flags: ignoreversion
+Source: "{#ErgoBaseDir}\python\pyxsb\*.py"; Excludes: ".*,*~"; DestDir: "{#ergoapp}\python\pyxsb"; Components: base; Flags: ignoreversion
 
+
+;;;; .xwam's are at the end so they will have later time stamps ;;;;;;
 
 Source: "{#ErgoBaseDir}\opt\*.xwam"; Excludes: ".*,CVS,*~"; DestDir: "{#ergoapp}\opt"; Components: base; Flags: ignoreversion touch recursesubdirs createallsubdirs
 
@@ -265,13 +271,13 @@ Filename: "{#ergoAIapp}\{#XSBLicenseUrlName}"; Section: "InternetShortcut"; Key:
 
 
 [Icons]
-Name: "{userdesktop}\ErgoAI IDE (dev)"; Filename: "{#ergoAIapp}\runErgoAI.exe" ; Comment: "Runs ErgoAI"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergo-desktop.ico"; Tasks: shortcut
+Name: "{userdesktop}\ErgoAI Studio (dev)"; Filename: "{#ergoAIapp}\runErgoAI.exe" ; Comment: "Runs ErgoAI"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergoAI-desktop-studio.ico"; Tasks: shortcut
 
-Name: "{userdesktop}\ErgoAI Engine (dev)"; Filename: "cmd"; Parameters: "/k """"{#ergoapp}\runergo.bat""""" ; Comment: "Runs ErgoAI in batch mode"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergo-desktop-cmd.ico"; Tasks: shortcut
+Name: "{userdesktop}\ErgoAI Reasoner (dev)"; Filename: "cmd"; Parameters: "/k """"{#ergoapp}\runergo.bat""""" ; Comment: "Runs ErgoAI in batch mode"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergoAI-desktop-reasoner.ico"; Tasks: shortcut
 
-Name: "{group}\ErgoAI IDE (dev)"; Filename: "{#ergoAIapp}\runErgoAI.exe" ; Comment: "Runs ErgoAI"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergo.ico"
+Name: "{group}\ErgoAI Studio (dev)"; Filename: "{#ergoAIapp}\runErgoAI.exe" ; Comment: "Runs ErgoAI"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergoAI-desktop-studio.ico"
 
-Name: "{group}\ErgoAI Engine (dev)"; Filename: "cmd"; Parameters: "/k """"{#ergoapp}\runergo.bat""""" ; Comment: "Runs ErgoAI in batch mode"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergo-desktop.ico"; Tasks: shortcut
+Name: "{group}\ErgoAI Reasoner (dev)"; Filename: "cmd"; Parameters: "/k """"{#ergoapp}\runergo.bat""""" ; Comment: "Runs ErgoAI in batch mode"; WorkingDir: "{userdocs}"; Components: base; IconFilename: "{#ergoapp}\etc\ergoAI-desktop-reasoner.ico"; Tasks: shortcut
 
 Name: "{group}\ErgoAI License"; Filename: "{#FlrLicenseURL}"; Components: base
 

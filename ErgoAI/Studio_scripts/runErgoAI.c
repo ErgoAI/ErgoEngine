@@ -1,9 +1,9 @@
 
 // Compile with: cl.exe runErgoAI.c shlwapi.lib
-// Will call without NLP, if NLP\stanford-corenlp-*.jar isn't found
-//       call:  java -jar ErgoEngine\ErgoAI\ergo_lib\ergo2java\java\ergoStudio.jar
-// Call with NLP, if NLP\stanford-corenlp-*.jar is found (more memory requested)
-//       call:  java -Xmx3G -jar ErgoEngine\ErgoAI\ergo_lib\ergo2java\java\ergoStudio.jar
+// Will call without more memory
+//    call:  java -jar ErgoEngine\ErgoAI\ergo_lib\ergo2java\java\ergoStudio.jar
+// If more memory requested
+//    call:  java -Xmx3G -jar ErgoEngine\ErgoAI\ergo_lib\ergo2java\java\ergoStudio.jar
 
 #include <windows.h>
 #include <stdio.h>
@@ -25,13 +25,13 @@ int main(int argc, char *argv[])
 { 
   char javaw[MAX_PATH], cmd[MAX_PATH+2],
     studio_jar_buf[MAX_PATH], studio_jar_quoted[MAX_PATH+2],
-    SCNjar_buf[MAX_PATH];
+    additional_jar_buf[MAX_PATH];
   char *backslash_ptr;
   long bufLen = sizeof(javaw);
   HRESULT hr = AssocQueryString(0,ASSOCSTR_EXECUTABLE,".jar",NULL,javaw,&bufLen);
   int pid, status, path_sz;
   HRESULT retcode;
-  int withSCN; // flag that tells if we need to run with or without SCN
+  int moreMemory = FALSE; // flag that tells if we need to run with more memory
   char
     current_dir_quoted[MAX_PATH+2],
     current_dir[MAX_PATH];
@@ -83,8 +83,8 @@ int main(int argc, char *argv[])
   fprintf(stderr,"This dir:            %s\n",current_dir);
   fprintf(stderr,"                     %s\n",current_dir_quoted);
 
-  SCNjar_buf[0] = '\0';
-  retcode = StringCbCat(SCNjar_buf,strlen(studio_jar_buf)+1,studio_jar_buf);
+  additional_jar_buf[0] = '\0';
+  retcode = StringCbCat(additional_jar_buf,strlen(studio_jar_buf)+1,studio_jar_buf);
   if (FAILED(retcode)) {
     fprintf(stderr,"+++ Error: not enough memory (3)\n");
     return -1;
@@ -101,21 +101,8 @@ int main(int argc, char *argv[])
   fprintf(stderr,"ErgoAI Studio jar:     %s\n",studio_jar_buf);
   fprintf(stderr,"                       %s\n",studio_jar_quoted);
 
-  path_sz = strlen("NLP\\stanford-corenlp-*.jar")+strlen(SCNjar_buf)+1;
-  retcode = StringCbCat(SCNjar_buf,path_sz,"NLP\\stanford-corenlp-*.jar");
-  fprintf(stderr,"SCN jar:             %s\n",SCNjar_buf);
 
-  // check if Stanford CoreNLP exists in NLP folder
-  if (fileExists(SCNjar_buf) && SUCCEEDED(retcode)) {
-    // messages disabled
-    //fprintf(stderr,"Starting ErgoAI with the NLP plugin\n");
-    withSCN = TRUE;
-  } else {
-    //fprintf(stderr,"Starting ErgoAI without the NLP plugin\n");
-    withSCN = FALSE;
-  }
-
-  if (withSCN) {
+  if (moreMemory) {
     pid = _execl(javaw,cmd,"-Xmx1900M",
                  //"-Djava.net.preferIPv4Stack=true", // unused: required for EHcache
                  "-jar",studio_jar_quoted,
