@@ -118,15 +118,15 @@ echo "+++++ Setting up icons"
 echo "+++++ Setting up icons" >> "$currdir/ergo-install.log"
 
 if [ "`uname`" = "Linux" -a -d $HOME/Desktop ]; then
-    cat "$currdir/ErgoAI/Install/ErgoEngine$devel_icon_mark-linux-desktop" | sed "s|ERGO_BASE_FOLDER|$currdir|" > $HOME/Desktop/ErgoEngine$version_icon_mark$devel_icon_mark.desktop
-    cat "$currdir/ErgoAI/Install/ErgoAI$devel_icon_mark-linux-desktop" | sed "s|ERGO_BASE_FOLDER|$currdir|" > $HOME/Desktop/ErgoAI$version_icon_mark$devel_icon_mark.desktop
-    chmod u+x $HOME/Desktop/ErgoAI$version_icon_mark$devel_icon_mark.desktop $HOME/Desktop/ErgoEngine$version_icon_mark$devel_icon_mark.desktop
+    cat "$currdir/ErgoAI/Install/ErgoReasoner$devel_icon_mark-linux-desktop" | sed "s|ERGO_BASE_FOLDER|$currdir|" | sed "s|ERGO_VERSION|$VERSION|" > $HOME/Desktop/ErgoReasoner$version_icon_mark$devel_icon_mark.desktop
+    cat "$currdir/ErgoAI/Install/ErgoAI$devel_icon_mark-linux-desktop" | sed "s|ERGO_BASE_FOLDER|$currdir|" | sed "s|ERGO_VERSION|$VERSION|" > $HOME/Desktop/ErgoAI$version_icon_mark$devel_icon_mark.desktop
+    chmod u+x $HOME/Desktop/ErgoAI$version_icon_mark$devel_icon_mark.desktop $HOME/Desktop/ErgoReasoner$version_icon_mark$devel_icon_mark.desktop
 fi
 
 # MAC
 if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
     ergoAI_app_dir="$currdir/runErgoAI$devel_icon_mark.app"
-    ergo_engine_app_dir="$currdir/runErgoEngine$devel_icon_mark.app"
+    ergo_engine_app_dir="$currdir/runErgoReasoner$devel_icon_mark.app"
     cp "$currdir/ErgoAI/Install/MacOS/mk-mac-alias" "$currdir"
 
     if [ "`which Rez`" = "" ]; then
@@ -142,10 +142,10 @@ if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
         echo
     fi
 
-    /bin/rm -f "$HOME/Desktop/ErgoAI Engine"
-    /bin/rm -f "$HOME/Desktop/ErgoAI Engine (dev)"
-    /bin/rm -f "$HOME/Desktop/ErgoAI IDE"
-    /bin/rm -f "$HOME/Desktop/ErgoAI IDE (dev)"
+    /bin/rm -f "$HOME/Desktop/ErgoAI Reasoner"
+    /bin/rm -f "$HOME/Desktop/ErgoAI Reasoner (dev)"
+    /bin/rm -f "$HOME/Desktop/ErgoAI Studio"
+    /bin/rm -f "$HOME/Desktop/ErgoAI Studio (dev)"
 
     # Step 1:  set up runErgoAI.app and its desktop shortcut
     cp -r "$currdir/ErgoAI/Install/MacOS/runErgoAI$devel_icon_mark.app" "$currdir"
@@ -154,18 +154,18 @@ if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
     chmod u+x "$ergoAI_app_dir/Contents/MacOS/runErgoAI"
 
     # make desktop alias
-    echo "Running mk-mac-alias $ergoAI_app_dir ErgoAI IDE $VERSION$devel_icon_mark2" >> "$currdir/ergo-install.log"
-    sh "$currdir/mk-mac-alias" "$ergoAI_app_dir" "ErgoAI IDE $VERSION$devel_icon_mark2" >> "$currdir/ergo-install.log" 2>&1
+    echo "Running mk-mac-alias $ergoAI_app_dir ErgoAI Studio $VERSION$devel_icon_mark2" >> "$currdir/ergo-install.log"
+    sh "$currdir/mk-mac-alias" "$ergoAI_app_dir" "ErgoAI Studio $VERSION$devel_icon_mark2" >> "$currdir/ergo-install.log" 2>&1
 
     # Step 2: set up runergo engine desktop shortcut
-    cp -r "$currdir/ErgoAI/Install/MacOS/runErgoEngine$devel_icon_mark.app" "$currdir"
-    cat "$ergo_engine_app_dir/Contents/MacOS/runErgoEngine.template" | sed "s|ERGO_BASE_FOLDER|$currdir|" > "$ergo_engine_app_dir/Contents/MacOS/runErgoEngine"
+    cp -r "$currdir/ErgoAI/Install/MacOS/runErgoReasoner$devel_icon_mark.app" "$currdir"
+    cat "$ergo_engine_app_dir/Contents/MacOS/runErgoReasoner.template" | sed "s|ERGO_BASE_FOLDER|$currdir|" > "$ergo_engine_app_dir/Contents/MacOS/runErgoReasoner"
     cat "$ergo_engine_app_dir/Contents/Info.plist.template" | sed "s|ERGO_VERSION|$VERSION|" > "$ergo_engine_app_dir/Contents/Info.plist"
-    chmod u+x "$ergo_engine_app_dir/Contents/MacOS/runErgoEngine"
+    chmod u+x "$ergo_engine_app_dir/Contents/MacOS/runErgoReasoner"
 
     # make desktop alias
-    echo "Running mk-mac-alias $ergo_engine_app_dir ErgoAI Engine $VERSION$devel_icon_mark2" >> "$currdir/ergo-install.log"
-    sh "$currdir/mk-mac-alias" "$ergo_engine_app_dir" "ErgoAI Engine $VERSION$devel_icon_mark2" >> "$currdir/ergo-install.log" 2>&1
+    echo "Running mk-mac-alias $ergo_engine_app_dir ErgoAI Reasoner $VERSION$devel_icon_mark2" >> "$currdir/ergo-install.log"
+    sh "$currdir/mk-mac-alias" "$ergo_engine_app_dir" "ErgoAI Reasoner $VERSION$devel_icon_mark2" >> "$currdir/ergo-install.log" 2>&1
 fi
 if [ -z "`cat ""$currdir/ergo-install.log"" | grep :ERRORS:FOUND: `" ]; then
     echo "+++++ Running ErgoAI for the first time"
@@ -190,7 +190,7 @@ echo ""
 if [ -z "`cat ""$currdir/ergo-initrun.log"" | grep Error`" -a -z "`cat ""$currdir/ergo-initrun.log"" | grep Abort `" -a -z "`cat ""$currdir/ergo-install.log"" | grep :ERRORS:FOUND: `" ]; then
     echo "+++++ All is well: you can run ErgoAI in terminal mode via the script"
     echo "+++++    $currdir/ErgoAI/runergo"
-    echo "+++++ and with IDE via"
+    echo "+++++ and with the Studio via"
     echo "+++++    $currdir/runErgoAI.sh"
 else
     echo "***** ERRORS occurred during installation of ErgoAI"
@@ -199,7 +199,7 @@ else
 fi
 if [ -z "$devel_version" ]; then
     echo ""
-    echo "+++++ If desktop icons 'ErgoAI Engine' and 'ErgoAI IDE' got installed"
+    echo "+++++ If desktop icons 'ErgoAI Reasoner' and 'ErgoAI Studio' got installed"
     echo "+++++ successfully, one can also use them to run ErgoAI."
     if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
         echo "+++++ On the Mac, one might need to:"
