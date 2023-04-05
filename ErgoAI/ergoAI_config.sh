@@ -149,6 +149,7 @@ if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
 
     # Step 1:  set up runErgoAI.app and its desktop shortcut
     cp -r "$currdir/ErgoAI/Install/MacOS/runErgoAI$devel_icon_mark.app" "$currdir"
+    cp "$currdir/ErgoAI/etc/ergoAI-desktop-studio.icns" "$currdir/ErgoAI/Install/MacOS/runErgoAI$devel_icon_mark.app/Contents/Resources/"
     cat "$ergoAI_app_dir/Contents/MacOS/runErgoAI.template" | sed "s|ERGO_BASE_FOLDER|$currdir|" > "$ergoAI_app_dir/Contents/MacOS/runErgoAI"
     cat "$ergoAI_app_dir/Contents/Info.plist.template" | sed "s|ERGO_VERSION|$VERSION|" > "$ergoAI_app_dir/Contents/Info.plist"
     chmod u+x "$ergoAI_app_dir/Contents/MacOS/runErgoAI"
@@ -159,6 +160,7 @@ if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
 
     # Step 2: set up runergo engine desktop shortcut
     cp -r "$currdir/ErgoAI/Install/MacOS/runErgoReasoner$devel_icon_mark.app" "$currdir"
+    cp "$currdir/ErgoAI/etc/ergoAI-desktop-reasoner.icns" "$currdir/ErgoAI/Install/MacOS/runErgoReasoner$devel_icon_mark.app/Contents/Resources/"
     cat "$ergo_engine_app_dir/Contents/MacOS/runErgoReasoner.template" | sed "s|ERGO_BASE_FOLDER|$currdir|" > "$ergo_engine_app_dir/Contents/MacOS/runErgoReasoner"
     cat "$ergo_engine_app_dir/Contents/Info.plist.template" | sed "s|ERGO_VERSION|$VERSION|" > "$ergo_engine_app_dir/Contents/Info.plist"
     chmod u+x "$ergo_engine_app_dir/Contents/MacOS/runErgoReasoner"
