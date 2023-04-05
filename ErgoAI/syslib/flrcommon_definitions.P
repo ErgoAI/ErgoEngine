@@ -81,6 +81,11 @@
 	;   shell('ls -ls',Res)
 	),
 	Res =:= 0.
+'\\lsls'(Result) :-
+        (   xsb_configuration(host_os,windows) -> '\\run'(dir,Result)
+	;   '\\run'('ls -ls',Result)
+	).
+
 '\\run'(Cmd,Result) :- shell:shell_to_list(Cmd,Result,ErrCode), ErrCode =:= 0.
 
 
