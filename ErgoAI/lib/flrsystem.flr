@@ -59,6 +59,7 @@
 	warning(?),
 	message(?),
         ?[type->?],
+        ?[uninstall],
 	?[mustDefine(?)],
 	?[mustDefine(?,?)]}.
 	
@@ -280,3 +281,17 @@ System[type->?Type/?Subtype/?Bits] :-
         flora_running_under(?Subtype,?BitsAtom)@\prolog(flrporting),
         atom_codes(?BitsAtom,?BitsChars)@\prolog,
         number_codes(?Bits,?BitsChars)@\prolog.
+
+System[uninstall] :- 
+        system{os=windows},
+        !,
+        message('+++ On Windows, please use the standard uninstallation facilities').
+System[uninstall] :- 
+        system{installdir=?InstDir},
+        \cd(?InstDir), \cd('..'),
+        File[executable('./uninstall_ergoAI.sh')]@\io,
+        \run './uninstall_ergoAI.sh',
+        !.
+System[uninstall] :- 
+        message('+++ This copy does not look like an ErgoAI release;\n+++ it cannot be uninstalled via this method').
+

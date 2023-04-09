@@ -1,6 +1,5 @@
 @echo off
 
-REM Generate .ergo_buildinfo.P & .ergo_paths
 REM Check installation and precompilation
 REM Used by makeergo.bat  and  ergo_customer.iss/ergo_dev.iss
 
@@ -24,6 +23,7 @@ REM out the .xsb\ergo-* directories
 for /D %%i in (%USERPROFILE%\.xsb\"ergo-*") do if exist "%%i\*%OBJEXT%" (del /Q "%%i\*%OBJEXT%" "%%i\*%PROLOGEXT%"
 )
 
+REM Generate .ergo_buildinfo.P & .ergo_paths
 call %PROLOG% -e "[flrconfig]. halt." || goto ergoconfigerror
 
 if [%2] == [] goto success

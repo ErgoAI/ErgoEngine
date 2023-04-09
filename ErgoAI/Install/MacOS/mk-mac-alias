@@ -1,18 +1,11 @@
 #!/bin/sh
 
-# deletes old studio/reasoner shortcuts on the Mac desktop
-#then creates new shortcuts
+# creates new studio/reasoner shortcuts on the Mac desktop
 
 # assume $1 is absolute file name
-#dirfile=`dirname "$1"`
 file="$1"
-
-# dirfile/basefile are not used at present
-#basefile=`basename "$1"`
 name="$2"
 
-osascript -e "tell application \"Finder\"" -e "delete alias \"Macintosh HD:Users:$USER:Desktop:$name\"" -e "end tell" > /dev/null || echo "Deleting old desktop icon for $name failed; probably the shortcut didn't exist."
+echo "Creating a new desktop shortcut $name ..."
+osascript -e "tell application \"Finder\"" -e "make new alias to file (posix file \"$file\") at desktop with properties {name: \"$name\"}" -e "end tell" > /dev/null || echo "Creation of the new desktop shortcut $name failed; please investigate."
 
-osascript -e "tell application \"Finder\"" -e "make new alias to file (posix file \"$file\") at desktop with properties {name: \"$name\"}" -e "end tell" > /dev/null || echo "Setting up of desktop icon for $name failed; please investigate."
-
-#mv "$HOME/Desktop/$basefile" "$HOME/Desktop/$name"

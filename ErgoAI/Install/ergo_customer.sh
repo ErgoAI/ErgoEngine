@@ -64,6 +64,7 @@ files="./XSB/LICENSE ./XSB/INSTALL \
         $Ergo_base/rlwrap_keywords.txt \
         $Ergo_base/Install/LICENSE_ergo \
         $Ergo_base/Install/*-desktop* \
+        $Ergo_base/Install/uninstall_ergoAI.sh \
         $Ergo_base/Install/MacOS \
         $Ergo_base/Tools/jena/ErgoOWL/bin/*.sh \
         $Ergo_base/Tools/jena/ErgoSPARQL/bin/*.sh \
@@ -208,6 +209,7 @@ TEMPDIR=/tmp
 mv ./ergo_cust.tar.gz $TEMPDIR
 curdir=`pwd`
 cd $TEMPDIR
+# this clears out Coherent in /tmp
 /bin/rm -rf Coherent
 tar xpzf ./ergo_cust.tar.gz
 

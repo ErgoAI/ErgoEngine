@@ -275,6 +275,12 @@ side_effectful_op(Op,Args,FL_PLIB) :-
 side_effectful_op(Op,Args,FL_PLIB) :-
         member(Op,[fmt_write]),
         (Args = [_,_,_] ; Args = [_,_,_,_]).
+side_effectful_op(Op,Args,FL_PLIB) :-
+        Op = ':',
+        Args = [tables,abolish_all_tables].
+side_effectful_op(Op,Args,FL_PLIB) :-
+        Op = abolish_all_tables,
+        Args = [].
 
 
 is_upd(FLLIBINSERT(_ThisMod,List,Condition),FL_INSERT,List,Condition) :- !.
@@ -862,6 +868,7 @@ set_indexes(T) :-
 
 set_indexes((T,Index)) :-
         !,
+        ( var(Index) -> Index=NO_INDEX ; true),
 	( Index == NO_INDEX -> true
 	;
 	    flora_get_counter(min_ind,MinInd),

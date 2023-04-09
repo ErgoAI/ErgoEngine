@@ -1,6 +1,5 @@
 #! /bin/sh
 
-# Generate .ergo_buildinfo.P & .ergo_paths
 # Check installation and precompilation
 # Used by makeergo  and  ergoAI_config.sh
 
@@ -61,6 +60,7 @@ fi
 # the .xsb/ergo-* directories.
 /bin/rm -f "$HOME"/.xsb/ergo*/*$PROLOGEXT "$HOME"/.xsb/ergo*/*$OBJEXT
 
+# Generate .ergo_buildinfo.P & .ergo_paths
 "$PROLOG" -e "[flrconfig]. halt." || ergousageerror=true
 if test -n "$ergousageerror" ; then
     echo ""

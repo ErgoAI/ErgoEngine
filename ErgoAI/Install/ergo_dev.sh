@@ -165,6 +165,7 @@ TEMPDIR=/tmp
 mv ./ergo_dev.tar.gz $TEMPDIR
 curdir=`pwd`
 cd $TEMPDIR
+# this clears out Coherent in /tmp
 /bin/rm -rf Coherent
 tar xpzf ./ergo_dev.tar.gz
 

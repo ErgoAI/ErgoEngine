@@ -1,14 +1,17 @@
 #!/bin/sh 
 
+# This is the post-extraction script run by makeself.
+# It configures the extracted ErgoAI files.
+
 # This assumes that XSB is sitting in ./XSB
 
-echo ""
+echo
 echo "+++++ Installing ErgoAI -- will take a few minutes"
-echo ""
+echo
 
-currdir=`pwd`
+currdir="`pwd`"
 echo "----- Current directory = $currdir"
-echo ""
+echo
 
 if [ "$1" = "-devel" ] ; then
     devel_version=yes
@@ -74,6 +77,15 @@ echo "+++++ Removing old files"
 /bin/rm -rf ./XSB/config/*
 /bin/rm -rf ./*.app
 
+# start recording uninstall info
+rm -f "$currdir/.uninstall_info.data"
+echo "base_install_dir=\"$currdir\"" > "$currdir/.uninstall_info.data"
+
+cp "$currdir/ErgoAI/Install/MacOS/mk-mac-alias" "$currdir"
+cp "$currdir/ErgoAI/Install/MacOS/del-mac-alias" "$currdir"
+cp "$currdir/ErgoAI/Install/uninstall_ergoAI.sh" "$currdir"
+chmod 700 "$currdir/mk-mac-alias" "$currdir/del-mac-alias" "$currdir/uninstall_ergoAI.sh"
+
 # Move XSB to /tmp to sidestep the problems with configuring it
 # in dirs that have spaces
 mv -f "$xsbdir" $tmpxsbdir
@@ -81,7 +93,7 @@ cd $tmpxsbdir/build
 rm -f "$currdir/ergo-install.log"
 
 echo "+++++ Configuring XSB"
-echo ""
+echo
 echo "+++++ Configuring XSB" > "$currdir/ergo-install.log"
 echo "----- Current directory = $currdir" >> "$currdir/ergo-install.log"
 echo "" >> "$currdir/ergo-install.log"
@@ -89,12 +101,14 @@ echo "" >> "$currdir/ergo-install.log"
 ./configure --with-dbdrivers >> "$currdir/ergo-install.log" 2>&1 || \
     (echo :ERRORS:FOUND: >> "$currdir/ergo-install.log"; echo "***** Configuration of XSB failed: see $currdir/ergo-install.log"; exit 1)
 
-grep "configure: error" "$currdir/ergo-install.log" > $currdir/ergo-misc.log
-grep "Python integration" "$currdir/ergo-install.log" >> $currdir/ergo-misc.log
-if [ -n "`cat $currdir/ergo-misc.log`" ]; then
-    echo ""
+grep "configure: error" "$currdir/ergo-install.log" > "$currdir/ergo-misc.log"
+grep "Python integration" "$currdir/ergo-install.log" >> "$currdir/ergo-misc.log"
+
+misc_errors=`cat "$currdir/ergo-misc.log"`
+if [ -n "$misc_errors" ]; then
+    echo
     cat "$currdir/ergo-misc.log"
-    echo ""
+    echo
 fi
 
 echo "+++++ Compiling XSB"
@@ -117,17 +131,27 @@ echo "+++++ Configuring ErgoAI" >> "$currdir/ergo-install.log"
 echo "+++++ Setting up icons"
 echo "+++++ Setting up icons" >> "$currdir/ergo-install.log"
 
+
+# key uninstall vars
+reasoner_desktop_shortcut="$HOME/Desktop/ErgoReasoner$version_icon_mark$devel_icon_mark.desktop"
+studio_desktop_shortcut="$HOME/Desktop/ErgoAI$version_icon_mark$devel_icon_mark.desktop"
+reasoner_desktop_shortcut_name="ErgoAI Reasoner $VERSION$devel_icon_mark2"
+studio_desktop_shortcut_name="ErgoAI Studio $VERSION$devel_icon_mark2"
+
 if [ "`uname`" = "Linux" -a -d $HOME/Desktop ]; then
-    cat "$currdir/ErgoAI/Install/ErgoReasoner$devel_icon_mark-linux-desktop" | sed "s|ERGO_BASE_FOLDER|$currdir|" | sed "s|ERGO_VERSION|$VERSION|" > $HOME/Desktop/ErgoReasoner$version_icon_mark$devel_icon_mark.desktop
-    cat "$currdir/ErgoAI/Install/ErgoAI$devel_icon_mark-linux-desktop" | sed "s|ERGO_BASE_FOLDER|$currdir|" | sed "s|ERGO_VERSION|$VERSION|" > $HOME/Desktop/ErgoAI$version_icon_mark$devel_icon_mark.desktop
-    chmod u+x $HOME/Desktop/ErgoAI$version_icon_mark$devel_icon_mark.desktop $HOME/Desktop/ErgoReasoner$version_icon_mark$devel_icon_mark.desktop
+    cat "$currdir/ErgoAI/Install/ErgoReasoner$devel_icon_mark-linux-desktop" | sed "s|ERGO_BASE_FOLDER|$currdir|" | sed "s|ERGO_VERSION|$VERSION|" > $reasoner_desktop_shortcut
+    cat "$currdir/ErgoAI/Install/ErgoAI$devel_icon_mark-linux-desktop" | sed "s|ERGO_BASE_FOLDER|$currdir|" | sed "s|ERGO_VERSION|$VERSION|" > $studio_desktop_shortcut
+    chmod u+x $studio_desktop_shortcut $reasoner_desktop_shortcut
 fi
+
+# continue recording uninstall info
+echo "reasoner_desktop_shortcut=\"$reasoner_desktop_shortcut\"" >> "$currdir/.uninstall_info.data"
+echo "studio_desktop_shortcut=\"$studio_desktop_shortcut\"" >> "$currdir/.uninstall_info.data"
 
 # MAC
 if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
-    ergoAI_app_dir="$currdir/runErgoAI$devel_icon_mark.app"
-    ergo_engine_app_dir="$currdir/runErgoReasoner$devel_icon_mark.app"
-    cp "$currdir/ErgoAI/Install/MacOS/mk-mac-alias" "$currdir"
+    ergoAI_studio_app_dir="$currdir/runErgoAI$devel_icon_mark.app"
+    ergoAI_reasoner_app_dir="$currdir/runErgoReasoner$devel_icon_mark.app"
 
     if [ "`which Rez`" = "" ]; then
         echo
@@ -149,47 +173,64 @@ if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
 
     # Step 1:  set up runErgoAI.app and its desktop shortcut
     cp -r "$currdir/ErgoAI/Install/MacOS/runErgoAI$devel_icon_mark.app" "$currdir"
-    cp "$currdir/ErgoAI/etc/ergoAI-desktop-studio.icns" "$currdir/ErgoAI/Install/MacOS/runErgoAI$devel_icon_mark.app/Contents/Resources/"
-    cat "$ergoAI_app_dir/Contents/MacOS/runErgoAI.template" | sed "s|ERGO_BASE_FOLDER|$currdir|" > "$ergoAI_app_dir/Contents/MacOS/runErgoAI"
-    cat "$ergoAI_app_dir/Contents/Info.plist.template" | sed "s|ERGO_VERSION|$VERSION|" > "$ergoAI_app_dir/Contents/Info.plist"
-    chmod u+x "$ergoAI_app_dir/Contents/MacOS/runErgoAI"
+    cat "$ergoAI_studio_app_dir/Contents/MacOS/runErgoAI.template" | sed "s|ERGO_BASE_FOLDER|$currdir|" > "$ergoAI_studio_app_dir/Contents/MacOS/runErgoAI"
+    cat "$ergoAI_studio_app_dir/Contents/Info.plist.template" | sed "s|ERGO_VERSION|$VERSION|" > "$ergoAI_studio_app_dir/Contents/Info.plist"
+    chmod u+x "$ergoAI_studio_app_dir/Contents/MacOS/runErgoAI"
 
-    # make desktop alias
-    echo "Running mk-mac-alias $ergoAI_app_dir ErgoAI Studio $VERSION$devel_icon_mark2" >> "$currdir/ergo-install.log"
-    sh "$currdir/mk-mac-alias" "$ergoAI_app_dir" "ErgoAI Studio $VERSION$devel_icon_mark2" >> "$currdir/ergo-install.log" 2>&1
+    # make desktop alias for the Studio
+    echo "Running del-mac-alias \"$studio_desktop_shortcut_name\"" >> "$currdir/ergo-install.log"
+    "$currdir/del-mac-alias" "$studio_desktop_shortcut_name" >> "$currdir/ergo-install.log" 2>&1
+    echo "Copying the Studio icon \"$currdir/ErgoAI/etc/ergoAI-desktop-studio.icns\" to the Mac app Resources folder \"$ergoAI_studio_app_dir/Contents/Resources/\"" >> "$currdir/ergo-install.log"
+    cp "$currdir/ErgoAI/etc/ergoAI-desktop-studio.icns" "$ergoAI_studio_app_dir/Contents/Resources/"
+    echo "Running mk-mac-alias $ergoAI_studio_app_dir \"$studio_desktop_shortcut_name\"" >> "$currdir/ergo-install.log"
+    "$currdir/mk-mac-alias" "$ergoAI_studio_app_dir" "$studio_desktop_shortcut_name" >> "$currdir/ergo-install.log" 2>&1
 
-    # Step 2: set up runergo engine desktop shortcut
+    # Step 2: set up the Reasoner app and its desktop shortcut
     cp -r "$currdir/ErgoAI/Install/MacOS/runErgoReasoner$devel_icon_mark.app" "$currdir"
-    cp "$currdir/ErgoAI/etc/ergoAI-desktop-reasoner.icns" "$currdir/ErgoAI/Install/MacOS/runErgoReasoner$devel_icon_mark.app/Contents/Resources/"
-    cat "$ergo_engine_app_dir/Contents/MacOS/runErgoReasoner.template" | sed "s|ERGO_BASE_FOLDER|$currdir|" > "$ergo_engine_app_dir/Contents/MacOS/runErgoReasoner"
-    cat "$ergo_engine_app_dir/Contents/Info.plist.template" | sed "s|ERGO_VERSION|$VERSION|" > "$ergo_engine_app_dir/Contents/Info.plist"
-    chmod u+x "$ergo_engine_app_dir/Contents/MacOS/runErgoReasoner"
+    cat "$ergoAI_reasoner_app_dir/Contents/MacOS/runErgoReasoner.template" | sed "s|ERGO_BASE_FOLDER|$currdir|" > "$ergoAI_reasoner_app_dir/Contents/MacOS/runErgoReasoner"
+    cat "$ergoAI_reasoner_app_dir/Contents/Info.plist.template" | sed "s|ERGO_VERSION|$VERSION|" > "$ergoAI_reasoner_app_dir/Contents/Info.plist"
+    chmod u+x "$ergoAI_reasoner_app_dir/Contents/MacOS/runErgoReasoner"
 
-    # make desktop alias
-    echo "Running mk-mac-alias $ergo_engine_app_dir ErgoAI Reasoner $VERSION$devel_icon_mark2" >> "$currdir/ergo-install.log"
-    sh "$currdir/mk-mac-alias" "$ergo_engine_app_dir" "ErgoAI Reasoner $VERSION$devel_icon_mark2" >> "$currdir/ergo-install.log" 2>&1
+    # make desktop alias for the Reasoner
+    echo "Running del-mac-alias \"$reasoner_desktop_shortcut_name\"" >> "$currdir/ergo-install.log"
+    "$currdir/del-mac-alias" "$reasoner_desktop_shortcut_name" >> "$currdir/ergo-install.log" 2>&1
+    echo "Copying the Reasoner icon \"$currdir/ErgoAI/etc/ergoAI-desktop-reasoner.icns\" to the Mac app Resources folder \"$ergoAI_reasoner_app_dir/Contents/Resources/\"" >> "$currdir/ergo-install.log"
+    cp "$currdir/ErgoAI/etc/ergoAI-desktop-reasoner.icns" "$ergoAI_reasoner_app_dir/Contents/Resources/"
+    echo "Running mk-mac-alias $ergoAI_reasoner_app_dir \"$reasoner_desktop_shortcut_name\"" >> "$currdir/ergo-install.log"
+    "$currdir/mk-mac-alias" "$ergoAI_reasoner_app_dir" "$reasoner_desktop_shortcut_name" >> "$currdir/ergo-install.log" 2>&1
 fi
-if [ -z "`cat ""$currdir/ergo-install.log"" | grep :ERRORS:FOUND: `" ]; then
+
+# continue recording uninstall info
+echo "studio_desktop_shortcut_name=\"$studio_desktop_shortcut_name\"" >> "$currdir/.uninstall_info.data"
+echo "reasoner_desktop_shortcut_name=\"$reasoner_desktop_shortcut_name\"" >> "$currdir/.uninstall_info.data"
+
+install_err_found=`cat "$currdir/ergo-install.log" | grep :ERRORS:FOUND: `
+
+if [ -z "$install_err_found" ]; then
     echo "+++++ Running ErgoAI for the first time"
     echo "+++++ Running ErgoAI for the first time" >> "$currdir/ergo-install.log"
-    $currdir/ErgoAI/runergo > "$currdir/ergo-initrun.log" 2>&1 <<EOF
+    "$currdir/ErgoAI/runergo" > "$currdir/ergo-initrun.log" 2>&1 <<EOF
 \halt.
 EOF
 fi
 
-touch $currdir/ErgoAI/lib/.ergo_aux_files/* >> "$currdir/ergo-initrun.log" 2>&1
-touch $currdir/ErgoAI/pkgs/.ergo_aux_files/* >> "$currdir/ergo-initrun.log" 2>&1
-touch $currdir/ErgoAI/demos/.ergo_aux_files/* >> "$currdir/ergo-initrun.log" 2>&1
+touch "$currdir/ErgoAI/lib/.ergo_aux_files/*" >> "$currdir/ergo-initrun.log" 2>&1
+touch "$currdir/ErgoAI/pkgs/.ergo_aux_files/*" >> "$currdir/ergo-initrun.log" 2>&1
+touch "$currdir/ErgoAI/demos/.ergo_aux_files/*" >> "$currdir/ergo-initrun.log" 2>&1
 
 cat "$currdir/ergo-initrun.log"
 cat "$currdir/ergo-initrun.log" >> "$currdir/ergo-install.log"
 
-echo ""
+echo
 echo "..... The build log is in $currdir/ergo-install.log"
 echo "..... Attach it if filing an installation problem report"
-echo ""
+echo
 
-if [ -z "`cat ""$currdir/ergo-initrun.log"" | grep Error`" -a -z "`cat ""$currdir/ergo-initrun.log"" | grep Abort `" -a -z "`cat ""$currdir/ergo-install.log"" | grep :ERRORS:FOUND: `" ]; then
+initrun_err_found=`cat "$currdir/ergo-initrun.log" | grep Error`
+initrun_abort_found=`cat "$currdir/ergo-initrun.log" | grep Abort `
+install_err_found=`cat "$currdir/ergo-install.log" | grep :ERRORS:FOUND: `
+
+if [ -z "$initrun_err_found" -a -z "$initrun_abort_found" -a -z "$install_err_found" ]; then
     echo "+++++ All is well: you can run ErgoAI in terminal mode via the script"
     echo "+++++    $currdir/ErgoAI/runergo"
     echo "+++++ and with the Studio via"
@@ -197,19 +238,16 @@ if [ -z "`cat ""$currdir/ergo-initrun.log"" | grep Error`" -a -z "`cat ""$currdi
 else
     echo "***** ERRORS occurred during installation of ErgoAI"
     echo "***** ERRORS occurred during installation of ErgoAI" >> "$currdir/ergo-install.log"
-    echo ""
+    echo
 fi
-if [ -z "$devel_version" ]; then
-    echo ""
-    echo "+++++ If desktop icons 'ErgoAI Reasoner' and 'ErgoAI Studio' got installed"
-    echo "+++++ successfully, one can also use them to run ErgoAI."
-    if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
-        echo "+++++ On the Mac, one might need to:"
-        echo "+++++   sudo /bin/rm -rf /Library/Cashes/com.apple.iconservices.store"
-        echo "+++++ and then reboot to ensure that ErgoAI icons are displayed."
-    fi
-else
-    echo "+++++ No desktop icons are installed for development versions of ErgoAI"
+
+echo
+echo "+++++ If desktop icons 'ErgoAI Reasoner' and 'ErgoAI Studio' were installed"
+echo "+++++ successfully, one can conveniently use them to run ErgoAI."
+if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
+    echo "+++++ On the Mac, one might need to:"
+    echo "+++++   sudo /bin/rm -rf /Library/Cashes/com.apple.iconservices.store"
+    echo "+++++ and then reboot to ensure that ErgoAI icons are displayed."
 fi
-echo ""
+echo
 

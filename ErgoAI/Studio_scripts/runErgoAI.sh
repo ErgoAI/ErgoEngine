@@ -9,7 +9,7 @@
 thisscript=`(readlink -f "$0") 2> /dev/null || (readlink "$0") 2> /dev/null || echo "$0"`
 thisdir=`dirname "$thisscript"`
 
-if [ \( ! -d $thisdir/ErgoAI -o ! -d $thisdir/XSB \) -a \( ! -d $thisdir/ErgoEngine -o ! -d $thisdir/Studio_fidji \) ]; then
+if [ \( ! -d "$thisdir/ErgoAI" -o ! -d "$thisdir/XSB" \) -a \( ! -d "$thisdir/ErgoEngine" -o ! -d "$thisdir/Studio_fidji" \) ]; then
     echo ""
     echo +++++ This script gets copied into the directory that contains
     echo +++++ both ErgoEngine and Studio_fidji, and it must be run from there
@@ -41,10 +41,10 @@ fi
 # run with MoreMemory only if has enough memory
 if [ "$withMoreMemory" = "yes" -a $memory -ge 5 ]; then
     # run with more memory
-    java $dock_option -Xss3M -Xmx3G $IPv4Option -jar $ergo2java_jar -basedir $thisdir $*
+    java $dock_option -Xss3M -Xmx3G $IPv4Option -jar "$ergo2java_jar" -basedir "$thisdir" $*
 else
     # run normally
-    java $dock_option $IPv4Option -jar $ergo2java_jar -basedir $thisdir $*
+    java $dock_option $IPv4Option -jar "$ergo2java_jar" -basedir "$thisdir" $*
 fi
 
 # to see the log, start as
