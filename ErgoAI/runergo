@@ -65,4 +65,8 @@ $SLEEP
 # previously we passed $extra_args instead of "$@", but this didn't work
 # because spaces were breaking arguments
 #echo $RLWRAP --file "$thisdir/rlwrap_keywords.txt" "$PROLOG" $STARTUPOPTIONS $PROLOGOPTIONS $PROFILEFLAG -e "$PROFILEINDEX add_lib_dir(a($FLORADIR)). [flora2]. $flrshell." "$@"
-$RLWRAP --file "$thisdir/rlwrap_keywords.txt" "$PROLOG" $STARTUPOPTIONS $PROLOGOPTIONS $PROFILEFLAG -e "$PROFILEINDEX add_lib_dir(a($FLORADIR)). [flora2]. $flrshell." "$@"
+if [ -z "$RLWRAP" ]; then
+    "$PROLOG" $STARTUPOPTIONS $PROLOGOPTIONS $PROFILEFLAG -e "$PROFILEINDEX add_lib_dir(a($FLORADIR)). [flora2]. $flrshell." "$@"
+else
+    $RLWRAP --file "$thisdir/rlwrap_keywords.txt" "$PROLOG" $STARTUPOPTIONS $PROLOGOPTIONS $PROFILEFLAG -e "$PROFILEINDEX add_lib_dir(a($FLORADIR)). [flora2]. $flrshell." "$@"
+fi
