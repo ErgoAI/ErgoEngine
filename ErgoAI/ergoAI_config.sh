@@ -222,7 +222,7 @@ cat "$currdir/ergo-initrun.log"
 cat "$currdir/ergo-initrun.log" >> "$currdir/ergo-install.log"
 
 echo
-echo "..... The build log is in $currdir/ergo-install.log"
+echo "..... The build log is in \"$currdir/ergo-install.log\""
 echo "..... Attach it if filing an installation problem report"
 echo
 
@@ -232,9 +232,9 @@ install_err_found=`cat "$currdir/ergo-install.log" | grep :ERRORS:FOUND: `
 
 if [ -z "$initrun_err_found" -a -z "$initrun_abort_found" -a -z "$install_err_found" ]; then
     echo "+++++ All is well: you can run ErgoAI in terminal mode via the script"
-    echo "+++++    $currdir/ErgoAI/runergo"
+    echo "+++++    \"$currdir/ErgoAI/runergo\""
     echo "+++++ and with the Studio via"
-    echo "+++++    $currdir/runErgoAI.sh"
+    echo "+++++    \"$currdir/runErgoAI.sh\""
 else
     echo "***** ERRORS occurred during installation of ErgoAI"
     echo "***** ERRORS occurred during installation of ErgoAI" >> "$currdir/ergo-install.log"
