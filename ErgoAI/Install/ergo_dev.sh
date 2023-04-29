@@ -7,7 +7,8 @@
 # in a folder that has ./XSB, and ./ErgoEngine/ErgoAI
 
 # Arguments: none, one, two, or three
-# If arg1 is -v version: build that version.
+# If no args, build interactive installer for the version in ../version.flh
+# If arg1/2 are -v version: build that version.
 # If arg1 is not -v then build a non-interactive install
 # If arg1 is -v and arg3 is given, build the version labeled arg2 using
 # non-interactive install
@@ -18,7 +19,7 @@ Ergo_base2="ErgoEngine/ErgoAI"
 Ergo_parent="/ErgoEngine"
 
 
-ergo_version=`cat $Ergo_base/version.flh| grep ERGO_VERSION | sed "s|^.*'\(.*\)'.*$|\1|"`
+ergo_version=`cat $Ergo_base/version.flh| grep ERGO_VERSION_NUMBER | sed "s|^.*'\(.*\)'.*$|\1|"`
 
 if [ "$1" = "-v" ] ; then
     shift
@@ -50,8 +51,12 @@ files="./XSB/LICENSE ./XSB/INSTALL \
 	./XSB/gpp \
 	./XSB/bin \
 	./XSB/prolog_includes \
-        ./XSB/etc \
+        ./XSB/etc/ \
         ./XSB/packages \
+        ./XSB/pthreads \
+	./XSB/prolog-commons \
+        ./XSB/docs/userman \
+        ./XSB/docs/JupyterNotebooks \
         ./XSB/installer \
         ./XSB/InstallXSB.jar \
         ./XSB/examples \

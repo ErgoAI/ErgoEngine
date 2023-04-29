@@ -348,9 +348,9 @@ flora_user_floradir(Dir) :-
 	    flora_build_id(Build),
 	    url_encode(Build,Buildnumber),
             (Buildnumber=='' ->
-                flora_concat_atoms([PlgUserAuxDir,S,FLENGINENAME,'-',ERGO_VERSION],Dir)
+                flora_concat_atoms([PlgUserAuxDir,S,FLENGINENAME,'-',ERGO_VERSION_NUMBER],Dir)
                 ;
-                flora_concat_atoms([PlgUserAuxDir,S,FLENGINENAME,'-',ERGO_VERSION,'-',Buildnumber],Dir)
+                flora_concat_atoms([PlgUserAuxDir,S,FLENGINENAME,'-',ERGO_VERSION_NUMBER,'-',Buildnumber],Dir)
             ),
 	    ( flora_file_op(exists,Dir) -> true
 	    ;
@@ -745,9 +745,9 @@ flora_build_id(Build) :-
 flora_build_id(unknown).
 
 flora_build_datetime(DateT) :-
-	str_match(': ',ERGO_DATE,forward,_,DStart),
+	str_match(': ',ERGO_VERSION_DATE,forward,_,DStart),
 	DEnd = -1,
-	flora_get_substring(ERGO_DATE,DStart,DEnd,DateSub),
+	flora_get_substring(ERGO_VERSION_DATE,DStart,DEnd,DateSub),
 	atom_codes(DateSub,Codes),
 	skip_blanks(Codes,Codes1),
 	reverse(Codes1,Codes2),

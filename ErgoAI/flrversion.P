@@ -36,16 +36,19 @@
 	flora_concat_atoms/2
    from flrporting.
 
-?- '_$_flora_full_name'(FloraFullName),
+?- '_$_ergo_full_name'(ErgoFullName),
    flora_build_date(Date),
    assert(flora_configuration(releasedate,Date)),
-   assert(flora_configuration(name,ERGO_NAME)),
-   assert(flora_configuration(version,ERGO_VERSION)),
+   assert(flora_configuration(fullname,ErgoFullName)),
+   assert(flora_configuration(name,ERGO_VERSION_NAME)),
+   assert(flora_configuration(version,ERGO_VERSION_NUMBER)),
+   assert(flora_configuration(patch,ERGO_VERSION_PATCH)),
    flora_build_id(Build),
    assert(flora_configuration(build,Build)).
 
 
-'_$_flora_full_name'(X) :-
-	flora_concat_atoms([ERGO_VERSION,
-			    ' (', ERGO_NAME, ') of ',
-			    ERGO_DATE], X).
+'_$_ergo_full_name'(X) :-
+	flora_concat_atoms([ERGO_VERSION_NUMBER,
+                            ERGO_VERSION_PATCH,
+			    ' (', ERGO_VERSION_NAME, ') of ',
+			    ERGO_VERSION_DATE], X).

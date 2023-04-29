@@ -139,8 +139,8 @@ reasoner_desktop_shortcut_name="ErgoAI Reasoner $VERSION$devel_icon_mark2"
 studio_desktop_shortcut_name="ErgoAI Studio $VERSION$devel_icon_mark2"
 
 if [ "`uname`" = "Linux" -a -d $HOME/Desktop ]; then
-    cat "$currdir/ErgoAI/Install/ErgoReasoner$devel_icon_mark-linux-desktop" | sed "s|ERGO_BASE_FOLDER|$currdir|" | sed "s|ERGO_VERSION|$VERSION|" > $reasoner_desktop_shortcut
-    cat "$currdir/ErgoAI/Install/ErgoAI$devel_icon_mark-linux-desktop" | sed "s|ERGO_BASE_FOLDER|$currdir|" | sed "s|ERGO_VERSION|$VERSION|" > $studio_desktop_shortcut
+    cat "$currdir/ErgoAI/Install/ErgoReasoner$devel_icon_mark-linux-desktop" | sed "s|ERGO_BASE_FOLDER|$currdir|" | sed "s|ERGO_VERSION_NUMBER|$VERSION|" > $reasoner_desktop_shortcut
+    cat "$currdir/ErgoAI/Install/ErgoAI$devel_icon_mark-linux-desktop" | sed "s|ERGO_BASE_FOLDER|$currdir|" | sed "s|ERGO_VERSION_NUMBER|$VERSION|" > $studio_desktop_shortcut
     chmod u+x $studio_desktop_shortcut $reasoner_desktop_shortcut
 fi
 
@@ -174,7 +174,7 @@ if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
     # Step 1:  set up runErgoAI.app and its desktop shortcut
     cp -r "$currdir/ErgoAI/Install/MacOS/runErgoAI$devel_icon_mark.app" "$currdir"
     cat "$ergoAI_studio_app_dir/Contents/MacOS/runErgoAI.template" | sed "s|ERGO_BASE_FOLDER|$currdir|" > "$ergoAI_studio_app_dir/Contents/MacOS/runErgoAI"
-    cat "$ergoAI_studio_app_dir/Contents/Info.plist.template" | sed "s|ERGO_VERSION|$VERSION|" > "$ergoAI_studio_app_dir/Contents/Info.plist"
+    cat "$ergoAI_studio_app_dir/Contents/Info.plist.template" | sed "s|ERGO_VERSION_NUMBER|$VERSION|" > "$ergoAI_studio_app_dir/Contents/Info.plist"
     chmod u+x "$ergoAI_studio_app_dir/Contents/MacOS/runErgoAI"
 
     # make desktop alias for the Studio
@@ -188,7 +188,7 @@ if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
     # Step 2: set up the Reasoner app and its desktop shortcut
     cp -r "$currdir/ErgoAI/Install/MacOS/runErgoReasoner$devel_icon_mark.app" "$currdir"
     cat "$ergoAI_reasoner_app_dir/Contents/MacOS/runErgoReasoner.template" | sed "s|ERGO_BASE_FOLDER|$currdir|" > "$ergoAI_reasoner_app_dir/Contents/MacOS/runErgoReasoner"
-    cat "$ergoAI_reasoner_app_dir/Contents/Info.plist.template" | sed "s|ERGO_VERSION|$VERSION|" > "$ergoAI_reasoner_app_dir/Contents/Info.plist"
+    cat "$ergoAI_reasoner_app_dir/Contents/Info.plist.template" | sed "s|ERGO_VERSION_NUMBER|$VERSION|" > "$ergoAI_reasoner_app_dir/Contents/Info.plist"
     chmod u+x "$ergoAI_reasoner_app_dir/Contents/MacOS/runErgoReasoner"
 
     # make desktop alias for the Reasoner

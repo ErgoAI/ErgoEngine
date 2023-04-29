@@ -6133,9 +6133,11 @@ flora_tempfile_by_template(InputTemplate,Subdir1,Subdir2,Prefix,Suffix,Result) :
 flora_system_info(Key=Value) :-
         System = 'ErgoAI',
         flora_configuration(version,Version),
+        flora_configuration(patch,Patch),
         flora_configuration(build,Build),
         flora_configuration(releasedate,Release),
         flora_configuration(name,Codename),
+        flora_configuration(fullname,Fullname),
         has_flora_configuration_dir(installdir,FloraDir),
         flora_user_floradir(UserFloraDir),
         flora_file_op(cwd,CurrentDir),
@@ -6147,18 +6149,24 @@ flora_system_info(Key=Value) :-
         xsb_configuration(install_dir,XSB_installdir),
         xsb_configuration(host_os,OS),
         xsb_configuration(word_size,WordSize),
-        flora_concat_atoms([System,' ',Version,' (',Codename,
+        flora_concat_atoms([System,' ',
+                            Version,Patch,
+                            ' (',Codename,
                             '; build: ',Build,', ',Release,') on ',Arch],
                            Info),
         !,
         (Key == version -> Value = Version
         ; Key = version, Value = Version
+        ; Key == patch -> Value = Patch
+        ; Key = patch, Value = Patch
         ; Key == build -> Value = Build
         ; Key = build, Value = Build
         ; Key == releasedate -> Value = Release
         ; Key = releasedate, Value = Release
         ; Key == codename -> Value = Codename
         ; Key = codename, Value = Codename
+        ; Key == fullname -> Value = Fullname
+        ; Key = fullname, Value = Fullname
         ; Key == system -> Value=System
         ; Key = system, Value=System
         ; Key == host_cpu -> Value = Cpu
