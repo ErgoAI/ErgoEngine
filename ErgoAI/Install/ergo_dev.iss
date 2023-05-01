@@ -253,6 +253,11 @@ Source: "{#XSBBaseDir}\gpp\*"; Excludes: ".*,CVS,*~"; DestDir: "{#xsbapp}\gpp"; 
 Source: "{#XSBBaseDir}\examples\*"; Excludes: ".*,CVS,*~"; DestDir: "{#xsbapp}\examples"; Components: base\sources; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#XSBBaseDir}\packages\*"; Excludes: ".*,CVS,*~"; DestDir: "{#xsbapp}\packages"; Components: base; Flags: ignoreversion recursesubdirs createallsubdirs
 
+Source: "{#XSBBaseDir}\pthreads\*"; Excludes: ".*,CVS,*~"; DestDir: "{#xsbapp}\pthreads"; Components: base; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#XSBBaseDir}\prolog-commons\*"; Excludes: ".*,CVS,*~"; DestDir: "{#xsbapp}\prolog-commons"; Components: base; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#XSBBaseDir}\docs\userman\*"; Excludes: ".*,CVS,*~"; DestDir: "{#xsbapp}\docs\userman"; Components: base; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#XSBBaseDir}\docs\JupyterNotebooks\*"; Excludes: ".*,CVS,*~"; DestDir: "{#xsbapp}\docs\JupyterNotebooks"; Components: base; Flags: ignoreversion recursesubdirs createallsubdirs
+
 
 ;;;;;;;; ErgoAI specific subdirs ;;;;;;;;;;
 

@@ -242,12 +242,12 @@ else
 fi
 
 echo
-echo "+++++ If desktop icons 'ErgoAI Reasoner' and 'ErgoAI Studio' were installed"
-echo "+++++ successfully, one can conveniently use them to run ErgoAI."
-if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
-    echo "+++++ On the Mac, one might need to:"
-    echo "+++++   sudo /bin/rm -rf /Library/Cashes/com.apple.iconservices.store"
-    echo "+++++ and then reboot to ensure that ErgoAI icons are displayed."
-fi
-echo
+#echo "+++++ If desktop icons 'ErgoAI Reasoner' and 'ErgoAI Studio' were installed"
+#echo "+++++ successfully, one can conveniently use them to run ErgoAI."
+#if [ "`uname`" = "Darwin" -a -d $HOME/Desktop ]; then
+#   echo "+++++ On the Mac, one might need to:"
+#   echo "+++++   sudo /bin/rm -rf /Library/Cashes/com.apple.iconservices.store"
+#   echo "+++++ and then reboot to ensure that ErgoAI icons are displayed."
+#fi
+#echo
 

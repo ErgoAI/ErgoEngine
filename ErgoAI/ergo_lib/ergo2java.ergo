@@ -162,11 +162,17 @@ System[addJar(?Jar)] :-
 //              Linux/Mac:   'jar-o-dir1:jar-or-dir2' etc.
 // +JavaFlags - flags passed to Java proper
 // +MainMethodFlags - flags passed to the main method of the main class.
-// JavaFlags and MainMethodFlags are used fo development only.
+// JavaFlags and MainMethodFlags are used for development only.
 System[setJavaFlags(?List)] :-
         set_java_flags(?List)@\prolog(ergo_java),
         kill_java@\prolog(interprolog),
         initialize@\prolog(ergo_java).
+// Give a classpath  for additional Jars and classes to be used 
+// at run time (later in the run).
+// Typically this call is made before issuing any other calls to @\e2j.
+// If this is called after some calls to \e2j were issued, the existing Java 
+// process gets killed first and any in-memory data that it may have
+// created (e.g., objects that were created) get discarded.
 System[setJavaCP(?CP)] :-
         set_java_flags([?CP])@\prolog(ergo_java),
         kill_java@\prolog(interprolog),
