@@ -75,9 +75,9 @@ ArchitecturesInstallIn64BitMode=x64
 Name: "default"; Description: "Standard ErgoAI installation"
 
 [Components]
-Name: "base"; Description: "Base system"; Types: full; Flags: disablenouninstallwarning
-Name: "base\sources"; Description: "Base system plus the source files"; Types: full; Flags: disablenouninstallwarning
-Name: "documentation"; Description: "Documentation"; Types: full; Flags: disablenouninstallwarning
+Name: "base"; Description: "Base system"; Types: default; Flags: disablenouninstallwarning
+Name: "base\sources"; Description: "Base system plus the source files"; Types: default; Flags: disablenouninstallwarning
+Name: "documentation"; Description: "Documentation"; Types: default; Flags: disablenouninstallwarning
 
 [Tasks]
 Name: website; Description: "&Visit Coherent Knowledge Web site"; Components: base; Flags: unchecked
