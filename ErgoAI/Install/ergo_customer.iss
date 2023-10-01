@@ -6,9 +6,9 @@
 ; A compiled version of XSB must exist at the location of XSBBaseDir
 
 #define MyAppName "Coherent ErgoAI"
-#define ErgoAIVersion "3.0"
+#define ErgoAIVersion "3.01"
 
-#define ErgoVersion "3.0"
+#define ErgoVersion "3.01"
 #define StudioVersion "1.0"
 #define XSBVersion "5.0"
 #define MyAppVerName "Ergo  v. "+ErgoVersion+" (Philo), ErgoAI Studio "+StudioVersion+", and XSB "+XSBVersion

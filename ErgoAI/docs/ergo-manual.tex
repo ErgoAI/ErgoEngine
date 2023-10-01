@@ -202,7 +202,7 @@
   \vspace{0.7cm}\\
   \Huge \ERGOAI Reasoner User's Manual
   \vspace{3mm}\\
-  {\LARGE Version 3.0 (Philo)}
+  {\LARGE Version 3.01 (Philo)}
 }
 
 \author{
@@ -473,7 +473,7 @@ In addition, the following is needed:
   %% 
   \begin{itemize}
   \item Download the file \texttt{ergoAI\_\textnormal{\emph{versn}}.exe}
-    (e.g., \verb|ergoAI_3.0.exe|) from Github, where
+    (e.g., \verb|ergoAI_3.01.exe|) from Github, where
     \emph{versn} is the version number: \\
     %% 
     To that end, navigate to
@@ -550,7 +550,7 @@ In addition, the following is needed:
   %% 
   \begin{itemize}
   \item  Download the file \texttt{ergoAI\_}\textnormal{\textit{versn}}\texttt{.run}
-    (e.g., \verb|ergoAI_3.0.run|) from Github:\\
+    (e.g., \verb|ergoAI_3.01.run|) from Github:\\
     %% 
     To that end, navigate to
     \url{https://github.com/ErgoAI/.github/releases}, 
@@ -1038,16 +1038,16 @@ the current version of \FLSYSTEM and the underlying OS. For instance,
  \prompt system\{system=?X\}.
  ?X = ErgoAI
  \prompt system\{version=?X\}.
- ?X = '3.0'
+ ?X = '3.01'
  \prompt system\{info=?X\}.
- ?X = 'ErgoAI 3.0 (Philo; build: , 2022-12-11) on x86_64-pc-linux-gnu'
+ ?X = 'ErgoAI 3.01 (Philo; build: , 2022-12-11) on x86_64-pc-linux-gnu'
  \prompt system\{cwd=?X\}.     // cwd: current working directory
  ?X = '/home/foo/test'
  \prompt system\{installdir=?X\}.
  ?X = '/home/foo/ERGOAI/ErgoEngine/ErgoAI'
  // auxdir: .xsb/ergo-version files dir; may be needed for some installations (e.g. Tomcat)
  \prompt system\{auxdir=?X\}.
- ?X = '/home/foo/.xsb/ergo-3.0'
+ ?X = '/home/foo/.xsb/ergo-3.01'
 \end{alltt}
 %% 
 To see all the available system information and all the valid property
@@ -1157,7 +1157,15 @@ If none of these tries are successful, an error is reported.
   evaluation.
     \index{feedback\{...\}}
 \item {\tt feedback\{on\} \textnormal{\emph{and}} feedback\{off\}}:
-  Turn on/off the display of query answers. Mostly used in Java applications.
+  Turn on/off the display of query answers. M/Python/Costly used in Java
+  applications that interact with \ERGOAI.
+  Also, \texttt{tempoff} is accepted; it hides query answers only for the
+  current shell command. 
+    \index{prompt\{...\}}
+\item {\tt prompt\{on\} \textnormal{\emph{and}} prompt\{off\}}:
+  Turn on/off the display of the prompt. Mostly used in Java/Python/C applications that interact with \ERGOAI.
+  Also, \texttt{tempoff} is accepted; it hides the prompt only for the
+  current shell command. 
     \index{setwarnings\{...\}}
 \item {\tt setwarnings\{type\}}:
   Control the types of warnings to be shown to the user.
@@ -8522,14 +8530,16 @@ semantic options by examining every loaded module via the {\tt
 
 \index{tabling}
 %
-Tabling is a fundamental deduction technique that augments query evaluation
-with a mechanism that remembers previously inferred conclusions.
-The result is a very efficient deductive engine.
+Tabling is a fundamental deduction technique that augments the query evaluation
+process with a cache
+that remembers previously inferred conclusions.
+The result is a very efficient deductive engine that avoids repeating
+previously made computations.
 
 \FLSYSTEM automatically tables (i.e., caches) frames and HiLog predicates, but allows the
 user to have non-tabled predicates as well. Such predicates are called
-\emph{transactional} and are mostly used for
-side-effects, such as writing to or reading from files (or to/from the
+\emph{transactional} because they are mostly used to produce side effects,
+such as writing to or reading from files (or to/from the
 screen) and to insert and delete facts and rules. To indicate that
 a HiLog literal is non-tabled, it must be preceded with the ``\verb|%|'' sign.
 
@@ -8549,20 +8559,23 @@ tc(X,Y) :- %edge(?X,?Y), tc(?Y,?Z).
 A predicate with the \verb|%| prefix is logically unrelated to the
 predicate without the \verb|%| prefix. Thus, {\tt p(a)(b)} being true does
 not imply anything about {\tt \verb|%|p(a)(b)}, and vice versa.
-However, \FLSYSTEM issues a warning in case of such a double-use.
+However, \FLSYSTEM issues a warning in case of such a double-use in the
+rule heads or bodies (but not in queries).
 
 Symbols that are prefixed with the ``\verb|%|'' sign
 can appear only as predicate formulas, predicate names, Boolean
-method names, or variables.  A variable prefixed with ``\verb|%|'' cannot be
-a stand-alone formula, unless it is associated with a module
-specification. The following occurrences of ``\verb|%|'' are legal
+method names, or variables.  
+The following occurrences of ``\verb|%|'' are legal
 %% 
 \begin{quote}
 \begin{verbatim}
-?- insert{%p(a)}, %?(?X).  // %? is a variable ranging over non-tabled 
-                           // predicate names
-?- a[%b(c)], a[%?Y].       // %b and %?Y are transactional Boolean methods
-?- %?X@?M ~ %p(a).         // %p - a non-tabled predicate
+?- insert{%p(a)}, %?(?X).  // %? is a variable ranging over transactional 
+                           // predicates
+?- a[%b(c)], a[%?Y].       // %b is a transactional Boolean methods
+                           // %?Y is a variable ranging over transactional
+                           // Boolean methods
+?- %?X@?M ~ %p(a).         // %p - a transactional predicate
+?- %?X ~ %p(a).
 
 \end{verbatim}
 \end{quote}
@@ -8572,10 +8585,9 @@ but the following are not:
 \begin{quote}
 \begin{verbatim}
 ?- p(%a).                   // %a appears as a term, not a formula
-?- ?X = %a.                  // %a appears as a term, not a formula
-?- %?X = a.                  // %?X appears as a term, not a formula
+?- ?X = %a.                 // %a appears as a term, not a formula
+?- %?X = a.                 // %?X appears as a term, not a formula
 ?- a[%b(c)->d].             // %b is not a Boolean method
-?- %?X ~ %p(a).              // %?X as a stand-alone formula
 \end{verbatim}
 \end{quote}
 %%
@@ -8583,34 +8595,40 @@ The first formula is illegal because {\tt \%a} occurs as a term and not
 as a predicate (it can be made legal by reifying the argument: {\tt
 p(\$\{\%a\})}). In the second and third formulas {\tt \%a} and {\tt \%?X}
 also appear as unreified arguments. The fourth formula is illegal
-because {\tt \%b(c)} is not a Boolean method. The last one is illegal
-because {\tt \%?X} can not be a stand-alone formula (it can be made legal
-by associating a module with it).
+because {\tt \%b(c)} is not a Boolean method. 
 
-Occurrences of variables that are prefixed with {\tt \%} are treated
+Occurrences of variables that are prefixed with  a {\tt \%} are treated
 specially.  First, it should be kept in mind that {\tt \%?X} and {\tt ?X}
 represent the same variable.  If {\tt ?X} is \emph{already bound} to
-something then both of them mean the same thing.  However, {\tt ?X}
+a term then {\tt \%?X} gets bound to the same thing.  However, {\tt ?X}
 itself can range not only over predicates but also terms,
 conjunctions/disjunctions of predicates, and even rules. In contrast,
-{\tt \%?X} with module specification can be bound only to non-tabled
-formulas and {\tt ?X} with module specification can be bound only to
-tabled formulas.  Thus error messages
-will be issued for the following two
-queries:
+{\tt \%?X@?M} can be bound only to non-tabled
+formulas and {\tt ?X@?M} can be bound only to
+tabled formulas.  Thus we have the following:
 %% 
 \begin{quote}
 \begin{verbatim}
 ?- ?X ~ p(a), %?X@?M ~ p(a).
+No
+
 ?- ?X ~ a[%b], ?X@?M ~ a[%b].  
+?X = ${a[%b]@main}
+?M = main
 \end{verbatim}
 \end{quote}
+%%
+The first of the above queries fails because \texttt{?X} is bound to a
+tabled literal \texttt{p(a)} and so \texttt{\%?X@?M} must be bound to the
+same literal; but it cannot be because, by definition, \texttt{\%?X@?M} can
+be bound only to non-tabled literals.    
+
 %%
   \index{meta-unification operator $\sim$}
   \index{$\sim$!meta-unification operator}
 The following query fails because {\tt \%?X} and {\tt ?X} represent the
 same variable: the first conjunct determines the binding for {\tt ?X},
-and this binding does not match the expression on the right side of
+and this binding (a non-tabled literal) does not match the expression on the right side of
 \verb|~| in the second conjunct.
 %% 
 \begin{quote}
@@ -8741,7 +8759,7 @@ the first call, since the answer is simply looked
 up in a table of previous answers. Indeed, tabled constructs represent
 purely logical statements that are not supposed to have side effects, so
 there is no reason to re-execute them.
-Thus, if a \FLSYSTEM construct
+Thus, if an \FLSYSTEM construct
 is intended to perform a side effect each time it is
 called, it will not operate correctly.
 

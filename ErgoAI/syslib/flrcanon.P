@@ -152,8 +152,11 @@
         is_caller_distributive/4.
 
 
-%% This operation is quite frequent, so tabling this might save time
-:- table flora_check_dynmod_type_consistency/1 as AUXILIARY_TABLING_TYPE.
+%% 9/30/2023: we decided to short-circuit this predicate because:
+%%   - useless and complicates the semantics of transactional vars like %?X.
+%%   - performance-guzzler
+%% Forgetit: This operation is quite frequent, so tabling this might save time
+%%:- table flora_check_dynmod_type_consistency/1 as AUXILIARY_TABLING_TYPE.
 
 /*
 %% Tabling these does not seem to help
@@ -937,7 +940,15 @@ all_fllibmodobj((FLLIBMODOBJ(_,_,_,_,_,_),Rest)) :-
   flora_check_dynmod_type_consistency(+Predicate)
   check whether ?X@M is bound to non-transactional predicate
   and %?X@M to transactional predicate
+
+%% 9/30/2023: we decided to short-circuit this predicate because:
+%%   - useless and complicates the semantics of transactional vars like %?X.
+%%   - performance-guzzler
 ************************************************************************/
+%% Short circuit: cuts off the other clauses of
+%% flora_check_dynmod_type_consistency/1 -- see the comment above
+flora_check_dynmod_type_consistency(_Arg) :- !.
+
 %% Wrap is FL_LIBMOD, FL_NEGLIBMOD, FL_TRANSLIBMOD
 flora_check_dynmod_type_consistency(FLLIBMODLIT(_Wrap,Term,_Mod,_FWContext)) :-
         var(Term),

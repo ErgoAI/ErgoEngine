@@ -5632,7 +5632,12 @@ parse_body_literal(CanoniTerm,DWS,Code,Status) :-
             Status = NO_ERRORS,
             flmodule_struct(FLORAUSERMOD,C,ModVar,Code)
         ; DWS==NULL ->
-            parsing_error(CanoniTerm,ERROR_TRANSACTIONALVARLIT,Status)
+            is_anonymous_flvar_struct(ModVar),
+            Status = NO_ERRORS,
+            flmodule_struct(FLORAUSERMOD,C,ModVar,Code)
+            %%% It seems useless & unjustified to ban standalone transactional
+            %%% vars when non-transactional standalones are allowed.
+            %%%parsing_error(CanoniTerm,ERROR_TRANSACTIONALVARLIT,Status)
         /*
         %% This happens when we have a predicate with a variable in an argument
         %% declared as BODYLITERAL. Do NOT issue an error in this case.
@@ -5650,6 +5655,7 @@ parse_body_literal(CanoniTerm,_DWS,_Code,Status) :-
 
 /****************************************************************************
   parse_body_template_list(+List,-CodeList,-Status)
+  %% body templates appear in ignore_depchk directives
 ****************************************************************************/
 parse_body_template_list([],[],NO_ERRORS) :- !.
 parse_body_template_list([H|T],[HCode|TCode],Status) :- 
@@ -8636,7 +8642,11 @@ parse_dbliteral(Mode,CanoniTerm,DWS,[Code],Status) :-
         %% now the literal is stripped of commas and workspaces - do
         %% the main processing of db literal
         parse_stripped_dbliteral(Mode,CanoniTerm,DWS,TCode,Status),
-        flora_get_module_from_spec(DWS,ModuleType,Module),
+        %% In delete, %?Var is converted to %?Var@?
+        (Mode==FLDEL, DWS == NULL, is_fltransactionalvar_struct(TCode) ->
+            is_anonymous_flvar_struct(Module)
+        ; flora_get_module_from_spec(DWS,ModuleType,Module)
+        ),
         flmodule_struct(ModuleType,TCode,Module,Code).
 
 
@@ -8858,7 +8868,7 @@ parse_stripped_dbliteral(_Mode,CanoniTerm,_DWS,Code,NO_ERRORS) :-
 %% Anonymous vars are not allowed in DB literals except in clause{...}
 parse_stripped_dbliteral(Mode,CanoniTerm,_DWS,Code,NO_ERRORS) :-
         get_flvar_struct(CanoniTerm,Code),
-        %% Allo anon vars for the clause statement
+        %% Allow anon vars for the clause statement
         (Mode == FLCLS -> true
         ; \+ is_anonymous_flvar_struct(Code)
         ).
@@ -8871,7 +8881,8 @@ parse_stripped_dbliteral(Mode,CanoniTerm,DWS,Code,Status) :-
             %% assume that it has a variable module
             is_anonymous_flvar_struct(ModVar),
             flmodule_struct(FLORAUSERMOD,Code1,ModVar,Code)
-        ; DWS == NULL ->
+        ; Mode \== FLDEL, DWS == NULL ->
+            %% this allows standalone transactional vars in delete.
             parsing_error(CanoniTerm,ERROR_TRANSACTIONALVARLIT,Status)
         ;
             \+ is_anonymous_fltransactionalvar_struct(Code1),
@@ -9591,6 +9602,12 @@ parse_dynhead(CanoniTerm,DWS,[Code],Status) :-
             ( is_anonymous_fltransactionalvar_struct(Code,I) ->
                 parsing_error(I,ERROR_HDLITERAL,Status)
             ;
+                %% short circuit and use anonvar module to allow standalone 
+                %% transactional vars??
+                %% Maybe -- in some cases: we are unsure which exact syntactic
+                %% contexts we are dealing with here. Seems like it is
+                %% insert{%?P :- kkk} & insertrule{%?P :- kkk}.
+                %% In these cases we do not want standalone vars, however.
                 (DWS == NULL ->
                     parsing_error(CanoniTerm,ERROR_TRANSACTIONALVARLIT,Status)
                 ;
