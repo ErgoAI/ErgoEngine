@@ -1288,6 +1288,9 @@ features are introduced in subsequent sections.
   %% 
   Runtime directives are typically used to change the semantics of the
   environment at runtime.
+  The \texttt{?-} prefix is used if the directive is placed in a file to be
+  loaded. Some directives can be executed and the \ERGO command line.
+  In that case, \texttt{?-} must be omitted.
 \item \textbf{Rules} have the form
     %% 
 \begin{alltt}
@@ -1318,7 +1321,8 @@ features are introduced in subsequent sections.
 \item \textbf{Queries} have the form
    %% 
 \begin{alltt}
-     ?- \emph{ruleBody}.
+     ?- \emph{ruleBody}.   // in a file \\
+     \emph{ruleBody}.      // interactively, at the Ergo command line
 \end{alltt}
   %% 
   Syntactically queries have the same form as the rule bodies, but they use
@@ -1327,9 +1331,10 @@ features are introduced in subsequent sections.
 
   \textbf{Note:} the prefix ``\texttt{?-}'' in front of a query is used
   \emph{only} if the query is in a file. In the \FLSYSTEM shell,
-  this prefix is \emph{not} used (and will cause a syntax error)
-  because the shell expects queries only---typing rules, directives and
-  other constructs will cause errors to be issued.
+  this prefix is \emph{not} used (and will cause a syntax error or a
+  warning)
+  because the \ERGO command line expects queries only---typing rules, directives and
+  other constructs will result in errors.
 \item \textbf{Latent queries} have the form
    %% 
 \begin{alltt}
@@ -6648,7 +6653,7 @@ To tell it to check this inconsistency, two things must be done:
 For example,
 %% 
 \begin{verbatim}
-   :- use_defeasibility_theory.
+   :- use_argumentation_theory.
    @@{defeasible} p.    // fact has defeasibility property
    @{abc} \neg p.       // explicit defeasibility tag
    ?- p.
