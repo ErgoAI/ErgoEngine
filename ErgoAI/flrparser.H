@@ -64,7 +64,7 @@
 :- import convert_flora_to_xsb_encoding/2 from flrencoding.
 
 :- import
-        flora_warning_indentline/0,
+        %%flora_warning_indentline/0,
         flora_warning_line/1,
         flora_error_line/2
    from flrprint.
