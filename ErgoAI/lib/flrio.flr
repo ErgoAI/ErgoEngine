@@ -64,7 +64,7 @@
                    newerthan/?,
                    flora_read/?,
                    ergo_read/?,
-                   readAll/?,
+                   readOneByOne/?,
                    nl@?, nl(?)@?
                  }.
 
@@ -368,13 +368,13 @@ nl(?Stream) :- nl(?Stream)@\prolog.
 ?Stream[prolog_read(?)->?] :- stream_error(?Stream).
 
 ?Stream[flora_read -> ?Result, ergo_read -> ?Result] :-
-        ?Stream[readAll(?Result,?Stat)]@\parse,
+        ?Stream[readOneByOne(?Result,?Stat)]@\parse,
         (?Stat = [null|?] -->> \false
           ; ?Stat = [error|?] -->> ?Result = flora_read_error
           ; \true
         ).
 ?Stream[flora_read(?Module) -> ?Result, ergo_read(?Module) -> ?Result] :-
-        ?Stream[readAll(?Module)(?Result,?Stat)]@\parse,
+        ?Stream[readOneByOne(?Module)(?Result,?Stat)]@\parse,
         (?Stat = [null|?] -->> \false
           ; ?Stat = [error|?] -->> ?Result = flora_read_error
           ; \true

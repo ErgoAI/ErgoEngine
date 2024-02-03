@@ -28,17 +28,17 @@
 :- nontabled_module.
 :- suppress_rule_signatures.
 
-:- symbol_context{readAll/?, read/?}.
+:- symbol_context{readAll/?, readOneByOne/?, read/?}.
 
 :- export{
            read(?,?),
            read(?)(?,?),
            ?[read(?,?)],
            ?[read(?)(?,?)],
-           readAll(?,?),
-           readAll(?)(?,?),
-           ?[readAll(?,?)],
-           ?[readAll(?)(?,?)],
+           readOneByOne(?,?),
+           readOneByOne(?)(?,?),
+           ?[readOneByOne(?,?)],
+           ?[readOneByOne(?)(?,?)],
            ?[readAll(?)],
            ?[readAll(?)(?)]
          }.
@@ -90,16 +90,22 @@ read(?Mod)(?Code,?Stat) :-
    but will not return answers unless the file is closed (e.g., Ctl-D at
    standard input).
 */
-readAll(?Code,?Stat) :-
+readOneByOne(?Code,?Stat) :-
 	flora_read_parse_compile_build_loop(?Code,?,?Stat)@\prolog(flrutils).
-readAll(?Mod)(?Code,?Stat) :-
+readOneByOne(?Mod)(?Code,?Stat) :-
 	flora_read_parse_compile_build_loop(?Code,?Mod,?Stat)@\prolog(flrutils).
 
-// like readAll(?Code,?Stat) but uses ?Stream as input stream.
-?Stream[readAll(?Code,?Stat)] :-
-	flora_read_parse_compile_build_loop(?Stream,?Code,?,?Stat)@\prolog(flrutils).
-?Stream[readAll(?Mod)(?Code,?Stat)] :-
-	flora_read_parse_compile_build_loop(?Stream,?Code,?Mod,?Stat)@\prolog(flrutils).
+// like readOneByOne(?Code,?Stat) but uses ?Source as input stream.
+?Source[readOneByOne(?Code,?Stat)] :-
+	(\+ isinteger{?Source} -->> sysabort([?Source,'[readOneByOne(',?Code, ')]', ': the source (', ?Source, ') must be an open input stream'])@\sys
+        ; \true
+        ),
+	flora_read_parse_compile_build_loop(?Source,?Code,?,?Stat)@\prolog(flrutils).
+?Source[readOneByOne(?Mod)(?Code,?Stat)] :-
+	(\+ isinteger{?Source} -->> sysabort([?Source,'[readOneByOne(',?Code,',...)]', ': the source (', ?Source, ') must be an open input stream'])@\sys
+        ; \true
+        ),
+	flora_read_parse_compile_build_loop(?Source,?Code,?Mod,?Stat)@\prolog(flrutils).
 
 /*
    Collects all answers from the source (string(Str) or file(FileName)
