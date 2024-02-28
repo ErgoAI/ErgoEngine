@@ -4524,11 +4524,12 @@ where the rule belongs. For instance, if the following rule is in module
  p(X) :- ..., [foo>>bar], ...  
 \end{verbatim}
 %%
-then execution of such a rule is likely to crash Prolog. This is because
-this very rule will be wiped out before it finishes execution --- something
-that XSB is not ready for. \FLSYSTEM tries to forewarn the user about such
-dangerous occurrences of {\tt load\{...\}}, but it cannot intercept all such
-cases reliably.
+then its execution wipes out the module that contains that very
+rule. In other words,
+this rule gets wiped out before it finishes execution.
+This is considered a poorly designed module organization, which the
+user must rethink.
+\FLSYSTEM issues a runtime error in such a case.
 
 
 \subsection{Adding Rule Bases to Existing Modules}\label{sec-adding-to-mod}

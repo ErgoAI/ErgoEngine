@@ -1,5 +1,6 @@
 
 \subsection{Fast Loading Vast Amounts of Data}
+\label{sec-fastload}
 
 When one needs to load vast amounts of data (hundreds of thousands to
 millions of facts), running them through the regular \FLSYSTEM compiler can
@@ -84,6 +85,44 @@ containers are as follows:
   resulting in some delay. 
 \end{itemize}
 %% 
+
+
+\index{storage name!isfastloaded\{StorageName\}}
+\index{isfastloaded\{StorageName\} primitive}
+\index{primitive!isfastloaded\{...\}}
+%%
+Sometimes it is useful to check which storage names are fast-loaded or if a
+particular storage is loaded (say, because you might want to load it,
+if not).  To find out which storages are loaded at present time, use the
+primitive {\tt isfastloaded\{...\}}. For instance, the first query,
+below, succeeds if the storage {\tt foo} is fast-loaded. The second query
+succeeds and binds {\tt L} to the list of all fast-loaded storages.
+%%
+{\tt
+\begin{quote}
+ ?- isfastloaded\{foo\}.\\
+ ?- ?L= setof\{?X|isfastloaded\{?X\}\}.
+\end{quote}
+}
+%%
+\noindent
+The primitive
+\texttt{setof} and other aggregate operators are discussed in
+Section~\ref{sec-aggregates}.
+
+\index{isfastloaded\{FileAbsName,StorageName\} primitive}
+\index{isfastloaded\{FileAbsName,StorageName,\\FileLocalName\} primitive}
+One can also check which files are fast-loaded into what storages using the
+primitive\\
+\texttt{isfastloaded\{FileAbsName,StorageName\}}.
+\\
+There is also a three-argument version of this primitive:
+\\
+\texttt{isfastloaded\{FileAbsName,StorageName,FileLocalName\}}
+\\
+This one
+also includes the local name of the file (sans the directory)
+from which \emph{StorageName} was loaded. 
 
 
 %%% Local Variables: 

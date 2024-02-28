@@ -3589,9 +3589,12 @@ flora_parse_query(CanoniTerm,Code,Status) :-
         !,
         %%parsing_error(CanoniTerm,'Spurious query operator?',Status).
         flora_parse_query(Query,Code,Status),
-        flora_warning_line('spurious `?-'' in command-line query:'),
-        flora_warning_indentline,
-        flwriteline_warn(Code).
+        flora_warning_line('spurious `?-'' in command-line query.').
+        %%%flora_warning_indentline,
+        %%% this code looks like flfloralib(flobjspec(...), which
+        %%% flwriteline_warn does not florify, so we just give a simple
+        %%% warning, which is sufficient
+        %%%flwriteline_warn(Code).
 
 flora_parse_query(CanoniTerm,Code,Status) :-
         set_context(CONTEXT_PARSER_QUERY),

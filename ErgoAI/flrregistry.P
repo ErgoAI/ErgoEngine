@@ -26,6 +26,7 @@
 
 :- compiler_options([xpp_on]).
 #mode standard Prolog
+#include "flora_terms.flh"
 #include "flora_extensions.flh"
 #include "flora_exceptions.flh"
 
@@ -115,8 +116,19 @@
 	flora_load_deps_closure/2,
 	flora_nonuser_module_registry/1,
 	flora_load_registry/7,
+
+	flora_user_load_registry/1,
 	flora_user_load_registry/3,
 	flora_user_load_registry/4,
+        %% Like flora_user_load_registry but Flag \= FL_FASTLOAD
+	flora_user_loaded_module_registry/1,
+	flora_user_loaded_module_registry/3,
+	flora_user_loaded_module_registry/4,
+
+	flora_fastload_registry/1,
+	flora_fastload_registry/2,
+	flora_fastload_registry/3,
+        
 	flora_debug_module_registry/1,
 	flora_in_debug_mode/1,
 	flora_storage_registry/1,
@@ -149,6 +161,8 @@
 %% Like flora_load_registry/7 but excludes non-user modules
 %% flora_user_load_registry(?FileName,?Module,?ShortFN,?Flag)
 %% Flag = load/add
+flora_user_load_registry(M) :-
+	flora_user_load_registry(_FN,M,_ShortFN,_Flag).
 flora_user_load_registry(FN,M,Flag) :-
 	flora_user_load_registry(FN,M,_ShortFN,Flag).
 flora_user_load_registry(FN,M,ShortFN,Flag) :-
@@ -156,6 +170,25 @@ flora_user_load_registry(FN,M,ShortFN,Flag) :-
 	\+ flora_defeasible_module_registry(_,M),
 	\+ flora_system_module(M).
 
+flora_user_loaded_module_registry(M) :-
+	flora_user_load_registry(_FN,M,_ShortFN,Flag),
+        Flag \= FL_FASTLOAD.
+flora_user_loaded_module_registry(FN,M,Flag) :-
+	flora_user_load_registry(FN,M,_ShortFN,Flag),
+        Flag \= FL_FASTLOAD.
+flora_user_loaded_module_registry(FN,M,ShortFN,Flag) :-
+	flora_user_load_registry(FN,M,ShortFN,Flag),
+        Flag \= FL_FASTLOAD.
+
+%% M is storagename here
+flora_fastload_registry(M) :-
+	flora_user_load_registry(_FN,M,_ShortFN,FL_FASTLOAD).
+flora_fastload_registry(FN,M) :-
+	flora_user_load_registry(FN,M,_ShortFN,FL_FASTLOAD).
+flora_fastload_registry(FN,M,ShortFN) :-
+	flora_load_registry(FN,M,ShortFN,_,FL_FASTLOAD,_,_).
+
+%% NOTE: this does not include fastloaded files.
 flora_module_registry(M) :- flora_module_registry(M,_Status).
 flora_module_registry(M,Status) :- flora_module_registry(M,Status,_).
 
