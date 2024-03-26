@@ -615,11 +615,11 @@ decode_head(Head,HeadCode,Depth) :-
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Decoding molecule %%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Decoding molecule (frame) %%%%%%%%%%%%%%%%%%%%%
 decode_negated_molecule(Wrapper,ComponentList,Module,[ReifyStart,'\\neg ',[MolCode|WCode],ReifyEnd],Level,Depth) :-
 	decode_molecule(Wrapper,ComponentList,Module,[ReifyStart,[MolCode|WCode],ReifyEnd],Level,Depth).
 
-%% Level=0: top level; Level=1: reified predicate/molecule argument of a functor
+%% Level=0: top level; Level=1: reified predicate/frame argument of a functor
 decode_molecule(Wrapper,ComponentList,Module,[ReifyStart,[NegCode,MolCode|WCode],ReifyEnd],Level,Depth) :-
 	(Level==0 -> ReifyStart='',ReifyEnd='' ; ReifyStart='${',ReifyEnd='}'),
 	Depth1 is Depth+1,
@@ -1067,7 +1067,7 @@ is_update_call(FLLIBDELETERULE_Z, FL_DELETERULE_Z).
 is_update_call(FLLIBDELETERULE, FL_DELETERULE).
 
 %% Level=0: top level;
-%% Level=1: reified predicate/molecule argument of a functor
+%% Level=1: reified predicate/frame argument of a functor
 decode_update(UpdName,
 	      [UpdLiterals],
 	      [ReifyStart,UpdName,'{ ',UpdLiteralsCode,' }',ReifyEnd],
@@ -1144,7 +1144,7 @@ rulebody_code(Body,H2BF,AllBodyCode) :-
 
 %%%%%%%%%%%%%%%%%%%%% Aggregate Ops %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Level=0: top level; Level=1: reified predicate/molecule argument of a functor
+%% Level=0: top level; Level=1: reified predicate/frame argument of a functor
 decode_aggregate(AggName,AggVar,GrpVarList,UniqOrSort,Query,AggResult,
 		 [ReifyStart,AggResultCode,' = ',AggName,
 		  '{ ',AggVarCode,GrpVarListCode,UniqOrSortCode,'|',QueryCode,' }',ReifyEnd],
@@ -1508,7 +1508,7 @@ decode_literal_internal(Term, Code, _Level, Depth) :-
             )
         ).
 
-%% Level=0: top level; Level=1: reified predicate/molecule arg of a functor
+%% Level=0: top level; Level=1: reified predicate/frame arg of a functor
 %% Level=2: don't escape atoms
 decode_literal_internal(Call,Code,Level,Depth) :-
 	(atomic(Call) ; var(Call)),
@@ -1788,7 +1788,7 @@ decode_literal_internal(FLLIBMODOBJ(_HeadBodyContext,Basename,Args,Module,_FWCon
 			['(',ResCode,'=',Code,')'],_Level,Depth) :-
 	!,
 	Depth1 is Depth+1,
-	%% Don't increment nesting level
+	%% Don't increment the nesting level
 	decode_molecule(Basename,Args,Module,Code,1,Depth1),
 	decode_literal_internal(ResultObj,ResCode,1,Depth1).
 

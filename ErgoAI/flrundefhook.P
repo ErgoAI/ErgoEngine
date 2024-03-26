@@ -64,7 +64,7 @@ flora_undefined_predicate_msg(WRAP_NONTABLED_HILOG,Arity,_PrologModule,Message) 
 	RealArity is Arity - 1,
 	fmt_write_string(Message,'attempt to call a HiLog term of arity %S as a predicate', arg(RealArity)).
 
-%% A call to a molecule
+%% A call to a base formula
 flora_undefined_predicate_msg(PredName,Arity,PrologModule,Message) :-
 	%% Decode the predicate symbol.
 	functor(PCall,PredName,Arity),
@@ -74,13 +74,13 @@ flora_undefined_predicate_msg(PredName,Arity,PrologModule,Message) :-
 	    flora_decode_goal_as_atom(PCall,PCallAtom),
 	    ( '\\isloaded'(ModuleName) ->
 		%% This is very unlikely to happen unless something goes wrong.
-		fmt_write_string(Message,'attempt to call an undefined F-logic molecule of the form %S in module `%S''',
+		fmt_write_string(Message,'attempt to call an undefined F-logic frame of the form %S in module `%S''',
 			         args(PCallAtom, ModuleName))
 	    ; flora_imported_module_registry(Importer,ModuleName) ->
 		fmt_write_string(Message,'module  %S is imported by module %S but %S is not loaded',
 				args(ModuleName,Importer,ModuleName))
 	    ;
-	        fmt_write_string(Message,'attempt to call an F-logic molecule of the form %S in a nonloaded module `%S''',
+	        fmt_write_string(Message,'attempt to call an F-logic frame of the form %S in a nonloaded module `%S''',
                                  args(PCallAtom, ModuleName))
 	    )
 

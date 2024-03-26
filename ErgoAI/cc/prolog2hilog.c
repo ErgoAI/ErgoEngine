@@ -210,7 +210,7 @@ static prolog_term hilog2prolog(CTXTdeclc prolog_term hterm, char *apply, Intege
 
   /* Don't convert if already Prolog */
   if (!is_hilog(hterm,apply)) return hterm;
-  /* Don't convert if formula (predicate or molecule) */
+  /* Don't convert if formula (predicate or frames) */
   if (is_formula(hterm)) return hterm;
 
   arity=extern_p2c_arity(hterm);
@@ -271,7 +271,7 @@ static prolog_term prolog2hilog(CTXTdeclc prolog_term pterm, char *apply, Intege
 
   /* Don't convert if already HiLog */
   if (is_hilog(pterm,apply)) return pterm;
-  /* Don't convert if formula (predicate or molecule) */
+  /* Don't convert if formula (predicate or frames) */
   if (is_formula(pterm)) return pterm;
 
   arity = extern_p2c_arity(pterm);

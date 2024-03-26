@@ -1121,7 +1121,7 @@ If none of these tries are successful, an error is reported.
 \item {\tt add\{\textnormal{\emph{file}}\}}: Add {\tt
     \textnormal{\emph{file}}.\ergoext} to the default module {\tt
     main}. 
-\item {\tt [\textnormal{\emph{file}}.\{P$|$\ofile$|$flr\} \texttt{>{}>} 
+\item {\tt [\textnormal{\emph{file}}.\{P$|$\ofile$|$flr$|$ergo\} \texttt{>{}>} 
     \textnormal{\emph{module}},...]}:
     Load the files in the specified list into the module {\tt
       \textnormal{\emph{module}}}.
@@ -1772,7 +1772,7 @@ if-then-else).
   \index{formula!atomic}
 \item \emph{Atomic formulas}. The base formulas of the types (1)-(7) above
   are called \emph{atomic formulas}.  Atomic formulas are also base formulas,
-  but the latter can also contain non-atomic formulas: complex frames.
+  but the latter can also contain non-atomic formulas, like complex frames.
   
 \item \emph{Rules} are constructs of the form $head \texttt{:-} 
   body$, where
@@ -3694,12 +3694,12 @@ Section~\ref{sec-data-types}.
   \index{isnegform\{...\} primitive}
 \index{primitive!isnegform\{...\}}
 \item \texttt{isnegform\{Term\}} --- true if \texttt{Term} is of the form
-  \texttt{\bs{}neg pred-or-molecule}.  
+  \texttt{\bs{}neg pred-or-frame}.  
 
   \index{isnafform\{...\} primitive}
 \index{primitive!isnafform\{...\}}
 \item \texttt{isnafform\{Term\}} --- true if \texttt{Term} is of the form
-  \texttt{\bs{}naf pred-or-molecule}.  
+  \texttt{\bs{}naf pred-or-frame}.  
 
 \end{itemize}
 %% 
@@ -4229,7 +4229,7 @@ have a priori knowledge of the module it will be executing in. However, the
 knowledge base can find its module at runtime using the quasi-constant
 \thismodule, which is replaced with the current module name when the module
 is loaded. More precisely, if \thismodule occurs anywhere as an oid, method
-name, value, etc., in file {\tt foo.\flrext/\ergoext} then when this is loaded
+name, value, etc., in file \texttt{foo.\ergoext} (or \texttt{foo.\flrext}) then when this is loaded
 into a module, say, {\tt bar}, then all such occurrences of \thismodule are
 replaced with {\tt bar}. For instance,
 %%
@@ -4314,7 +4314,7 @@ If no module is specified, the command
  ?- compile\{{\it myfile}\}.
 \end{quote}
 %%
-compiles {\it myfile}.\flrext/\ergoext for the default module {\tt main}.
+compiles {\it myfile}.\ergoext (or \textit{myfile}.\ergoext for the default module {\tt main}.
 
 
 \paragraph{Loading.}
@@ -4386,12 +4386,13 @@ which loads {\tt mykb1.\ergoext} into the module {\tt main} and {\tt
 Note that the {\tt [...]} command can also load and compile Prolog programs.
 The overall algorithm is as follows. If the file suffix is specified
 explicitly, the corresponding file is assumed to be a \FLSYSTEM file, a Prolog
-file, or a byte code depending on the suffix: {\tt .\ergoext/\flrext}, {\tt .P}, or {\tt
+file, or a byte code depending on the suffix: {\tt .\ergoext/.\flrext}, {\tt .P}, or {\tt
   .\ofile}. If the suffix is not given explicitly, the compiler first checks if
-\texttt{mykb.\ergoext/\flrext}  exists. If so, the file assumed to contain \FLSYSTEM
-code and is compiled as such. If \texttt{mykb.\ergoext/\flrext}  is not found, but {\it
-  mykb}.{\tt P} or {\it mykb}.{\tt xwam} is, the file is passed to Prolog for
-compilation.
+\texttt{mykb.\ergoext} (or \texttt{mykb.\flrext})  exists. If so, the file assumed to contain \FLSYSTEM
+code and is compiled as such. If neither
+\texttt{mykb.\ergoext} nor \texttt{mykb.\flrext}  is not found, but {\it
+  mykb}.{\tt P} or {\it mykb}.{\tt xwam} exists, the file is passed to Prolog for
+compilation or execution.
 
 
 \index{module!isloaded\{Module\}}
@@ -4423,15 +4424,15 @@ path names. For instance,
 %% 
 \begin{verbatim}
     ?- isloaded{?F,?Module,?Mode}.
-    ?F = /a/b/c/foo.flr
+    ?F = /a/b/c/foo.ergo
     ?Module = bar
     ?Mode = load
 
-    ?F = /a/b/foo2.flr
+    ?F = /a/b/foo2.ergo
     ?Module = bar
     ?Mode = add
 
-    ?F = /a/b/d/bar.flr
+    ?F = /a/b/d/bar.ergo
     ?Module = main
     ?Mode = add
 \end{verbatim}
@@ -5520,11 +5521,11 @@ current directory is the directory of that file. Therefore, if a query like
     ?- tell(abc)@\io, writeln(abcdefg)@\io, told@\io.
 \end{verbatim}
 %% 
-occurs in a file \texttt{/foo/bar/moo/myfile.flr} then, when that file will
+occurs in a file \texttt{/foo/bar/moo/myfile.ergo} then, when that file will
 be loaded, the file
 \texttt{abc} will be created in the directory
 \texttt{/foo/bar/moo/} and its contents will be a single line \texttt{abcdefg}. 
-This is because, as we discussed, the current directory during loading of a
+This is because, as discussed previously, the current directory during loading of a
 file is that file's directory.
 In contrast, if our file has a rule
 %% 
@@ -6492,7 +6493,7 @@ the moment when \texttt{?X} becomes ground.
 Finally, what happens if \texttt{?X} does not become ground even after the
 delay? Still the Exists-Not semantics is used. If \texttt{p(?X)} is false
 for all \texttt{?X} (i.e., if \texttt{\RULELOGNAF $\exists$?X p(?X)} holds) then, in
-particular, \texttt{$\exists$ \RULELOGNAF ?X p(?X)} is also true (assuming an
+particular, \texttt{$\exists$?X \RULELOGNAF p(?X)} is also true (assuming an
 infinite number of constants) and the query
 succeeds with the truth value \emph{true}.
 If \texttt{$\forall$?X p(?X)} is true then \texttt{\RULELOGNAF $\exists$?X
@@ -6519,13 +6520,13 @@ of discourse.
 
 Finally, what if the user does want the Not-Exists semantics after all?
 In \FLSYSTEM one must then say this explicitly and in a natural way through
-the use of existential quantifier:
+the use of the existential quantifier:
 %% 
 \begin{verbatim}
     ?- \naf exists(?X)^p(?X).
 \end{verbatim}
 %% 
-More on the logical quantifiers is given in Section~\ref{sec-lt}.
+More on the logical quantifiers appears in Section~\ref{sec-lt}.
 
 
 \subsection{Non-ground Subgoals Under \PLGNAF}
@@ -8651,16 +8652,16 @@ the following rules apply:
 %%
 \begin{itemize}
 \item If the idiom {\tt ?X@module} is used, {\tt ?X} can be bound only to a
-  tabled predicate, a tabled molecular formula, or a HiLog \emph{term} (not
+  tabled predicate, a tabled frame formula, or a HiLog \emph{term} (not
   a predicate).  Otherwise, an error is issued. If {\tt ?X} is already bound
-  to a tabled predicate or molecular formula, then the explicit module
+  to a tabled predicate or frame formula, then the explicit module
   specification {\tt (@module}) is discarded.  When {\tt ?X} is bound to a
   HiLog term, e.g., {\tt p(a)(?Z)}, {\tt ?X@module} represents the tabled
   predicate {\tt p(a)(?Z)@module}.
 \item If the idiom {\tt \%?X@module} is used, {\tt ?X} can be bound to only a
-  non-tabled predicate, a non-tabled molecular formula, or a HiLog
+  non-tabled predicate, a non-tabled frame formula, or a HiLog
   \emph{term}.  If {\tt ?X} is already bound to a non-tabled predicate or
-  molecular formula, the explicit module specification is discarded, as
+  frame formula, the explicit module specification is discarded, as
   before.  If {\tt ?X} is bound to a HiLog term, then {\tt \%?X@module}
   represents the non-tabled predicate {\tt p(a)(?Z)@module}.
 \end{itemize}
@@ -8689,9 +8690,9 @@ HiLog term.
 When {\tt ?X} and {\tt \%?X} occur with explicit module specifications and
 are \emph{unbound} then the occurrences of {\tt \%?X} indicate that {\tt ?X}
 is expected to be bound to predicate names, Boolean method names, or
-predicate/molecular formulas that correspond only to non-tabled methods or
+predicate/frame formulas that correspond only to non-tabled methods or
 predicates. Likewise, an occurrence of an unbound {\tt ?X} indicates that
-{\tt ?X} is expected to be bound to predicate names or predicate/molecular
+{\tt ?X} is expected to be bound to predicate names or predicate/frame
 formulas that correspond to tabled methods or predicates.
 
 \paragraph{Transactional (\%-prefixed) literals and meta-programming.}
@@ -16547,7 +16548,7 @@ In addition to the above, \FLSYSTEM provides the following builtin meta-classes:
 \index{\bs{}callable  built-in class}
 \begin{itemize}
 \item  \texttt{\bs{}modular} --- this is a class for atomic formulas whose
-  truth value depends on the module. This includes F-logic molecules, HiLog
+  truth value depends on the module. This includes F-logic frames, HiLog
   predicates, and Prolog predicates declared as \texttt{:- prolog} or \texttt{:-
     table}.  For instance,   \texttt{\$\{a[b->c]\}:\bs{}modular} is true.
 \item \texttt{\bs{}callable} --- this class includes all atomic formulas

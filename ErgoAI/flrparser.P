@@ -6479,10 +6479,10 @@ parse_body_literal_list([L|Lits],DWS,Code,Status) :-
   parse_prlgterm(+CanoniTerm,+DWS,-Code,-Status)
 
   This predicate is called to parse a Prolog predicate or prolog term.
-  Its arguments can be F-logic molecules and path expressions, so the arguments
+  Its arguments can be F-logic frames and path expressions, so the arguments
   are not parsed as Prolog terms.
 
-  This is using DWS workspace because the term args can be Flora-2 molecules.
+  This is using DWS workspace because the term args can be Flora-2 frames.
 ****************************************************************************/
 parse_prlgterm(CANOTERM(Funct,N,FL_PARENTHESIS,Args,If,_Ip),DWS,Code,Status) :-
         !,
@@ -6630,7 +6630,7 @@ parse_body_term(Funct,N,Args,TransFlag,DWS,Code,Status) :-
   parse_pure_term(+Canoterm,+DWS,-Code,-Status)
 
   Parse a term Funct-spec(Args). Arguments are parsed as terms as well.
-  No molecules are allowed, except reified molecules under ${...} and
+  No frames are allowed, except reified frames under ${...} and
   those apearing in meta-arguments.
 ****************************************************************************/
 %% reification ${...}
@@ -7003,8 +7003,8 @@ parse_body_argpathexplist([T|L],[FL_PROLOG|Arguments],DWS,TermArgMode,[TACode|LC
   parse_body_pathexp(+CanoniTerm,+TransFlag,+DWS,+TermArgMode,-PathExpression,-Status)
 
   Parse path expression represented by CanoniTerm. A path expression is
-  oid[molecule].oid[molecule]. ... .oid[molecule]
-  (molecules are optional)
+  oid[frame].oid[frame]. ... .oid[frame]
+  (frames are optional)
   Also term:term, term::term, and lists
   TermArgMode: PURE_PATHEXPS_ONLY/ANY_PATHEXP
                whether to allow only object-valued arguments or also frames
@@ -10232,7 +10232,7 @@ propagate_neg(Goal,_Idx,Result,HasOmni) :-
 propagate_neg(Goal,Idx,Result,0) :-
         flneg_struct(Goal,Idx,Result).
 
-%% Spec is the frame part of an F-molecule.
+%% Spec is the frame part of an F-frame.
 %% It can be a conjunction or a disjunction. Individual atomic specs can
 %% also have neg. No naf or quantifiers, since this is in the head
 %% Does the following:

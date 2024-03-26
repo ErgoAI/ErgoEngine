@@ -1866,7 +1866,7 @@ workspacelit_struct(P,WS,Code,Status) :-
 	!.
 
 %% This is used in situations where a workspace
-%% term appears inside a predicate or a molecule,
+%% term appears inside a predicate or a frame,
 %% e.g., p(foo@?Mod) or a[b->foo@?Mod] or ?X = abc#cde@?Mod
 %% or ?Pred@ws or ?Pred@?Mod
 workspaceobj_struct(P,WS,Object,Code) :-
@@ -4029,7 +4029,7 @@ compile_direct(DirectTerm,DirIdx,[],NO_ERRORS) :-
 	report_option(FLNONTABLEDDATAMOD_OPT,DirIdx).
 
 %% :- nontabled_data_module directive
-%% (ie, data molecules are not tabled; signatures are)
+%% (ie, data frames are not tabled; signatures are)
 compile_direct(DirectTerm,DirIdx,[],NO_ERRORS) :-
 	is_flnontabled_data_module(DirectTerm),
 	!,
@@ -8172,11 +8172,11 @@ compile_body_pathexplist([T|L],WS,[TObj|LObj],OidCode,Code,BodyFrontList,Status)
 	    Eg, AND(a[b->?X],c[d-?Y],e[f->?Z]) - the code for computing the
 	        objects that go in place of a.b, c.d, e.f. These objects are
 		?X, ?Y, ?Z, respectively.
-            OidCode comes before the code for the molecule or predicate
+            OidCode comes before the code for the frame or predicate
 	    where the path expression occurs. For instance, in the above,
 	    we'll have:
 	      AND(a[b->?X],c[d-?Y],e[f->?Z]), <<--- OidCode for path expressions
-		?X[?Y->?Z],                   <<--- the actual molecule.
+		?X[?Y->?Z],                   <<--- the actual frame.
                                                     ?X,?Y,?Z are Object(s)
 						    for path expressions
 		   Code(for a.b,c.d,e.f)      <<--- Code for path expressions
@@ -8898,7 +8898,7 @@ compile_body_bin_relation(ObjTerm1,RelType,ObjTerm2,WS,Obj1,OidCode,Code,Status)
 
   Code produced by this and similar predicates is divided into
   OidCode and Code. 
-  OidCode is the code needed to compute the attribute of molecule
+  OidCode is the code needed to compute the attribute of frame
   and the oid of the value part (in ->, *->, etc.)
   Code represents the code needed to compute the the attribute specification.
   For instance, in  a.b[c.d->e.f],
@@ -8954,7 +8954,7 @@ compile_body_objspec(SpecBody,ObjTerm,WS,Object,OidCode,Code,BodyFrontList,Statu
               !,
 	      ( no_errors_found(Stat2) -> 
 		  %% Because ObjCode contains : and ::, we put it after
-		  %% the code for molecule --- a heuristic that assumes that
+		  %% the code for frame --- a heuristic that assumes that
 		  %% computing a:b  (or a::b)when a or b are vars, is expensive.
 		  %% Ideally we should check the type of ObjCode or used
 		  %% delay for ObjCode
@@ -8979,8 +8979,8 @@ compile_body_objspec(SpecBody,_ObjTerm,_WS,_Object,_OidCode,_Code,_BodyFrontList
 /****************************************************************************
   compile_body_specbody(+Object,+SpecTerm,+Workspace,-OidCode,-Code,-BodyFrontList,-Status)
 
-     SpecTerm here represents the inner part of a molecule.
-     Object represents the molecule's oid.
+     SpecTerm here represents the inner part of a frame.
+     Object represents the frame's oid.
 
      For instance, in a[c->d,e->f], Object will be pratom(a,4) and SpecTerm
      flconjunct(flmvdattspec(flatom(c,8),->,[flatom(d,10)]),
@@ -9103,7 +9103,7 @@ compile_body_specbody(Object,SpecTerm,WS,OidCode,Code,BodyFrontList,Status) :-
 
 %% OidCodeList below gets bound to code needed to produce
 %% the attribute (M) and the value (V). We conjunct this code in front of the
-%% code for the molecule
+%% code for the frame
 %% NULL means that we don't pass OID code out, because we use it right here.
 
 %% No OidCode is passed outside: we consume it here
@@ -9116,7 +9116,7 @@ compile_body_specbody(Object,SpecTerm,WS,NULL,Code,BodyFrontList,Status) :-
 	    ( ValTermList == [] ->
 		mvdattdef_struct(SpecType,BODYLITERAL,Object,AttObj,SCode),
 		attach_workspace(SCode,WS,WSCode,Status1),
-		%% Fold OidCode in front of molecule
+		%% Fold OidCode in front of frame
 		conjunct_code([AOidCode,ACode,WSCode],Code)
 	    ;
 	      compile_body_mvd_attspec(Object,AttObj,SpecType,ValTermList,WS,VOidCode,WSCode,BodyFrontList2,Status1),
@@ -9258,7 +9258,7 @@ compile_body_specbody(Object,SpecTerm,WS,NULL,Code,BodyFrontList,Status) :-
 	( no_errors_found(PathexpStatus) -> 
 	    incattspec_struct(SpecType,Object,AttObj,ValObj,SCode),
 	    attach_workspace(SCode,WS,WSCode,WSStatus),
-	    %% Fold OidCode in front of molecule
+	    %% Fold OidCode in front of frame
 	    conjunct_code([OidCode,WSCode,OCode],Code)
 	;
 	    WSStatus = NO_ERRORS
