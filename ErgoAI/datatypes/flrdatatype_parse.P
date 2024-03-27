@@ -316,9 +316,9 @@ parse_time(LitChars,Idx,ErrorMsg,H,M,SecAtm,ZSign,ZH,ZM,Status) :-
 	; parsing_error(Idx,ErrorMsg,Status1)
 	),
 	(Status1 == [] %% check time zone, Hr, Min, etc.
-	-> (number_codes(H,HrChars), number_codes(M,MinChars),
+	-> (digit_codes_2_int(HrChars,H), digit_codes_2_int(MinChars,M),
 	       number_codes(S,SecChars),
-	       number_codes(ZH, ZHChars), number_codes(ZM, ZMChars),
+	       digit_codes_2_int(ZHChars, ZH), digit_codes_2_int(ZMChars, ZM),
 	       H < 24, H >= 0,
 	       M < 60, M >= 0,
 	       0 =< S, S < 60,
@@ -354,9 +354,9 @@ parse_date(LitChars,Idx,ErrorMsg,DSign,Yr,Mo,D, ZSign, ZH, ZM, Status) :-
 	; parsing_error(Idx,ErrorMsg,Status1)
 	),
 	(Status1 == [] %% check time zone, Month, Day, etc.
-	->  (number_codes(Mo,MonChars), number_codes(D,DayChars),
-		number_codes(Yr,YrChars),
-		number_codes(ZH,ZHChars), number_codes(ZM,ZMChars),
+	->  (digit_codes_2_int(MonChars,Mo), digit_codes_2_int(DayChars,D),
+		digit_codes_2_int(YrChars,Yr),
+		digit_codes_2_int(ZHChars,ZH), digit_codes_2_int(ZMChars,ZM),
 		ZH < 24, ZM < 60, Mo < 13,
 		0 =< ZH, 0 =< ZM, 0 < Mo,
 		0 =< Yr,
@@ -401,15 +401,15 @@ parse_duration(LitChars,_Idx,DSign,Yr,Mo,D,Hr,Min,SecAtm,[]) :-
 	    )
 	),
 	(get_part(DateChars,"Y",YrChars,DateChars1), YrChars \== ""
-	-> number_codes(Yr,YrChars)
+	-> digit_codes_2_int(YrChars,Yr)
 	; Yr=0, DateChars1 = DateChars
 	),
 	(get_part(DateChars1,"M",MoChars,DateChars2), MoChars \== ""
-	 -> number_codes(Mo,MoChars)
+	 -> digit_codes_2_int(MoChars,Mo)
 	; Mo=0, DateChars2 = DateChars1
 	),
 	(get_part(DateChars2,"D",DChars,DateChars3), DChars \== ""
-	-> number_codes(D,DChars)
+	-> digit_codes_2_int(DChars,D)
 	; D=0, DateChars3 = DateChars2
 	),
         %% training symbols after date
@@ -417,7 +417,7 @@ parse_duration(LitChars,_Idx,DSign,Yr,Mo,D,Hr,Min,SecAtm,[]) :-
         ; true
         ),
 	(get_part(TimeChars,"H",HrChars,TimeChars1), HrChars \== ""
-	-> number_codes(Hr,HrChars)
+	-> digit_codes_2_int(HrChars,Hr)
 	; Hr=0, TimeChars1 = TimeChars
 	),
         %% no T separator, but hours given
@@ -425,7 +425,7 @@ parse_duration(LitChars,_Idx,DSign,Yr,Mo,D,Hr,Min,SecAtm,[]) :-
         ; true
         ),
 	(get_part(TimeChars1,"M",MinChars,TimeChars2), MinChars \== ""
-	 -> number_codes(Min,MinChars)
+	 -> digit_codes_2_int(MinChars,Min)
 	; Min=0, TimeChars2 = TimeChars1
 	),
         %% no T separator, but mins given
@@ -1032,3 +1032,11 @@ remove_commas_and_spaces([C|R],NC) :-
      ;	NC = [C|NC1]
     ),
     remove_commas_and_spaces(R,NC1).
+
+%% digit_codes_to_integer(+Codes,-Integer)
+%%
+%% number_codes(-num,+codes) sometimes may yield a float, like [0,8]-->8.0
+%% in some prologs. So, we round it up.
+digit_codes_2_int(Codes,Integer) :-
+        number_codes(Num,Codes),
+        Integer is floor(Num).
