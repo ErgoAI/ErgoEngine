@@ -11475,10 +11475,14 @@ get_setarg_multiplier(CodeTerm,Multiplier) :-
         get_setarg_multiplier_from_list(AttrVars,Multiplier).
 
 get_setarg_multiplier_from_list([],FL_TRUE) :- !.
-get_setarg_multiplier_from_list([Var|Rest], (Membership,RestMems)) :-
+get_setarg_multiplier_from_list([Var|Rest], (Membership,MembershipExpanded,RestMems)) :-
+        %% ie, Membership is something like member(var,list)
         get_attr(Var,SETARGATTRIBUTE,Membership),
         !,
         del_attr(Var,SETARGATTRIBUTE),
+        %% Membership may also have SETARGATTRIBUTE variables with attached
+        %% set expansions member(var2,list2), etc.
+        get_setarg_multiplier(Membership,MembershipExpanded),
         get_setarg_multiplier_from_list(Rest,RestMems).
 get_setarg_multiplier_from_list([_|Rest], RestMems) :-
         get_setarg_multiplier_from_list(Rest,RestMems).
@@ -11487,7 +11491,7 @@ get_setarg_multiplier_from_list([_|Rest], RestMems) :-
 multiply_setarg_code(Code,MultCode) :-
         get_setarg_multiplier(Code,Multiplier),
         (Multiplier == FL_TRUE -> MultCode = [Code]
-        ; findall(Code,Multiplier,MultCode)
+        ; findall(Code,Multiplier,MultCodePre), sort(MultCodePre,MultCode)
         ).
 
 %% apply multiply_setarg_code/2 to each elt of list and append the results
