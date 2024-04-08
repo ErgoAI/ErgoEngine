@@ -6097,7 +6097,7 @@ make_datatype_vars_code(PRCode,Code) :-
 	conjunct_code(VarsCodeList,Code).
 
 %% DefeatCondCode = FL_UNDEFEATED(DescrIdCode,FileName,VarsCode,NewVar,ThisModule)
-%% FL_UNDEFEATED is modularized Prolog predicate
+%% FL_UNDEFEATED is a modularized Prolog predicate
 %% NewVar is used because this type of defeasible condition is used in rule
 %% signatures and dynamic rules; NewVar is bound to the head at run time.
 construct_defeasible_condition_for_signature_or_dynrule(HeadCode,DescrIdCode,DescrVarsTerm,DelayedDefeatCondCode) :-
@@ -7914,6 +7914,7 @@ compile_body_literal(ParserTerm,_WS,NULL,BodyLitCode,[],Status) :-
 compile_body_literal(ParserTerm,_WS,NULL,BodyLitCode,[],Status) :-
 	is_flstopdelay(ParserTerm,VarList,Idx),
 	!,
+        %% here VarList consists of flvars
 	compile_stop_delay(VarList,Idx,BodyLitCode,Status).
 
 %% !! without the vars
@@ -11851,6 +11852,8 @@ is_unimplemented_neg_negatable_literal(X) :-
 */
 
 
+%% This check is done at the end of every rule to see if some of the 
+%% delayed conditions can be evaluated and simplified.
 %% delay_literals_checking_code(+Head,+Body,+DescrVarsTerm,-Code)
 %% Head & Body are FL code. DescrVarsTerm is PR code
 %% CONSIDER SWITCHING TO PR-CODE, as in delay_checking_code_for_rulelog_naf/2

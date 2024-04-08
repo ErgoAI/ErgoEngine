@@ -5553,12 +5553,36 @@ flora_retractall_substitute(X) :- (retract(X), fail ; true).
 %%% For profiling: xsb_profiling:profile_call(...)
 
 
-flora_experimenting_with(no_attr_vars) :- flora_attributed_vars_disabled.
 flora_experimenting_with(attr_vars) :- \+flora_attributed_vars_disabled.
-flora_experimenting_with(delay_naf) :-
-        flrdelaysupport:enable_experiment(delay_naf).
-flora_experimenting_with(not_delaying_naf) :-
-        flrdelaysupport:disable_experiment(delay_naf).
+flora_experimenting_with(naf_delay) :-
+        flrdelaysupport:experimenting_with(naf_delay).
+flora_experimenting_with(defeat_delay) :-
+        flrdelaysupport:experimenting_with(defeat_delay).
+flora_experimenting_with(java) :- \+JAVA_IS_DISABLED.
+
+
+flora_enable_experiment(E) :-
+        \+ground(E),
+        flora_warning_line('must specify an experiment to enable (attr_vars, defeat_delay, naf_delay, java)'),
+        !.
+flora_disable_experiment(E) :-
+        \+ground(E),
+        flora_warning_line('must specify an experiment to disable (attr_vars, defeat_delay, naf_delay, java)'),
+        !.
+
+flora_enable_experiment(attr_vars) :- flrwhen:flora_enable_attributed_variables.
+flora_disable_experiment(attr_vars) :-
+        flrwhen:flora_disable_attributed_variables.
+flora_enable_experiment(naf_delay) :-
+        flrdelaysupport:enable_experiment(naf_delay).
+flora_disable_experiment(naf_delay) :-
+        flrdelaysupport:disable_experiment(naf_delay).
+flora_enable_experiment(defeat_delay) :-
+        flrdelaysupport:enable_experiment(defeat_delay).
+flora_disable_experiment(defeat_delay) :-
+        flrdelaysupport:disable_experiment(defeat_delay).
+flora_enable_experiment(java) :- assert(JAVA_IS_DISABLED).
+flora_disable_experiment(java) :- retractall(JAVA_IS_DISABLED).
 
 
 /*********************************************************************

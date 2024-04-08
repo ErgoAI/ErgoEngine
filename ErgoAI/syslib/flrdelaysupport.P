@@ -104,6 +104,7 @@
 	flora_delayed_sensor_literal/3.
 
 :- export
+        experimenting_with/1,
 	enable_experiment/1,
 	disable_experiment/1.
 
@@ -141,7 +142,7 @@ flora_defeat_delay_wrapper(_File,_Line,DefeatCond,DynHead,HeadVarList,_HeadVarna
 	;
 	    flrterm_vars((HeadVarList,DynHead),ConditionalVars,0),
 	    (ground(ConditionalVars) -> DefeatCond
-	    ; \+ experimental(delay_defeat) -> DefeatCond
+	    ; \+ experimental(defeat_delay) -> DefeatCond
 	    ;
 		functor(DefeatCond,Func,Arity),
 		functor(DefeatCondTemplate,Func,Arity),
@@ -153,7 +154,7 @@ flora_defeat_delay_wrapper(_File,_Line,DefeatCond,DynHead,HeadVarList,_HeadVarna
 	).
 
 flora_NAF_delay_wrapper(Goal) :-
-	(experimental(delay_naf) ->
+	(experimental(naf_delay) ->
 	    term_arg(Goal,2,OrigVars),
 	    flrterm_vars(OrigVars,Vars,0),
 	    flora_when(ground(Vars),Goal)
@@ -1101,6 +1102,7 @@ disable_experiment(X) :-
 	(ground(X) -> retract(experimental(X))
 	; retractall(experimental(X))
 	).
+experimenting_with(Exper) :- experimental(Exper).
 
-experimental(delay_naf).
-experimental(delay_defeat).
+experimental(naf_delay).
+experimental(defeat_delay).
