@@ -54,9 +54,15 @@
        Probably because WRAP_TABLED_HILOG is tabled.
 */
 
+:- dynamic FL_OPPOSES_AUX/6.
+%% Indexing does not seem to improve anything here
+%%:- index(FL_OPPOSES_AUX/6,[1,6]).
 
 %% Base data: p opposes neg p.
-%% We do a trick with FL_OPPOSES_AUX/6 to avoid tabling FL_OPPOSES_AUX/5.
+%% This rule connects FL_OPPOSES_AUX/5 with the base data, which says that
+%% foo and \neg foo always oppose each other for any foo.
+%% For commutativity of FL_OPPOSES_AUX/5, we do a trick with FL_OPPOSES_AUX/6
+%% to avoid tabling FL_OPPOSES_AUX/5.
 ?- \+clause(FL_OPPOSES_AUX('FLORA_THIS_MODULE_NAME',_,_,_,_,0),_),
    assert((FL_OPPOSES_AUX('FLORA_THIS_MODULE_NAME',_,H1,_,H2,0) :-
 	    flrtrim:flora_generalize_last(H1,HH1),
@@ -65,11 +71,14 @@
 	    ; nonvar(H2), flrwrapper:flora_decode_module_name(H2,H2Mod) -> RealMod = H2Mod
 	    ; RealMod = 'FLORA_THIS_MODULE_NAME'
 	    ),
-    	    FL_OPPOSES_BASE(RealMod,HH1,HH2))).
+    	    FL_OPPOSES_BASE(RealMod,HH1,HH2)
+          )).
 
 %% Commutativity of FL_OPPOSES
 ?- \+clause(FL_OPPOSES_AUX(Mod,_,_,_,_),_),
+        %% connector to opposes base data
    assert((FL_OPPOSES_AUX(Mod,T2,H2,T1,H1,2) :- FL_OPPOSES_AUX(Mod,T1,H1,T2,H2,0))),
+        %% connector to user-supplied opposes data
    assert((FL_OPPOSES_AUX(Mod,T2,H2,T1,H1,2) :- FL_OPPOSES_AUX(Mod,T1,H1,T2,H2,1))),
    %%  define FL_OPPOSES_AUX/5 based on FL_OPPOSES_AUX/6
    assert((FL_OPPOSES_AUX(Mod,T1,H1,T2,H2) :- FL_OPPOSES_AUX(Mod,T1,H1,T2,H2,_))).
@@ -90,8 +99,10 @@ FL_OVERRIDEN_CANCELLATION(Tag1,FL_CANCEL(Tag2,H,_), 'FLORA_THIS_MODULE_NAME') :-
 
 
 %% Connect FL_OPPOSES_AUX, FL_OVERRIDES_AUX, and FL_CANCEL_AUX with
-%% user-level %% predicates:
+%% user-level predicates:
 %% FL_OPPOSES/2+4, FL_OVERRIDES/2+4, FL_CANCEL/1+2
+
+%% This one connects FL_OPPOSES_AUX/5 to the user-devined \opposes statements
 ?- \+clause(FL_OPPOSES_AUX('FLORA_THIS_MODULE_NAME',_,_,_,_,1),_),
    assert((FL_OPPOSES_AUX('FLORA_THIS_MODULE_NAME',Tag1,H1,Tag2,H2,1) :-
 	    flrtrim:flora_generalize_last(H1,HH1),

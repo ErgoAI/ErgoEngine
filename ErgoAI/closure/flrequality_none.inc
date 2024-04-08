@@ -43,7 +43,7 @@ WRAP_OBJEQL(X,Y,_FWContext) :-
 	%% when experimenting with subsumptive tabling, need to disable
 	%% attibuted vars, since their combo has not been implemented yet
 	%% Also replace equality with unification to simplify the tests
-	flrutils:flora_experimenting_with(no_attr_vars),
+	\+ flrutils:flora_experimenting_with(attr_vars),
 	X=Y,
 	!.
 /*
