@@ -14291,16 +14291,19 @@ To help the user debug defeasible knowledge base, argumentation
 theories provide a special API, which can be used to find out
 why certain inferences were or were not made.
 The API consists of several methods, which take status-objects of the form
-{\tt status(ruleTag,ruleHead)} and returns information such as why a certain
+{\tt status(ruleTag,ruleHead)@\emph{argumentationTheoryModule}} and return information such as why a certain
 rule was defeated, which rules are defeated by the given one, etc.
 The list of methods follows:
 %% 
 \begin{itemize}
-\item  {\tt status(?T,?H)[howDefeated -> ?Reason]}.\\
+\item  {\tt status(?T,?H)[howDefeated -> ?Reason]@\emph{ATM}}.\\
   Here {\tt ?T} is a rule Id and {\tt ?H} is a rule head. The rule head
-  cannot be a variable. There is no need to reify the rule head: \FLSYSTEM
+  \emph{cannot} be an unbound  variable. There is no need to reify the rule head: \FLSYSTEM
   understands that a rule-head literal is expected and will compile it
   accordingly.  
+  \emph{ATM}  is the name of the argumentation theory module
+  in use in the knowledge base module under investigation; it must be an
+  \ERGO symbol (a Prolog atom).
 
   If the corresponding rule is not defeated, the query fails.  Otherwise,
   {\tt ?Reason} is the result of the query. It can take three different forms:
@@ -14328,7 +14331,8 @@ The list of methods follows:
     \texttt{?T} and head \texttt{?H}.  
   \end{itemize}
   %% 
-\item  {\tt status(?T,?H)[howDisqualified->defeatCycle(?Defeater,?Defeated)]}.\\
+\item  {\tt
+    status(?T,?H)[howDisqualified->defeatCycle(?Defeater,?Defeated)]@\emph{ATM}}.\\
   If the rules represented by the {\tt ?T/?H} pair are disqualified (in the
   default argumentation theory), this
   method returns the set of terms of the form {\tt
@@ -14338,11 +14342,11 @@ The list of methods follows:
   these pairs one should be able
   to discover a cycle of defeats starting and ending
   with {\tt ?T/?H}, which constitutes a self-defeating cycle.
-\item  {\tt status(?T,?H)[howDisqualified->canceled]}.\\
+\item  {\tt status(?T,?H)[howDisqualified->canceled]@\emph{ATM}}.\\
   This query is true if all the rules whose tag unifies with
   {\tt ?T} and head with {\tt ?H} are
   canceled.
-\item  {\tt status(?T,?H)[howDisqualified->beatenByStrictRule(?SRH)]}.\\
+\item  {\tt status(?T,?H)[howDisqualified->beatenByStrictRule(?SRH)@\emph{ATM}]}.\\
   This literal is true if all the defeasible rules with tag \texttt{?T}
   and head \texttt{?H} have an opposing strict rule. In that case,
   \texttt{?SRH} is bound to the head of that opposing rule. 
