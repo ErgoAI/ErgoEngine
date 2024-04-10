@@ -5782,16 +5782,19 @@ work with HiLog terms yet.
 %%
 In \FLSYSTEM, a variable can be bound to either a formula or a term. For instance,
 in {\tt ?X = p(a)}, {\tt p(a)} is viewed as a term and {\tt ?X} is bound to
-it. Likewise, in {\tt ?X = a[m->v]}, the frame is evaluated to its
-object value (which is {\tt a}) and then unified with {\tt ?X}. To bind
-variables to formulas instead, \FLSYSTEM provides a {\tt meta-unification}
+it. Likewise, in {\tt ?X = \$\{a[m->v]\}}, the frame is evaluated to its
+object value and is then unified with {\tt ?X}.
+The problem in the second case is that the term cannot be easily taken
+apart.
+To make it easier.
+\FLSYSTEM provides the {\tt meta-unification}
 operator, \verb|~|.  This operator treats its arguments as formulas and
 unifies them as such. For instance, {\tt ?X \verb|~| a[m->v,k->?V]} binds {\tt
   ?X} to the frame {\tt a[m->v,k->?V]} and {\tt a[m->v,k->?V] \verb|~|
   ?X[?M->v,k->p]} unifies the two frames by binding {\tt ?X} to {\tt a},
 {\tt ?M} to {\tt m}, and {\tt ?V} to {\tt p}.
 
-Meta-unification is very useful when it is necessary to determine the module
+Meta-unification is very useful when one needs to determine the module
 in which a particular formula lives. For instance,
 %%
 \begin{verbatim}

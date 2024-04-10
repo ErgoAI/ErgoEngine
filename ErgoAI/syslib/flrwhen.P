@@ -174,15 +174,15 @@ portray_trigger(trigger_ground(V,Constraint)):- !,
 call_list([]) :- !.
 call_list([G|Gs]) :-
 	call(G),
-                                %	!,
+        %%     !,  %% do not cut: you may cut over an incomplete table!
 	call_list(Gs).
 
-                                %
-                                %	Can't let a previous failed goal prevent the execution of a later one
-                                %	The goals on the list can be completely independent.
-                                %
-                                %call_list([_G|Gs]) :-
-                                %	call_list(Gs).
+%%
+%%	Can't let a previous failed goal prevent the execution of a later one
+%%	The goals on the list can be completely independent.
+%%
+%%call_list([_G|Gs]) :-
+%%	call_list(Gs).
 
 get_trigger_goal(trigger_nonvar(_,Trigger),Goal) :-
         !,

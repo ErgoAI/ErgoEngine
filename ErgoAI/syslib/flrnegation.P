@@ -331,11 +331,15 @@ cleanup_negation(Call) :-
                 the incremental tabling case.
             */
             ( flora_has_incomplete_incr_dependent_table_plain(Call) -> true
-            ; catch(incr_invalidate_call(Call),
-                    _Ball,
-                    %%(PRINTLN(2,call=Call),PRINTLN(2,ball=_Ball))
-                    true
-                   )
+            ;
+                %% This is dangerous, since it catches all interrupts.
+                %% If this problem does arise, we need to specialize 
+                %% the Ball carefully.
+                catch(incr_invalidate_call(Call),
+                      _Ball,
+                      %%(PRINTLN(2,call=Call),PRINTLN(2,ball=_Ball))
+                      true
+                     )
             ),
             true
 	;
