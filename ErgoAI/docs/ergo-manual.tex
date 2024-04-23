@@ -1886,7 +1886,7 @@ p(?X), \neg ?Y[foo->bar(?X)] :-
 
 \begin{example}
   {\bf (Publications Database)} \rm Figure~\ref{fig-flogic-model} depicts
-  a fragment of a \FLSYSTEM knowledge base that represents a database of scientific
+  a fragment of an \FLSYSTEM knowledge base that represents a database of scientific
   publications.
 \end{example}
 
@@ -3277,7 +3277,7 @@ clauses above refer to different objects.
 
 The same numbered or named
 Skolem can be co-referenced in \emph{different} facts and
-rules.  The general rule is that the scope of a numbered Skolem is a \FLSYSTEM
+rules.  The general rule is that the scope of a numbered Skolem is an \FLSYSTEM
 sentence terminated with a period. For instance, in the following
 %% 
 \begin{verbatim}
@@ -4225,7 +4225,7 @@ is equivalent to
 \index{module!\thismodule}
 \index{\thismodule}
 %
-Since a \FLSYSTEM knowledge base can be loaded into any module, it does not
+Since an \FLSYSTEM knowledge base can be loaded into any module, it does not
 have a priori knowledge of the module it will be executing in. However, the
 knowledge base can find its module at runtime using the quasi-constant
 \thismodule, which is replaced with the current module name when the module
@@ -4386,7 +4386,7 @@ which loads {\tt mykb1.\ergoext} into the module {\tt main} and {\tt
 
 Note that the {\tt [...]} command can also load and compile Prolog programs.
 The overall algorithm is as follows. If the file suffix is specified
-explicitly, the corresponding file is assumed to be a \FLSYSTEM file, a Prolog
+explicitly, the corresponding file is assumed to be an \FLSYSTEM file, a Prolog
 file, or a byte code depending on the suffix: {\tt .\ergoext/.\flrext}, {\tt .P}, or {\tt
   .\ofile}. If the suffix is not given explicitly, the compiler first checks if
 \texttt{mykb.\ergoext} (or \texttt{mykb.\flrext})  exists. If so, the file assumed to contain \FLSYSTEM
@@ -4400,8 +4400,8 @@ compilation or execution.
 \index{isloaded\{Module\} primitive}
 \index{primitive!isloaded\{...\}}
 %%
-Sometimes it is useful to know which user modules are loaded or if a
-particular user module is loaded (say, because you might want to load it,
+Sometimes it is useful to know which user or system modules are loaded or if a
+particular user/system module is loaded (say, because you might want to load it,
 if not).  To find out which modules are loaded at the present time, use the
 primitive {\tt isloaded\{...\}}. For instance, the first query,
 below, succeeds if the module {\tt foo} is loaded. The second query
@@ -4492,6 +4492,24 @@ The \texttt{isloaded} primitive to the rescue:
 The remaining ingredients of this recipe are self-explanatory, but look
 them up in this manual if they are not.
 }
+
+\index{issysloaded\{Module\} primitive}
+\index{primitive!issysloaded\{...\}}
+To obtain the names of the loaded system modules, use the primitive
+issysloaded\{?M\}. For instance,
+%% 
+\begin{verbatim}
+ ergo> issysloaded\{?M\}.
+\end{verbatim}
+%% 
+might return
+%% 
+\begin{verbatim}
+?M = \io
+
+?M = \sys
+\end{verbatim}
+%% 
 
 
 \paragraph{Scratchpad code.}
@@ -4786,7 +4804,7 @@ they must be imported by the Prolog program.
 
 \subsubsection{Importing \FLSYSTEM Predicates into Prolog}
 
-To import a \FLSYSTEM predicate into a Prolog shell, the following must be done:
+To import an \FLSYSTEM predicate into a Prolog shell, the following must be done:
 %%
 %%
 \begin{itemize}
@@ -4857,7 +4875,7 @@ In {\tt '\bs{}\bs{}flimport'}, \emph{ergo-predicate} is the name of the imported
 predicate as it is known in the \FLSYSTEM module. For non-tabled predicates,
 whose names start with {\tt \%} in \FLSYSTEM, \emph{ergo-predicate} should
 have the following syntax: {\tt \%(predicate-name)}. For instance, to
-import a \FLSYSTEM non-tabled predicate {\tt \%foobar} of arity 3 one can use
+import an \FLSYSTEM non-tabled predicate {\tt \%foobar} of arity 3 one can use
 the following statement:
 %%
 \begin{verbatim}
@@ -4914,7 +4932,7 @@ One way of doing this was described
 earlier (by executing an appropriate {\tt asserta/1}). This method works
 best if your application consists of both \FLSYSTEM and Prolog modules, but
 the initial module of your application (i.e., the one that bootstraps
-everything) is a Prolog program.  If the initial module is a \FLSYSTEM
+everything) is a Prolog program.  If the initial module is an \FLSYSTEM
 knowledge base, then the best way is to start XSB and \FLSYSTEM using the {\tt
   \ENGINERUN} script (page~\pageref{runflora-page}) located in the
 distribution of \FLSYSTEM.
@@ -4935,7 +4953,7 @@ To enable such unrestricted queries, \FLSYSTEM provides a special predicate,
 and takes the following arguments: 
 %%
 \begin{itemize}
-  \item  \emph{String}: A string that contains a \FLSYSTEM query. It can be an
+  \item  \emph{String}: A string that contains an \FLSYSTEM query. It can be an
     atomic frame
     (e.g., {\tt 'foo[bar->?X].'}) or a list of character codes (e.g.,
     {\tt "foo[bar->?X]."}).
@@ -4989,7 +5007,7 @@ the following steps are necessary:
 \end{enumerate}
 %%
 Here is an example of a Prolog file, {\tt test.P}, which loads and then
-queries a \FLSYSTEM file, flrtest.\ergoext:
+queries an \FLSYSTEM file, flrtest.\ergoext:
 %%
 \begin{alltt}
 :- import \FLBOOTSTRAP/0 from flora2.
@@ -5420,7 +5438,7 @@ errors is to load \texttt{modB} before \texttt{modA}.
 \index{persistence}
 %%
 Normally, the data
-in a \FLSYSTEM module is
+in an \FLSYSTEM module is
 {\em transient} --- it is lost as soon as the system terminates.
 The \FLSYSTEM package {\tt persistentmodules}  allows one to make
 \FLSYSTEM modules \emph{persistent}. This package is described in
@@ -6313,7 +6331,7 @@ because {\tt ?X} is bound to a HiLog term and, again by the above rules,
 {\tt p2h\{?X,?X\}} is supposed to fail.
 The reason why the last query fails is less obvious.
 In that query, both occurrences of {\tt f(a)} are HiLog terms, as are all the
-terms that appear in a \FLSYSTEM knowledge base (unless they are marked with {\tt
+terms that appear in an \FLSYSTEM knowledge base (unless they are marked with {\tt
   @\bs{}prolog} or {\tt @\bs{}prologall} module designations). Therefore, again by
 the rules above the query should fail.
 
@@ -7444,7 +7462,7 @@ and the runtime command is
     ?- setsemantics{inheritance=flogic}.
 \end{verbatim}
 %% 
-The following is a \FLSYSTEM specification
+The following is an \FLSYSTEM specification
 for the classical {\tt Royal Elephant} example:
 %%
 \begin{quote}
@@ -8172,7 +8190,7 @@ supported (for instance, {\tt p(a)} and {\tt a:=:b} do not imply {\tt
 usual rules for equality, i.e., transitivity, reflexivity,
 symmetry, and (limited) congruence.
 
-If a \FLSYSTEM module does not define facts of the form {\tt a:=:b}, which
+If an \FLSYSTEM module does not define facts of the form {\tt a:=:b}, which
 involve the equality predicate {\tt :=:}, then the default equality
 maintenance level is {\tt none}. If the knowledge base does have such facts,
 then the default equality maintenance level is {\tt basic}, because it is
@@ -12182,7 +12200,7 @@ fail, and this idiom is useless if the action is expected to always succeed.
 \FLSYSTEM provides an interface to constraint solving capabilities of the
 underlying Prolog engine. Currently XSB supports linear constraint solving
 over the domain of real numbers (CLPR).
-To pass a constraint to a constraint solver in the body of a \FLSYSTEM
+To pass a constraint to a constraint solver in the body of an \FLSYSTEM
 rule (or query), simply include it inside curly braces.
 
 Here is a 2-minute introduction to CLPR. Try the following:
@@ -13446,13 +13464,15 @@ knowledge base. \FLSYSTEM supports the form of defeasible reasoning known as
 described in \cite{lpda-iclp-09}.  
 
 The basic mechanisms by which the user can control defeasible
-reasoning include the notions of rule \emph{overriding} and literal
+reasoning include the notions of rule \emph{overriding} and 
 \emph{opposition}.  We will not describe the semantics of defeasible
 reasoning formally, but instead will give an informal overview.
 
 The basic idea is that the user specifies overriding and
-opposition using the appropriate predicates and then the \emph{associated
-argumentation theory} decides which ground instances of which rules are
+opposition using the predicates
+\texttt{\bs{}overrides} and \texttt{\bs{}opposes},
+and then the \emph{associated argumentation theory} decides which ground
+instances of which rules are
 defeated (and thus do not need to be satisfied by the intended model).  
 
 To this end, any rule can be \emph{tagged} by adding
@@ -13461,7 +13481,7 @@ be unique and should not be confused with rule Ids. However, if no rule tag
 is explicitly given, the Id of the rule is used.
 
 To see how it all works, consider a few examples. The first is a classical
-example that states that all birds generally fly, but some do not:
+statement that while all birds generally fly, some do not:
 %% 
 \begin{verbatim}
    :- use_argumentation_theory.  // tell the system that rules can be defeasible
@@ -13478,15 +13498,15 @@ example that states that all birds generally fly, but some do not:
 %% 
 Here the first three rules have tags, which makes them defeasible. That is,
 whatever they might derive may still be invalidated. How? For instance,
-all birds fly by penguins do not. \texttt{Sam} is a penguin and thus a
+all birds fly but penguins do not. \texttt{Sam} is a penguin and thus a
 bird. According to the \texttt{default}
 rule, he should be able to fly, but according 
 to the \texttt{penguin} rule he should not---a contradiction. 
 The situation with \texttt{Bob} is similar: as a bird, he should be able to
-fly, but not as a wounded being. The way out is given by the last
-\texttt{\bs{}overrides} statement, which says that if a \texttt{default}
+fly, but not as a wounded creature. The way out is given by the last
+\texttt{\bs{}overrides} statement; it says that if a \texttt{default}
 rule's conclusion conflicts with a conclusion made via the \texttt{penguin}
-or a \texttt{wounded} rule, the latter take precedence. In other words, no
+or the \texttt{wounded} rule, the latter kind of a conclusion takes precedence. In other words, no
 contradiction occurs and both \texttt{\bs{}neg Sam:Flies}   
 and \texttt{\bs{}neg Bob:Flies} are true (but not \texttt{Sam:Flies} or
 \texttt{Bob:Flies}).  On the other hand, no conflict exists with respect to
@@ -13498,10 +13518,10 @@ statement? In that case, both \texttt{Sam:Flies} \emph{and}
 In the previous example, we do not have the \texttt{\bs{}opposes}
 statement, which was mentioned earlier. This is because the conflicting
 nature of any statement, like \texttt{Sam:Flies} and its
-\texttt{\RULELOGNEG}-negation is obvious. In some cases, however, such a
-conflict cannot be assumed a priori, and this where the
-\texttt{\bs{}opposes} statement helps.
-Consider a pricing database where the prices o items depend on the supplier:
+\texttt{\RULELOGNEG}-negation is obvious and implicit. In some cases, however, such a
+conflict cannot be assumed a priori, and this where the explicit
+\texttt{\bs{}opposes} statements helps.
+Consider a pricing database where the prices of items depend on the supplier:
 %% 
 \begin{verbatim}
    :- use_argumentation_theory.
@@ -13519,7 +13539,7 @@ must have the same price. There are many ways to deal with this problem.
 One would be to abort insert operations if they violate the same-price
 constraint. However, this is not always possible or desirable (e.g., when
 information is integrated from different sources). Defeasibility provides a
-different solution, which allows \FLSYSTEM to \emph{tolerate} contradictions.
+different solution: it allows \FLSYSTEM to \emph{tolerate} contradictions.
 What we can do is to say that it is a contradiction for
 a regulated item to have two prices:
 %% 
@@ -13530,11 +13550,12 @@ a regulated item to have two prices:
    regulated({bread,milk}).
 \end{verbatim}
 %% 
-In the previous example, we provided a way to resolve a contradiction, but
+In the earlier example, we provided an explicit way to resolve contradictions
+via overriding, but
 here we did not. As a result, the facts \texttt{bread[price(store1)->2]} and
-\texttt{bread[price(store2)->3]} will be false (i.e., the conflicting
-information will be zapped) while the price of milk will not be zapped,
-since there is no variation in prices in different stores. For
+\texttt{bread[price(store2)->3]} will both be false (i.e., the conflicting
+information will be zapped), while the price of milk will not be zapped,
+since there is no variation in milk prices in different stores. For
 carrots, the price varies, but it is not a regulated product, so no
 contradiction arises.
 
@@ -13544,7 +13565,10 @@ The previous section illustrated the concepts of overriding and opposition
 used in defeasible reasoning. We will look at these and other related
 concepts in more detail here.
 
-A rule instance $\rho_1$, tagged $i_1$, \emph{opposes} another rule
+\index{conflict among rules}
+\index{opposition among rules}
+A rule instance $\rho_1$, tagged $i_1$, \emph{opposes}
+(or \emph{conflicts with})  another rule
 instance, $\rho_2$ tagged $i_2$, if and only if
 \texttt{\bs{}opposes($i_1$,$head(\rho_1)$,$i_2$,$head(\rho_2)$)} is true,
 where $head(\rho_i)$ denotes the head-literal of the corresponding rule.
@@ -13569,6 +13593,8 @@ A rule can be defeated in several different ways. It can be
 \item  \emph{disqualified}. 
 \end{itemize}
 %% 
+\index{refuted rule}
+\index{rebutted rule}
 Different argumentation theories may assign different meanings to these
 concepts, but roughly they mean the following. A rule instance $\rho_1$,
 tagged $i_1$, \emph{refutes} another rule instance $\rho_2$, tagged $i_2$, 
@@ -13581,10 +13607,9 @@ rule instance.
 Rule disqualification is not so commonly agreed upon a notion as the other
 two.  A rule is \emph{disqualified}, if it is \emph{canceled}, i.e., 
 if it matches a
-cancellation literal that is true and not defeated. More details on
-cancellation appear in Section~\ref{sec-cancel}. More details on
+cancellation literal that is true and not defeated.  More details on
 cancellation appear in Section~\ref{sec-cancel}. In addition, some
-argumentation theories disqualify rules in other cases as well.
+argumentation theories may disqualify rules for other reasons as well.
 The default argumentation theory in \FLSYSTEM postulates that a
 rule instance $\rho_1$, tagged $i_1$, is disqualified if
 %% 
@@ -13597,7 +13622,7 @@ rule instance $\rho_1$, tagged $i_1$, is disqualified if
 \end{itemize}
 %% 
 
-These notions are very useful for debugging the knowledge base (finding out why
+These notions are very useful for debugging the knowledge base (i.e., finding out why
 certain inferences were or were not made), and we will discuss the
 corresponding debugging primitives in Section~\ref{sec-debugging-defeat}.
 
@@ -13628,7 +13653,7 @@ The problem here is that $>$ is a mode-sensitive predicate, which expects
 both of its arguments to be bound to an integer. However, as discussed above,
 \texttt{\bs{}overrides} might be called with one of the arguments, say
 the first, unbound. In this case, \texttt{?h} will be unbound at the time
-$\tt ?h>?j$ is called and a runtime error will ensue. 
+$\tt ?h>?j$ is checked, and a runtime error will ensue. 
 
 
 \subsection{Specifying an Argumentation Theory to Use}
@@ -13658,7 +13683,7 @@ module, {\tt \bs{}gcl}, which stands for Generalized Courteous Logic (or GCL).
 One can use a different theory of defeasible reasoning by implementing an
 appropriate argumentation theory and
 loading its file into some module {\tt foo}.
-A file that actually uses this argumentation theory should have
+A file that actually uses this argumentation theory should then have
 the directive
 %% 
 \begin{verbatim}
@@ -13668,7 +13693,7 @@ the directive
 at the top. Thus, different modules of the same \FLSYSTEM
 knowledge base can use different theories of defeasible reasoning.
 For instance, if some argumentation theory is implemented in file
-\texttt{myargth.\ergoext}, then it can be declared in a \FLSYSTEM module
+\texttt{myargth.\ergoext}, then it can be declared in an \FLSYSTEM module
 using
 %% 
 \begin{verbatim}
@@ -13693,20 +13718,20 @@ Rule overriding can be specified via one of the following two forms:
 \index{\bs{}overrides predicate}
 %% 
 \begin{alltt}
-  \bs{}overrides({\em{}RuleLab1},\emph{RuleLab2}).
-  \bs{}overrides({\em{}RuleLab1},{\em{}AtomForm1},{\em{}RuleLab2},\emph{AtomForm2}).
+  \bs{}overrides({\em{}RulTag1},\emph{RulTag2}).
+  \bs{}overrides({\em{}RulTag1},{\em{}RulHead1},{\em{}RulTag2},\emph{RulHead2}).
 \end{alltt}
 %% 
 The first form of the {\tt \bs{}overrides} statement says that the rule with
-tag \emph{RuleLab1} overrides the rule with the rule tag
-\emph{RuleLab2} regardless of what the heads of those rules are. The second
+tag \emph{RulTag1} overrides the rule with the rule tag
+\emph{RulTag2} regardless of what the heads of those rules are. The second
 form of {\tt \bs{}overrides} says the following. Let $\rho_1$ be a 
-rule with the tag \emph{RuleLab1} and head \emph{H1}, and $\rho_2$ be a
-rule with the tag \emph{RuleLab2} and head \emph{H2}. Assume that
+rule with the tag \emph{RulTag1} and head \emph{H1}, and $\rho_2$ be a
+rule with the tag \emph{RulTag2} and head \emph{H2}. Assume that
 the variables in $\rho_1$, $\rho_2$, and the {\tt \bs{}overrides} rule are
-standardized apart (i.e., are not shared, which can be always achieved by
+standardized apart (i.e., are not shared, which can always be achieved by
 renaming).   Then for any substitution $\theta$ such that $\theta(H1) =
-\theta(AtomForm1) = \theta(H2) = \theta(AtomForm2)$, the rule-instance
+\theta(RulHead1) = \theta(H2) = \theta(RulHead2)$, the rule-instance
 $\theta(\rho_1)$ overrides the rule-instance $\theta(\rho_2)$.
 
 The {\tt \bs{}opposes} predicate specifies which literals in the rule heads
@@ -13716,24 +13741,25 @@ should be considered to be in conflict, if derived simultaneously. As with the
 \index{\bs{}opposes predicate}
 %% 
 \begin{alltt}
-  \bs{}opposes({\em{}AtomForm1},\emph{AtomForm2}).
-  \bs{}opposes({\em{}RuleLab1},{\em{}AtomForm1},{\em{}RuleLab2},\emph{AtomForm2}).
+  \bs{}opposes({\em{}RulHead1},\emph{RulHead2}).
+  \bs{}opposes({\em{}RulTag1},{\em{}RulHead1},{\em{}RulTag2},\emph{RulHead2}).
 \end{alltt}
 %%
 The first form of the {\tt \bs{}opposes} predicate says that the base
-formulas \emph{AtomForm1} and \emph{AtomForm2} contradict each other.  More
+formulas \emph{RulHead1} and \emph{RulHead2} contradict each other.  More
 precisely, for any variable substitution $\theta$, the knowledge
-base must not infer $\theta(AtomForm1)$ if $\theta(AtomForm2)$ is also
+base must not infer $\theta(RulHead1)$ if $\theta(RulHead2)$ is also
 inferred, and vice versa.  The 4-argument version of {\tt \bs{}opposes} is
 more restrictive: it says that, for any substitution $\theta$, the
-knowledge base must not infer $\theta(AtomForm1)$ by means of a rule with
-tag \emph{RuleLab1}, if $\theta(AtomForm2)$ is inferred by means of a
-rule with tag \emph{RuleLab2}, and vice versa.
+knowledge base must not infer $\theta(RulHead1)$ by means of a rule with
+tag \emph{RulTag1}, if $\theta(RulHead2)$ is inferred by means of a
+rule with tag \emph{RulTag2}, and vice versa.
 Note that by ``inference'' here we mean inference with respect to the
-argumentation theory in use---not just
-with respect to the usual first-order logic. For instance, {\tt a :- b} and
-{\tt b} do not necessarily imply {\tt a} because the rule {\tt a :-
-  b} may be defeated by a different rule.      
+argumentation theory in use---not 
+with respect to the usual first-order logic. For instance, having both
+{\tt a :- b} and
+{\tt b} does not necessarily imply {\tt a} because the rule {\tt a :-
+  b} may be defeated by some other rule.      
 
 Both {\tt \bs{}opposes} and {\tt \bs{}overrides} can be defined via user rules
 as well as facts, and these rules and facts can even be added and deleted
@@ -13743,8 +13769,8 @@ at run-time using the statements {\tt insert\{...\}/delete\{...\}}, {\tt
   enable\{...\}}/{\tt disable\{...\}}.
 However, excessive use of these facilities
 is not recommended because the
-knowledge base might get hairy and
-hard to understand. This is especially true in the case of
+knowledge base might get too hairy and
+hard to understand. This is especially true in case of
 the {\tt \bs{}opposes} predicate.  Although it is advised
 to be conservative with these predicates lest the meaning of a knowledge
 base becomes obscure, there are no syntactic restrictions on the use of
@@ -13754,7 +13780,7 @@ heads, in aggregate functions, and so on.
 It should be kept in mind that for any non-transactional literal $L$
 (base HiLog formula, frame, ISA, or subclass), $L$ and {\tt
   \RULELOGNEG} $L$ always oppose each other, and there is no need to state this
-explicitly: it is part of the underlying theory of defeasible reasoning.
+explicitly, as it is part of the underlying theory of defeasible reasoning.
 Transactional literals do not participate in defeasible reasoning.
 They cannot be negated using {\tt \RULELOGNEG}, but the compiler does not check if
 they appear as arguments to {\tt \bs{}opposes}. If they do, this information
@@ -13859,7 +13885,7 @@ Here rule {\tt c1} cancels rule {\tt r}, but {\tt c1} conflicts with {\tt
 stays true.
 
 Finally, we should note that, if a rule that is being canceled overrides
-the canceling rule, than the first-mentioned rule stands and the
+the canceling rule, then the first-mentioned rule stands and the
 cancellation rule is defeated instead. For example, in
 %% 
 \begin{verbatim}
@@ -13946,7 +13972,7 @@ Sometimes it is useful to be able to query the rule base based on rule
 tags and heads. Such queries can be issued
 using the {\tt clause\{...\}} primitive. However, 
 if you do not need to query the rule bodies, a faster way is to use the
-{\tt tag}  primitive. For instance, if we have
+{\tt tag\{{\it?Tag},{\it ?RulHead}\}}  primitive. For instance, if we have
 the rules
 %% 
 \begin{verbatim}
@@ -14024,7 +14050,7 @@ The cautious argumentation theory is the default and should be good for most
    :- use_argumentation_theory.
 \end{verbatim}
 %% 
-  at the top of a \FLSYSTEM module where defeasible reasoning is to be
+  at the top of an \FLSYSTEM module where defeasible reasoning is to be
   used.  This loads the new courteous argumentation theory into the builtin
   module {\tt \bs{}gcl}. For the original courteous argumentation theory,
   place the following at the top:
@@ -14084,8 +14110,8 @@ treated as binary exclusion constraints.
 As with {\tt \bs{}opposes}, the above exclusion constraints can have variables
 and they can also be defined by rules.
 
-In case all opposers in an inclusion constraint are true, overriding
-determines which of them are defeated.  Intuitively, the defeated opposers
+In case all opposers in an exclusion constraint are true, overriding
+determines which opposers are defeated.  Intuitively, the defeated opposers
 are those that do not ``beat'' (rebut) any other opposer in the same
 exclusion constraint.
 
@@ -14099,7 +14125,8 @@ must be \emph{purely logical}.
 This includes both the tagged rules of the
 core knowledge base (whether they are explicitly mentioned in the
 overrides/opposes statements or not) as well as the rules that define the
-predicates {\tt \bs{}overrides} and {\tt \bs{}opposes}.
+predicates {\tt \bs{}overrides}, {\tt \bs{}opposes}, \texttt{\bs{}cancel},
+etc.
 If such a rule depends on a strict
 rule then the latter must also be purely logical.
 ``Purely logical'' here means that the
@@ -14126,7 +14153,9 @@ such as:
   ground here aborts the inference process.
   This is because \texttt{ground/1} is a logically clean predicate: if its
   argument is not ground, the predicate \texttt{\%check\_state(?s)} aborts.  
-\item \emph{Modal} predicates that require bound arguments, which include:
+\item \emph{Moded} predicates, i.e.,
+  predicates that require invocation modes for its arguments, such as
+  boundedness or groundedness, which include:
   \begin{itemize}
   \item  Comparison operators $>$, $<$, etc.,
     unless it is assured that both sides of the
@@ -14142,7 +14171,7 @@ such as:
   that complains about unbound arguments
   is to identify the appropriate
   domain for the variables that must be bound and bind the variables in
-  question before the modal predicate is invoked. For instance, suppose we
+  question before the moded predicate is invoked. For instance, suppose we
   wish to say that argument 2 of the predicate \texttt{price}  
   must not have two different values for the same item (in argument 1):
   %% 
@@ -14151,7 +14180,7 @@ such as:
 \end{verbatim}
   %% 
   Unfortunately, such a definition will almost certainly cause a runtime error because one
-  of the \texttt{?p1} or \texttt{?p2} will end up unbound in the course of
+  of the variables \texttt{?p1} or \texttt{?p2} will end up unbound in the course of
   the reasoning performed inside the argumentation theory.  
   However, we do know that these variables must be bound to
   prices and thus we could write
@@ -14181,7 +14210,7 @@ such as:
   %% 
   is likely to work fine because \texttt{!=} is delayed until both
   arguments become bound. Generally, \texttt{!=} and \texttt{!==} are
-  slower than but safer and more declarative
+  slower but safer and more declarative
   than \texttt{\bs{}=} and  \texttt{\bs{}==} because their evaluation is
   delayed when necessary and they are not that dependent on their position
   in the rule body. The comparison operators $<$, $>$, etc., as well as the
@@ -14287,6 +14316,10 @@ such as:
 %%
 
 
+\subsection{Unsafe Variables that Occur in the Heads of Defeasible Rules}
+\label{sec-unsafe-in-defeasile-rules}
+
+
 \subsection{Debugging Defeasible Knowledge Bases}
 \label{sec-debugging-defeat}
 
@@ -14294,8 +14327,10 @@ To help the user debug defeasible knowledge base, argumentation
 theories provide a special API, which can be used to find out
 why certain inferences were or were not made.
 The API consists of several methods, which take status-objects of the form
-{\tt status(ruleTag,ruleHead)@\emph{argumentationTheoryModule}} and return information such as why a certain
-rule was defeated, which rules are defeated by the given one, etc.
+\texttt{status(ruleTag,ruleHead)@}\emph{ATM} (\emph{ATM} here denotes the
+module of the argumentation theory being used)
+and return information such as why a certain
+rule was defeated, which rules are defeated by a given rule, etc.
 The list of methods follows:
 %% 
 \begin{itemize}
@@ -16748,7 +16783,7 @@ constraint from {\tt C}.
   catch\{?UnitaryGoal, ?Error, ?Handler\}} and {\tt throw\{?Error\}}.  Here
 {\tt ?UnitaryGoal}
 can be any \FLSYSTEM query (it must be a unitary goal), {\tt ?Error} is a HiLog (or Prolog) term, and {\tt
-  ?Handler} is a \FLSYSTEM query that will be called if an exception that
+  ?Handler} is an \FLSYSTEM query that will be called if an exception that
 unifies with {\tt ?Error} is thrown during the execution of {\tt ?UnitaryGoal}. 
 Syntactically, the handler must be a \emph{unitary} goal, defined in
 Section~\ref{sec-basic-flogic}.
@@ -18774,7 +18809,7 @@ These options are explained in detail in Section~\ref{sec-semantics-directive}.
 \index{op compiler directive}
 \index{compiler directive!op}
  ~~~ \\
-  Defines \emph{operator} as a \FLSYSTEM operator with the given precedence
+  Defines \emph{operator} as an \FLSYSTEM operator with the given precedence
   and type. The \emph{type} is the same as in Prolog operators, i.e.,
   {\tt fx}, {\tt xf}, {\tt xfy}, etc.
   Note that the {\tt op} directive is confined to
@@ -21173,7 +21208,7 @@ and where the \FLSYSTEM startup script is:
 
 \paragraph{The \emph{\floraname} menu.}
 Once \FLSYSTEM editing mode is installed, it provides a number of functions.
-First, whenever you edit a \FLSYSTEM file, you will see the ``\emph{\floraname}'' menu
+First, whenever you edit an \FLSYSTEM file, you will see the ``\emph{\floraname}'' menu
 in the menubar. This menu provides commands for starting and stopping
 the \FLSYSTEM process (i.e., the \FLSYSTEM shell).
 When this process starts, a command window will appear in a separate
@@ -21199,7 +21234,7 @@ Load buffer:               Ctl-c Ctl-b
 Load region:               Ctl-c Ctl-r
 \end{alltt}
 %%
-When you invoke any of the above commands, a \FLSYSTEM process is started,
+When you invoke any of the above commands, an \FLSYSTEM process is started,
 unless it is already running. However, if you want to invoke this process
 explicitly, type
 %%
@@ -21459,7 +21494,7 @@ standard equality axioms.
 There are variations of these trailers that also support \fl inheritance
 ({\tt flreqltrailer\_inh.fli}  and {\tt flrnoeqltrailer\_inh.fli}).
 
-When a \FLSYSTEM knowledge bases are compiled, the compiler includes the trailers into
+When an \FLSYSTEM knowledge bases are compiled, the compiler includes the trailers into
 the {\tt .P} file. However, there also is a need to be able to load the
 trailers dynamically. First, this is needed in the system shell, because
 the shell is not invoked by user knowledge bases and so there is
