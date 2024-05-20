@@ -635,9 +635,20 @@ get_negation_stats :-
 
 
 %% my_not_exists/1 - the new version! Does not require numbervar!
+%% The catch extension is Teri's fix to prevent losing exceptions during
+%% execution of *delayed* goals. Here is the explanation:
+%%   What would happen if Goal = catch(Goal1,..)?
+%%   Then the catch would execute its handler and fail. 
+%%   If the choice point it failed to is the choice point in my_not_exists/1,
+%%   it would call tnot(Goal) where any table for Goal would have been removed.
+%%   Since Goal is non ground, tnot will flounder.
+%%   To prevent floundering, Goal is catch'ed.
 my_not_exists(Goal) :-
-        (Goal, fail
-        ; tnot(Goal)
+        (
+          catch(Goal,Ball,throw(Ball)),
+          fail
+        ;
+          tnot(Goal)
         ).
 
 

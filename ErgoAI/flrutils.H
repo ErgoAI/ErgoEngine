@@ -433,9 +433,9 @@
 	flora_cleanup_udf/1,
 	flora_cleanup_registry/1,
 
-	flora_experimenting_with/1,
-        flora_enable_experiment/1,
-        flora_disable_experiment/1,
+	ergo_feature_enabled/1,
+        ergo_enable_feature/1,
+        ergo_disable_feature/1,
 
 	flora_read_canonical_and_insert/2,
 	flora_read_symbols_canonical_and_insert/3,

@@ -1,0 +1,110 @@
+/*
+   Here are 5 problems with LT.
+   Problem #5 is the worst.
+*/
+
+
+// PROBLEM 1
+qq(?Y) :- forall(?X)^pp(?X,?Y).
+pp(1,a).
+pp(2,b).
+
+// Problem: forall(?X)^\neg pp(?X,?Y)  == \naf\naf pp(?X,?Y) == pp(?X,?Y),
+//          by L-T, since exists(?X) (which would go between the naf's) does
+//          not really exist in Prolog.
+// So, qq(?Y) is undefined (which is barely ok), but also qq(a), qq(b)
+// are undefined, which is not ok (should be false).
+
+// PROBLEM 2
+{p,q}(1).
+?- forall(?X)^(?X:=:1,p(?X) ==>q(?X)).
+
+//Yes  - undefined
+// Should definitely be true.
+
+// PROBLEM 3
+p({1,2}), q({1,2,3}).
+\neg p(3).
+?- forall(?X)^(p(?X) ==> q(?X)).
+
+// Same thing: should be true instead of undefined.
+
+// PROBLEM 4
+{p,q}(1).
+?-  \naf(p(?X) ; q(?X)).
+
+// Should be false instead of undefined.
+
+
+// PROBLEM 5 - even worse, as it leads to a runtime error, not just "undefined"
+/*
+   **** This type of problems has to do with pushing forall through disjunction.
+   It is unsafe to do for forall(?X)^(left(?X,?Y) \/ right(?Y)) even though
+   FOL-wise it is ok.
+   This has been solved for a subclass of problems where right(?Y) is a
+   delayed builtin like >, <, etc. Namely, in this case we just don't push the
+   forall(?X).
+*/
+r(1,2).
+r1 :- forall(?X)^ ( r(?X,?Y) ~~> ?Y<0 ).
+?- r1.
+
+// Gives ERROR that ?Y<0 is used with unbound ?Y. This is because the body
+// translates into
+//      forall(?X)^\naf r(?X,?Y) \or ?Y<0
+// then
+//      \naf exists(?X)^r(?X,?Y) \or ?Y<0
+// so ?Y<0 always gives an error - very disconcerting to the user.
+// The push of forall(?X) into r(?X,?Y) ~~> ?Y<0 was unsafe!
+
+// NOTE:  forall(?X,?Y)^ ( r(?X,?Y) ~~> ?Y<0 ).
+//        does not have this problem.
+
+/*
+   If we avoid unsafe pushes of forall(?X) then:
+   1. the above r1 is undefined but should be false
+   2. the below test fails: it should return
+         Ann + Bob
+         Bess + Don
+         Bob + Ann
+      but instead will return nothing.
+*/
+r2(?CN1,?CN2) :-
+    exist(?C1,?C2)^
+        (
+          names(?C1,?CN1),
+          names(?C2,?CN2),
+          ?C1 != ?C2,
+          forall(?sh)^
+          exist(?Au1,?Ak1)^
+          forall(?Au2,?Ak2)^
+              (rel(?Au1,?sh,?C1,?Ak1) <~~ rel(?Au2,?sh,?C2,?Ak2))
+        ).
+
+names(c2,Bob).
+names(c4,Ann).
+names(c5,Bess).
+names(c7,Don).
+
+rel(a14,s1,c5,p4).
+rel(a15,s1,c7,p4).
+rel(a16,s1,c7,p5).
+
+rel(a21,s2,c2,p5).
+rel(a24,s2,c4,p6).
+rel(a25,s2,c5,p2).
+
+rel(a31,s3,c2,p3).
+rel(a32,s3,c4,p4).
+rel(a33,s3,c5,p5).
+rel(a35,s3,c7,p2).
+
+rel(a42,s4,c2,p1).
+rel(a43,s4,c4,p4).
+
+rel(a51,s5,c2,p5).
+rel(a52,s5,c2,p2).
+rel(a55,s5,c4,p4).
+rel(a56,s5,c5,p4).
+rel(a57,s5,c5,p6).
+rel(a59,s5,c7,p3).

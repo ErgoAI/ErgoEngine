@@ -1,0 +1,21 @@
+:- use_argumentation_theory.
+
+// The use of ${} is essential to reproduce the floundering error
+@aaa
+intends(?Per,${race(?Race)}) :-
+        spouse(?Per,?Spouse),
+        intends(?Spouse,${race(?Race)}).
+intends(?_Per, ${race(?_Race)}).
+spouse(Bob,Ginger).
+spouse(Ginger,Bob).
+
+
+%pretest :-
+        disablefeature{defeat_delay},
+        intends(Bob, ${race(Confusion)} ),
+        writeln(Yes)@\plg.
+
+%test :- tell(temp)@\plg(),
+	%pretest,
+	told@\plg.
+

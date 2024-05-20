@@ -4924,7 +4924,8 @@ conflicting_semantics_options(FL_TABLING(X),FL_TABLING(Y)) :-
         ( X == FL_SUBSUMPTIVE, Y == FL_VARIANT, !
         ; Y == FL_SUBSUMPTIVE, X == FL_VARIANT, !
         %% Don't put these here: this is supposed to check for real conflicts,
-        %% not unimplemented combinations
+        %% not unimplemented combinations:
+        %% see unimplemented_option_combination/2
         %%; Y == FL_INCREMENTAL, X == FL_SUBSUMPTIVE, !
         %%; Y == FL_SUBSUMPTIVE, X == FL_INCREMENTAL
         ; X == FL_INCREMENTAL, Y == FL_NONINCREMENTAL, !
@@ -5553,36 +5554,36 @@ flora_retractall_substitute(X) :- (retract(X), fail ; true).
 %%% For profiling: xsb_profiling:profile_call(...)
 
 
-flora_experimenting_with(attr_vars) :- \+flora_attributed_vars_disabled.
-flora_experimenting_with(naf_delay) :-
-        flrdelaysupport:experimenting_with(naf_delay).
-flora_experimenting_with(defeat_delay) :-
-        flrdelaysupport:experimenting_with(defeat_delay).
-flora_experimenting_with(java) :- \+JAVA_IS_DISABLED.
+ergo_feature_enabled(attr_vars) :- \+flora_attributed_vars_disabled.
+ergo_feature_enabled(naf_delay) :-
+        flrdelaysupport:feature_enabled(naf_delay).
+ergo_feature_enabled(defeat_delay) :-
+        flrdelaysupport:feature_enabled(defeat_delay).
+ergo_feature_enabled(java) :- \+JAVA_IS_DISABLED.
 
 
-flora_enable_experiment(E) :-
+ergo_enable_feature(E) :-
         \+ground(E),
-        flora_warning_line('must specify an experiment to enable (attr_vars, defeat_delay, naf_delay, java)'),
+        flora_warning_line('must specify the feature to enable (attr_vars, defeat_delay, naf_delay, java)'),
         !.
-flora_disable_experiment(E) :-
+ergo_disable_feature(E) :-
         \+ground(E),
         flora_warning_line('must specify an experiment to disable (attr_vars, defeat_delay, naf_delay, java)'),
         !.
 
-flora_enable_experiment(attr_vars) :- flrwhen:flora_enable_attributed_variables.
-flora_disable_experiment(attr_vars) :-
+ergo_enable_feature(attr_vars) :- flrwhen:flora_enable_attributed_variables.
+ergo_disable_feature(attr_vars) :-
         flrwhen:flora_disable_attributed_variables.
-flora_enable_experiment(naf_delay) :-
-        flrdelaysupport:enable_experiment(naf_delay).
-flora_disable_experiment(naf_delay) :-
-        flrdelaysupport:disable_experiment(naf_delay).
-flora_enable_experiment(defeat_delay) :-
-        flrdelaysupport:enable_experiment(defeat_delay).
-flora_disable_experiment(defeat_delay) :-
-        flrdelaysupport:disable_experiment(defeat_delay).
-flora_enable_experiment(java) :- assert(JAVA_IS_DISABLED).
-flora_disable_experiment(java) :- retractall(JAVA_IS_DISABLED).
+ergo_enable_feature(naf_delay) :-
+        flrdelaysupport:enable_feature(naf_delay).
+ergo_disable_feature(naf_delay) :-
+        flrdelaysupport:disable_feature(naf_delay).
+ergo_enable_feature(defeat_delay) :-
+        flrdelaysupport:enable_feature(defeat_delay).
+ergo_disable_feature(defeat_delay) :-
+        flrdelaysupport:disable_feature(defeat_delay).
+ergo_enable_feature(java) :- assert(JAVA_IS_DISABLED).
+ergo_disable_feature(java) :- retractall(JAVA_IS_DISABLED).
 
 
 /*********************************************************************

@@ -256,7 +256,8 @@ int local_ground(CPtr pterm)
 	return FALSE;
     // if it is a flora predicate, ignore the last argument number=arity
     // and don't check it for groundedness
-    if (is_flora_form((prolog_term)pterm,1)) // ignore negative
+    // But do check \naf'd subgoals
+    if (is_flora_form((prolog_term)pterm,1)) // ignore_negative=1
       return TRUE;
 
     pterm = clref_val(pterm)+arity;
@@ -388,7 +389,10 @@ void term_vars(CPtr pterm, CPtr* pvars, CPtr* pvarstail, Integer ignore_negative
               pterm2string(CTXTc (prolog_term) *pvarstail));
 #endif
     }
-    // if this is a flora formula, no need to check the last argument
+    // If this is a flora formula, no need to collect vars from the last arg
+    // If ignore_negative=1 and prolog functor matches
+    // FL_TRUTHVALUE_TABLED_CALL or FL_TABLED_NAF_CALL
+    // then pterm's variables are ignored.
     if (is_flora_form((prolog_term)pterm,ignore_negative))
       return;
 
@@ -457,7 +461,10 @@ void term_vars_split(CPtr pterm,
     for (j=1; j < arity; j++) {
       term_vars_split(clref_val(pterm)+j,pvars,pvarstail,pattrvars,pattrvarstail,ignore_negative);
     }
-    // if this is a flora formula, no need to check the last argument
+    // If this is a flora formula, no need to collect vars from the last arg
+    // If ignore_negative=1 and prolog functor matches
+    // FL_TRUTHVALUE_TABLED_CALL or FL_TABLED_NAF_CALL
+    // then pterm's variables are ignored.
     if (is_flora_form((prolog_term)pterm,ignore_negative))
       return;
 
@@ -499,8 +506,18 @@ static inline int is_flora_form(prolog_term pterm, Integer ignore_negative)
      ||
      strncmp(functor,FLORA_META_PREFIX,FLORA_META_PREFIX_LEN)==0);
 
+  // Do NOT consider as "flora form" the Prolog
+  //     FL_UNDEFEATED preds used in argumentation theories
+  // So, the var-collecting builtins do not collect the vars under FL_UNDEFEATED
+  // because this is redundant (they are the same as the head lits in the
+  // corresponding defeasible rule.
   if (has_flora_prefix && strstr(functor,FL_UNDEFEATED))
     return FALSE;
+  // If ignore_negative = 0 then also do NOT consider
+  //       FL_TRUTHVALUE_TABLED_CALL (MK: seems unused; unsure what it was)
+  //   and FL_TABLED_NAF_CALL, ie \naf'd subgoals.
+  // as "flora forms". So, in term_vars(), variables will not be collected 
+  // from the subgoals under \naf.
   if (!ignore_negative && has_flora_prefix &&
       (strstr(functor,FL_TRUTHVALUE_TABLED_CALL)
        || strstr(functor,FL_TABLED_NAF_CALL)

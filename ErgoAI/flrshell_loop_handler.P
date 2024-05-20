@@ -75,6 +75,9 @@
 	flora_undefined_predicate_msg/4
    from flrundefhook.
 
+:- import
+        flora_get_textual_info/3
+   from flrutils.
 
 :- export
         flora_shell_loop_message/3,
@@ -221,6 +224,27 @@ flora_shell_loop_message(Ball,Message,Trace) :-
                            'non-transactional rule-head %S depends on an update. %s',
                            args(GoalAtm,Clarification))
         ).
+
+flora_shell_loop_message(Ball,Message,Trace) :-
+	Ball = error(table_error,context(_Context,Trace)),
+	xsb_error_get_goal(Ball,GoalTerm),
+        xsb_error_get_message(Ball,BallMsg),
+        (GoalTerm =.. [GoalFun,(Arg,_)] -> true
+        ; GoalTerm =.. [GoalFun,Arg]
+        ),
+        Arg =.. [ArgFun,RuleId,RuleFileCode,_,_RuleHead|_],
+        (RuleFileCode=dynrule(RuleFile) -> true
+        ; RuleFile=RuleFileCode
+        ),
+        flora_match_substring(FL_TABLED_NAF_CALL,GoalFun,_),
+        (flora_match_substring('Floundering goal in tnot',BallMsg,_)
+        ; flora_match_substring('illegal cut over incomplete tabled subgoal',BallMsg,_)
+        ),
+        flora_match_substring(FL_DEFEATED_ID,ArgFun,_),
+        flora_get_textual_info(RuleId,RuleFileCode,Info),
+        Info =.. [_,_,ErrFile,BegLine,_,EndLine|_],
+        MsgList = ['In file ', ErrFile, ' on lines ', BegLine, '-', EndLine, ': a runtime error has occurred. Try to simplify the rule found in the indicated lines.\nFor instance, get rid of reification in the rule head, if present.\nOr execute disablefeature{defeat_delay}. prior to the offending query.\n(You can reenable that feature with enablefeature{defeat_delay}.)\nDetails of the exception: ',BallMsg],
+        flora_concat_items(MsgList,Message).
 
 flora_shell_loop_message(error(type_error(callable,Goal),Context),
                          Message,

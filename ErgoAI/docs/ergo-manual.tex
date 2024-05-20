@@ -4156,24 +4156,30 @@ The following rules apply when calling a literal defined in another module:
     }
   \end{quote}
 
-\item Module specifications can be nested. The one closest to a literal
+\item Module specifications can be nested. The one closest in scope
   takes effect. For example,
   \begin{verbatim}
-    (foo(a), goo(b) @ goomod, hoo(c)) @ foomod
+    (foo(a), goo(b) @goomod, hoo(c)) @foomod
   \end{verbatim}
   is equivalent to
   \begin{quote}
     {\tt
-      foo(a) @ foomod, goo(b) @ goomod, hoo(c) @ foomod
+      foo(a) @foomod, goo(b) @goomod, hoo(c) @foomod
     }
   \end{quote}
+  %%
+  We see that \texttt{@goomod} prevents the propagation of \texttt{@foomod}
+  to \texttt{goo(b)} but \texttt{@foomod} does propagate to \texttt{foo(a)}
+  and \texttt{hoo(c)}, which do not have a closer-in-scope
+  \texttt{@}-specification.
   
-\item The module specification propagates to any frame appearing
+\item The module specification propagates to any reification appearing
   in the argument of a predicate for which the module is
-  specified. For example,
+  specified (unless there is a closer-in-scope, overriding
+  \texttt{@}-specification). For example,
   \begin{quote}
     {\tt
-    foo(a.b[c->d]) @ foomod
+    foo(\$\{a.b[c->d]\}, \$\{u[f->g] @goomod\}) @foomod
     }
   \end{quote}
   %%
@@ -4181,9 +4187,12 @@ The following rules apply when calling a literal defined in another module:
   %%
   \begin{quote}
     {\tt
-    a[b->?X] @ foomod, ?X[c->d] @ foomod, foo(?X) @ foomod
+    foo(\$\{a[b->?X] @foomod, ?X[c->d] @foomod\}, \$\{u[f->g] @goomod\}) @foomod
     }
   \end{quote}
+  %%
+  Note that the inner \texttt{@goomod} blocks the propagation of
+  \texttt{@foomod} in the second argument.  
   
 \item Module specifications do not affect function terms that are not
   predicates or method names, unless such a specification is explicitly
@@ -5948,6 +5957,18 @@ other than \texttt{Oldmod} are left intact:
 Here the predicate that used to have module \texttt{bar} was copied into a
 predicate that now has module \texttt{moo}, but the other components of the
 argument remain unchanged.  
+
+
+\index{sleep\{...\}}
+\paragraph{Waiting.}
+It is possible to tell \FLSYSTEM to wait for a number of milliseconds as follows:
+%% 
+\begin{alltt}
+ \prompt  sleep\{150\}.
+\end{alltt}
+%% 
+
+
  
 
 \subsection{Reification}
@@ -13213,7 +13234,7 @@ made to the status of the various rules in the course of time.
 \hfill $\Box$
 
 The \texttt{@!\{...\}} construct is more convenient than the
-\texttt{clause}-construct and much more efficient,
+\texttt{clause}-construct and is much more efficient,
 if one needs to query the \emph{descriptor data
   only}, not the rule base. Inside the braces, this construct expects a
 usual frame formula of the form \texttt{ruleId[$prop_1$,$prop_2$,...]}, where
@@ -13617,7 +13638,7 @@ rule instance $\rho_1$, tagged $i_1$, is disqualified if
 \item If it transitively defeats itself, i.e., there is a sequence of
   tagged rule instances $(i_1,\rho_1)$, $(i_2,\rho_2)$, ...,
   $(i_{n-1},\rho_{n-1})$, $(i_n,\rho_n)$, such that $i_n=i_1$,
-  $\rho_n=\rho_1$, and at each step $(i_i,\rho_i)$ either refutes or rebuts
+  $\rho_n=\rho_1$, and at each step $(i_i,\rho_i)$ defeats the next,
   $(i_{i+1},\rho_{i+1})$.
 \end{itemize}
 %% 
@@ -14025,34 +14046,34 @@ These argumentation theories are very similar to each other; the
 differences lie on the edges. All these theories use the {\tt \bs{}opposes} and
 {\tt \bs{}overrides} predicates as well as the notions of rebuttal,
 refutation, and cancellation as the means for determining which rule
-instances are to be defeated. The difference is that, in the original courteous
+instances are to be defeated. The difference is that, in the \emph{original} courteous
 theory, a rule, $R$, is defeated if another rule defeats, rebuts, or
 cancels $R$.
-In the cautious theory, that other (defeating)
+In the \emph{cautious} theory, that other (defeating)
 rule must not itself be defeated in order to
 defeat $R$. The cautious theory does not also let that other rule be
 involved in a circular defeating relationships,
 i.e., there can be no sequence of
   tagged rule instances $(i_1,\rho_1)$, $(i_2,\rho_2)$, ...,
   $(i_{n-1},\rho_{n-1})$, $(i_n,\rho_n)$, such that $i_n=i_1$,
-  $\rho_n=\rho_1$, and at each step $(i_i,\rho_i)$ either refutes or rebuts
+  $\rho_n=\rho_1$, and at each step, $(i_i,\rho_i)$, defeats the next,
   $(i_{i+1},\rho_{i+1})$.
 
-The strong Courteous argumentation theory is in-between the cautious and
+The \emph{strong} Courteous argumentation theory is in-between the cautious and
 the original Courteous theories. It is very similar to the original theory except that it
 does not allow the defeating rule, $\rho_1$, to be rebutted or refuted by the 
-rule $\rho_2$ that is being defeated by $\rho_1$.
+rule $\rho_2$ that is itself defeated by $\rho_1$.
 
 The cautious argumentation theory is the default and should be good for most
-  applications. It can be invoked by placing
+  applications. It can be invoked simply by placing
 %% 
 \begin{verbatim}
    :- use_argumentation_theory.
 \end{verbatim}
 %% 
   at the top of an \FLSYSTEM module where defeasible reasoning is to be
-  used.  This loads the new courteous argumentation theory into the builtin
-  module {\tt \bs{}gcl}. For the original courteous argumentation theory,
+  used.  This loads the cautious courteous argumentation theory into the builtin
+  module {\tt \bs{}gcl} \emph{automatically}. For the original courteous argumentation theory,
   place the following at the top:
 %% 
 \begin{verbatim}
@@ -14062,8 +14083,16 @@ The cautious argumentation theory is the default and should be good for most
 %% 
 The original argumentation theory is then available in the module {\tt ogcl}
 (which stands for ``original gcl;'' of course, the user can choose a different module name).
+Note that non-default argumentation theories are not loaded
+automatically, so the user must execute a load command explicitly, as shown
+above. For this, one has to choose a module where the
+argumentation theory is to reside at run time
+(we chose \texttt{ogcl}) and one must know the base file
+name (i.e., sans the folder name and the extensions \texttt{.flr} and
+\texttt{.ergo}) in \FLSYSTEM's library where the theory is defined. In our case, the base file name
+for the original GCL is \texttt{ogclp}, which is what we used. 
 
-The strong argumentation theory can be requested as follows (where, again,
+The strong argumentation theory can be requested as follows (again,
 the choice of the module is up to the user):
 %% 
 \begin{verbatim}
@@ -14314,10 +14343,6 @@ such as:
 %%which \texttt{?arg3} depends functionally.  
 %%
 %%
-
-
-\subsection{Unsafe Variables that Occur in the Heads of Defeasible Rules}
-\label{sec-unsafe-in-defeasile-rules}
 
 
 \subsection{Debugging Defeasible Knowledge Bases}

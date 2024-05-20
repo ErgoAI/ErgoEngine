@@ -40,10 +40,10 @@ FLBodyPREFIX(WRAP_OBJEQL)(X,Y,_FWContext) :- WRAP_OBJEQL(X,Y,_FWContext).
 FLNEGBodyPREFIX(WRAP_OBJEQL)(X,Y,_FWContext) :- FLNEGPREFIX(WRAP_OBJEQL)(X,Y,_FWContext).
 
 WRAP_OBJEQL(X,Y,_FWContext) :-
-	%% when experimenting with subsumptive tabling, need to disable
+	%% when subsumptive tabling is enabled, need to disable
 	%% attibuted vars, since their combo has not been implemented yet
 	%% Also replace equality with unification to simplify the tests
-	\+ flrutils:flora_experimenting_with(attr_vars),
+	\+ flrutils:ergo_feature_enabled(attr_vars),
 	X=Y,
 	!.
 /*

@@ -88,7 +88,7 @@
 :- dynamic delayed_undefeated_lits/1.
 :- index(delayed_undefeated_lits/1,trie).
 
-:- dynamic experimental/1.
+:- dynamic experimental_feature/1.
 :- dynamic nondelayable_pattern/2.
 
 :- export
@@ -104,9 +104,9 @@
 	flora_delayed_sensor_literal/3.
 
 :- export
-        experimenting_with/1,
-	enable_experiment/1,
-	disable_experiment/1.
+        feature_enabled/1,
+	enable_feature/1,
+	disable_feature/1.
 
 :- export
         get_self_or_delayed_call/2,
@@ -140,9 +140,12 @@ flora_defeat_delay_wrapper(_File,_Line,DefeatCond,DynHead,HeadVarList,_HeadVarna
 	; is_cyclic(DefeatCond) -> fail
 	%% Not checking for groundedness
 	;
+            %% In flrterm_vars, arg3 = 1 means ignore vars in \naf'd subgoals
+            %% arg3 = 0 - include vars in \naf'ed literals.
+            %% Here we include such vars.
 	    flrterm_vars((HeadVarList,DynHead),ConditionalVars,0),
 	    (ground(ConditionalVars) -> DefeatCond
-	    ; \+ experimental(defeat_delay) -> DefeatCond
+	    ; \+ experimental_feature(defeat_delay) -> DefeatCond
 	    ;
 		functor(DefeatCond,Func,Arity),
 		functor(DefeatCondTemplate,Func,Arity),
@@ -154,8 +157,9 @@ flora_defeat_delay_wrapper(_File,_Line,DefeatCond,DynHead,HeadVarList,_HeadVarna
 	).
 
 flora_NAF_delay_wrapper(Goal) :-
-	(experimental(naf_delay) ->
+	(experimental_feature(naf_delay) ->
 	    term_arg(Goal,2,OrigVars),
+            %% arg3 = 0: collect vars from \naf'd subformulas
 	    flrterm_vars(OrigVars,Vars,0),
 	    flora_when(ground(Vars),Goal)
 	;
@@ -697,7 +701,7 @@ flora_delay_quantifier(File,Line,[FL_MUST,Condition,Goal]) :-
 			 [File,Line,GoalAtm,CondAtm]).
 
 %% error due to minizinc's solve_flex nonground InParams, OutTemplate
-%% This is a hack and shoul be replaced with a general method, if more
+%% This is a hack and should be replaced with a general method, if more
 %% delayed predicates will require special error handling.
 flora_delay_quantifier(_File,_Line,[FL_MUST,Condition,Goal]) :-
         Goal =.. [F,solve|RestArgs], functor(Goal,_,10),
@@ -733,12 +737,13 @@ flora_execute_delayed_calls(InstantiatedBodyVars,HeadVars) :-
         extract_triggers_and_execute_all(InstantiatedBodyVars,HeadVars),
         %% flora_table_once - does no good
         %%flrtables:flora_table_once(extract_triggers_and_execute_all(InstantiatedBodyVars,HeadVars)),
-        %% this cut is needed to release stack.
-        %% Also, to get rid of unnecessary backtracking, which causes
+        %% The cut below would be nice to have both to release the stack and
+        %% also, to avoid unnecessary backtracking, which causes
         %% uninstantiated answers to be returned.
         %% E.g., general_tests/explicit_negation.flr,
         %% in	%test1,%test2,%test3,%naftest.
 	%% Also, mon_inherit.flr gets duplicate answers
+        %% BUT, this cut may cut over tabled subgoals, so we cannot use it!!!
 	%%machine:close_open_tables.
         %%!,
 	true.
@@ -756,7 +761,9 @@ extract_triggers_and_execute_all(AllVars,_HeadVars) :-
 extract_triggers_and_execute_all(AllVars,HeadVars) :-
 	extract_triggers_and_execute_all_aux(AllVars,HeadVars).
 extract_triggers_and_execute_all_aux(AllVars,HeadVars) :-
-	%% in flrterm_vars_split, arg4=1: ignore vars in negative lits
+	%% In flrterm_vars_split, arg4 = 1 means ignore vars in \naf'd lits
+        %% arg4 = 0 - include vars in \naf'ed literals.
+        %% Here we include such vars.
 	flrterm_vars_split(AllVars, RegVars, AttrVars,0),
 	(AttrVars == [] -> true
 	; extract_triggers_and_execute(AttrVars,HeadVars),
@@ -1097,12 +1104,12 @@ printable_thing(L,PL) :-
         ).
 
 
-enable_experiment(X) :- assert(experimental(X)).
-disable_experiment(X) :-
-	(ground(X) -> retract(experimental(X))
-	; retractall(experimental(X))
+enable_feature(X) :- assert(experimental_feature(X)).
+disable_feature(X) :-
+	(ground(X) -> retract(experimental_feature(X))
+	; retractall(experimental_feature(X))
 	).
-experimenting_with(Exper) :- experimental(Exper).
+feature_enabled(Exper) :- experimental_feature(Exper).
 
-experimental(naf_delay).
-experimental(defeat_delay).
+experimental_feature(naf_delay).
+experimental_feature(defeat_delay).

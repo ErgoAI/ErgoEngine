@@ -167,7 +167,7 @@ matching_libmodobj([],_) :- !.
 matching_libmodobj(_,[]) :- !.
 matching_libmodobj([FLLIBMODOBJ(Ctxt1,W1,A1,M1,C1,P1)|L1],[FLLIBMODOBJ(_Ctxt2,W2,A2,M2,C2,P2)|L2]) :- 
         ( P1==P2 ->
-            FLLIBUNIVEQFORM(FLLIBMODLIT(W1,A1,M1,C1),FLLIBMODLIT(W2,A2,M2,C2))
+            fllibuniveqform_inner(FLLIBMODLIT(W1,A1,M1,C1),FLLIBMODLIT(W2,A2,M2,C2))
         ;
             true
         ),
@@ -177,75 +177,79 @@ matching_libmodobj([FLLIBMODOBJ(Ctxt1,W1,A1,M1,C1,P1)|L1],[FLLIBMODOBJ(_Ctxt2,W2
 checking_libmodobj([]) :- !.
 checking_libmodobj([FLLIBMODOBJ(_Ctxt,W,A,M,C,P)|L]) :-
         ( nonvar(P) ->
-            FLLIBUNIVEQFORM(FLLIBMODLIT(W,A,M,C),P)
+            fllibuniveqform_inner(FLLIBMODLIT(W,A,M,C),P)
         ;
             true
         ),
         checking_libmodobj(L).
 
 /******************************************************************************
-  FLLIBUNIVEQFORM(?X,?Y)
+  fllibuniveqform_inner(?X,?Y)
   The meta predicate ~
 ******************************************************************************/
-FLLIBUNIVEQFORM(X,X) :-
+FLLIBUNIVEQFORM(X,Y) :-
+        fllibuniveqform_inner(X,Y).
+
+fllibuniveqform_inner(X,X) :-
 	var(X),
 	!.
 
-FLLIBUNIVEQFORM(X,Y) :-
+fllibuniveqform_inner(X,Y) :-
 	var(X),
 	!,
         flora_check_dynmod_type_consistency(Y),
         X = Y,
 	is_acyclic(X).
 
-FLLIBUNIVEQFORM(X,Y) :-
+fllibuniveqform_inner(X,Y) :-
 	var(Y),
 	!,
+        flora_check_dynmod_type_consistency(Y),
         flora_check_dynmod_type_consistency(X),
         X = Y,
 	is_acyclic(X).
 
 %% speed up the case where X unifies with Y
-FLLIBUNIVEQFORM(X,Y) :-
+fllibuniveqform_inner(X,Y) :-
         atomic(X),
         atomic(Y),
         !,
         X = Y.
 
 %% We ignore pre-and-post body and meta info in such unification
-FLLIBUNIVEQFORM(FLSYSRULEUPDATE(Id,_FileName,_DescrVarTerm,_RuleNum,_DescrMetaFacts,H1,B1,HV,BV,_DTvars,_H2BF,_H2BB,_PreBody,_PostBody,_DefeatCond),
+fllibuniveqform_inner(FLSYSRULEUPDATE(Id,_FileName,_DescrVarTerm,_RuleNum,_DescrMetaFacts,H1,B1,HV,BV,_DTvars,_H2BF,_H2BB,_PreBody,_PostBody,_DefeatCond),
 		FLSYSRULEUPDATE(Id,_FileName2,_DescrVarTerm2,_RuleNum,_DescrMetaFacts2,H2,B2,HV,BV,_DTvars2,_H2BF2,_H2BB2,_PreBody2,_PostBody2,_DefeatCond)) :-
 	!,
 	flora_list2conjunct(H1,H1C),
 	flora_list2conjunct(H2,H2C),
-	FLLIBUNIVEQFORM(H1C,H2C),
-	FLLIBUNIVEQFORM(B1,B2).
+	fllibuniveqform_inner(H1C,H2C),
+	fllibuniveqform_inner(B1,B2).
 
 %% We ignore pre-and-post body and info in such unification
-FLLIBUNIVEQFORM(FLSYSINSQUERYSIG(Id,_FileName,_Mod,_,_DescrMetaFacts,_,B1,_BV1),
+fllibuniveqform_inner(FLSYSINSQUERYSIG(Id,_FileName,_Mod,_,_DescrMetaFacts,_,B1,_BV1),
 		FLSYSINSQUERYSIG(Id,_FileName2,_Mod2,_,_DescrMetaFacts2,_,B2,_BV2)) :-
 	!,
-	FLLIBUNIVEQFORM(B1,B2).
-FLLIBUNIVEQFORM(FLSYSDELQUERYSIG(Id,_FileName,_Mod,_DescrMetaFacts,B1),
+	fllibuniveqform_inner(B1,B2).
+fllibuniveqform_inner(FLSYSDELQUERYSIG(Id,_FileName,_Mod,_DescrMetaFacts,B1),
 		FLSYSDELQUERYSIG(Id,_FileName2,_Mod2,_DescrMetaFacts2,B2)) :-
 	!,
-	FLLIBUNIVEQFORM(B1,B2).
+	fllibuniveqform_inner(B1,B2).
 
 %% delayed negation
-FLLIBUNIVEQFORM(FLLIBNAFDELAY(X),FLLIBNAFDELAY(Y)) :-
+fllibuniveqform_inner(FLLIBNAFDELAY(X),FLLIBNAFDELAY(Y)) :-
 	is_naf_literal(X,XPos),
 	is_naf_literal(Y,YPos),
 	!,
-	FLLIBUNIVEQFORM(XPos,YPos).
+	fllibuniveqform_inner(XPos,YPos).
 
-FLLIBUNIVEQFORM(X,Y) :-
+fllibuniveqform_inner(X,Y) :-
         X \= FLLIBMODLIT(_,_,_,_), X \= (FLLIBMODLIT(_,_,_,_), _),
         Y \= FLLIBMODLIT(_,_,_,_), Y \= (FLLIBMODLIT(_,_,_,_), _),
         X = Y,
 	is_acyclic(X),
         !.
 
-FLLIBUNIVEQFORM(FLLIBMODLIT(WrapX,X,M,_Context1),FLLIBMODLIT(WrapY,Y,M,_Context2)) :-
+fllibuniveqform_inner(FLLIBMODLIT(WrapX,X,M,_Context1),FLLIBMODLIT(WrapY,Y,M,_Context2)) :-
 	WrapX == WrapY,
         var(X),
         var(Y),
@@ -255,14 +259,14 @@ FLLIBUNIVEQFORM(FLLIBMODLIT(WrapX,X,M,_Context1),FLLIBMODLIT(WrapY,Y,M,_Context2
 
 %% ?X ~ %?Y@Mod fails if both variables are unbound
 %% Also %?X@Mod ~ ?Y and the same with neg.
-FLLIBUNIVEQFORM(FLLIBMODLIT(WrapX,X,_M1,_Context1),FLLIBMODLIT(WrapY,Y,_M2,_Context2)) :-
+fllibuniveqform_inner(FLLIBMODLIT(WrapX,X,_M1,_Context1),FLLIBMODLIT(WrapY,Y,_M2,_Context2)) :-
 	WrapX \== WrapY,
         var(X),
         var(Y),
         !,
         fail.
 
-FLLIBUNIVEQFORM(FLLIBMODLIT(WrapX,X,M,C1),FLLIBMODLIT(W,A,M2,C2)) :-
+fllibuniveqform_inner(FLLIBMODLIT(WrapX,X,M,C1),FLLIBMODLIT(W,A,M2,C2)) :-
         var(X),
 	(WrapX == FL_LIBMOD ; WrapX == FL_NEGLIBMOD),
         !,
@@ -293,7 +297,7 @@ FLLIBUNIVEQFORM(FLLIBMODLIT(WrapX,X,M,C1),FLLIBMODLIT(W,A,M2,C2)) :-
 	    is_acyclic(X)
 	).
 
-FLLIBUNIVEQFORM(FLLIBMODLIT(FL_TRANSLIBMOD,X,M,C1),FLLIBMODLIT(W,A,M2,C2)) :-
+fllibuniveqform_inner(FLLIBMODLIT(FL_TRANSLIBMOD,X,M,C1),FLLIBMODLIT(W,A,M2,C2)) :-
         var(X),
         !,
         flora_check_dynmod_type_consistency(FLLIBMODLIT(W,A,M2,C2)),
@@ -305,7 +309,7 @@ FLLIBUNIVEQFORM(FLLIBMODLIT(FL_TRANSLIBMOD,X,M,C1),FLLIBMODLIT(W,A,M2,C2)) :-
 	    is_acyclic(X)
 	).
 
-FLLIBUNIVEQFORM(FLLIBMODLIT(W,A,M2,C2),FLLIBMODLIT(WrapY,Y,M,C1)) :-
+fllibuniveqform_inner(FLLIBMODLIT(W,A,M2,C2),FLLIBMODLIT(WrapY,Y,M,C1)) :-
         var(Y),
 	(WrapY == FL_LIBMOD ; WrapY == FL_NEGLIBMOD),
         !,
@@ -341,7 +345,7 @@ FLLIBUNIVEQFORM(FLLIBMODLIT(W,A,M2,C2),FLLIBMODLIT(WrapY,Y,M,C1)) :-
 	    is_acyclic(Y)
 	).
 
-FLLIBUNIVEQFORM(FLLIBMODLIT(W,A,M2,C2),FLLIBMODLIT(FL_TRANSLIBMOD,Y,M,C1)) :-
+fllibuniveqform_inner(FLLIBMODLIT(W,A,M2,C2),FLLIBMODLIT(FL_TRANSLIBMOD,Y,M,C1)) :-
         var(Y),
         !,
         flora_check_dynmod_type_consistency(FLLIBMODLIT(W,A,M2,C2)),
@@ -354,113 +358,113 @@ FLLIBUNIVEQFORM(FLLIBMODLIT(W,A,M2,C2),FLLIBMODLIT(FL_TRANSLIBMOD,Y,M,C1)) :-
 	).
 
 %% this case is here in order to simplify negation at run time: \neg\neg p --> p
-FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,A,M,C),Y) :-
+fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,A,M,C),Y) :-
 	negate_predicate(FLLIBMODLIT(FL_NEGLIBMOD,A,M,C),X),
 	negate_predicate(Y,YY),
 	!,
-	FLLIBUNIVEQFORM(X,YY).
+	fllibuniveqform_inner(X,YY).
 %% this case is here in order to simplify negation at run time: \neg\neg p --> p
-FLLIBUNIVEQFORM(X,FLLIBMODLIT(FL_NEGLIBMOD,A,M,C)) :-
+fllibuniveqform_inner(X,FLLIBMODLIT(FL_NEGLIBMOD,A,M,C)) :-
 	negate_predicate(FLLIBMODLIT(FL_NEGLIBMOD,A,M,C),Y),
 	negate_predicate(X,XX),
 	!,
-	FLLIBUNIVEQFORM(XX,Y).
+	fllibuniveqform_inner(XX,Y).
 
 %% Now neither X nor Y are variables
-FLLIBUNIVEQFORM(X,Y) :-
+fllibuniveqform_inner(X,Y) :-
         collect_libmodobj(X,PX,OX),
         collect_libmodobj(Y,PY,OY),
         (OX \= []; OY \= []),
         !,
 	FLORA_DELAY_CHECKER([PX],[]),
 	FLORA_DELAY_CHECKER([PY],[]),
-        FLLIBUNIVEQFORM(PX,PY),
+        fllibuniveqform_inner(PX,PY),
         matching_libmodobj(OX,OY),
         checking_libmodobj(OX),
         checking_libmodobj(OY).
 
-FLLIBUNIVEQFORM((X,XX),(Y,YY)) :-
+fllibuniveqform_inner((X,XX),(Y,YY)) :-
         !,
-	FLLIBUNIVEQFORM(X,Y),
-	FLLIBUNIVEQFORM(XX,YY).
+	fllibuniveqform_inner(X,Y),
+	fllibuniveqform_inner(XX,YY).
 
-FLLIBUNIVEQFORM((X;XX),(Y;YY)) :-
+fllibuniveqform_inner((X;XX),(Y;YY)) :-
         !,
-	FLLIBUNIVEQFORM(X,Y),
-	FLLIBUNIVEQFORM(XX,YY).
+	fllibuniveqform_inner(X,Y),
+	fllibuniveqform_inner(XX,YY).
 
 %% LibModWrap is FL_LIBMOD, FL_TRANSLIBMOD
-FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,(X,XX),Mod,Context),(Y,YY)) :-
+fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,(X,XX),Mod,Context),(Y,YY)) :-
 	(LibModWrap == FL_LIBMOD ; LibModWrap == FL_TRANSLIBMOD),
         !,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,X,Mod,Context),Y),
-	FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,XX,Mod,Context),YY).
+	fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,X,Mod,Context),Y),
+	fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,XX,Mod,Context),YY).
 
-FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,(X;XX),Mod,Context),(Y;YY)) :-
+fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,(X;XX),Mod,Context),(Y;YY)) :-
 	(LibModWrap == FL_LIBMOD ; LibModWrap == FL_TRANSLIBMOD),
         !,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,X,Mod,Context),Y),
-	FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,XX,Mod,Context),YY).
+	fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,X,Mod,Context),Y),
+	fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,XX,Mod,Context),YY).
 
-FLLIBUNIVEQFORM((Y,YY),FLLIBMODLIT(LibModWrap,(X,XX),Mod,Context)) :-
+fllibuniveqform_inner((Y,YY),FLLIBMODLIT(LibModWrap,(X,XX),Mod,Context)) :-
 	(LibModWrap == FL_LIBMOD ; LibModWrap == FL_TRANSLIBMOD),
         !,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,X,Mod,Context),Y),
-	FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,XX,Mod,Context),YY).
+	fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,X,Mod,Context),Y),
+	fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,XX,Mod,Context),YY).
 
-FLLIBUNIVEQFORM((Y;YY),FLLIBMODLIT(LibModWrap,(X;XX),Mod,Context)) :-
+fllibuniveqform_inner((Y;YY),FLLIBMODLIT(LibModWrap,(X;XX),Mod,Context)) :-
 	(LibModWrap == FL_LIBMOD ; LibModWrap == FL_TRANSLIBMOD),
         !,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,X,Mod,Context),Y),
-	FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,XX,Mod,Context),YY).
+	fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,X,Mod,Context),Y),
+	fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,XX,Mod,Context),YY).
 
-FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,(X,XX),Mod1,Context1),FLLIBMODLIT(LibModWrap,(Y,YY),Mod2,Context2)) :-
+fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,(X,XX),Mod1,Context1),FLLIBMODLIT(LibModWrap,(Y,YY),Mod2,Context2)) :-
 	(LibModWrap == FL_LIBMOD ; LibModWrap == FL_TRANSLIBMOD),
         !,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,X,Mod1,Context1),FLLIBMODLIT(LibModWrap,Y,Mod2,Context2)),
-	FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,XX,Mod1,Context1),FLLIBMODLIT(LibModWrap,YY,Mod2,Context2)).
+	fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,X,Mod1,Context1),FLLIBMODLIT(LibModWrap,Y,Mod2,Context2)),
+	fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,XX,Mod1,Context1),FLLIBMODLIT(LibModWrap,YY,Mod2,Context2)).
 
-FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,(X;XX),Mod1,Context1),FLLIBMODLIT(LibModWrap,(Y;YY),Mod2,Context2)) :-
+fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,(X;XX),Mod1,Context1),FLLIBMODLIT(LibModWrap,(Y;YY),Mod2,Context2)) :-
 	(LibModWrap == FL_LIBMOD ; LibModWrap == FL_TRANSLIBMOD),
         !,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,X,Mod1,Context1),FLLIBMODLIT(LibModWrap,Y,Mod2,Context2)),
-	FLLIBUNIVEQFORM(FLLIBMODLIT(LibModWrap,XX,Mod1,Context1),FLLIBMODLIT(LibModWrap,YY,Mod2,Context2)).
+	fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,X,Mod1,Context1),FLLIBMODLIT(LibModWrap,Y,Mod2,Context2)),
+	fllibuniveqform_inner(FLLIBMODLIT(LibModWrap,XX,Mod1,Context1),FLLIBMODLIT(LibModWrap,YY,Mod2,Context2)).
 
 
 %% FL_NEGLIBMOD - change ; to , and vice versa
-FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,(X,XX),Mod,Context),(Y;YY)) :-
+fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,(X,XX),Mod,Context),(Y;YY)) :-
         !,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,X,Mod,Context),Y),
-	FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,XX,Mod,Context),YY).
+	fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,X,Mod,Context),Y),
+	fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,XX,Mod,Context),YY).
 
-FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,(X;XX),Mod,Context),(Y,YY)) :-
+fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,(X;XX),Mod,Context),(Y,YY)) :-
         !,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,X,Mod,Context),Y),
-	FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,XX,Mod,Context),YY).
+	fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,X,Mod,Context),Y),
+	fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,XX,Mod,Context),YY).
 
-FLLIBUNIVEQFORM((Y,YY),FLLIBMODLIT(FL_NEGLIBMOD,(X;XX),Mod,Context)) :-
+fllibuniveqform_inner((Y,YY),FLLIBMODLIT(FL_NEGLIBMOD,(X;XX),Mod,Context)) :-
         !,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,X,Mod,Context),Y),
-	FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,XX,Mod,Context),YY).
+	fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,X,Mod,Context),Y),
+	fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,XX,Mod,Context),YY).
 
-FLLIBUNIVEQFORM((Y;YY),FLLIBMODLIT(FL_NEGLIBMOD,(X,XX),Mod,Context)) :-
+fllibuniveqform_inner((Y;YY),FLLIBMODLIT(FL_NEGLIBMOD,(X,XX),Mod,Context)) :-
         !,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,X,Mod,Context),Y),
-	FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,XX,Mod,Context),YY).
+	fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,X,Mod,Context),Y),
+	fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,XX,Mod,Context),YY).
 
-FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,(X,XX),Mod1,Context1),FLLIBMODLIT(FL_NEGLIBMOD,(Y;YY),Mod2,Context2)) :-
+fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,(X,XX),Mod1,Context1),FLLIBMODLIT(FL_NEGLIBMOD,(Y;YY),Mod2,Context2)) :-
         !,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,X,Mod1,Context1),FLLIBMODLIT(FL_NEGLIBMOD,Y,Mod2,Context2)),
-	FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,XX,Mod1,Context1),FLLIBMODLIT(FL_NEGLIBMOD,YY,Mod2,Context2)).
+	fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,X,Mod1,Context1),FLLIBMODLIT(FL_NEGLIBMOD,Y,Mod2,Context2)),
+	fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,XX,Mod1,Context1),FLLIBMODLIT(FL_NEGLIBMOD,YY,Mod2,Context2)).
 
-FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,(X;XX),Mod1,Context1),FLLIBMODLIT(FL_NEGLIBMOD,(Y,YY),Mod2,Context2)) :-
+fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,(X;XX),Mod1,Context1),FLLIBMODLIT(FL_NEGLIBMOD,(Y,YY),Mod2,Context2)) :-
         !,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,X,Mod1,Context1),FLLIBMODLIT(FL_NEGLIBMOD,Y,Mod2,Context2)),
-	FLLIBUNIVEQFORM(FLLIBMODLIT(FL_NEGLIBMOD,XX,Mod1,Context1),FLLIBMODLIT(FL_NEGLIBMOD,YY,Mod2,Context2)).
+	fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,X,Mod1,Context1),FLLIBMODLIT(FL_NEGLIBMOD,Y,Mod2,Context2)),
+	fllibuniveqform_inner(FLLIBMODLIT(FL_NEGLIBMOD,XX,Mod1,Context1),FLLIBMODLIT(FL_NEGLIBMOD,YY,Mod2,Context2)).
 
 
 %% Speed up the case of  nonvar1@Var1 ~ nonvar2@Var2
-FLLIBUNIVEQFORM(FLLIBMODLIT(WrapX,X,MX,_Context1),FLLIBMODLIT(WrapY,Y,MY,_Context2)) :-
+fllibuniveqform_inner(FLLIBMODLIT(WrapX,X,MX,_Context1),FLLIBMODLIT(WrapY,Y,MY,_Context2)) :-
 	WrapX \== FL_LIBMOD, WrapX \== FL_NEGLIBMOD, WrapX \== FL_TRANSLIBMOD,
 	WrapY \== FL_LIBMOD, WrapY \== FL_NEGLIBMOD, WrapY \== FL_TRANSLIBMOD,
         !,
@@ -470,49 +474,49 @@ FLLIBUNIVEQFORM(FLLIBMODLIT(WrapX,X,MX,_Context1),FLLIBMODLIT(WrapY,Y,MY,_Contex
 
 %% lists of formulas. Note: [a,b] ~ [A,B] fails because [] means flload
 %% when reified
-FLLIBUNIVEQFORM([],[]).
-FLLIBUNIVEQFORM([H1|T1],[H2|T2]) :-
+fllibuniveqform_inner([],[]).
+fllibuniveqform_inner([H1|T1],[H2|T2]) :-
 	!,
-	FLLIBUNIVEQFORM(H1,H2),
-	FLLIBUNIVEQFORM(T1,T2).
+	fllibuniveqform_inner(H1,H2),
+	fllibuniveqform_inner(T1,T2).
 
-FLLIBUNIVEQFORM(X,Y) :-
+fllibuniveqform_inner(X,Y) :-
 	nonvar(X), nonvar(Y),
 	is_naf_literal(X,XPosLit),
 	is_naf_literal(Y,YPosLit),
 	!,
-	FLLIBUNIVEQFORM(XPosLit,YPosLit).
+	fllibuniveqform_inner(XPosLit,YPosLit).
 
 %% should be after collect_libmodobj
 %% Handle \naf\naf ?X ~ ?Y
-FLLIBUNIVEQFORM(FLLIBNAFDELAY(X),Y) :-
+fllibuniveqform_inner(FLLIBNAFDELAY(X),Y) :-
 	is_naf_literal(X,XPos),
 	copy_term(XPos,XPos1),
 	FLORA_DELAY_CHECKER([XPos1],[]),
 	is_naf_literal(XPos1,XXPos),
 	!,
-	FLLIBUNIVEQFORM(XXPos,Y).
+	fllibuniveqform_inner(XXPos,Y).
 %% Handle ?X ~ \naf\naf ?Y
-FLLIBUNIVEQFORM(X,FLLIBNAFDELAY(Y)) :-
+fllibuniveqform_inner(X,FLLIBNAFDELAY(Y)) :-
 	is_naf_literal(Y,YPos),
 	copy_term(YPos,YPos1),
 	FLORA_DELAY_CHECKER([YPos1],[]),
 	is_naf_literal(YPos1,YYPos),
 	!,
-	FLLIBUNIVEQFORM(YYPos,X).
+	fllibuniveqform_inner(YYPos,X).
 
-FLLIBUNIVEQFORM(FLLIBNAFDELAY(X),FLLIBMODLIT(Wrap,Args,Mod,Ctxt)) :-
+fllibuniveqform_inner(FLLIBNAFDELAY(X),FLLIBMODLIT(Wrap,Args,Mod,Ctxt)) :-
 	!,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(FL_LIBMOD,FLLIBNAFDELAY(X),_,_),
+	fllibuniveqform_inner(FLLIBMODLIT(FL_LIBMOD,FLLIBNAFDELAY(X),_,_),
 			FLLIBMODLIT(Wrap,Args,Mod,Ctxt)).
-FLLIBUNIVEQFORM(FLLIBMODLIT(Wrap,Args,Mod,Ctxt),FLLIBNAFDELAY(X)) :-
+fllibuniveqform_inner(FLLIBMODLIT(Wrap,Args,Mod,Ctxt),FLLIBNAFDELAY(X)) :-
 	!,
-	FLLIBUNIVEQFORM(FLLIBMODLIT(Wrap,Args,Mod,Ctxt),
+	fllibuniveqform_inner(FLLIBMODLIT(Wrap,Args,Mod,Ctxt),
 			FLLIBMODLIT(FL_LIBMOD,FLLIBNAFDELAY(X),_,_)).
 	
 
 %% Speed up the case of nonvar1@nonvarmod1 ~ nonvar2@nonvarmod2
-FLLIBUNIVEQFORM(X,Y) :-
+fllibuniveqform_inner(X,Y) :-
 	X \= FLLIBMODLIT(_,_,_,_),
 	Y \= FLLIBMODLIT(_,_,_,_),
 	!,
@@ -530,7 +534,7 @@ FLLIBUNIVEQFORM(X,Y) :-
         univeqform_list(XList,YList).
 
 %% Common (expensive) case
-FLLIBUNIVEQFORM(X,Y) :-
+fllibuniveqform_inner(X,Y) :-
         flora_check_dynmod_type_consistency(X),
         flora_check_dynmod_type_consistency(Y),
 	get_canonical_form(X,FLCANON(Wrap1,Args1,Mod1,Callable1,TableFlag1)),
@@ -584,7 +588,7 @@ FLLIBUNIVEQFORM(X,Y) :-
 
 univeqform_list([],[]) :- !.
 univeqform_list([H1|L1], [H2|L2]) :-
-        FLLIBUNIVEQFORM(H1,H2),
+        fllibuniveqform_inner(H1,H2),
         univeqform_list(L1,L2).
 
 /******************************************************************************
@@ -603,7 +607,7 @@ FLLIBMETAUNIV(X,Y) :-
                 Y = [WRAP_HILOG(hilog,HiLogFunctorName)|FunctorArgsStripped]
             ; is_naf_literal(X,PosLit) ->
                 Y = [WRAP_HILOG(FL_NEGATION,naf),YPosLit],
-                FLLIBUNIVEQFORM(PosLit,YPosLit)
+                fllibuniveqform_inner(PosLit,YPosLit)
             ; is_hypothetical(FullWrapper,_) ->
                 Args = [HypoOp|Goal],
                 Y = [WRAP_HILOG(FL_HYPOTHETICAL,HypoOp)|Goal]

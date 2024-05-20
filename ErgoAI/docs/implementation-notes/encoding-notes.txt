@@ -1,0 +1,163 @@
+
+ENCODING OF HiLog TERMS vs. HiLog PREDICATES, FRAMES, etc.
+==========================================================
+
+NO. For instance, put this in ex.ergo
+
+   ?-   example(term(?X), ${pred(?Y)}).
+
+
+Compile and go to .ergo_aux_files/ex.pl, l. 340.
+
+You'll see that the 1st arg is encoded simply as
+
+flapply(term,__X)
+
+ie, the usual HiLog encoding. The second argument is encoded as.
+
+FLORA_THIS_WORKSPACE(d^tblflapply)(pred,__Y,'_$ctxt'(__newcontextvar1,__newcontextvar3,__newcontextvar2))
+
+
+Ignoring the 3d context arg, the functor here is
+FLORA_THIS_WORKSPACE(d^tblflapply), which is a Gpp macro that expands into
+something that contains the ergo module of that predicate plus a prefix
+that is supposed to make the predicate name unique within XSB. In our case,
+it'll be something like
+
+   _$_$_ergo'mod'main'd^tblflapply
+
+assuming the current Ergo module is main. In other words, HiLog predicates
+are also encoded in the usual HiLog style, but the wrapper functor is
+different: it is relative to the Ergo module in which the predicate is
+defined ('main' in our example) and it has an extra argument that is used
+to keep tracing information.
+
+   - d^ means this predicate appears in rule bodies. Because of the strict
+     distinction between dynamic and static preds in XSB, Ergo is forced to
+     use several different prolog predicates for the same ergo predicate +
+     the rules ensuring proper plumbing to connect these to one
+     another. (This distinction is a MAJOR complication imposed by the xsb
+     arch.)  This plumbing is explained in a diagram in 
+     docs/implementation-notes/predicate-dependency.txt and the prefixes
+     mentioned there (implemented as Gpp macros) are defined  via the Gpp
+     macros in flrincludes/flora_prefix.flh.
+
+   - tblflapply means that the above _$_$_ergo'mod'main'd^tblflapply/3 is
+     going to be declared (in Ergo) as tabled. This naming is just intended
+     to help with debugging.
+
+Note that things like flapply(term,__X) are never truth-valued and
+attempting to exec them results in an error. So, in Ergo there is a
+distinction between things that have truth values (their wrapper
+functors look like _$_$_ergo'mod'main'd^tblflapply,
+_$_$_ergo'mod'main'd^mvd, _$_$_ergo'mod'main'd^tran, etc) and terms. It
+is easy to see how things are encoded in rule bodies like this:
+
+ergo> ?XX= ${o[at->?Y]}, writeln(?XX)@\plg.
+_$_$_ergo'mod'main'd^mvd(o,at,_h3257,_$ctxt(_h3276,_h3288,_h3300))
+
+ergo> ?XX= ${o[at->?Y]@foobar}, writeln(?XX)@\plg.
+_$_$_ergo'mod'foobar'd^mvd(o,at,_h10596,_$ctxt(_h10615,_h10627,_h10639))
+
+ergo> ?XX= ff(aa,bb), writeln(?XX)@\plg.
+flapply(ff,aa,bb)
+
+ENCODING OF RULES
+=================
+
+Here is a complex one, a reified rule:
+
+ergo> ?XX= ${pp(?X) :- qq(?X)}, writeln(?XX)@\plg.
+flsysruleupdate(_h5328,_h5340,usermod : _$_$_ergo'descr_vars,_h5364,[usermod : _$_$_ergo'prop_descriptor(_h5328,_h5340,_h5404,type,rule,usermod : _$_$_ergo'descr_vars),usermod : _$_$_ergo'tag_descriptor(_h5328,_h5340,_h5404,_h5328,usermod : _$_$_ergo'descr_vars),usermod : _$_$_ergo'rule_enabled(_h5328,_h5340,_h5535),usermod : _$_$_ergo'bool_descriptor(_h5328,_h5340,_h5404,strict,usermod : _$_$_ergo'descr_vars)],[_$_$_ergo'mod'main'd^tblflapply(pp,_h5640,_$ctxt(_h5659,_h5328,_h5678))],_$_$_ergo'mod'main'd^tblflapply(qq,_h5640,_$ctxt(main,_h5897,_h5328)),_h5938,_h5950,true,[null],[null],usermod : _$_$_ergo'rule_enabled(_h5328,_h5340,_h6018),[_h6047],true)
+
+That is, a reified rule is encoded via a flsysruleupdate data structure
+that describes all aspects of a rule to be inserted into a KB. This kind
+of complex encoding is the reason why, unlike in Prolog, Ergo needs a
+specialized meta-unification op:
+
+ergo> ?XX= ${pp(?X) :- qq(?X)}, ?XX ~ (?H :- ?B).
+
+?XX = ${(pp(?_h9625) :- qq(?_h9625)@main)@main}
+?X = ?_h9625
+?H = ${pp(?_h9625)@main}
+?B = ${qq(?_h9625)@main}
+
+In this way you can get an idea about encoding dynamically inserted rules:
+
+ergo> ?XX= ${pp(?X) :- qq(?X)}, ?XX ~ (?H :- ?B), writeln(head=?H)@\plg, writeln(body=?B)@\plg.
+
+head = _$_$_ergo'mod'main'tblflapply(pp,_h10049,_h11691)
+body = _$_$_ergo'mod'main'd^tblflapply(qq,_h10049,_$ctxt(main,_h10159,_h9737))
+
+For encoding of the static ruleheads (i.e., the heads of the rules placed
+in files as opposed to the rules asserted at runtime), you have to look in
+.ergo_aux_files/example.pl, if the Ergo program file is example.ergo.
+Here is an encoding for  a very simple rule pred(?X) :- pred(?X):
+
+    :-(FLORA_THIS_WORKSPACE(static^tblflapply)(pred,__X,'_$ctxt'(_CallerModuleVar,4,__newcontextvar1)),','('_$_$_ergo''rule_enabled'(4,'ex.ergo',FLORA_THIS_MODULE_NAME),FLORA_THIS_WORKSPACE(d^tblflapply)(pred,__X,'_$ctxt'(FLORA_THIS_MODULE_NAME,__newcontextvar2,4)))).
+
+Note that the head of the rule is using the wrapper
+FLORA_THIS_WORKSPACE(static^tblflapply) while the body encodes pred/1 as
+FLORA_THIS_WORKSPACE(d^tblflapply).  Because we assume that the rule
+pred(?X) :- pred(?X) is coming from a file, ie, is static, the head is
+named using the static^tblflapply kind of a wrapper to distinguish it from
+the wrappers used for dynamically asserted rules. (Earlier we explained
+that XSB requires that the heads of static and dynamic rules must employ
+different predicates.)
+Ergo plumbing, mentioned earlier, connects
+FLORA_THIS_WORKSPACE(d^tblflapply) to both dynamic and static rule-heads,
+ensuring that the d^tblflapply type wrappers are fed with the right kind of
+info.  That plumbing is documented via a chart in
+docs/implementation-notes/predicate-dependency.txt
+
+Note that flsysruleupdate above indicates what kind of descriptive info
+gets inserted along with each dynamic rule.
+
+For static rules, that descriptive info is stored in
+.ergo_aux_files/filename.flm and is loaded into xsb together with the
+static rules themselves by a loading routine in flrutils.P.
+
+DYNAMIC RULES
+=============
+
+Static rules are written in files that are LOADED into modules.
+Recall that loading erases the previous content of the module, so,
+effectively, only one file can be loaded into any module.
+The loaded rules cannot be deleted except by wiping the module clean
+out. To expand the rule loaded into a module, one can insert more rules or
+we can ADD more files to modules. The inserted rules can also be deleted.
+Reified rules are also dynamic because their main purpose is to use
+them in insert and delete operations.
+
+From Ergo's point of view, there is not much of a difference between
+dynamic and static rules. True, static rules cannot be deleted but all rules
+can be disabled, which functionally is the same as deletion.
+However, XSB sharply distinguishes between static and dynamic rules, which
+necessitates that Ergo compiles such rules differently. 
+
+An Ergo file, e.g., ex.ergo, that is ADDED to a module (say, via
+[+ex>>foobar]) is compiled into a sequence of insertrule commands. To see
+the details, put 
+
+rhead(?X) :- rbody(?X).
+
+in ex.ergo and then execute [+ex>>foobar] in the ergo shell. The compiled
+code will be in .ergo_aux_files/ex#for_add.pl. The compiled code is
+
+?- fllibinsertrule_z(FLORA_THIS_MODULE_NAME,[flsysruleupdate(__newvar1,dynrule('ex.ergo'),'_$_$_ergo''descr_vars',3,['_$_$_ergo''prop_descriptor'(__newvar1,dynrule('ex.ergo'),FLORA_THIS_MODULE_NAME,type,rule,'_$_$_ergo''descr_vars'),'_$_$_ergo''tag_descriptor'(__newvar1,dynrule('ex.ergo'),FLORA_THIS_MODULE_NAME,__newvar1,'_$_$_ergo''descr_vars'),'_$_$_ergo''rule_enabled'(__newvar1,dynrule('ex.ergo'),FLORA_THIS_MODULE_NAME),'_$_$_ergo''bool_descriptor'(__newvar1,dynrule('ex.ergo'),FLORA_THIS_MODULE_NAME,strict,'_$_$_ergo''descr_vars')],[FLORA_THIS_WORKSPACE(d^tblflapply)(rhead,__X,'_$ctxt'(_DynRuleCallerModuleVar,__newvar1,__newcontextvar2))],FLORA_THIS_WORKSPACE(d^tblflapply)(rbody,__X,'_$ctxt'(FLORA_THIS_MODULE_NAME,__newcontextvar5,__newvar1)),__newvar3,__newvar4,true,[null],[null],'_$_$_ergo''rule_enabled'(__newvar1,dynrule('ex.ergo'),FLORA_THIS_MODULE_NAME),[null],true)]).
+
+where we omitted several put_attr commands at the beginning to keep the
+focus. These commands create attributed variables that are used at the
+execution time to issue the warnings about unique and unsafe variables.  We
+see that the rule is encoded as insertrule_z{...} command applied
+to the already mentioned flsysruleupdate data structure that we have
+already seen while discussing reified rules.
+
+Ergo also has the insertrule_a{...}, insertrule{...} commands, analogous to
+Prolog.  All the insertrule* commands accept lists of rules where each rule
+must be placed between a pair of parentheses.  Single rules can also be
+inserted using the insert{...} command, which is interpreted as
+insertrule{...}. The insertrule* commands are implemented in
+syslib/flrdynrule.P.
+
+

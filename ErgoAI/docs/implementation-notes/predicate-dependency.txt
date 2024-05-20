@@ -1,0 +1,104 @@
+
+                    Predicate dependencies in FLORA-2
+                    =================================
+
+Note: all *.fli source files here indicate where the particular plumbing
+rule comes from. The makeergo shell script, among other things, processes
+the .fli files into .flh files where many macros are replaced with their
+definitions.  The Ergo code actually includes .flh, not .fli, but as
+preprocessed code, .flh is hard to read and writing/modifying it by hand is
+hard and error-prone.  This is why the code containing a lot of gpp macros
+is appears in .fli files.
+
+In the diagram, Wrap refers to one of the wrappers used to encode various
+F-logic constracts.
+
+Partial list of the Prolog wrapper types used to encode the extended F-logic
+----------------------------------------------------------------------------
+mvd:  ->, an attribute-value pair in a frame
+tblflapply: tabled hilog predicate
+nontblflapply: transactional predicate
+meth: Boolean method        obj[foo(...)]
+tran: transactional method  obj[%foo(...)]
+exists: things like p[]
+isa:  a:b
+sub:  a::b
+imvd:  =>
+imvdcon:
+...
+
+
+                            flrcommon.fli
+                            flrpredeql.fli
+                            flrprednoeql.fli
+                            flrpredeql.fli
+                                 :
+                                 :
+                                 :
+                                 v
+FLTRAILERPREFIX: inferred^Wrap <--- FLHEADPREFIX: derived^Wrap
+       |                                 ^
+       |                                /|\
+       |                                 |
+       |             flrpatch.fli ....>  |
+       |                                 |
+       |                                 +<---flora_db_find_base
+       |                                 |      (FLORA_THIS_FDB_STORAGE,
+       |                                 |       FLORA_THIS_WORKSPACE(Wrap))
+       |              flrdyna.fli ....>  |
+       |                                 |
+       |                                 +<--- FLDYNAPREFIX: dyna^Wrap
+       |                                 |
+       |              flrdynz.fli ....>  |
+       |                                 |
+       |       from the compiler ....    +<--- FLDYNZPREFIX: dynz^Wrap
+       |                            :    |
+       | <---- flrcommon_pred.fli   :..> |
+       |       flrnoeqltrailer.fli       +---- FLBodyPREFIX: d^Wrap <------ Wrap
+       |       flreqltrailer.fli                 ^                     ^     ^
+       |                                        /|\                    :    /|\
+       |                                         |                     :     |
+       +-----------------------------------------+---------------------:-----+
+                                                 |                     :
+                                                 |                     :
+                     flrpreddef.fli ...................................:
+                          :      :               |
+                          :      :               |           flrpreddef.fli
+                          :      :               |                 :
+                          v      :               |                 :
+       +-------------------------:---------------+                 :
+       |                         :                                 :
+       |                         v                                 :
+FLUndefinedPREFIX: undef^Wrap <------------- FLDefinedPREFIX: defined^Wrap
+                                                ^                  :
+                                               /|\                 :
+                                                |                  :
+                                                |<.................:
+                                                |
+                                                |
+                                flora_db_find_base(FLORA_THIS_FLD_STORAGE,
+                                                   FLORA_THIS_WORKSPACE(Wrap))
+                                                |
+                         flrhead_dispatch.fli   | <----- fltpatch.fli
+                                   |            |
+                                   v            v
+    FLHEADPREFIX: derived^Wrap  <---------- FLSTATIC_HEAD_PREFIX: static^Wrap 
+                         ^         |
+                         |         v
+                         +----------------  FLDYNZPREFIX: dynz^Wrap
+                                            FLDYNAPREFIX: dynz^Wrap
+
+FLTRAILERPREFIX:     inferred^
+FLHEADPREFIX:        derived^
+FLDYNAPREFIX:        dyna^
+FLDYNZPREFIX:        dynz^
+FLBodyPREFIX:        d^
+FLDefinedPREFIX:     defined^
+FLUndefinedPREFIX:   undef^
+FLSTATIC_HEAD_PREFIX: static^
+
+FLNEGTRAILERPREFIX:  neg^inferred^
+FLNEGHEADPREFIX:     neg^derived^
+FLNEGDYNAPREFIX:     neg^dyna^
+FLNEGDYNZPREFIX:     neg^dynz^
+FLNEGBodyPREFIX:     neg^d^
