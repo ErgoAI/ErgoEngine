@@ -2881,7 +2881,7 @@ varlist_left_membercheck([_|Tail],VarList,Var2) :-
 
 
 /*****************************************************************************
-             remove_FL_CONTEXT_vars(+InList,-OutList)
+             remove_FL_CONTEXT_prvars(+InList,-OutList)
              remove_prvars(+InList,-OutList)
       Removes all the do not care variables from InList.
       InList can be a list of parser or compiler vars.
@@ -2909,6 +2909,9 @@ remove_silent_flvars([H|T1],T2) :-
 remove_silent_flvars([H|T1],[H|T2]) :-
 	remove_silent_flvars(T1,T2).
 
+remove_FL_CONTEXT_flvars(InVars,OutVars) :-
+	remove_flvars(NEWFLCONTEXTVAR,InVars,OutVars).
+
 remove_prvars(_,[],[]) :- !.
 remove_prvars(Prefix,[H|T1],T2) :-
 	%% new vars are all prvar structures
@@ -2920,11 +2923,22 @@ remove_prvars(Prefix,[H|T1],T2) :-
 remove_prvars(Prefix,[H|T1],[H|T2]) :-
 	remove_prvars(Prefix,T1,T2).
 
+remove_flvars(_,[],[]) :- !.
+remove_flvars(Prefix,[H|T1],T2) :-
+	%% new vars are all prvar structures
+	is_any_flvar(H,Var,_I),
+	%% must be before the cut!!!
+	flora_match_substring(Prefix,Var,0), %% starts with Prefix
+	!,
+	remove_flvars(Prefix,T1,T2).
+remove_flvars(Prefix,[H|T1],[H|T2]) :-
+	remove_flvars(Prefix,T1,T2).
+
 /*
 remove_prdontcare_vars(InVars,OutVars) :-
 	remove_prvars(NEWDONTCAREVAR,InVars,OutVars).
 */
-remove_FL_CONTEXT_vars(InVars,OutVars) :-
+remove_FL_CONTEXT_prvars(InVars,OutVars) :-
 	remove_prvars(NEWFLCONTEXTVAR,InVars,OutVars).
 
 remove_quantified_vars(InVars,OutVars) :-
@@ -6004,7 +6018,7 @@ compile_rule(Head,Body,DescriptorIdCode,DescrVarsTerm,RuleList-RuleTail,SigDiffL
 	    compile_body_top(Body,BCode,BodyStatus),
 	    ( no_errors_found(BodyStatus) ->
 		make_datatype_vars_code(BCode,BodyDTvarscode),
-		delay_literals_checking_code_list(HeadNF,Body,DescrVarsTerm,DelayCheckCodeList),
+		delay_literals_checking_code_list(HeadCode,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,DelayCheckCodeList),
 		construct_rule_enabling_test(DescriptorIdCode,FL_DESCRMODE_RULE,RuleEnablerTest,_),
 		PreBody = RuleEnablerTest,
 		PostBodyList = DelayCheckCodeList,
@@ -6157,7 +6171,7 @@ construct_static_defeasible_condition(HeadCode,DescrIdCode,DescrVarsTerm,Delayed
 			      DefeatCondCode),
 	    %% wrap up for delaying the defeasible condition
 	    collect_prvars(HeadCode,HeadCodeVars1),
-	    remove_FL_CONTEXT_vars(HeadCodeVars1,HeadCodeVars),
+	    remove_FL_CONTEXT_prvars(HeadCodeVars1,HeadCodeVars),
 	    vars_to_var_names(HeadCodeVars,HeadCodeVarNames),
 	    list_struct(HeadCodeVars,[],HeadCodeVarsStruct),
 	    list_struct(HeadCodeVarNames,[],HeadCodeVarNamesStruct),
@@ -7428,7 +7442,7 @@ compile_delayquant(Quant,ConditionWS,Goal,Index,SpecCode,BodyFrontList,Status):-
 ****************************************************************************/
 compile_aggregate(Op,AggVar,GVars,SortSpec,BodyTerm,Object,Code,Status) :-
 	compile_body(BodyTerm,BodyPureCode,S),
-	delay_literals_checking_code([],BodyTerm,FL_DESCRIPTOR_VARS_WRAPPER,DelayCheckCode),
+	delay_literals_checking_code([],BodyTerm,[],[],FL_DESCRIPTOR_VARS_WRAPPER,DelayCheckCode),
 	PostBody = DelayCheckCode,
 	(is_prvariable(PostBody) -> BCode = BodyPureCode
 	; conjunct_struct(BodyPureCode,PostBody,BCode)
@@ -10204,7 +10218,7 @@ compile_head_pathexp(ParserTerm,_WS,Object,NULL,H2BCodeFront,NULL,Status) :-
 	is_reifyop(ParserTerm,Formula),
 	!,
 	%% Code: code to get Object
-	/* We push fllibmodobj creating reified statement
+	/* We push fllibmodobj, creating a reified statement,
 	   to the body. This allows us to have reified statements with
 	   var module in the head. For instance,
 	    p(${a(?X)@?M}) :- a(?X,?M).
@@ -10899,7 +10913,7 @@ compile_insert_litlist([HWS|T],Code,Status) :-
 		prconjunct2list(HeadCode,HCode),
 		list_struct(HCode,[],HeadCodeList),
 		%% only the vars in the fact-term are to be checked
-		delay_literals_checking_code([],H,DescrVarsTerm,DelayCheckCode),
+		delay_literals_checking_code([],H,H2BCodeFront,H2BCodeBack,DescrVarsTerm,DelayCheckCode),
 		%% CHECK!!!!! Rule enabler for facts-turned-rules?
 		construct_rule_enabling_test(DescrIdCode,FL_DESCRMODE_DYNRULE,RuleEnablerTest,FileName),
 		PreBody = RuleEnablerTest,
@@ -11340,7 +11354,7 @@ compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,Rul
                     ; true
                     )
 		),
-		delay_literals_checking_code_list(HeadNF,Body,DescrVarsTerm,DelayCheckCodeList),
+		delay_literals_checking_code_list(HeadCode,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,DelayCheckCodeList),
 		PreBody = RuleEnablerTest,
 		PostBody = DelayCheckCodeList,
 		list_struct(PostBody,[],PostBodyList),
@@ -11856,27 +11870,34 @@ is_unimplemented_neg_negatable_literal(X) :-
 
 %% This check is done at the end of every rule to see if some of the 
 %% delayed conditions can be evaluated and simplified.
-%% delay_literals_checking_code(+Head,+Body,+DescrVarsTerm,-Code)
+%% delay_literals_checking_code(+Head,+Body,+H2BCodeFront,+H2BCodeBack,+DescrVarsTerm,-Code)
 %% Head & Body are FL code. DescrVarsTerm is PR code
 %% CONSIDER SWITCHING TO PR-CODE, as in delay_checking_code_for_rulelog_naf/2
-delay_literals_checking_code_list([],_Body,_DescrVarsTerm,[]) :- !.
-delay_literals_checking_code_list([H|Rest],Body,DescrVarsTerm,[HC|RestC]) :-
-	delay_literals_checking_code(H,Body,DescrVarsTerm,HC),
-	delay_literals_checking_code_list(Rest,Body,DescrVarsTerm,RestC).
-delay_literals_checking_code(Head,_Body,_DescrVarsTerm,NULL) :-
+delay_literals_checking_code_list([],_Body,_H2BCodeFront,_H2BCodeBack,_DescrVarsTerm,[]) :- !.
+delay_literals_checking_code_list([H|Rest],Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,[HC|RestC]) :-
+	delay_literals_checking_code(H,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,HC),
+	delay_literals_checking_code_list(Rest,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,RestC).
+delay_literals_checking_code(Head,_Body,_H2BCodeFront,_H2BCodeBack,_DescrVarsTerm,NULL) :-
 	%% should not add delay-checker to sensor rules
 	is_defined_as_sensor(Head),
 	!.
-delay_literals_checking_code(Head,Body,DescrVarsTerm,Code) :-
-	collect_flvars(Head,HeadVars1),
+delay_literals_checking_code(Head,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,Code) :-
+	collect_prvars(Head,HeadPrVars),
 	collect_flvars(Body,BodyVars1),
+        collect_prvars(H2BCodeFront,BodyPrVarsFront),
+        collect_prvars(H2BCodeBack,BodyPrVarsBack),
+	prvar_to_flvar_struct_list(HeadPrVars,HeadFlVars0),
+	prvar_to_flvar_struct_list(BodyPrVarsFront,BodyVars0),
+	prvar_to_flvar_struct_list(BodyPrVarsBack,BodyVars2),
 	%% DescrVarsTerm is a pr-object, so use collect_prvars
 	collect_prvars(DescrVarsTerm,DescrPrvars),
 	prvar_to_flvar_struct_list(DescrPrvars,DescrFlvars),
 	%% BodyVars2 now contains descriptor vars
-	append(BodyVars1,DescrFlvars,BodyVars2),
-	remove_dupflvars(HeadVars1,HeadVars),
-	remove_dupflvars(BodyVars2,BodyVars),
+	append_lists([BodyVars0,BodyVars1,BodyVars2,DescrFlvars],BodyFlVars0),
+        remove_FL_CONTEXT_flvars(HeadFlVars0,HeadFlVars2),
+	remove_dupflvars(HeadFlVars2,HeadVars),
+        remove_FL_CONTEXT_flvars(BodyFlVars0,BodyFlVars2),
+	remove_dupflvars(BodyFlVars2,BodyVars),
 	(has_context(CONTEXT_COMPILER_RULE_REIFICATION),
 	    has_context(CONTEXT_COMPILER_BODY_PATHEXP)
 	-> %% use new flvariables
@@ -11900,7 +11921,7 @@ delay_literals_checking_code(Head,Body,DescrVarsTerm,Code) :-
 	!.
 
 %% delay_checking_code_for_rulelog_naf(+PRBody,-Code)
-%% This is like delay_literals_checking_code/4 but is used only for the
+%% This is like delay_literals_checking_code/6 but is used only for the
 %% inside of FLORA_NAF_PREDICATE. It takes PR-code as argument, not FL-code
 delay_checking_code_for_rulelog_naf(PRBody,Code) :-
 	collect_prvars(PRBody,PRBodyVars),

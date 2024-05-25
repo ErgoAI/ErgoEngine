@@ -2268,10 +2268,49 @@ automatically converts arbitrary terms to their printable form.
 \index{logical operator}
 \index{operator!logical}
 %%
-When dealing with arithmetic expressions, the order of literals is
+When dealing with some types of expressions, the order of literals is
 \emph{sometimes} important.
+For instance, consider
+%% 
+\begin{verbatim}
+   ergo>  ?x == a, ?x = a.
+   No
+   ergo>  ?x = a, ?x == a.
+   Yes
+\end{verbatim}
+%% 
+The first order returns \texttt{No}  because when \texttt{?x} is compared against
+\texttt{a} there, \texttt{?x} is an unbound variable, i.e., different from
+\texttt{a}.     
+In contrast,
+%% 
+\begin{verbatim}
+    ergo>  ?x=66, ?x>9.
+    Yes
+    ergo>  ?x>9,  ?x=66.
+    Yes
+\end{verbatim}
+%% 
+The first case is clear: \texttt{?x} is bound to 66 and 66 is greater than
+9, but why does the opposite order of subgoals succeed as well? The reason
+is that  \texttt{>}, \texttt{!-}, and some other operators listed below
+attempt to behave ``logically'' i.e., pretend that \texttt{?x>9,  ?x=66} is
+a logical conjunction and the operands in a conjunction commute. To achieve
+this effect, \FLSYSTEM \texttt{delays}   the evaluation of \texttt{?x>9} until
+\texttt{?x}  gets bound. If \texttt{?x} does not become bound or gets bound
+to a non-number, an error is thrown.
+Some other operators behave differently when 
+an operand there remains unbound. For instance, if \texttt{?x} in
+\texttt{?x != o} remains unbound, a warning is issued and the expression is
+evaluated to ``undefined''.
+Because of these non-logical effects in the edge situations (errors,
+warnings, undefinedness), we call such operators \emph{semi-logical}. 
+\label{pg-semi-logical}
+  
+
+\index{semi-logical operator}
 The comparison and evaluation operators for which the order is unimportant
-(the \emph{logical} operators)  are:
+(the \emph{semi-logical} operators)  are:
 %% 
 \begin{itemize}
 \item  \texttt{>}, \texttt{<}, \texttt{=<}, \texttt{>=}
@@ -14231,20 +14270,30 @@ such as:
     \texttt{price(?x,...)}  will always be called with \texttt{?x} bound. 
   }
 %%
-  On the other hand,
+  Pure logical behavior cannot be guaranteed even if one uses the
+  semi-logical operator\footnote{
+    See page~\pageref{pg-semi-logical} for a discussion of semi-logical
+    operators.
+  }
+  %% 
+  \texttt{!=} instead of $\bs{}=$:
   %% 
 \begin{verbatim}
       \opposes(price(?x,?p1),price(?x,?p2)) :- ?p1 != ?p2.
 \end{verbatim}
   %% 
-  is likely to work fine because \texttt{!=} is delayed until both
-  arguments become bound. Generally, \texttt{!=} and \texttt{!==} are
-  slower but safer and more declarative
-  than \texttt{\bs{}=} and  \texttt{\bs{}==} because their evaluation is
-  delayed when necessary and they are not that dependent on their position
-  in the rule body. The comparison operators $<$, $>$, etc., as well as the
-  \texttt{\bs{}is} operator are also generally safe, \emph{if} their
-  arguments get bound eventually.  
+  This replacement is still unlikely to work even though \texttt{!=} is delayed until both
+  arguments become bound. This is so because \texttt{?p1} or \texttt{?p2}
+  might not get bound nevertheless.
+  %%Generally, \texttt{!=} and \texttt{!==} are slower but safer and more declarative
+  %%than \texttt{\bs{}=} and  \texttt{\bs{}==} because their evaluation is
+  %%delayed when necessary and they are not that dependent on their position
+  %%in the rule body.
+  This holds true also for the semi-logical comparison operators $<$, $>$,
+  etc., as well as for the
+  \texttt{\bs{}is} operator. That is, they are
+  safe \emph{only} \emph{if} their
+  arguments are guaranteed to get bound \emph{eventually}.  
 \end{itemize}
 %%
 

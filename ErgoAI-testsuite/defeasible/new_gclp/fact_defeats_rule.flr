@@ -1,4 +1,6 @@
 
+:- symbol_context{propertyfoo/2, propertyfoo(?,?)@?}.
+
 :- use_argumentation_theory.
 
 @{iszero}
@@ -6,7 +8,12 @@ propertyfoo(?x, 0) :- thingie(?x).
 
 \opposes(propertyfoo(?x, ?y1), propertyfoo(?x, ?y2) ) :-
         thingie(?x),
+        any_candidate(${propertyfoo(?x,?y1)}),
+        any_candidate(${propertyfoo(?x,?y2)}),
         ?y1 != ?y2.
+any_candidate(?C) :- candidate(?,?C)@\gcl.
+any_candidate(?C) :- strict_candidate(?,?C)@\gcl.
+any_candidate(?C) :- isbasefact{?C}.
 
 thingie(T14).
 
