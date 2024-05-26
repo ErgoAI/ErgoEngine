@@ -163,22 +163,32 @@ WRAP_IMVDINC(O,M,[H|T],FL_CONTEXT(Caller,_,_)) :-
         (2) These two predicates are not tabled.
 ****************************************************************************/
 WRAP_MVDTOLIST(O,M,L,FL_CONTEXT(Caller,_,_)) :-
-	WRAP_MVDDEF(O,M,FL_CONTEXT(Caller,_,_)),
-	findall(V,WRAP_MVD(O,M,V,FL_CONTEXT(Caller,_,_)),L_pre),
-        sort(L_pre,L).
+	%%WRAP_MVDDEF(O,M,FL_CONTEXT(Caller,_,_)),
+	%%findall(V,WRAP_MVD(O,M,V,FL_CONTEXT(Caller,_,_)),L_pre),
+        %%sort(L_pre,L).
+        ensure_loaded(flraggcolset),
+        (FLLIBCOLLECTSET(V,[O,M],[],WRAP_MVD(O,M,V,FL_CONTEXT(Caller,_,_)),L)
+        -> true
+        ; L = []
+        ).
 
 %% We want to return [] if method is undefined. Must use not_exists/1 here,
-%% NOT Flora-2's FLORA_NAF_EXISTS, as the latter tends to yield undefinedness
+%% NOT Ergo's FLORA_NAF_EXISTS, as the latter tends to yield undefinedness
 WRAP_MVDTOLIST(O,M,[],_) :- tables:not_exists(WRAP_MVDDEF(O,M,_)).
 
 
 WRAP_IMVDTOLIST(O,M,L,FL_CONTEXT(Caller,_,_)) :-
-	WRAP_IMVDDEF(O,M,FL_CONTEXT(Caller,_,_)),
-	findall(V,WRAP_IMVD(O,M,V,FL_CONTEXT(Caller,_,_)),L_pre),
-        sort(L_pre,L).
+	%%WRAP_IMVDDEF(O,M,FL_CONTEXT(Caller,_,_)),
+	%%findall(V,WRAP_IMVD(O,M,V,FL_CONTEXT(Caller,_,_)),L_pre),
+        %%sort(L_pre,L).
+        ensure_loaded(flraggcolset),
+        (FLLIBCOLLECTSET(V,[O,M],[],WRAP_IMVD(O,M,V,FL_CONTEXT(Caller,_,_)),L)
+        -> true
+        ; L = []
+        ).
  
 %% We want to return [] if method is undefined. Must use not_exists/1 here,
-%% NOT Flora-2's FLORA_NAF_EXISTS, as the latter tends to yield undefinedness
+%% NOT Ergo's FLORA_NAF_EXISTS, as the latter tends to yield undefinedness
 WRAP_IMVDTOLIST(O,M,[],_) :- tables:not_exists(WRAP_IMVDDEF(O,M,_)).
 
 
