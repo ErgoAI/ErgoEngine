@@ -40,6 +40,7 @@
 :- compiler_options([xpp_on]).
 #mode standard Prolog
 
+#include "biassert_defs.h"
 #include "flora_terms.flh"
 
 :- export
@@ -48,7 +49,8 @@
 	sub_compound/4,
 	sub_compound_eq/5,
 	ground_memberchk/1,
-	static_pred_has_clauses/2,
+	flrstatic_pred_has_clauses/2,
+        flrdynamic_pred_has_clauses/2,
 	list_isa_eq/4,
 	is_native/1,
         is_quasi_var/1,
@@ -211,7 +213,7 @@ is_native(X) :- flrstorageutils:FL_ISBASEFACT(X).
 
 /*
 %% this one causes gpmanager_test.flr to loop forever
-static_pred_has_clauses(Call,YesNo) :-
+flrstatic_pred_has_clauses(Call,YesNo) :-
     	functor(Call,F,Arity),
 	(current_predicate(F/Arity) -> YesNo=1
 	; YesNo=0
@@ -221,10 +223,17 @@ static_pred_has_clauses(Call,YesNo) :-
 #include "psc_defs.h"
 :- import term_psc/2, psc_type/2 from machine.
 
-static_pred_has_clauses(Term,N):-
+%%:- table flrstatic_pred_has_clauses/2.
+flrstatic_pred_has_clauses(Term,N):-
     term_psc(Term,Psc),
     psc_type(Psc,Type),
     (Type == T_PRED -> N = 1 ; N = 0).
+
+%% copied from XSB for experimentation
+:- import dynamic_code_function/5 from machine.
+%%:- table flrdynamic_pred_has_clauses/2.
+flrdynamic_pred_has_clauses(Head,Has_Clauses) :-
+    dynamic_code_function(DYNAMIC_PRED_HAS_CLAUSES,Head,Has_Clauses,dynamic_pred_has_clauses,1).
 
 
 /***************************************************************************

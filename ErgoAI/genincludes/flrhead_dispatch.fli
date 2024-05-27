@@ -39,29 +39,38 @@
 
 
 %% Tail-recursion optimization for FLHEADPREFIX predicates
-:- import dynamic_pred_has_clauses/2 from assert.
-:- import static_pred_has_clauses/2 from flrauxil.
+:- import flrdynamic_pred_has_clauses/2 from flrauxil.
+:- import flrstatic_pred_has_clauses/2 from flrauxil.
 
 /*
    Note: calling (FLDYNZPREFIX(Wrap)#2 ; true) when StatExist=1, DynzExist=0
    has the effect of creating and deleting a choicepoint (so they don't
    accumulate). At the same time, this lets XSB know that 
    FLORA_HEAD_DISPATCH(Wrap,Args) depends on FLDYNZPREFIX(Wrap)#2,
-   so dynamic_pred_has_clauses(FLDYNZPREFIX(Wrap)#2,DynzExist) will work
+   so flrdynamic_pred_has_clauses(FLDYNZPREFIX(Wrap)#2,DynzExist) will work
    correctly.
 */
 #define FLORA_HEAD_DISPATCH(Wrap,Args) \
-	dynamic_pred_has_clauses(FLDYNZPREFIX(Wrap)#2,DynzExist),         \
-	static_pred_has_clauses(FLSTATIC_HEAD_PREFIX(Wrap)#2,StatExist),  \
-	(FLDYNAPREFIX(Wrap)#2                                             \
-	; StatExist == 1, DynzExist == 1 ->                               \
-	       (FLSTATIC_HEAD_PREFIX(Wrap)#2                              \
+	flrdynamic_pred_has_clauses(FLDYNAPREFIX(Wrap)#2,DynaExist),         \
+	flrdynamic_pred_has_clauses(FLDYNZPREFIX(Wrap)#2,DynzExist),         \
+	flrstatic_pred_has_clauses(FLSTATIC_HEAD_PREFIX(Wrap)#2,StatExist),  \
+	(StatExist == 1, DynaExist == 0, DynzExist == 0 ->               \
+                FLSTATIC_HEAD_PREFIX(Wrap)#2                             \
+	; StatExist == 1, DynaExist == 1, DynzExist == 1 ->               \
+               (FLDYNAPREFIX(Wrap)#2                                      \
+	       ; FLSTATIC_HEAD_PREFIX(Wrap)#2                             \
 	       ; FLDYNZPREFIX(Wrap)#2                                     \
 	       )                                                          \
-        ; StatExist == 1 ->                                               \
-	       (FLDYNZPREFIX(Wrap)#2 ; true),                             \
-	       FLSTATIC_HEAD_PREFIX(Wrap)#2                               \
+        ; StatExist == 1, DynaExist == 1 ->                               \
+	       (FLDYNAPREFIX(Wrap)#2                                      \
+	       ; FLSTATIC_HEAD_PREFIX(Wrap)#2                             \
+	       )                                                          \
+        ; StatExist == 1, DynzExist == 1 ->                               \
+	       (FLSTATIC_HEAD_PREFIX(Wrap)#2                              \
+               ; FLDYNZPREFIX(Wrap)#2                                     \
+	       )                                                          \
         ; DynzExist == 1 -> FLDYNZPREFIX(Wrap)#2                          \
+        ; DynaExist == 1 -> FLDYNAPREFIX(Wrap)#2                          \
 	)
 
 /*******************************************************************
