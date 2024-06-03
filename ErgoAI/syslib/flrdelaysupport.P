@@ -81,6 +81,8 @@
 
 %%:- import flora_decode_predicate/6 from flrwrapper.
 
+#define DBGOUT(A)  writeln(2,A)
+
 :- dynamic delay_spec_to_predicate/6.
 :- index(delay_spec_to_predicate/6,[1,5]).
 :- dynamic delayed_sensor/3.
@@ -733,9 +735,12 @@ flora_delay_quantifier(File,Line,[FL_MUST,Condition,Goal]) :-
 		    FLORA_ABORT_NOTRACE).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  FLORA_DELAY_CHECKER == flora_execute_delayed_calls (in syslib/flrgateway.P)
 flora_execute_delayed_calls(InstantiatedBodyVars,HeadVars) :-
         extract_triggers_and_execute_all(InstantiatedBodyVars,HeadVars),
-        %% flora_table_once - does no good
+	%%flrterm_vars_split(HeadVars, _RegularHeadVars, HeadVars,0),
+        %%DBGOUT('******************headvars'=HeadVars),
+        %% flora_table_once - does nothing of note.
         %%flrtables:flora_table_once(extract_triggers_and_execute_all(InstantiatedBodyVars,HeadVars)),
         %% The cut below would be nice to have both to release the stack and
         %% also, to avoid unnecessary backtracking, which causes
@@ -751,26 +756,32 @@ flora_execute_delayed_calls(InstantiatedBodyVars,HeadVars) :-
 %% scan all vars repeatedly, eliminating attributed vars,
 %% until no more attributed vars left. Execute attached triggers on the way.
 %% We make this safe for cyclic terms to avoid user surprises
-extract_triggers_and_execute_all(AllVars,_HeadVars) :-
-	flrground_cyc(AllVars),
+extract_triggers_and_execute_all(BodyVars,_HeadVars) :-
+	flrground_cyc(BodyVars),
 	!.
-extract_triggers_and_execute_all(AllVars,_HeadVars) :-
-	is_cyclic(AllVars),
+extract_triggers_and_execute_all(BodyVars,_HeadVars) :-
+	is_cyclic(BodyVars),
 	!,
 	fail.
-extract_triggers_and_execute_all(AllVars,HeadVars) :-
-	extract_triggers_and_execute_all_aux(AllVars,HeadVars).
-extract_triggers_and_execute_all_aux(AllVars,HeadVars) :-
+extract_triggers_and_execute_all(BodyVars,HeadVars) :-
+	extract_triggers_and_execute_all_aux(BodyVars,HeadVars).
+extract_triggers_and_execute_all_aux(BodyVars,HeadVars) :-
 	%% In flrterm_vars_split, arg4 = 1 means ignore vars in \naf'd lits
         %% arg4 = 0 - include vars in \naf'ed literals.
         %% Here we include such vars.
-	flrterm_vars_split(AllVars, RegVars, AttrVars,0),
-	(AttrVars == [] -> true
-	; extract_triggers_and_execute(AttrVars,HeadVars),
-	    %% Note: we do need to check non-attributed RegVars because after
-	    %% extract_triggers_and_execute/2 on AttrVars some RegVars may
-	    %% become attributed! E.g., test 11 in delaytests/test_delays.flr
-	    extract_triggers_and_execute_all_aux(RegVars,HeadVars)
+	flrterm_vars_split(BodyVars, RegularBodyVars, AttrBodyVars,0),
+        %% arg3 = 0 - include vars in \naf'ed literals.
+	flrterm_vars(HeadVars, RealHeadVars, 0),
+	(AttrBodyVars == [] -> true
+	; extract_triggers_and_execute(AttrBodyVars,RealHeadVars),
+	    %% Note: we do need to check non-attributed RegularBodyVars because
+            %% after extract_triggers_and_execute/2 on AttrBodyVars some
+            %% RegularBodyVars may become attributed!
+            %% E.g., test 11 in delaytests/test_delays.flr
+            %%DBGOUT(10000=BodyVars),
+            %%DBGOUT(11111=AttrBodyVars),
+            %%DBGOUT(22222=RealHeadVars),
+	    extract_triggers_and_execute(RegularBodyVars,RealHeadVars)
 	).
 
 extract_triggers_and_execute([],_HeadVars) :- !.
