@@ -202,7 +202,7 @@
   \vspace{0.7cm}\\
   \Huge \ERGOAI Reasoner User's Manual
   \vspace{3mm}\\
-  {\LARGE Version 3.01 (Philo)}
+  {\LARGE Version 3.1 (Arete)}
 }
 
 \author{
@@ -473,7 +473,7 @@ In addition, the following is needed:
   %% 
   \begin{itemize}
   \item Download the file \texttt{ergoAI\_\textnormal{\emph{versn}}.exe}
-    (e.g., \verb|ergoAI_3.01.exe|) from Github, where
+    (e.g., \verb|ergoAI_3.1.exe|) from Github, where
     \emph{versn} is the version number: \\
     %% 
     To that end, navigate to
@@ -550,7 +550,7 @@ In addition, the following is needed:
   %% 
   \begin{itemize}
   \item  Download the file \texttt{ergoAI\_}\textnormal{\textit{versn}}\texttt{.run}
-    (e.g., \verb|ergoAI_3.01.run|) from Github:\\
+    (e.g., \verb|ergoAI_3.1.run|) from Github:\\
     %% 
     To that end, navigate to
     \url{https://github.com/ErgoAI/.github/releases}, 
@@ -1038,16 +1038,16 @@ the current version of \FLSYSTEM and the underlying OS. For instance,
  \prompt system\{system=?X\}.
  ?X = ErgoAI
  \prompt system\{version=?X\}.
- ?X = '3.01'
+ ?X = '3.1'
  \prompt system\{info=?X\}.
- ?X = 'ErgoAI 3.01 (Philo; build: , 2022-12-11) on x86_64-pc-linux-gnu'
+ ?X = 'ErgoAI 3.1 (Arete; build: , 2024-07-11) on x86_64-pc-linux-gnu'
  \prompt system\{cwd=?X\}.     // cwd: current working directory
  ?X = '/home/foo/test'
  \prompt system\{installdir=?X\}.
  ?X = '/home/foo/ERGOAI/ErgoEngine/ErgoAI'
  // auxdir: .xsb/ergo-version files dir; may be needed for some installations (e.g. Tomcat)
  \prompt system\{auxdir=?X\}.
- ?X = '/home/foo/.xsb/ergo-3.01'
+ ?X = '/home/foo/.xsb/ergo-3.1'
 \end{alltt}
 %% 
 To see all the available system information and all the valid property
@@ -5879,9 +5879,13 @@ a formula.  More subtle examples are
      ?- f(a)@foo ~ ?Y@?M.
 \end{verbatim}
 %%
-{\tt ?M} is bound to the current module in the first query and {\tt foo} in the
-second one. {\tt ?Y} is bound to the (internal representation of the)
-HiLog formula {\tt f(a)@ \bs{}@} in the first query and {\tt f(a)@foo} in
+{\tt ?M} is bound to the current module (usually \texttt{main})
+in the first query and to {\tt foo} in the
+second. {\tt ?Y} is bound to the
+HiLog predicate
+formula {\tt f(a)@\,\bs{}@} (probably to \texttt{f(a)@main}, if the current
+module is \texttt{main})
+in the first query and to {\tt f(a)@foo} in
 the second --- \emph{not} to the HiLog term {\tt f(a)}!
 
 Another subtlety has to do with the scope of the module specification.
@@ -5895,7 +5899,7 @@ override the outer ones. For instance, in
 the term {\tt abc} is in module {\tt foo}, while {\tt cde} is in module {\tt
 bar}. This is because the inner module specification, {\tt @foo}, overrides
 the outer specification {\tt @bar} for the literal in which it occurs ({\it
-i.e.}, {\tt abc}). These scoping rules have subtle impact on literals that
+i.e.}, {\tt abc}). These scoping rules have subtle effect on literals that
 are computed dynamically at runtime. For instance, consider
 %%
 \begin{verbatim}
@@ -5903,7 +5907,7 @@ are computed dynamically at runtime. For instance, consider
 \end{verbatim}
 %%
 Because {\tt ?X} gets bound to {\tt a[b->c]@foo}, the literal {\tt ?X@bar}
-becomes the same as  {\tt (a[b->c]@foo)@bar}, i.e., {\tt a[b->c]@foo}.
+ends up being  {\tt (a[b->c]@foo)@bar}, i.e., {\tt a[b->c]@foo}.
 Thus, both of the following queries succeed:
 %%
 \begin{verbatim}
@@ -5911,10 +5915,25 @@ Thus, both of the following queries succeed:
        ?- ?X@?M ~ a[b->c]@foo, ?X@?N ~ a[b->c]@foo.
 \end{verbatim}
 %%
-Moreover, in the second query, the variable {\tt ?N} is \emph{not} bound to
-anything because, as noted before, the literal {\tt ?X@?N} becomes
-{\tt (a[b->c]@foo)@?N)} at runtime and, due to the scoping rules, is the
-same as {\tt a[b->c]@foo}.
+In the second query, the variable {\tt ?N} gets bound to \texttt{foo}.
+
+Operator precedence should also be kept in mind when dealing with
+meta-unification. For instance,
+%% 
+\begin{verbatim}
+   ?- ?X ~ (a[b->c],a[d->e]).
+\end{verbatim}
+%% 
+yields \verb|?X = (${a[b->c]@main}, ${a[d->e]@main})| but
+%% 
+\begin{verbatim}
+   ?X ~ a[b->c],a[d->e].
+\end{verbatim}
+%% 
+fails because \verb|~| binds stronger than the \texttt{','} so the above
+is read as   \verb|(?X ~ a[b->c]), a[d->e]|. This statement would usually return a
+\texttt{No} unless \verb|a[d->e]|  is true.
+
 
 \paragraph{Meta-disunification.}
 \index{meta-disunification operator $\exclamation\sim$}
@@ -5924,19 +5943,20 @@ The negation of meta-unification is \emph{meta-disunification}, {\tt !$\sim$}.
 For instance,
 %% 
 \begin{verbatim}
-   ?- abc !~ neg cde.
+   ?- abc !~ \neg cde.
 
    Yes
 \end{verbatim}
 %% 
-Note that {\tt neg}, \RULELOGNAF, and \PLGNAF tie stronger than \verb|~| and
-\verb|!~|, so the above is parsed as \verb|abc!~neg(cde)| and
-\verb|neg cde!~abc| is parsed as  \verb|neg(cde)!~abc| --- \emph{not} as
-\verb|neg(cde!~abc)|.\footnote{
+Note that {\tt \bs{}neg}, \RULELOGNAF, and \PLGNAF tie stronger than \verb|~| and
+\verb|!~|, so the above is parsed as \verb|abc!~\neg(cde)| and
+\verb|\neg cde!~abc| is parsed as  \verb|\neg(cde)!~abc| --- \emph{not} as
+\verb|\neg(cde!~abc)|.\footnote{
   %%
   This is in contrast to {\tt =}, {\tt ==}, {\tt <}, etc., which bind
-  stronger than {\tt neg}, \RULELOGNAF, and \PLGNAF. For instance, {\tt neg
-    cde=abc} is parsed as {\tt neg(cde=abc)}. This difference in parsing
+  stronger than {\tt \bs{}neg}, \RULELOGNAF, and \PLGNAF. For instance, {\tt
+    \bs{}neg
+    cde=abc} is parsed as {\tt \bs{}neg(cde=abc)}. This difference in parsing
   makes sense because {\tt \~{}}  and
   {\tt !\~{}}  expect formulas as its
   operands, while {\tt =}, {\tt ==}, and other comparison operators expect
@@ -5977,8 +5997,12 @@ For instance,
    ?O = (\$\{aaa@moo\}, (\$\{foo@moo\}, \$\{iii@moo\}))
    Yes
 
-   \prompt copy2mod\{(aaa :- iii@rrr),moo,?O\}.
-   ?O = $\{(@!\{?_h12909[strict]\} aaa :- iii@moo)@moo\}
+   \prompt copy2mod{(aaa :- iii@rrr),moo,?O}.
+   ?O = ${(aaa :- iii@moo)@moo}
+   Yes
+
+   \prompt copy2mod\{(@!{r123[strict]} aaa :- iii@rrr),moo,?O\}.
+   ?O = $\{(@!\{r123[strict]\} aaa :- iii@moo)@moo\}
    Yes
 \end{alltt}
 %% 
@@ -6053,8 +6077,9 @@ cool thing one should write:
 
 When reification appears in facts or rule heads, then the module
 specification and the predicate part of the reified formula must be bound.
-For instance, the following statements are illegal because modules are
-unbound:
+For instance, the first two statements in a program
+are illegal because modules are
+unbound; and the last query will cause warnings:
 %%
 \begin{quote}
 \begin{verbatim}
@@ -6066,7 +6091,7 @@ p(${q(a)@?M}).
 %%
 
 \noindent
-The semantics of reification in \FLSYSTEM is described in
+The semantics of reification in \FLSYSTEM is fully described in
 \cite{reification-data-semantics-03}.
 
 \paragraph{Reification of complex formulas.}
@@ -6126,9 +6151,14 @@ can be with regular rules. For instance,
 
 \paragraph{Reification and meta-unification.}
 Reification should not be confused with meta-unification, although they are
-closely related concepts. A reified formula reflects the exact structure that is used
-to encode it, so structurally similar, but syntactically different, formulas
-might meta-unify, but their internal representations could be very different.
+closely related concepts, but the internal representation of various
+constructs might be complex, especially when the modules involved are
+represented by variables and thus are unknown at compile time.
+In such cases,
+structurally similar, but syntactically different, formulas
+might meta-unify, but their internal representations could be very
+different and thus not unify viaa the basic unification operator
+\texttt{=}.
 For instance, 
 %%
 \begin{verbatim}
@@ -6136,16 +6166,17 @@ For instance,
 \end{verbatim}
 %%
 will return \emph{true}, because the two frames are structurally similar
-and thus meta-unify. On the other hand,
+and they meta-unify. On the other hand,
 %%
 \begin{verbatim}
            ?- ${a[b->?X]@?M} = ${?Y[b->d]@foo}.
 \end{verbatim}
 %%
-will be false, because {\tt a[b->?Y]@?X} and {\tt ?Z[b->d]@foo} have different
-internal representations (even though their conceptual structures are
-similar), so they do not unify (using ``='', i.e., in the usual
-first-order sense). Note, however, that the queries
+will be false, because {\tt a[b->?Y]@?X} and {\tt ?Z[b->d]@foo} have
+drastically different
+internal representations (despite their conceptual 
+similarity), so they do not unify via ``='',  in the usual
+sense. Note, however, that the queries
 %%
 \begin{verbatim}
  ?- ${a[b->?Y]@foo} = ${?Z[b->d]@foo}.
@@ -6155,10 +6186,10 @@ first-order sense). Note, however, that the queries
 \end{verbatim}
 %%
 will all return \emph{true}, because {\tt a[b->?Y]@foo} and {\tt
-  ?Z[b->d]@foo} are structurally similar --- both conceptually and as far as
+  ?Z[b->d]@foo} are similar---both conceptually and as far as
   their
-internal encoding is concerned (and likewise are {\tt a[b->?Y]@foo} and {\tt
-  ?Z[b->d]@foo}).
+internal encodings are concerned. Likewise {\tt a[b->?Y]@foo} and {\tt
+  ?Z[b->d]@foo} unify in the usual sense.
 
 \subsection{Meta-decomposition}\label{sec-meta-decomp}
 
