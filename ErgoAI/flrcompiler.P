@@ -6029,7 +6029,7 @@ compile_rule(Head,Body,DescriptorIdCode,DescrVarsTerm,RuleList-RuleTail,SigDiffL
 	    compile_body_top(Body,BCode,BodyStatus),
 	    ( no_errors_found(BodyStatus) ->
 		make_datatype_vars_code(BCode,BodyDTvarscode),
-		delay_literals_checking_code_list(HeadCode,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,DelayCheckCodeList),
+		delay_literals_checking_code_list(HeadNF,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,DelayCheckCodeList),
 		construct_rule_enabling_test(DescriptorIdCode,FL_DESCRMODE_RULE,RuleEnablerTest,_),
 		PreBody = RuleEnablerTest,
 		PostBodyList = DelayCheckCodeList,
@@ -6220,7 +6220,7 @@ prconjunct2list(Code,[Code|ListTail],ListTail) :- !.
 
 
 /****************************************************************************
-  compile_head_top(+ParsTermL,+ParsTermLNF,+Context,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+  compile_head_top(+ParsTermL,-ParsTermLNF,+Context,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
       compile_head(+ParsTermL,         -Code,-H2BCodeFront,-H2BCodeBack,-Status)
 
   Context: rule or fact
@@ -11365,7 +11365,7 @@ compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,Rul
                     ; true
                     )
 		),
-		delay_literals_checking_code_list(HeadCode,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,DelayCheckCodeList),
+		delay_literals_checking_code_list(HeadNF,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,DelayCheckCodeList),
 		PreBody = RuleEnablerTest,
 		PostBody = DelayCheckCodeList,
 		list_struct(PostBody,[],PostBodyList),
@@ -11893,22 +11893,15 @@ delay_literals_checking_code(Head,_Body,_H2BCodeFront,_H2BCodeBack,_DescrVarsTer
 	is_defined_as_sensor(Head),
 	!.
 delay_literals_checking_code(Head,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,Code) :-
-	collect_prvars(Head,HeadPrVars),
+	collect_flvars(Head,HeadVars1),
 	collect_flvars(Body,BodyVars1),
-        collect_prvars(H2BCodeFront,BodyPrVarsFront),
-        collect_prvars(H2BCodeBack,BodyPrVarsBack),
-	prvar_to_flvar_struct_list(HeadPrVars,HeadFlVars0),
-	prvar_to_flvar_struct_list(BodyPrVarsFront,BodyVars0),
-	prvar_to_flvar_struct_list(BodyPrVarsBack,BodyVars2),
 	%% DescrVarsTerm is a pr-object, so use collect_prvars
 	collect_prvars(DescrVarsTerm,DescrPrvars),
 	prvar_to_flvar_struct_list(DescrPrvars,DescrFlvars),
 	%% BodyVars2 now contains descriptor vars
-	append_lists([BodyVars0,BodyVars1,BodyVars2,DescrFlvars],BodyFlVars0),
-        remove_FL_CONTEXT_flvars(HeadFlVars0,HeadFlVars2),
-	remove_dupflvars(HeadFlVars2,HeadVars),
-        remove_FL_CONTEXT_flvars(BodyFlVars0,BodyFlVars2),
-	remove_dupflvars(BodyFlVars2,BodyVars),
+	append(BodyVars1,DescrFlvars,BodyVars2),
+	remove_dupflvars(HeadVars1,HeadVars),
+	remove_dupflvars(BodyVars2,BodyVars),
 	(has_context(CONTEXT_COMPILER_RULE_REIFICATION),
 	    has_context(CONTEXT_COMPILER_BODY_PATHEXP)
 	-> %% use new flvariables
@@ -12680,6 +12673,7 @@ get_all_attrvars(PRTerm,AttrVars) :- flrterm_vars_split(PRTerm,_,AttrVars,0).
 	%% the above dummy 'false' prevents elimination of the rest by
 	%% the Prolog preprocessor (as opposed to gpp)
 	replace_flvars_with_vars(_,_),
+        remove_FL_CONTEXT_flvars(_,_),
         is_prologterm(_,_,_,_,_),
         is_prterm(_,_,_,_),
         is_strict_pratom(_,_,_),
