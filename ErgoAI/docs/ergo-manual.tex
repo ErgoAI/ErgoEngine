@@ -3743,6 +3743,16 @@ Section~\ref{sec-data-types}.
 \item \texttt{isnafform\{Term\}} --- true if \texttt{Term} is of the form
   \texttt{\bs{}naf pred-or-frame}.  
 
+  \index{iscallable\{...\} primitive}
+\index{primitive!iscallable\{...\}}
+\item \texttt{iscallable\{Term\}} --- true if \texttt{Term} is a
+  truth-valued \FLSYSTEM statement.
+
+  \index{istransactional\{...\} primitive}
+\index{primitive!istransactional\{...\}}
+\item \texttt{istransactional\{Term\}} --- true if \texttt{Term} is a
+  transactional \FLSYSTEM statement.
+
 \end{itemize}
 %% 
 
@@ -4122,6 +4132,7 @@ predicates and methods implemented in those modules.
 
 
 \subsection{Calling Methods and Predicates Defined in User Modules}
+\label{sec-user-mods}
 
 
 \index{module!user!reference to}
@@ -4197,8 +4208,9 @@ The following rules apply when calling a literal defined in another module:
     }
   \end{quote}
 
-\item Module specifications can be nested. The one closest in scope
+\item Module specifications can be \emph{nested}. The one closest in scope
   takes effect. For example,
+  \label{pg-nested-module}
   \begin{verbatim}
     (foo(a), goo(b) @goomod, hoo(c)) @foomod
   \end{verbatim}
@@ -6006,6 +6018,9 @@ For instance,
    Yes
 \end{alltt}
 %% 
+Note that the term being copied does not need to be true in order to be copied.
+Likewise, the modules mentioned in the primitive do not need to actually
+exist.
 
 The second argument to \texttt{copy2mod} can also have the form
 \texttt{Oldmod=Newmod}. In this case, the statements in argument 1 that
@@ -8713,7 +8728,7 @@ The following occurrences of ``\verb|%|'' are legal
                            // predicates
 ?- a[%b(c)], a[%?Y].       // %b is a transactional Boolean methods
                            // %?Y is a variable ranging over transactional
-                           // Boolean methods
+                           // Boolean method
 ?- %?X@?M ~ %p(a).         // %p - a transactional predicate
 ?- %?X ~ %p(a).
 
@@ -8739,73 +8754,114 @@ because {\tt \%b(c)} is not a Boolean method.
 
 Occurrences of variables that are prefixed with  a {\tt \%} are treated
 specially.  First, it should be kept in mind that {\tt \%?X} and {\tt ?X}
-represent the same variable.  If {\tt ?X} is \emph{already bound} to
-a term then {\tt \%?X} gets bound to the same thing.  However, {\tt ?X}
-itself can range not only over predicates but also terms,
-conjunctions/disjunctions of predicates, and even rules. In contrast,
-{\tt \%?X@?M} can be bound only to non-tabled
-formulas and {\tt ?X@?M} can be bound only to
-tabled formulas.  Thus we have the following:
+represent the \emph{same} variable.
+If {\tt ?X} is \emph{already bound} to
+a term then the \texttt{\%}-prefix is simply ignored. However, if
+\texttt{?X} is unbound then {\tt \%?X} can match only transactional methods
+or predicates. 
+Thus we have the following:
 %% 
 \begin{quote}
 \begin{verbatim}
-?- ?X ~ p(a), %?X@?M ~ p(a).
+?- ?X ~ p(a), %?X@?M ~ p(a). // % is ignored, since ?X is bound
+?X = ${p(a)@main}
+?M = main
+
+?- %?X@?M ~ p(a). // but here there's no match, as ?X is unbound
 No
 
 ?- ?X ~ a[%b], ?X@?M ~ a[%b].  
 ?X = ${a[%b]@main}
 ?M = main
+
+?- ?X ~ a[%b], ?X@?M ~ a[%?B].   // %?B matches %b
+?X = ${a[%b]@main}
+?M = main
+?B = b
+
+?X ~ a[%b], ?X@?M ~ a[?B].     // but ?B does not match %b
+No
 \end{verbatim}
 \end{quote}
 %%
-The first of the above queries fails because \texttt{?X} is bound to a
-tabled literal \texttt{p(a)} and so \texttt{\%?X@?M} must be bound to the
-same literal; but it cannot be because, by definition, \texttt{\%?X@?M} can
-be bound only to non-tabled literals.    
+The first of the above queries succedes because \texttt{?X} gets bound by
+the first subgoal \verb|?X ~ p(a)| and, because of this, \texttt{\%} gets
+ignored in the second subgoal, which succedes as well. 
+In contrast, \verb|%?X@?M ~ p(a)|
+as a standaalone query fails because here \texttt{?X} is unbound and thus
+\texttt{\%}  is not ignored.
+
+Next, a standalone variable $?X$ can match both transactional predicates
+and the tabled ones. It can also match any kind of a term, including
+reified terms. If one wants to match tabled predicates only, the
+$?X@?M$ idiom should be used. In contrast, both $\%?X$ and $\%?X@?M$ match
+transactional predicates only ($\%?X$ can also match transactional methods,
+as we saw earlier, e.g., \verb|a[%b] ~ a[%?B]|).
+Here are some examples illustrating these points:
+%% 
+\begin{verbatim}
+?- %?X ~ %p(a).
+?X = ${%p(a)@main}
+
+?- %?X ~ p(a). // %?X won't match tabled unless ?X is already bound
+No
+
+?- ?X ~ %p(a).  // ?X can match anything
+?X = ${%p(a)@main}
+
+?- ?X@?M ~ %p(a).  // but ?X@?M won't match transactional
+No
+
+// ?X gets bound to transactional so ?X@?M matches traansactional 
+?- %?X@?M ~ %p(a), ?X@?M ~ %p(a).
+?X = ${%p(a)@main}
+?M = main
+
+// Ditto, except that there are no restrictions on ?X to begin with
+?- %?X@?M ~ %p(a), ?X ~ %p(a).
+?X = ${%p(a)@main}
+?M = main
+
+?- %?X@?M ~ %p(a), ?X ~ p(a).  // ?X can be bound to p(a) OR %p(a)
+No
+\end{verbatim}
+%% 
+
 
 %%
   \index{meta-unification operator $\sim$}
   \index{$\sim$!meta-unification operator}
-The following query fails because {\tt \%?X} and {\tt ?X} represent the
-same variable: the first conjunct determines the binding for {\tt ?X},
-and this binding (a non-tabled literal) does not match the expression on the right side of
-\verb|~| in the second conjunct.
-%% 
-\begin{quote}
-\begin{verbatim}
-?- %?X@?M ~ %p(a), ?X ~ p(a).
-\end{verbatim}
-\end{quote}
-%%
-In the query, {\tt ?X} is bound to the non-tabled formula {\tt \%p(a)},
-and this does not meta-unify with the tabled formula {\tt p(a)}.
 
-When a bound variable occurs with an explicit module specification, then
-the following rules apply:
-%%
-\begin{itemize}
-\item If the idiom {\tt ?X@module} is used, {\tt ?X} can be bound only to a
-  tabled predicate, a tabled frame formula, or a HiLog \emph{term} (not
-  a predicate).  Otherwise, an error is issued. If {\tt ?X} is already bound
-  to a tabled predicate or frame formula, then the explicit module
-  specification {\tt (@module}) is discarded.  When {\tt ?X} is bound to a
-  HiLog term, e.g., {\tt p(a)(?Z)}, {\tt ?X@module} represents the tabled
-  predicate {\tt p(a)(?Z)@module}.
-\item If the idiom {\tt \%?X@module} is used, {\tt ?X} can be bound to only a
-  non-tabled predicate, a non-tabled frame formula, or a HiLog
-  \emph{term}.  If {\tt ?X} is already bound to a non-tabled predicate or
-  frame formula, the explicit module specification is discarded, as
-  before.  If {\tt ?X} is bound to a HiLog term, then {\tt \%?X@module}
-  represents the non-tabled predicate {\tt p(a)(?Z)@module}.
-\end{itemize}
-%%
-Due to these rules, the first query below succeeds, while the second
-fails and the third causes an error.
+To complete the picture, by analogy with the nested \texttt{@mod}  specifications
+in Section~\ref{sec-user-mods}, page
+\pageref{pg-nested-module}, if a variable
+\texttt{?X} is already bound to a
+formula (transactional or tabled in a known module) and the idioms 
+\texttt{?X@M} and \texttt{\%?X@M} (\texttt{M} can be a constant or a variable)
+are evaluated later for that variable,  
+then the module specification \texttt{@M}  and the transactional sign
+\texttt{\%} are discarded. 
+When {\tt ?X} is bound to a HiLog term, e.g., {\tt p(a)(?Z)}, and {\tt
+  ?X@module} is used later, the HiLog term is promoted to a predicate
+formula {\tt p(a)(?Z)@module}.
+Likewise, if {\tt ?X} is bound to a HiLog term, then {\tt \%?X@module}
+  represents the non-tabled predicate formula {\tt p(a)(?Z)@module}.
+Therefore, we have the following:
 %%
 \begin{verbatim}
     ?- ?X = p(a), %?X@?M ~ %p(a), ?X@?N ~ p(a)@foo.
-    ?- ?X ~ p(a), ?X@?M ~ p(a)@foo.
-    ?- ?X ~ p(a), %?X@?M ~ %p(a)@foo. 
+    ?X = p(a)
+    ?M = main
+    ?N = foo
+    
+    ?- ?X = p(a), ?X@?M ~ p(a)@foo.
+    ?X = p(a)
+    ?M = foo
+
+    ?- ?X = p(a), %?X@?M ~ %p(a)@foo. 
+    ?X = p(a)
+    ?M = foo
+
 \end{verbatim}
 %%
 The first query succeeds because {\tt ?X} is bound to the term {\tt
@@ -8813,20 +8869,10 @@ p(a)}, which {\tt \%?X@?M} promotes to a non-tabled predicate with
 a yet-to-be-determined module.  The meta-unification that follows then
 binds {\tt ?M} to {\tt main}. Similarly {\tt ?X@?N} promotes the term {\tt
 p(a)} to a tabled predicate with a yet-to-be-determined module, and
-meta-unification binds {\tt ?N} to {\tt foo}. The second query fails
-because {\tt ?X} is already bound to a tabled predicate and therefore
-{\tt ?X@?M} represents {\tt p(a)@main}, which does not meta-unify with
-{\tt p(a)@foo}.  The third query gives an error because {\tt ?X} is bound
-to a tabled predicate, while {\tt \%?X@?M} expects a non-tabled predicate or a
-HiLog term.
+meta-unification binds {\tt ?N} to {\tt foo}. The second and third queries
+promote the HiLog term \texttt{p(a)} to \texttt{p(a)@foo} and
+\texttt{\%p(a)@foo}, respectively, and succeed.
 
-When {\tt ?X} and {\tt \%?X} occur with explicit module specifications and
-are \emph{unbound} then the occurrences of {\tt \%?X} indicate that {\tt ?X}
-is expected to be bound to predicate names, Boolean method names, or
-predicate/frame formulas that correspond only to non-tabled methods or
-predicates. Likewise, an occurrence of an unbound {\tt ?X} indicates that
-{\tt ?X} is expected to be bound to predicate names or predicate/frame
-formulas that correspond to tabled methods or predicates.
 
 \paragraph{Transactional (\%-prefixed) literals and meta-programming.}
 In meta-unifications, update operations and the {\tt clause} construct,
@@ -8834,8 +8880,8 @@ variables that are prefixed with a ``{\tt \%}'' to indicate non-tabled
 occurrences must have explicit module specifications. An unprefixed
 variable without a module specification, such as {\tt ?X}, can meta-unify
 with both tabled and non-tabled predicates.  However, when an explicit
-module specification is given, such as in {\tt ?X@main}, unprefixed
-variables can be bound only to tabled predicates. For example,
+module specification is given, as in {\tt ?X@main}, the variable
+\texttt{?X} can be bound only to tabled predicates. For example,
 all of the following queries succeed without errors.
 
 %% 
@@ -8852,7 +8898,7 @@ all of the following queries succeed without errors.
 %%
 
 In the context of update operations, \FLSYSTEM uses the same rules for
-variables of the form {\tt \%?X} and {\tt ?X}. Therefore, the
+the variables of the form {\tt \%?X} as for {\tt ?X}. Therefore, the
 following operations will succeed:
 %% 
 \begin{quote}

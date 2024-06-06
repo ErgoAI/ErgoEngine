@@ -5060,7 +5060,18 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
 	    compile_var_list(DescrVars,DescrVarsCode),
 	    length(DescrVarsCode,VarListLen),
 	    %% construct the term containing all the vars in the descriptor
-	    generate_prolog_liblit(FL_DESCRIPTOR_VARS_WRAPPER,VarListLen,DescrVarsCode,DescrVarsTermOut)
+            %% Do not use prolog liblit here - use prolog term.
+            %% Liblits may get usermod: attached to them, which may cause
+            %% misunification between _$_$_ergo'descr_vars and
+            %% usermod:_$_$_ergo'descr_vars
+	    %%generate_prolog_liblit(FL_DESCRIPTOR_VARS_WRAPPER,VarListLen,DescrVarsCode,DescrVarsTermOut)
+            (VarListLen==0 -> 
+                %% For arity=0, use atomobj, which generates just an atom.
+                %% generate_prolog_term(_,0,_,_) makes atom(), which crashes XSB
+                atomobj_struct(FL_DESCRIPTOR_VARS_WRAPPER,DescrVarsTermOut)
+            ;
+                generate_prolog_term(FL_DESCRIPTOR_VARS_WRAPPER,VarListLen,DescrVarsCode,DescrVarsTermOut)
+            )
 	%% we are compiling clause{...} or a query
 	%% Generate a var in this case
 	;   new_prvariable(NO_INDEX,DescrVarsTermOut)
@@ -11981,7 +11992,10 @@ generate_prolog_term(Atom,Arity,Args,PrlgModule,Code) :-
 
 compile_null_value(Object,NO_ERRORS) :-
         new_prvariable(NULL,NullVarObj),
-        generate_prolog_liblit('NULL',1,[NullVarObj],Object).
+        %% Do not use generate_prolog_liblit here -- use generate_prolog_term.
+        %% Otherwise, a mismath between NULL() and usermod:NULL() may occur
+        %%generate_prolog_liblit('NULL',1,[NullVarObj],Object).
+        generate_prolog_term('NULL',1,[NullVarObj],Object).
 
 
 get_current_compile_file(CurrFileName) :-
