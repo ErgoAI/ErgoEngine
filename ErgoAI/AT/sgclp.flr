@@ -29,15 +29,15 @@
      and penalizes rules that are overridden.
 */
 
+:- compiler_options{production=on}.
+:- suppress_rule_signatures.
+
 #include "flora_terms.flh"
 #include "flora_porting.flh"
 #include "flora_tabling_methods.flh"
 
-:- compiler_options{production=on}.
-:- suppress_rule_signatures.
-
 :- symbol_context{defeated(?,?)@?, candidate(?,?)@?, strict_candidate(?,?)@?}.
-:- symbol_context{candidate(?,?,?)@?, strict_candidate(?,?,?)@?}.
+:- symbol_context{conflicts(?,?,?,?)@?, rebuts(?,?,?,?)@?, refutes(?,?,?,?)@?}.
 :- symbol_context{prlg beaten_by_strict_rule(?,?,?,?,?)}.
 
 // if FL_CANDIDATE, FL_STRICT_CANDIDATE are not tabled, memory requirements
@@ -62,6 +62,9 @@
 	  ?[info->?]}.
 :- export{opposes(?,?,?,?),
 	  overrides(?,?,?,?),
+	  refutes(?,?,?,?),
+	  rebuts(?,?,?,?),
+	  conflicts(?,?,?,?),
 	  candidate(?,?),
 	  strict_candidate(?,?),
 	  defeated(?,?)}.
@@ -78,7 +81,6 @@
           naf Exists defeated, while we need Exists not defeated.
 */
 FL_UNDEFEATED(?Id,?FileName,?Vars,?H,?Mod) :-
-	//\+ FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod).  // for testing
 	\naf FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod).
 
 FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod) :-
@@ -116,6 +118,16 @@ candidate(?T,?H) :-
 strict_candidate(?T,?H) :-
 	caller{?Mod},
 	FL_STRICT_CANDIDATE(?T,?H,?Mod).
+
+refutes(?T1,?H1,?T2,?H2) :-
+	caller{?Mod},
+        FL_REFUTES(?T1,?H1,?T2,?H2,?Mod).
+rebuts(?T1,?H1,?T2,?H2) :-
+	caller{?Mod},
+        FL_REBUTS(?T1,?H1,?T2,?H2,?Mod).
+conflicts(?T1,?H1,?T2,?H2) :-
+        caller{?Mod},
+	FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod).
 
 // Axioms for Courteous LP
 
@@ -243,6 +255,8 @@ FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod) :-
 	// FL_OPPOSES_AUX is made symmetric in T1,?H1, ?T2,?H2 by an axiom
 	// in genincludes/flrdefeasible.fli
 	FL_OPPOSES_AUX(?Mod,?T1,?H1,?T2,?H2),
+	\naf FL_CANCEL_AUX(?Mod,?T1,?H1), // MK 6/6/24: cancel kills conflict
+	\naf FL_CANCEL_AUX(?Mod,?T2,?H2), // MK 6/6/24: cancel kills conflict
 	FL_CANDIDATE(?T1,?H1,?Mod),
 	FL_CANDIDATE(?T2,?H2,?Mod).
 
@@ -254,7 +268,7 @@ beaten_by_strict_rule(?T,?H,?Mod) :- beaten_by_strict_rule(?T,?H,?,?,?Mod).
 beaten_by_strict_rule(?T,?H,?Tstrict,?Hstrict,?Mod) :-
         FL_CANDIDATE(?T,?H,?Mod), // MK added 7/31/2017 - important
 	FL_OPPOSES_AUX(?Mod,?T,?H,?Tstrict,?Hstrict),
-	(isbasefact{?Hstrict}, !
+	(isbasefact{?Hstrict} -->> \true
 	; FL_STRICT_CANDIDATE(?Tstrict,?Hstrict,?Mod)
         ).
 
@@ -274,7 +288,6 @@ FL_STRICT_CANDIDATE(?T,?Head,?Mod) :-
 // must have this in order for FL_STATUS to have right argument translation
 ?- flora_set_argdef(FL_STATUS,2,[FL_OID,FL_BODYFORMULA],\@)@\prolog(flrarguments).
 
-
 #if defined(FLORA_NONINCREMENTAL_TABLING) && !defined(FLORA_INCREMENTAL_TABLING)
 // Hook for abolishing FL_CANDIDATE/3, FL_STRICT_CANDIDATE/3 after each query
 FL_DEFEASIBLE_CLEANUP(?,?) :-
@@ -283,4 +296,3 @@ FL_DEFEASIBLE_CLEANUP(?,?) :-
 
 ?- flora_add_hook(\@,QUERYHOOK,after,0,FL_DEFEASIBLE_CLEANUP(?,?))@\prolog(flrhooks).
 #endif
-

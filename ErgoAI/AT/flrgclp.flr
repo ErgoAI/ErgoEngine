@@ -5,7 +5,7 @@
 ** Contact:   see  ../CONTACTS.txt
 **
 ** Copyright (C) by
-**      The Research Foundation of the State University of New York, 2008-2018;
+**      The Research Foundation of the State University of New York, 2008-2024;
 **      and Vulcan, Inc., 2008-2013.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,6 +40,7 @@
 #include "flora_tabling_methods.flh"
 
 :- symbol_context{defeated(?,?)@?, candidate(?,?)@?, strict_candidate(?,?)@?}.
+:- symbol_context{conflicts(?,?,?,?)@?, rebuts(?,?,?,?)@?, refutes(?,?,?,?)@?}.
 :- symbol_context{prlg beaten_by_strict_rule(?,?,?,?,?)}.
 
 // if FL_CANDIDATE, FL_STRICT_CANDIDATE are not tabled, memory requirements
@@ -66,6 +67,9 @@
 	  ?[howDisqualified->?]}.
 :- export{opposes(?,?,?,?),
 	  overrides(?,?,?,?),
+	  refutes(?,?,?,?),
+	  rebuts(?,?,?,?),
+	  conflicts(?,?,?,?),
 	  candidate(?,?),
 	  strict_candidate(?,?),
 	  defeated(?,?)}.
@@ -126,6 +130,16 @@ candidate(?T,?H) :-
 strict_candidate(?T,?H) :-
 	caller{?Mod},
 	FL_STRICT_CANDIDATE(?T,?H,?Mod).
+
+refutes(?T1,?H1,?T2,?H2) :-
+	caller{?Mod},
+        FL_REFUTES(?T1,?H1,?T2,?H2,?Mod).
+rebuts(?T1,?H1,?T2,?H2) :-
+	caller{?Mod},
+        FL_REBUTS(?T1,?H1,?T2,?H2,?Mod).
+conflicts(?T1,?H1,?T2,?H2) :-
+        caller{?Mod},
+	FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod).
 
 // Axioms for Courteous LP
 
@@ -297,6 +311,8 @@ FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod) :-
 	// FL_OPPOSES_AUX is made symmetric in T1,?H1, ?T2,?H2 by an axiom
 	// in genincludes/flrdefeasible.fli
 	FL_OPPOSES_AUX(?Mod,?T1,?H1,?T2,?H2),
+	\naf FL_CANCEL_AUX(?Mod,?T1,?H1), // MK 6/6/24: cancel kills conflict
+	\naf FL_CANCEL_AUX(?Mod,?T2,?H2), // MK 6/6/24: cancel kills conflict
 	FL_CANDIDATE(?T1,?H1,?Mod),
 	FL_CANDIDATE(?T2,?H2,?Mod).
 
