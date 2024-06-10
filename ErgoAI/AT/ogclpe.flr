@@ -5,8 +5,8 @@
 ** Contact:   see  ../CONTACTS.txt
 **
 ** Copyright (C) by
-**     The Research Foundation of the State University of New York, 2008-2018;
-**     and Vulcan, Inc., 2009-2013.
+**     The Research Foundation of the State University of New York, 2008 - 2024;
+**     and Vulcan, Inc., 2009 - 2013.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@
 */
 
 
-/*** This argumentation theory, also known as ATCK1,
-     allows k-ary exclusion constraints:
+/*** This argumentation theory is also known as ATCK1.
+     It allows k-ary exclusion constraints:
      Courteous Logic with General Exclusion Constraints.
      This argumentation theory also supports cancellation.
 */
@@ -47,6 +47,7 @@
         beats(?),
         competes(?,?),
         prlg FL_COMPETES(?,?,?),
+        prlg FL_COMPETES(?,?,?,?),
         prlg FL_REFUTES(?,?,?,?,?),
         prlg FL_REBUTS(?,?,?,?),
         prlg beaten_by_strict_rule(?,?,?,?,?)}.
@@ -100,6 +101,7 @@ FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod) :-
 	FL_DEFEATED(?T,?H,?Mod).
 
 #include "change_module.flh"
+
 
 candidate(?T,?H) :-
 	caller{?Mod},
@@ -181,13 +183,14 @@ FL_DISQUALIFIED(?T,?H,?Mod) :- FL_OVERRIDEN_CANCELLATION(?T,?H,?Mod).
 
 
 /********* FL_REBUTS, FL_REFUTES *****************************************/
-// FL_REFUTES/5   Note: 1st arg is a head, second+third - a handle
+// FL_REFUTES and FL_REBUTS ARE used in this AT.
+// FL_REFUTES/5  
 FL_REFUTES(?H1,?T2,?H2,?Exclusion,?Mod) :-
 	FL_COMPETES(?H1,?H2,?Exclusion,?Mod),
 	synonymous_tag_with_head(?T2,?Mod,?T22,?H2)@\plg(flrdescriptor_support),
 	FL_OVERRIDES_AUX(?Mod,?T1,?H1,?T22,?H2),
 	FL_CANDIDATE(?T1,?H1,?Mod).
-// FL_REFUTES/4   Note: 1st arg is a head, not handle
+// FL_REFUTES/4 
 FL_REFUTES(?H1,?T2,?H2,?Mod) :-
 	FL_COMPETES(?H1,?H2,?Mod),
 	synonymous_tag_with_head(?T2,?Mod,?T22,?H2)@\plg(flrdescriptor_support),
@@ -210,10 +213,11 @@ FL_REBUTS(?H1,?H2,?Mod)  :-
 FL_COMPETES(?H1,?H2,?Exclusion,?Mod) :-
 	?Exclusion[opposers(?Mod)->{?H1,?H2}],
 	?H1 != ?H2.
+
 FL_COMPETES(?H1,?H2,?Mod) :-
 	FL_OPPOSES_AUX(?Mod,?_T1,?H1,?_T2,?H2),
 	?H1 != ?H2.
-
+        
 competitors(?H1,?H2,?Mod) :-
 	FL_COMPETES(?H1,?H2,?_Exclusion,?Mod)
         \or
@@ -323,6 +327,7 @@ FL_STATUS(?T,?H)[info->candidate] :-
 	change_module(?H,?Mod,?RealMod,?HM),
 	FL_CANDIDATE(?T,?HM,?RealMod).
 
+
 /***************************** Auxiliary Predicates ***********************/
 // Given a rule Tag and possibly Head, find body and test if it is satisfied.
 // This predicate's tables are abolished after each query by an
@@ -337,8 +342,8 @@ FL_CANDIDATE(?T,?Head,?Mod) :-
 	set_prolog_flag(max_table_subgoal_size, 0)@\prolog,
 	?ModHead = ?Head@?Mod,
 	get_ruleid_by_tag_or_head(?T,?ModHead,?Mod,?Id,?FileName)@\prolog(flrdescriptor_support),
-	isdefeasible{?Id,?FileName,?Mod},
 	show_rule_by_id(?Id,?FileName,?Mod,?ModHead,?Body)@\plg(flrcanon),
+	isdefeasible{?Id,?FileName,?Mod},
 	?Body,
 	set_prolog_flag(max_table_subgoal_size, ?TermDepth)@\prolog.
 
@@ -368,8 +373,8 @@ FL_STRICT_CANDIDATE(?T,?Head,?Mod) :-
 	set_prolog_flag(max_table_subgoal_size, 0)@\prolog,
 	?ModHead = ?Head@?Mod,
 	get_ruleid_by_tag_or_head(?T,?ModHead,?Mod,?Id,?FileName)@\prolog(flrdescriptor_support),
-	isstrict{?Id,?FileName,?Mod},
 	show_rule_by_id(?Id,?FileName,?Mod,?ModHead,?Body)@\plg(flrcanon),
+	isstrict{?Id,?FileName,?Mod},
 	?Body,
 	set_prolog_flag(max_table_subgoal_size, ?TermDepth)@\prolog.
 

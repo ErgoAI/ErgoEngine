@@ -5,8 +5,8 @@
 ** Contact:   see  ../CONTACTS.txt
 **
 ** Copyright (C) by
-**     The Research Foundation of the State University of New York, 2008-2018;
-**     and Vulcan, Inc., 2009-2013.
+**     The Research Foundation of the State University of New York, 2008 - 2024;
+**     and Vulcan, Inc., 2009 - 2013.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -25,11 +25,15 @@
 
 
 /*** This argumentation theory is an alternative formulation for
-     ATCK2 or ATCK3 - depending on whether ATCK3 is #define'd
+     ATCK2, atck2alt, (or ATCK3 - if ATCK3 is #define'd)
      It allows k-ary exclusion constraints:
      Courteous Logic with General Exclusion Constraints.
      This argumentation theory also supports cancellation.
 */
+
+#include "flora_terms.flh"
+#include "flora_tabling_methods.flh"
+#include "flora_porting.flh"
 
 // #define ATCK3
 
@@ -37,10 +41,6 @@
 
 :- compiler_options{production=on}.
 :- suppress_rule_signatures.
-
-#include "flora_terms.flh"
-#include "flora_porting.flh"
-#include "flora_tabling_methods.flh"
 
 :- symbol_context{
         defeated(?,?)@?,
@@ -50,21 +50,20 @@
         beats(?),
         competes(?,?),
         prlg FL_COMPETES(?,?,?),
+        prlg FL_COMPETES(?,?,?,?),
         prlg FL_REFUTES(?,?,?,?,?),
         prlg FL_REBUTS(?,?,?,?),
-        prlg beaten_by_strict_rule(?,?,?,?,?),
-    	prlg existsOpposerWithNoCandidates(?,?,?)}.
+        prlg beaten_by_strict_rule(?,?,?,?,?)}.
 
 :- table{FL_CANDIDATE/3, FL_STRICT_CANDIDATE/3}.
 :- prolog{FL_REFUTES/4, FL_REFUTES/5}.
 :- prolog{FL_REBUTS/3, FL_REBUTS/4}.
-:- prolog{FL_DISQUALIFIED/3}.
 :- prolog{FL_DEFEATED/3, FL_DEFEATED_ID/5}.
+:- prolog{FL_DISQUALIFIED/3}.
 :- prolog{FL_COMPETES/4, FL_COMPETES/3}.
 //:- table{FL_UNDEFEATED/5}.  // DO NOT TABLE - useless
 :- prolog{FL_UNDEFEATED/5}.
 :- prolog{beaten_by_strict_rule/3, beaten_by_strict_rule/5}.
-:- prolog{existsOpposerWithNoCandidates/2, existsOpposerWithNoCandidates/3}.
 :- prolog{tightExclusion/3, tightBinaryExclusion/3}.
 
 // All the FL_* names are defined in flora_terms.flh to make it easier to change
@@ -166,7 +165,7 @@ beater_aux(?H,?BeatenH,?Exclusion,?Mod) :-
          \or
 #ifdef ATCK3
          \neg ?BeatenH
-#else   // ATCK2
+#else   // atck2alt
          FL_STOMPED(?BeatenH,?Mod)
 #endif
         ).
@@ -181,7 +180,7 @@ FL_BEATER(?H,?BeatenH,?Mod) :-
          \or
 #ifdef ATCK3
          \neg ?BeatenH
-#else   // ATCK2
+#else   // atck2alt
          FL_STOMPED(?BeatenH,?Mod)
 #endif
         ).
@@ -204,11 +203,14 @@ FL_DISQUALIFIED(?T,?H,?Mod) :- FL_OVERRIDEN_CANCELLATION(?T,?H,?Mod).
 
 
 /********* FL_REBUTS, FL_REFUTES *****************************************/
+// FL_REFUTES and FL_REBUTS ARE used in this AT.
+// FL_REFUTES/5  
 FL_REFUTES(?H1,?T2,?H2,?Exclusion,?Mod) :-
 	FL_COMPETES(?H1,?H2,?Exclusion,?Mod),
 	synonymous_tag_with_head(?T2,?Mod,?T22,?H2)@\plg(flrdescriptor_support),
 	FL_OVERRIDES_AUX(?Mod,?T1,?H1,?T22,?H2),
 	FL_CANDIDATE(?T1,?H1,?Mod).
+// FL_REFUTES/4 
 FL_REFUTES(?H1,?T2,?H2,?Mod) :-
 	FL_COMPETES(?H1,?H2,?Mod),
 	synonymous_tag_with_head(?T2,?Mod,?T22,?H2)@\plg(flrdescriptor_support),
@@ -231,10 +233,11 @@ FL_REBUTS(?H1,?H2,?Mod)  :-
 FL_COMPETES(?H1,?H2,?Exclusion,?Mod) :-
 	?Exclusion[opposers(?Mod)->{?H1,?H2}],
 	?H1 != ?H2.
+
 FL_COMPETES(?H1,?H2,?Mod) :-
 	FL_OPPOSES_AUX(?Mod,?_T1,?H1,?_T2,?H2),
 	?H1 != ?H2.
-
+        
 competitors(?H1,?H2,?Mod) :-
 	FL_COMPETES(?H1,?H2,?_Exclusion,?Mod)
         \or
@@ -318,23 +321,6 @@ tightBinaryExclusion(?Competitor,?Lit,?Mod) :-
 	    FL_CANDIDATE(?,?Competitor,?Mod),
 	    \naf FL_STOMPED(?Competitor,?Mod)
 	).
-
-
-/********************* Conflictful Exclusion *******************************
-**  ConflictfulExclusion(?Excl,?Mod) =def=
-**       Forall ?Opposer ( opposerOf(?Excl,?Opposer) ~~>
-**                              Exists ?Tag candidate(?Tag,?Opposer)
-**                       )
-****************************************************************************/
-// **** NOT USED *****
-ConflictfulExclusion(?Excl,?Mod) :-
-	?Excl:\Exclusion@?Mod,
-	\naf existsOpposerWithNoCandidates(?Excl,?Mod).
-existsOpposerWithNoCandidates(?Excl,?Opposer,?Mod) :-
-	?Excl[opposers(?Mod)->?Opposer]@?Mod,
-	\naf exist(?Tag)^((
-	       FL_CANDIDATE(?Tag,?Opposer,?Mod)
-	   )).
 
 
 /************************ Debugging ***************************************/
@@ -470,6 +456,7 @@ FL_STRICT_CANDIDATE(?T,?Head,?Mod) :-
 	isstrict{?Id,?FileName,?Mod},
 	?Body,
 	set_prolog_flag(max_table_subgoal_size, ?TermDepth)@\prolog.
+
 
 // must have this in order for FL_STATUS to have right argument translation
 ?- flora_set_argdef(FL_STATUS,2,[FL_OID,FL_BODYFORMULA],\@)@\prolog(flrarguments).

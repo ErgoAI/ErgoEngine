@@ -1,0 +1,48 @@
+
+:- use_argumentation_theory{ogcle}.
+?- [atck1alt>>ogcle].
+
+// there is something broken about the atck* theories 
+// (ogclpe.flr, atck1alt.flr, atck2.flr, gclpe.flr, atck3.flr).
+// In all of them, maxcard*.flr tests require \opposes to be ground 
+// by a candidate/2 expot from the corresponding AT.
+\opposes(?_pred(?_x,?y),?_pred(?_x,?z)) :- 
+        // explicit domain might be cheaper than candidate/2 in some cases,
+        // but is less general
+        //{?y,?z} \in [p,q,r,3,2,a,b],
+        candidate(?,?_pred(?_x,?y))@ogcle,
+        candidate(?,?_pred(?_x,?z))@ogcle,
+	?y != ?z.
+
+p:maxcard1.  
+
+
+@{hi}
+p(?x,?y) :- p_hi(?x,?y).
+p_hi(?x,?y) :- q(?x) \and ?y \is ?x*20.
+q(100).
+q(200).
+
+@{low}
+p(?x,?y) :- p_low(?x,?y).
+p_low(?x,?y) :- r(?x) \and ?y \is ?x*30. 
+r(200).
+r(300).
+
+%tst1 :- insert{\overrides(hi,low)},
+         p(?x,?y), writeln(test1 = ?x+?y)@\plg, \false.
+%tst1 :- !.
+
+%tst2 :- delete{\overrides(?,?)},
+          p(?x,?y), writeln(test2 = ?x+?y)@\plg, \false.
+%tst2 :- !.
+
+%pretest :- %tst1, %tst2.
+
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().

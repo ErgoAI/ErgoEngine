@@ -1,0 +1,41 @@
+
+:- use_argumentation_theory{ogcle}.
+?- [gclpe>>ogcle].
+
+\opposes(?_pred(?_x,?y),?_pred(?_x,?z)) :- 
+        // explicit domain might be cheaper than candidate/2 in some cases,
+        // but is less general
+        //{?y,?z} \in [p,q,r,3,2,a,b],
+        //candidate(?,?_pred(?_x,?y))@ogcle,
+        //candidate(?,?_pred(?_x,?z))@ogcle,
+        ?y != ?z.
+
+
+
+@{hi}
+p(?x,2) :- q(?x).
+q(a).
+q(b).
+
+@{low}
+p(?x,3) :- r(?x).
+r(b).
+r(c).
+
+%tst1 :- insert{\overrides(hi,low)},
+         p(?x,?y), writeln(test1 = ?x+?y)@\plg, \false.
+%tst1 :- !.
+
+%tst2 :- delete{\overrides(?,?)},
+          p(?x,?y), writeln(test2 = ?x+?y)@\plg, \false.
+%tst2 :- !.
+
+%pretest :- %tst1, %tst2.
+
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg().

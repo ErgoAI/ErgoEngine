@@ -1,0 +1,42 @@
+
+:- use_argumentation_theory{AT}.
+?- [ogclpe>>AT].
+
+:- symbol_context{a3/0,b3/0,a4/0,b4/0,a5/0,b5/0,a6/0,b6/0}.
+f1.
+
+// a3 - true, b3 - false, as a3 refutes b3
+\overrides(a3,b3).
+\opposes(a3,b3).
+@{a3} a3:- f1.
+@{b3} b3:- f1.
+
+// a4,b4 - false due to opposition
+\opposes(a4,b4).
+@{a4} a4:- f1.
+@{b4_rule} b4:- f1.
+
+// a4 - true, b4 - false due to canceling b5_rule
+\cancel(b5_rule):- f1.
+\opposes(a5,b5).
+@{a5} a5:- f1.
+@{b5_rule} b5:- f1.
+
+
+// b6 - true, a6 - false; since a6 is canceled so it does not refute b6
+\cancel(a6):- f1.
+\overrides(a6,b6).
+\opposes(a6,b6).
+@{a6} a6:- f1.
+@{b6} b6:- f1.
+
+%tst3 :- true{a3}, false{b3}, writeln('tst3: a3 true,b3 - false')@\plg.
+%tst4 :- false{a4}, false{b4}, writeln('tst4: a4,b4 - false')@\plg.
+%tst5 :- true{a5}, false{b5}, writeln('tst5: a5 true ,b5 - false')@\plg.
+%tst6 :- false{a6}, true{b6}, writeln('tst6: a6 false ,b6 - true')@\plg.
+
+%pretest :- %tst3, %tst4, %tst5, %tst6.
+
+%test :- tell(temp)@\plg(),
+	%pretest,
+	told@\plg.
