@@ -143,16 +143,13 @@ conflicts(?T1,?H1,?T2,?H2) :-
 
 // Axioms for Courteous LP
 
-// compromized-rule
-// Note: if R1 defears R2 then it is not necessarily the case that R2
-// is defeated. FL_DEFEATS should be understood as "might defeat".
+// see below for explanations (after the definition of FL_COMPROMISED)
 FL_DEFEATED(?T,?H,?Mod) :-
 	FL_DEFEATS(?T2,?H2,?T,?H,?Mod),
 	\naf FL_COMPROMISED(?T2,?H2,?Mod).
 FL_DEFEATED(?T,?H,?Mod) :- FL_DISQUALIFIED(?T,?H,?Mod).
 
-// if T1+H1 refutes or rebuts T2+H2 then T1+H1 **might** defeat T2+H2.
-// to really defeat T2+H2, T1+H1 must not also be compromized.
+// see below for explanations (after the definition of FL_COMPROMISED)
 FL_DEFEATS(?T1,?H1,?T2,?H2,?Mod) :- FL_REFUTES(?T1,?H1,?T2,?H2,?Mod).
 FL_DEFEATS(?T1,?H1,?T2,?H2,?Mod) :- FL_REBUTS(?T1,?H1,?T2,?H2,?Mod).
 
@@ -163,9 +160,25 @@ FL_REBUTTED(?T,?H,?Mod)  :- FL_REBUTS(?,?,?T,?H,?Mod).
 // Modifiers of the original GCLP: FL_COMPROMISED and FL_DISQUALIFIED
 FL_COMPROMISED(?T,?H,?Mod)  :-
 	FL_REFUTED(?T,?H,?Mod),
-        // refuted T+H implies "might be defeated" but to really be defeated the
-        // defeater of T+H must also not be compromized - see the compromized 
+        // Note: refuted does not imply defeated. See below.
 	FL_DEFEATED(?T,?H,?Mod).
+/*
+   NOTE that, in the above, FL_REFUTED does NOT imply FL_DEFEATED. Here is why.
+
+   A good way to interpret all these concepts is this:
+     FL_DEFEATS(T1,H1,T2,H2) should be read as T1+H1 POSSIBLY defeats  T2+H2
+     FL_REFUTES(T1,H1,T2,H2) should be read as T1+H1 POSSIBLY refutes  T2+H2
+     FL_REBUTS(T1,H1,T2,H2) should be read as T1+H1 POSSIBLY rebuts  T2+H2
+
+   So, the right way to read these rules is:
+
+      T+H is defeated IF T2+H2 POSSIBLY defeats T+H and T2+H2 is not compromised
+      T1+H1 POSSIBLY defeats T2+H2 IF  T1+H1 POSSIBLY refutes/rebuts T2+H2
+      T+H is refuted/rebutted IF there is another T'+H' that refutes/rebuts T+H.
+
+   From these rules and FL_REFUTED(T+H),   FL_DEFEATED(T+H)) does NOT follow.
+*/
+
 FL_DISQUALIFIED(?T,?H,?Mod) :-
 	synonymous_tag_with_head(?T,?Mod,?T2,?H)@\plg(flrdescriptor_support),
 	FL_TRANS_DEFEATS(?T,?H,?T2,?H,?Mod),
