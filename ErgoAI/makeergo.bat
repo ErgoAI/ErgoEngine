@@ -4,13 +4,18 @@ REM  Call:
 REM     makeergo [-S] [-P] [-c64] path-for-\XSB\bin\xsb64.bat
 REM     makeergo clean
 
-REM   makeergo -S path-for-\XSB\bin\xsb64.bat
-REM       means: configure FLORA for subsumptive tabling
-REM   makeergo -P path-for-\XSB\bin\xsb64.bat
-REM       means: configure FLORA for passive (nonincremental) tabling
+REM  Normally use:
+REM   makeergo path-for-\XSB\bin\xsb64.bat
+REM
+REM  If need to recompile Ergo's C files then:
 REM   makeergo -c64 path-for-\XSB\bin\xsb64.bat
 REM       Also recompile relevant C files.
-REM   .\cc - developer's option
+REM       It's a developer's option
+REM  Very rare development options:
+REM   makeergo -S path-for-\XSB\bin\xsb64.bat
+REM       means: configure ErgoAI for subsumptive tabling
+REM   makeergo -P path-for-\XSB\bin\xsb64.bat
+REM       means: configure ErgoAI for passive (nonincremental) tabling
 
 REM  NOTE: DOS batch language is very brittle. For instance, replacing
 REM        %1 with %ARG%, where ARG=%1 will not work if
