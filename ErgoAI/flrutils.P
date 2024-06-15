@@ -3076,6 +3076,7 @@ util_rpc_file_add(MaxErr,ErrNum,CompiledRuleList,CompiledFactList,
         the end of the list.
 	FactsCode is the same for facts.
         TextualInfo = FL_TEXTUAL_INFO_PRED(StmtNum,ShortStmtFileSpec,BegL,BegCh,EndL,EndCh)
+        NOTE: RuleId to StatementNumber rel is encoded in rule signatures
 *************************************************************************/
 util_read_parse_compile_add(Option,Tokens,RulesCode,FactsCode,QueryCode,LQCode,UDFPredsCode,TextualInfo,Status) :-
         disable_all_tripwires,
@@ -3342,6 +3343,8 @@ discard_tokens_EOF :-
         returns and so it should be set to [] later accordingly to close
         the end of the list.
         TextualInfo = FL_TEXTUAL_INFO_PRED(StmtNum,ShortStmtFileSpec,BegL,BegCh,EndL,EndCh)
+        NOTE: RuleId is not StmtNum: RuleId --> StmtNum rel is encoded
+              in rule signatures
 ******************************************************************************/
 util_read_parse_compile(Option,Tokens,RulesCode,SignCode,FactsCode,QueryCode,LQCode,MetaFacts,UDFPredsCode,TextualInfo,Status) :-
         disable_all_tripwires,
@@ -5630,6 +5633,8 @@ extractTokenRange(Tokens,TokenRange):-
         ),
         (L1 == -1 -> TokenRange = NULL
         ;
+            %% NOTE: RuleId is not StmtNum: RuleId --> StmtNum rel is encoded
+            %% in rule signatures
             TokenRange = FL_TEXTUAL_INFO_PRED(_StmtNum,_StmtFN,L1,C1,L2,C2)
         ).
 extractTokenRange(_Tokens,NULL).
@@ -5646,8 +5651,10 @@ util_save_textual_info(TextualInfoList,FTXFile) :-
         util_FLR_filename(FTXFile,FlrFile),
         telling(OldFile),
         tell(FTXFile),
-        flora_current_out_line('%% Textual information for source file: ~w~n~n',
+        flora_current_out_line('%% Textual information for source file ~w',
                                [FlrFile]),
+        flora_current_out_line('%% FL_TEXTUAL_INFO_PRED(StmtNum,ShortStmtFileSpec,BegLn,BegCh,EndLn,EndCh)'),
+        flora_current_out_line('%% Note: StmtNum != RuleId. Their relationship is encoded in rule signatures\n\n'),
         util_write_textual_info(TextualInfoList),
         told,
         tell(OldFile).
@@ -5711,6 +5718,7 @@ util_save_latent_query_signatures(LatentQueryList,Status) :-
 
    Info: FL_TEXTUAL_INFO_PRED(StmtNum,ShortStmtFileSpec,BegLn,BegCh,EndLn,EndCh)
    If the textual info file does not exist, this predicate fails.
+   NOTE: RuleId is not StmtNum: RuleId-->StmtNum rel is encoded in rule sigs
 ******************************************************************************/
 flora_get_textual_info(RuleId,StmtFileSpec,Info) :-
         extract_stmt_fileinfo_from_filespec(StmtFileSpec,PrintableFileName,ShortStmtFileName,ShortStmtFileSpec),
@@ -5745,6 +5753,7 @@ get_rule_or_query_number(RuleId,ShortStmtFileSpec,StmtNum) :-
         matching_rule_signature(RuleId,ShortStmtFileSpec,_DescrVarTerm,_Prefix,_Head,_Body,Signature),
         rule_signature_member(rulenumber,Signature,StmtNum),
         !.
+%% NOTE: RuleId to StatementNumber rel is encoded in rule signatures
 get_rule_or_query_number(RuleId,ShortStmtFileSpec,StmtNum) :-
         %% dynamic rule
         matching_rule_signature(RuleId,FL_DYNRULE_FICTITIOUS_FILENAME(ShortStmtFileSpec),_DescrVarTerm,_Prefix,_Head,_Body,Signature),
