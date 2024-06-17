@@ -165,7 +165,12 @@ FL_REBUTTED(?T,?H,?Mod)  :- FL_REBUTS(?,?,?T,?H,?Mod).
 FL_COMPROMISED(?T,?H,?Mod)  :-
 	FL_REFUTED(?T,?H,?Mod),
         // Note: refuted does not imply defeated. See below.
-	FL_DEFEATED(?T,?H,?Mod).
+        // BUT: for all our test examples, checking for FL_DEFEATED
+        // is unnecessary here. Keep watching.
+        // NOTE: Testing for FL_DEFEATED instead of FL_REFUTED leads to
+        //       illegal cuts over tabled subgoals -- investigate.
+	//FL_DEFEATED(?T,?H,?Mod),
+        \true.
 /*
    NOTE that, in the above, FL_REFUTED does NOT imply FL_DEFEATED. Here is why.
 
