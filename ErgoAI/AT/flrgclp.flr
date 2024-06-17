@@ -39,6 +39,7 @@
 #include "flora_porting.flh"
 #include "flora_tabling_methods.flh"
 
+:- symbol_context{compromised(?,?)@?}.
 :- symbol_context{defeated(?,?)@?, candidate(?,?)@?, strict_candidate(?,?)@?}.
 :- symbol_context{conflicts(?,?,?,?)@?, rebuts(?,?,?,?)@?, refutes(?,?,?,?)@?}.
 :- symbol_context{prlg beaten_by_strict_rule(?,?,?,?,?)}.
@@ -70,6 +71,7 @@
 	  refutes(?,?,?,?),
 	  rebuts(?,?,?,?),
 	  conflicts(?,?,?,?),
+	  compromised(?,?),
 	  candidate(?,?),
 	  strict_candidate(?,?),
 	  defeated(?,?)}.
@@ -92,8 +94,7 @@ FL_UNDEFEATED(?Id,?FileName,?Vars,?H,?Mod) :-
 	// creation of multiple tables for different rule Ids
 	// for \naf FL_DEFEATED_ID(?Id,?FileName,?Vars,?GH,?Mod).
 	//flora_replace_last(?H,FL_CONTEXT(?Mod,?,?)@\plg,?GH)@\prolog(flrtrim),
-        ?H = ?GH,
-	\naf FL_DEFEATED_ID(?Id,?FileName,?Vars,?GH,?Mod).
+	\naf FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod).
 
 FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod) :-
 	get_tag_descriptor_info(?Id,?FileName,?Mod,?T,?Vars)@\prolog(flrdescriptor_support),
@@ -140,6 +141,9 @@ rebuts(?T1,?H1,?T2,?H2) :-
 conflicts(?T1,?H1,?T2,?H2) :-
         caller{?Mod},
 	FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod).
+compromised(?T,?H) :-
+        caller{?Mod},
+	FL_COMPROMISED(?T,?H,?Mod).
 
 // Axioms for Courteous LP
 
@@ -199,6 +203,7 @@ FL_REFUTES(?T1,?H1,?T2,?H2,?Mod) :-
 	synonymous_tag_with_head(?T1,?Mod,?T11,?H1)@\plg(flrdescriptor_support),
 	FL_OVERRIDES_AUX(?Mod,?T11,?H1,?T22,?H2),
 	synonymous_tag_with_head(?T22,?Mod,?T2,?H2)@\plg(flrdescriptor_support),
+	\naf FL_COMPROMISED(?T11,?H1,?Mod),
 	FL_CONFLICTS(?T11,?H1,?T22,?H2,?Mod).
 FL_REFUTES(?T1,?H1,?T2,?H2,?Mod) :-
 	// This order is potentially better, since normally
@@ -206,6 +211,7 @@ FL_REFUTES(?T1,?H1,?T2,?H2,?Mod) :-
 	synonymous_tag_with_head(?T2,?Mod,?T22,?H2)@\plg(flrdescriptor_support),
 	FL_OVERRIDES_AUX(?Mod,?T11,?H1,?T22,?H2),
 	synonymous_tag_with_head(?T11,?Mod,?T1,?H1)@\plg(flrdescriptor_support),
+	\naf FL_COMPROMISED(?T11,?H1,?Mod),
 	FL_CONFLICTS(?T11,?H1,?T22,?H2,?Mod).
 
 FL_REBUTS(?T1,?H1,?T2,?H2,?Mod)  :-
@@ -232,13 +238,11 @@ FL_REBUTS(?T1,?H1,?T2,?H2,?Mod)  :-
 FL_STATUS(?T,?H)[howDefeated -> refutedBy(?DT,?DH)] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
-	FL_REFUTES(?DT,?DH,?T,?HM,?RealMod),
-	\naf FL_COMPROMISED(?DT,?DH,?RealMod).
+	FL_REFUTES(?DT,?DH,?T,?HM,?RealMod).
 FL_STATUS(?T,?H)[howDefeated -> rebuttedBy(?DT,?DH)] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
-	FL_REBUTS(?DT,?DH,?T,?HM,?RealMod),
-	\naf FL_COMPROMISED(?DT,?DH,?RealMod).
+	FL_REBUTS(?DT,?DH,?T,?HM,?RealMod).
 FL_STATUS(?T,?H)[howDefeated -> disqualified] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),

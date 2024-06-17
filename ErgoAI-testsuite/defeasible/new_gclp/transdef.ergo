@@ -1,0 +1,37 @@
+//:- use_argumentation_theory{AT}.
+//?- [ogclp>>AT].
+:- use_argumentation_theory.
+
+:- symbol_context{warnoff}.
+
+\opposes(d,c).
+\opposes(c,b).
+\opposes(b,a).
+
+\overrides(d,c).
+\overrides(c,b).
+\overrides(b,a).
+
+@{a}a:- fact.
+@{b}b:- fact.
+@{c}c:- fact.
+@{d}d:- fact.
+
+fact.
+
+/*
+   overrides: d->c->b->a
+   opposes:   d<->c<->b<->a
+   Expected:
+              d     b    :     true
+                 c     a :     false
+*/
+
+%pretest :- true{d}, true{b}, false{c}, false{a}, writeln(OK)@\plg.
+
+%test :- tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\plg.
