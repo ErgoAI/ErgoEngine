@@ -817,11 +817,11 @@ flora_change_module(InPred,_OutPred,_NewModule,_RealNewModule,ErrorMessage) :-
 	flora_abort(ErrorMessage).
 
 %% in case the arg was Term@?Var, it will be passed as an FLLIBMODLIT
-flora_change_module(FLLIBMODLIT(F,Args,Mod,_),OutPred,(ModToChange,NewModule),Mod,_ErrorMessage) :-
+flora_change_module(FLLIBMODLIT(F,Args,Mod,FWContext),OutPred,(ModToChange,NewModule),Mod,_ErrorMessage) :-
 	(ModToChange \= Mod -> RealNewMod = Mod
 	; RealNewMod = NewModule
 	),
-	FLLIBMODOBJ(FLLIBMODLIT(F,Args,NewModule,_),OutPred),
+	FLLIBMODOBJ(FLLIBMODLIT(F,Args,NewModule,FWContext),OutPred),
 	!.
 flora_change_module(InPred,OutPred,(ModToChange,NewModule),RealNewMod,_ErrorMessage) :-
 	flora_decode_predicate(InPred,_PredType,WS,FullWrapper,_Prefix,_BaseWrap,Args),
@@ -829,16 +829,16 @@ flora_change_module(InPred,OutPred,(ModToChange,NewModule),RealNewMod,_ErrorMess
 	    %% Case: ModToChange = NOT argumentation theory module
 	    %%       It means we have a reified InPred, with an explicit module
 	    OutPred1 = InPred, RealNewMod = WS,
-	    flora_generalize_last(OutPred1,OutPred)
+	    flora_generalize_context(OutPred1,OutPred)
 	; var(WS) ->
 	    %% Case: InPred is a term, not reified
-	    FLLIBMODOBJ(FLLIBMODLIT(FL_LIBMOD,InPred,NewModule,_),OutPred),
+	    FLLIBMODOBJ(FLLIBMODLIT(FL_LIBMOD,InPred,NewModule,FL_CONTEXT(_,_,_)),OutPred),
 	    RealNewMod = NewModule
 	;
 	    %% Reified InPred with module = arg theory module.
 	    %% Must be changed to NewModule
 	    flora_module_predicate(FullWrapper,Args,NewModule,OutPred1),
-	    flora_generalize_last(OutPred1,OutPred),
+	    flora_generalize_context(OutPred1,OutPred),
 	    RealNewMod = NewModule
 	).
 

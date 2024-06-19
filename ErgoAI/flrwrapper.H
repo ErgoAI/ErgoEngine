@@ -44,7 +44,7 @@
 
 :- import
 	flora_add_last/3,
-	flora_generalize_last/2
+	flora_generalize_context/2
    from flrtrim.
 
 :- import term_psc/2, term_new/2, psc_name/2 from machine.

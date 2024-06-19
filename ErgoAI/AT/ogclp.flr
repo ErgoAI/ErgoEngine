@@ -25,7 +25,8 @@
 
 
 /*** This argumentation theory corresponds to the original Grosof's
-     Generalized Courteous Logic Programming.
+     Generalized Courteous Logic Programming and includes a number of
+     further improvements.
      This argumentation theory also supports cancellation.
 */
 
@@ -36,6 +37,7 @@
 #include "flora_porting.flh"
 #include "flora_tabling_methods.flh"
 
+:- symbol_context{compromised(?,?)@?}.
 :- symbol_context{defeated(?,?)@?, candidate(?,?)@?, strict_candidate(?,?)@?}.
 :- symbol_context{conflicts(?,?,?,?)@?, rebuts(?,?,?,?)@?, refutes(?,?,?,?)@?}.
 :- symbol_context{prlg beaten_by_strict_rule(?,?,?,?,?)}.
@@ -52,18 +54,21 @@
 :- prolog{FL_REFUTED/3, FL_REBUTTED/3}.
 :- prolog{FL_DISQUALIFIED/3}.
 :- prolog{FL_DEFEATED_ID/5}.
+:- prolog{FL_COMPROMISED/3}.
 //:- table{FL_UNDEFEATED/5}.  // DO NOT TABLE - useless
 :- prolog{FL_UNDEFEATED/5}.
 :- prolog{beaten_by_strict_rule/3, beaten_by_strict_rule/5}.
 
 // All the FL_* names are defined in flora_terms.flh to make it easier to change
 :- export{?[howDefeated -> ?],
-	  ?[info->?]}.
+	  ?[info->?],
+	  ?[howDisqualified->?]}.
 :- export{opposes(?,?,?,?),
 	  overrides(?,?,?,?),
 	  refutes(?,?,?,?),
 	  rebuts(?,?,?,?),
 	  conflicts(?,?,?,?),
+	  compromised(?,?),
 	  candidate(?,?),
 	  strict_candidate(?,?),
 	  defeated(?,?)}.
@@ -133,10 +138,16 @@ rebuts(?T1,?H1,?T2,?H2) :-
 conflicts(?T1,?H1,?T2,?H2) :-
         caller{?Mod},
 	FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod).
+compromised(?T,?H) :-
+        caller{?Mod},
+	FL_COMPROMISED(?T,?H,?Mod).
 
 // Axioms for Courteous LP
 
-FL_DEFEATED(?T,?H,?Mod) :- FL_DEFEATS(?,?,?T,?H,?Mod).
+FL_DEFEATED(?T,?H,?Mod) :-
+	FL_DEFEATS(?_T2,?_H2,?T,?H,?Mod),
+	//\naf FL_COMPROMISED(?_T2,?_H2,?Mod),
+        \true.
 FL_DEFEATED(?T,?H,?Mod) :- FL_DISQUALIFIED(?T,?H,?Mod).
 
 FL_DEFEATS(?T1,?H1,?T2,?H2,?Mod) :- FL_REFUTES(?T1,?H1,?T2,?H2,?Mod).
@@ -145,6 +156,11 @@ FL_DEFEATS(?T1,?H1,?T2,?H2,?Mod) :- FL_REBUTS(?T1,?H1,?T2,?H2,?Mod).
 FL_REFUTED(?T,?H,?Mod)   :- FL_REFUTES(?,?,?T,?H,?Mod).
 // rebutted/2 is unused in this version of the argumentation theory
 FL_REBUTTED(?T,?H,?Mod)  :- FL_REBUTS(?,?,?T,?H,?Mod).
+
+// FL_COMPROMISED/3 is not used here but we mark where the NEW GCLP (flrgclp) 
+// would have it.
+FL_COMPROMISED(?T,?H,?Mod)  :-
+	FL_REFUTED(?T,?H,?Mod).
 
 /******************** FL_DISQUALIFIED **************************************/
 FL_DISQUALIFIED(?T,?H,?Mod) :- beaten_by_strict_rule(?T,?H,?Mod).
@@ -163,6 +179,7 @@ FL_REFUTES(?T1,?H1,?T2,?H2,?Mod) :-
 	synonymous_tag_with_head(?T1,?Mod,?T11,?H1)@\plg(flrdescriptor_support),
 	FL_OVERRIDES_AUX(?Mod,?T11,?H1,?T22,?H2),
 	synonymous_tag_with_head(?T22,?Mod,?T2,?H2)@\plg(flrdescriptor_support),
+	//\naf FL_COMPROMISED(?T11,?H1,?Mod),
 	FL_CONFLICTS(?T11,?H1,?T22,?H2,?Mod).
 FL_REFUTES(?T1,?H1,?T2,?H2,?Mod) :-
 	// This order is potentially better, since normally
@@ -170,13 +187,21 @@ FL_REFUTES(?T1,?H1,?T2,?H2,?Mod) :-
 	synonymous_tag_with_head(?T2,?Mod,?T22,?H2)@\plg(flrdescriptor_support),
 	FL_OVERRIDES_AUX(?Mod,?T11,?H1,?T22,?H2),
 	synonymous_tag_with_head(?T11,?Mod,?T1,?H1)@\plg(flrdescriptor_support),
+	//\naf FL_COMPROMISED(?T11,?H1,?Mod),
 	FL_CONFLICTS(?T11,?H1,?T22,?H2,?Mod).
 
 FL_REBUTS(?T1,?H1,?T2,?H2,?Mod)  :-
+	flrground(?T1+?H1)@\plg(flora_ground),
+	!,
+	\naf FL_CANCEL_AUX(?Mod,?T1,?H1), // MK 5/18/24: cancel kills rebuttal
+	FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod),
+        \naf FL_REFUTED(?T1,?H1,?Mod),
+        \naf FL_REFUTED(?T2,?H2,?Mod).
+FL_REBUTS(?T1,?H1,?T2,?H2,?Mod)  :-
 	FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod),
         \naf FL_CANCEL_AUX(?Mod,?T1,?H1), // MK 5/18/24: cancel kills rebuttal
-	\naf FL_REFUTED(?T1,?H1,?Mod),
-	\naf FL_REFUTED(?T2,?H2,?Mod).
+        \naf FL_REFUTED(?T1,?H1,?Mod),
+        \naf FL_REFUTED(?T2,?H2,?Mod).
 
 
 /************************ Debugging ***************************************/
@@ -195,14 +220,15 @@ FL_STATUS(?T,?H)[howDefeated -> rebuttedBy(?DT,?DH)] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
 	FL_REBUTS(?DT,?DH,?T,?HM,?RealMod).
-FL_STATUS(?T,?H)[howDefeated -> canceled] :-
+FL_STATUS(?T,?H)[howDefeated -> disqualified] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
-	FL_CANCEL_AUX(?RealMod,?T,?HM).
-FL_STATUS(?T,?H)[howDefeated->beatenByStrictRule(?SH)] :-
+	FL_DISQUALIFIED(?T,?HM,?RealMod).
+
+FL_STATUS(?T,?H)[howDefeated->disqualified] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
-	beaten_by_strict_rule(?T,?HM,?,?SH,?RealMod).
+	beaten_by_strict_rule(?T,?HM,?_ST,?_SH,?RealMod).
 
 FL_STATUS(?T,?H)[info -> refutes(?RefutedT,?RefutedH)] :-
 	caller{?Mod},
@@ -223,6 +249,20 @@ FL_STATUS(?T,?H)[info->candidate] :-
 	change_module(?H,?Mod,?RealMod,?HM),
 	FL_CANDIDATE(?T,?HM,?RealMod).
 
+FL_STATUS(?T,?H)[howDisqualified->canceled] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_CANCEL_AUX(?RealMod,?T,?HM).
+
+FL_STATUS(?T,?H)[howDisqualified->beatenByStrictRule(?ST,?SH)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	beaten_by_strict_rule(?T,?HM,?ST,?SH,?RealMod).
+
+FL_STATUS(?T,?H)[howDisqualified->cancellationOverriden(?T,?HM)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+        FL_OVERRIDEN_CANCELLATION(?T,?HM,?RealMod).
 
 /***************************** Auxiliary Predicates ***********************/
 // Given a rule Tag and possibly Head, find body and test if it is satisfied.

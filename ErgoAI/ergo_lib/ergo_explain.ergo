@@ -63,6 +63,7 @@
                    contradiction/?,
                    rebuttedBy/?, refutedBy/?,
                    beatenByStrictRule/?, disqualified/?,
+                   overridenCancellation/?,
                    w/?, m/?, d/?
                  }.
 
@@ -485,8 +486,11 @@ get_justification_type(?Goal,?Type) :-
         ?SupportObj = ?type(?PreGoal,?,?,?,?,?),
         (?PreGoal = rebuttedBy(?,?Goal) -->> \true
         ; ?PreGoal = refutedBy(?,?Goal) -->> \true
-        ; ?PreGoal = beatenByStrictRule(?Goal) -->> \true
+        //; ?PreGoal = beatenByStrictRule(?,?Goal) -->> \true
+          // the (?,?,(?,?Goal)) arg structure comes from fidjiUtils.flr
         ; ?PreGoal = disqualified(?,?,(?,?Goal)) -->> \true
+        ; ?PreGoal = beatenByStrictRule(?,?,(?,?Goal)) -->> \true
+        ; ?PreGoal = overridenCancellation(?,?,(?,?Goal)) -->> \true
         ; ?Goal = ?PreGoal
         ),
         ?type \in [w,m,d],
@@ -988,6 +992,7 @@ printable_axiom(disqualified,'defeated by disqualification') :- !.
 printable_axiom(rebuttedBy,'defeated by rebuttal') :- !.
 printable_axiom(refutedBy,'defeated by refutation') :- !.
 printable_axiom(beatenByStrictRule,'defeated by refutation') :- !.
+printable_axiom(overridenCancellation,'canceling rule defeated because it has lower priority than the rule being canceled') :- !.
 printable_axiom('aggregate expression','computed via an aggregate function') :- !.
 printable_axiom(canceled,'defeated by cancellation') :- !.
 printable_axiom(?_X,?_X).

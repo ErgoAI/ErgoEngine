@@ -511,17 +511,35 @@ fjdefeatedr(?Tag,?H,?CompleteReason) :-
 	status(?Tag,?H)[howDefeated->?Reason] @ ?AT, 
 	\if (
               ?Reason == disqualified,
-              status(?Tag,?H)[howDisqualified->defeatCycle(?DefeaterTag,
-                                                            ?Defeater,
-                                                            ?DefeatedTag,
-                                                            ?Defeated)]
+              status(?Tag,?H)[howDisqualified->defeatCycleEdge(?DefeaterTag,
+                                                                ?Defeater,
+                                                                ?DefeatedTag,
+                                                                ?Defeated)]
         )@?AT
         \then (
            ?CompleteReason = ?Reason(refutationCycle,
                                       (?DefeatedTag,?Defeated),
                                       (?DefeaterTag,?Defeater)
                                     )
-	) \else ?CompleteReason = ?Reason.
+        ) \else \if (
+                      ?Reason == disqualified,
+                      status(?Tag,?H)[howDisqualified->beatenByStrictRule(?ST,?SH)]
+                    )@?AT
+        \then (
+           ?CompleteReason = ?Reason(beatenByStrictRule,
+                                      (?Tag,?H),
+                                      (?ST,?SH)
+                                    )
+        ) \else \if (
+                      ?Reason == disqualified,
+                      status(?Tag,?H)[howDisqualified->overridenCancellation(?ST,?SH)]
+                    )@?AT
+        \then (
+           ?CompleteReason = ?Reason(overridenCancellation,
+                                      (?Tag,?H),
+                                      (?ST,?SH)
+                                    )
+        ) \else ?CompleteReason = ?Reason.
 
 %getDefeatedRule(?Node,?DefeatedID,?M) :- 
 	?Node = d(?G,?_DefeatMethod,?_ConsiderSucceeded,?DefeatedID,?,?),
