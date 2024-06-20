@@ -28,8 +28,7 @@
      GCL, Generalized Courteous Logic.
      Derived from the original Grosof's GCLP by modifying defeasibility
      and rebuttal.
-     The only difference is that this argumentation theory also
-     supports cancellation.
+     This argumentation theory also supports cancellation.
 */
 
 :- compiler_options{production=on}.
@@ -163,14 +162,13 @@ FL_REBUTTED(?T,?H,?Mod)  :- FL_REBUTS(?,?,?T,?H,?Mod).
 
 // Reformulation of the original GCLP: FL_COMPROMISED and FL_DISQUALIFIED
 FL_COMPROMISED(?T,?H,?Mod)  :-
-	FL_REFUTED(?T,?H,?Mod),
         // Note: refuted does not imply defeated. See below.
         // BUT: for all our test examples, checking for FL_DEFEATED
         // is unnecessary here. Keep watching.
         // NOTE: Testing for FL_DEFEATED instead of FL_REFUTED leads to
         //       illegal cuts over tabled subgoals -- investigate.
 	//FL_DEFEATED(?T,?H,?Mod),
-        \true.
+	FL_REFUTED(?T,?H,?Mod).
 /*
    NOTE that, in the above, FL_REFUTED does NOT imply FL_DEFEATED. Here is why.
 
@@ -390,8 +388,8 @@ FL_STRICT_CANDIDATE(?T,?Head,?Mod) :-
 // Hook for abolishing FL_CANDIDATE/3, FL_STRICT_CANDIDATE/3 after each query
 FL_DEFEASIBLE_CLEANUP(?,?) :-
 	// abolishing FL_TRANS_DEFEATS/5 causes warnings in actions.flr,
-        // so it's commented out
-	//flora_abolish_table_call(${FL_TRANS_DEFEATS(?,?,?,?,?)})@\prolog(flrtables),
+        // so the next flora_abolish_table_call is commented out
+	//flora_abolish_table_call(${FL_TRANS_DEFEATS(?,?,?,?,?)})@\plg(flrtables),
 	flora_abolish_table_call(${FL_CANDIDATE(?,?,?)})@\prolog(flrtables),
 	flora_abolish_table_call(${FL_STRICT_CANDIDATE(?,?,?)})@\prolog(flrtables).
 

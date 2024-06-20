@@ -57,7 +57,7 @@ HDRMSG = "While compiling .../ErgoAI/lib:"
 
 
 # suffix rules
-.SUFFIXES: ${PROLOGEXT} .flr
+.SUFFIXES: ${PROLOGEXT} .flr .ergo
 
 all: clean init recompile
 
@@ -68,6 +68,8 @@ recompile: $(ALL) finish
 	@cat $(SVFILE)
 
 .flr${PROLOGEXT}:
+	echo 'flora_load_system_module_by_file($*).' >> cmd...
+.ergo${PROLOGEXT}:
 	echo 'flora_load_system_module_by_file($*).' >> cmd...
 
 init:

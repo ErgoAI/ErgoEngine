@@ -51,7 +51,7 @@ HDRMSG = "While compiling .../ErgoAI/pkgs:"
 
 
 # suffix rules
-.SUFFIXES: $(PROLOGEXT) .flr
+.SUFFIXES: $(PROLOGEXT) .flr .ergo
 
 # We should have touch *.flr here when there will be packages
 all: clean init recompile
@@ -70,6 +70,8 @@ persistentmodules$(PROLOGEXT):
 	echo "import ('\\\\compile')/1 from flora2. '\\\\compile'($* >> pm)." >> cmd...
 
 .flr${PROLOGEXT}:
+	echo "import ('\\\\compile')/1 from flora2. '\\\\compile'($*)." >> cmd...
+.ergo${PROLOGEXT}:
 	echo "import ('\\\\compile')/1 from flora2. '\\\\compile'($*)." >> cmd...
 
 init:

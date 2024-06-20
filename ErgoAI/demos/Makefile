@@ -56,7 +56,7 @@ HDRMSG = "While compiling .../ErgoAI/demos:"
 
 
 # suffix rules
-.SUFFIXES: ${PROLOGEXT} .flr
+.SUFFIXES: ${PROLOGEXT} .flr .ergo
 
 all: clean init recompile
 
@@ -65,6 +65,8 @@ recompile: $(ALL) finish
 	@cat $(SVFILE)
 
 .flr${PROLOGEXT}:
+	echo "import ('\\\\compile')/1 from flora2. '\\\\compile'($*)." >> cmd...
+.ergo${PROLOGEXT}:
 	echo "import ('\\\\compile')/1 from flora2. '\\\\compile'($*)." >> cmd...
 
 init:

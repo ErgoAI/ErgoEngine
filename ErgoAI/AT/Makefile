@@ -58,7 +58,7 @@ HDRMSG = "While compiling .../ErgoAI/AT:"
 
 
 # suffix rules
-.SUFFIXES: ${PROLOGEXT} .flr
+.SUFFIXES: ${PROLOGEXT} .flr .ergo
 
 all: clean init recompile
 	cd prolog && $(MAKE) PROLOG=$(PROLOG)
@@ -75,6 +75,8 @@ flrgclp${PROLOGEXT}:
 
 # the default case
 .flr${PROLOGEXT}:
+	echo "import ('\\\\compile')/1 from flora2. '\\\\compile'($*)." >> cmd...
+.ergo${PROLOGEXT}:
 	echo "import ('\\\\compile')/1 from flora2. '\\\\compile'($*)." >> cmd...
 
 init:

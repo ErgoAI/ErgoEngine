@@ -13,22 +13,15 @@
 \opposes(?,q,?,s).  // just for testing \opposes/4
 
 /*
-  Differs from new gcl.
-  New GCLP:
+  Like new gcl.
    p, q, \naf s.
    p refutes s and nobody refutes p, so p is true and s is false.
    s refutes q, but s itself is refuted, so q stands.
-  Old GCLP:
-   p, \naf q, \naf s.
-   p refutes s and nobody refutes p, so p is true and s is false.
-   s refutes q. In old GCLP this is enough to be defeated - does not matter
-   if s is defeated or not.
-   
 */
 
 %test1 :-
 	write('test01: ')@\plg,
-	\if (p, \naf q, \naf s) \then writeln('Success')@\plg
+	\if (p, q, \naf s) \then writeln('Success')@\plg
         \else writeln('Failed')@\plg.
 
 
@@ -43,25 +36,17 @@
 \opposes(?,q_dyn,?,s_dyn).  // just for testing \opposes/4
 
 /*
-  Differs from new gcl
-  New GCLP:
+  Like new gcl
    p_dyn, q_dyn, \naf s_dyn.
    p_dyn refutes s_dyn and nobody refutes p_dyn,
    so p_dyn is true and s_dyn is false.
    s_dyn refutes q_dyn, but s_dyn itself is refuted, so q_dyn stands.
-  Old GCLP:
-   p_dyn, \naf q_dyn, \naf s_dyn.
-   p_dyn refutes s_dyn and nobody refutes p_dyn, so p_dyn is true and s_dyn
-   is false.
-   s_dyn refutes q_dyn. In old GCLP this is enough to be defeated - does not
-   matter if s_dyn is defeated or not.
-   
 */
 
 
 %test1dyn :-
 	write('test01dyn: ')@\plg,
-	\if (p_dyn,\naf q_dyn, \naf s_dyn) \then writeln('Success')@\plg
+	\if (p_dyn, q_dyn, \naf s_dyn) \then writeln('Success')@\plg
         \else writeln('Failed')@\plg.
 
 
@@ -231,14 +216,15 @@ t3_5.
 \opposes(p_5,s_5).
 
 /*
-    This is a strange case: compared to test3 we made q_5 supported
-    by adding t2_5.
-    Now, q_5 refutes s_5, so s_5 cannot rebut p_5, and thus p_5 is true.
-    But p_5 rebuts s_5. Since p_5 is not defeated, s_5 is false.
+    p_5 refutes q_5. Now, 
+         q_5 refutes s_5, but since q_5 is refuted, s_5 stands.
+         So, s_5 remains to rebut and be rebutted by p_5 and q_5,
+         BUT refute_clp ignores rebuttals.
+   So, p_5, s_5, \naf q_5
 */
 %test6 :-
 	write('test06: ')@\plg,
-	\if (p_5, \naf s_5, \naf q_5) \then writeln('Success')@\plg
+	\if (p_5, s_5, \naf q_5) \then writeln('Success')@\plg
         \else writeln('Failed')@\plg.
 
 
@@ -256,15 +242,15 @@ t3_5dyn.
 \opposes(p_5dyn,s_5dyn).
 
 /*
-    This is a strange case: compared to test3 we made q_5dyn supported
-    by adding t2_5dyn.
-    Now, q_5dyn refutes s_5dyn, so s_5dyn cannot rebut p_5dyn,
-    and thus p_5dyn is true.
-    But p_5dyn rebuts s_5dyn. Since p_5dyn is not defeated, s_5dyn is false.
+    p_5dyn refutes q_5dyn. Now, 
+         q_5dyn refutes s_5dyn, but since q_5dyn is refuted, s_5dyn stands.
+         So, s_5dyn remains to rebut and be rebutted by p_5dyn and q_5dyn,
+         BUT refute_clp ignores rebuttals.
+   So, p_5, s_5, \naf q_5
 */
 %test6dyn :-
 	write('test06dyn: ')@\plg,
-	\if (p_5dyn, \naf s_5dyn, \naf q_5dyn) \then writeln('Success')@\plg
+	\if (p_5dyn, s_5dyn, \naf q_5dyn) \then writeln('Success')@\plg
         \else writeln('Failed')@\plg.
 
 //  Test 7 - nonground case
@@ -283,22 +269,18 @@ t7(b).
 \opposes(q7(?_X),s7(?_X)).
 
 /*
-  Differs from new gcl
-  This is similar to test1.
-  New GCL:
+  Similar to test1 and new gcl.
    p7(?_X) refutes s7(?_X) and nobody refutes p7(?X),
    so p7(?X) is true and s7(?X) is false for ?X=a,1,b.
    Next, s7(?X) refutes q7(?X), but s7(?X) itself is refuted,
    so q7(?X) stands for ?X=a,1,b.
-  Old GCL:
-   p7(a/b/1) are true, q7(a/b/1) false. s7(a/b/1) false.
-   
+   So, p7(a),p7(1),p7(b),  q7(a), q7(1), q7(b),\naf s7(a),\naf s7(1),\naf s7(b)
 */
 
 
 %test7 :-
 	write('test07: ')@\plg,
-	\if (p7(a),p7(1),p7(b), \naf q7(a), \naf q7(1), \naf q7(b),\naf s7(a),\naf s7(1),\naf s7(b))
+	\if (p7(a),p7(1),p7(b),  q7(a), q7(1), q7(b),\naf s7(a),\naf s7(1),\naf s7(b))
         \then writeln('Success')@\plg
         \else writeln('Failed')@\plg.
 
@@ -318,21 +300,17 @@ t7dyn(b).
 \opposes(q7dyn(?_X),s7dyn(?_X)).
 
 /*
-  Differs from new gcl
-  This is similar to test1dyn.
-  New GCL:
+  Similar to test1dyn and New GCL:
    p7dyn(?_X) refutes s7dyn(?_X) and nobody refutes p7dyn(?X),
    so p7dyn(?X) is true and s7dyn(?X) is false for ?X=a,1,b.
    Next, s7dyn(?X) refutes q7dyn(?X), but s7dyn(?X) itself is refuted,
    so q7dyn(?X) stands for ?X=a,1,b.
-  Old GCL:
-   p7dyn(a/b/1) are true, q7dyn(a/b/1) false. s7dyn(a/b/1) false.
-   
+   So: p7dyn(a),p7dyn(1),p7dyn(b), q7dyn(a), q7dyn(1), q7dyn(b),\naf s7dyn(a),\naf s7dyn(1),\naf s7dyn(b)
 */
 
 %test7dyn :-
 	write('test07dyn: ')@\plg,
-	\if (p7dyn(a),p7dyn(1),p7dyn(b), \naf q7dyn(a), \naf q7dyn(1), \naf q7dyn(b),\naf s7dyn(a),\naf s7dyn(1),\naf s7dyn(b))
+	\if (p7dyn(a),p7dyn(1),p7dyn(b), q7dyn(a), q7dyn(1), q7dyn(b),\naf s7dyn(a),\naf s7dyn(1),\naf s7dyn(b))
         \then writeln('Success')@\plg
         \else writeln('Failed')@\plg.
 

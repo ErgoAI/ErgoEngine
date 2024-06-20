@@ -14195,10 +14195,11 @@ i.e., there can be no sequence of
   $\rho_n=\rho_1$, and at each step, $(i_i,\rho_i)$, defeats the next,
   $(i_{i+1},\rho_{i+1})$.
 
-The \emph{strong} Courteous argumentation theory is in-between the cautious and
-the original Courteous theories. It is very similar to the original theory except that it
-does not allow the defeating rule, $\rho_1$, to be rebutted or refuted by the 
-rule $\rho_2$ that is itself defeated by $\rho_1$.
+The \textbf{\emph{refute\_clp}}  is like the cautious argumentation
+theory except that circulat defeat and, more importantly,
+rebuttals are ignored, i.e., are not reasons for defeating a rule.
+Such a theory is suitable for the applications where the user deals with
+rebuttals in customized ways.
 
 The cautious argumentation theory is the default and should be good for most
   applications. It can be invoked simply by placing
@@ -14228,12 +14229,12 @@ name (i.e., sans the folder name and the extensions \texttt{.flr} and
 \texttt{.ergo}) in \FLSYSTEM's library where the theory is defined. In our case, the base file name
 for the original GCL is \texttt{ogclp}, which is what we used. 
 
-The strong argumentation theory can be requested as follows (again,
+The \texttt{refute\_clp} argumentation theory can be requested as follows (again,
 the choice of the module is up to the user):
 %% 
 \begin{verbatim}
-    :- use_argumentation_theory{sgcl}.
-    ?- [sgclp>>sgcl].
+    :- use_argumentation_theory{AT}.
+    ?- [refute_clp>>AT].
 \end{verbatim}
 %% 
 
@@ -14578,12 +14579,11 @@ theory; for other argumentation theories, these methods are available in
 the modules in which these argumentation theories are loaded).
 However,
 the information returned by these methods differs from one argumentation theory
-to another. For instance, for the default, \texttt{sgclp},
+to another. For instance, for 
 and {\tt ogclp} theories, the method
 {\tt howDefeated} may return {\tt refutedBy(...)} and {\tt
   rebuttedBy(...)}, but in case of {\tt gclpe} this method might return
-{\tt notBeaterFor(ExclusionConstraintId)} as well as \texttt{canceled} and
-\texttt{beatenByStrictRule(?SRH)}.    
+{\tt notBeaterFor(ExclusionConstraintId)}.
 Here are some of the examples of these queries:
 %% 
 \begin{verbatim}

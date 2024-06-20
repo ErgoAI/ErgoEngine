@@ -39,7 +39,7 @@ ALLOBJS = flrgclp$(PROLOGEXT) \
 
 OPTIONS = [optimize]
 
-.SUFFIXES: $(PROLOGEXT) .flr
+.SUFFIXES: $(PROLOGEXT) .flr .ergo
 
 ALL: $(ALLOBJS)
 	cd prolog
@@ -51,6 +51,8 @@ flrgclp$(PROLOGEXT): ..\flrincludes\flora_terms.flh
 
 $(ALLOBJS): ..\flrincludes\flora_terms.flh
 .flr$(PROLOGEXT):
+	"$(PROLOG)" -e "add_lib_dir(a('..')). ['..\\flora2']. import '_#flmakesetup'/0 from flora2. '_#flmakesetup'. import flora_compile_system_module/1 from flrutils. flora_compile_system_module(%|fF). halt."
+.ergo$(PROLOGEXT):
 	"$(PROLOG)" -e "add_lib_dir(a('..')). ['..\\flora2']. import '_#flmakesetup'/0 from flora2. '_#flmakesetup'. import flora_compile_system_module/1 from flrutils. flora_compile_system_module(%|fF). halt."
 
 

@@ -25,20 +25,24 @@
 
 
 /*** In this argumentation theory, a rule is defeated ONLY if it is refuted.
-     Rebuttals are not counted.
+     Rebuttals are ignored.
+     Otherwise, similar to flrgclp except that circular defeat is not used.
+
      Use as usual:
-     ?- [refute_clp>>refclp].
      :- use_argumentation_theory{refclp}.
+     ?- [refute_clp>>refclp].
 */
+
+:- compiler_options{production=on}.
+:- suppress_rule_signatures.
 
 #include "flora_terms.flh"
 #include "flora_porting.flh"
 #include "flora_tabling_methods.flh"
 
-:- compiler_options{production=on}.
-:- suppress_rule_signatures.
-
+:- symbol_context{compromised(?,?)@?}.
 :- symbol_context{defeated(?,?)@?, candidate(?,?)@?, strict_candidate(?,?)@?}.
+:- symbol_context{conflicts(?,?,?,?)@?, refutes(?,?,?,?)@?}.
 :- symbol_context{prlg beaten_by_strict_rule(?,?,?,?,?)}.
 
 // if FL_CANDIDATE, FL_STRICT_CANDIDATE are not tabled, memory requirements
@@ -53,15 +57,20 @@
 :- prolog{FL_REFUTED/3}.
 :- prolog{FL_DISQUALIFIED/3}.
 :- prolog{FL_DEFEATED_ID/5}.
+:- prolog{FL_COMPROMISED/3}.
 //:- table{FL_UNDEFEATED/5}.  // DO NOT TABLE - useless
 :- prolog{FL_UNDEFEATED/5}.
 :- prolog{beaten_by_strict_rule/3, beaten_by_strict_rule/5}.
 
 // All the FL_* names are defined in flora_terms.flh to make it easier to change
 :- export{?[howDefeated -> ?],
-	  ?[info->?]}.
+	  ?[info->?],
+	  ?[howDisqualified->?]}.
 :- export{opposes(?,?,?,?),
 	  overrides(?,?,?,?),
+	  refutes(?,?,?,?),
+	  conflicts(?,?,?,?),
+	  compromised(?,?),
 	  candidate(?,?),
 	  strict_candidate(?,?),
 	  defeated(?,?)}.
@@ -78,6 +87,12 @@
           naf Exists defeated, while we need Exists not defeated.
 */
 FL_UNDEFEATED(?Id,?FileName,?Vars,?H,?Mod) :-
+        // Vars is a term containing all descriptor variables.
+
+	// here we are generalizing the trace argument to avoid
+	// creation of multiple tables for different rule Ids
+	// for \naf FL_DEFEATED_ID(?Id,?FileName,?Vars,?GH,?Mod).
+	//flora_replace_last(?H,FL_CONTEXT(?Mod,?,?)@\plg,?GH)@\prolog(flrtrim),
 	\naf FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod).
 
 FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod) :-
@@ -116,14 +131,54 @@ strict_candidate(?T,?H) :-
 	caller{?Mod},
 	FL_STRICT_CANDIDATE(?T,?H,?Mod).
 
+refutes(?T1,?H1,?T2,?H2) :-
+	caller{?Mod},
+        FL_REFUTES(?T1,?H1,?T2,?H2,?Mod).
+conflicts(?T1,?H1,?T2,?H2) :-
+        caller{?Mod},
+	FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod).
+compromised(?T,?H) :-
+        caller{?Mod},
+	FL_COMPROMISED(?T,?H,?Mod).
+
 // Axioms for Courteous LP
 
-FL_DEFEATED(?T,?H,?Mod) :- FL_DEFEATS(?,?,?T,?H,?Mod).
+// see below for explanations (after the definition of FL_COMPROMISED)
+FL_DEFEATED(?T,?H,?Mod) :-
+	FL_DEFEATS(?T2,?H2,?T,?H,?Mod),
+	\naf FL_COMPROMISED(?T2,?H2,?Mod).
 FL_DEFEATED(?T,?H,?Mod) :- FL_DISQUALIFIED(?T,?H,?Mod).
 
+// see below for explanations (after the definition of FL_COMPROMISED)
 FL_DEFEATS(?T1,?H1,?T2,?H2,?Mod) :- FL_REFUTES(?T1,?H1,?T2,?H2,?Mod).
 
 FL_REFUTED(?T,?H,?Mod)   :- FL_REFUTES(?,?,?T,?H,?Mod).
+
+// Reformulation of the original GCLP: FL_COMPROMISED and FL_DISQUALIFIED
+FL_COMPROMISED(?T,?H,?Mod)  :-
+	FL_REFUTED(?T,?H,?Mod),
+        // Note: refuted does not imply defeated. See below.
+        // BUT: for all our test examples, checking for FL_DEFEATED
+        // is unnecessary here. Keep watching.
+        // NOTE: Testing for FL_DEFEATED instead of FL_REFUTED leads to
+        //       illegal cuts over tabled subgoals -- investigate.
+	//FL_DEFEATED(?T,?H,?Mod),
+        \true.
+/*
+   NOTE that, in the above, FL_REFUTED does NOT imply FL_DEFEATED. Here is why.
+
+   A good way to interpret all these concepts is this:
+     FL_DEFEATS(T1,H1,T2,H2) should be read as T1+H1 POSSIBLY defeats  T2+H2
+     FL_REFUTES(T1,H1,T2,H2) should be read as T1+H1 POSSIBLY refutes  T2+H2
+
+   So, the right way to read these rules is:
+
+      T+H is defeated IF T2+H2 POSSIBLY defeats T+H and T2+H2 is not compromised
+      T1+H1 POSSIBLY defeats T2+H2 IF  T1+H1 POSSIBLY refutes T2+H2
+      T+H is refuted IF there is another T'+H' that refutes T+H.
+
+   From these rules and FL_REFUTED(T+H),   FL_DEFEATED(T+H)) does NOT follow.
+*/
 
 /******************** FL_DISQUALIFIED **************************************/
 FL_DISQUALIFIED(?T,?H,?Mod) :- beaten_by_strict_rule(?T,?H,?Mod).
@@ -142,6 +197,7 @@ FL_REFUTES(?T1,?H1,?T2,?H2,?Mod) :-
 	synonymous_tag_with_head(?T1,?Mod,?T11,?H1)@\plg(flrdescriptor_support),
 	FL_OVERRIDES_AUX(?Mod,?T11,?H1,?T22,?H2),
 	synonymous_tag_with_head(?T22,?Mod,?T2,?H2)@\plg(flrdescriptor_support),
+	\naf FL_COMPROMISED(?T11,?H1,?Mod),
 	FL_CONFLICTS(?T11,?H1,?T22,?H2,?Mod).
 FL_REFUTES(?T1,?H1,?T2,?H2,?Mod) :-
 	// This order is potentially better, since normally
@@ -149,6 +205,7 @@ FL_REFUTES(?T1,?H1,?T2,?H2,?Mod) :-
 	synonymous_tag_with_head(?T2,?Mod,?T22,?H2)@\plg(flrdescriptor_support),
 	FL_OVERRIDES_AUX(?Mod,?T11,?H1,?T22,?H2),
 	synonymous_tag_with_head(?T11,?Mod,?T1,?H1)@\plg(flrdescriptor_support),
+	\naf FL_COMPROMISED(?T11,?H1,?Mod),
 	FL_CONFLICTS(?T11,?H1,?T22,?H2,?Mod).
 
 /************************ Debugging ***************************************/
@@ -163,14 +220,15 @@ FL_STATUS(?T,?H)[howDefeated -> refutedBy(?DT,?DH)] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
 	FL_REFUTES(?DT,?DH,?T,?HM,?RealMod).
-FL_STATUS(?T,?H)[howDefeated -> canceled] :-
+FL_STATUS(?T,?H)[howDefeated -> disqualified] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
-	FL_CANCEL_AUX(?RealMod,?T,?HM).
-FL_STATUS(?T,?H)[howDefeated->beatenByStrictRule(?SH)] :-
+	FL_DISQUALIFIED(?T,?HM,?RealMod).
+
+FL_STATUS(?T,?H)[howDefeated->disqualified] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
-	beaten_by_strict_rule(?T,?HM,?,?SH,?RealMod).
+	beaten_by_strict_rule(?T,?HM,?,?,?RealMod).
 
 FL_STATUS(?T,?H)[info -> refutes(?RefutedT,?RefutedH)] :-
 	caller{?Mod},
@@ -187,6 +245,20 @@ FL_STATUS(?T,?H)[info->candidate] :-
 	change_module(?H,?Mod,?RealMod,?HM),
 	FL_CANDIDATE(?T,?HM,?RealMod).
 
+FL_STATUS(?T,?H)[howDisqualified->canceled] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	FL_CANCEL_AUX(?RealMod,?T,?HM).
+
+FL_STATUS(?T,?H)[howDisqualified->beatenByStrictRule(?ST,?SH)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+	beaten_by_strict_rule(?T,?HM,?ST,?SH,?RealMod).
+
+FL_STATUS(?T,?H)[howDisqualified->overridenCancellation(?T,?HM)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+        FL_OVERRIDEN_CANCELLATION(?T,?HM,?RealMod).
 
 /***************************** Auxiliary Predicates ***********************/
 // Given a rule Tag and possibly Head, find body and test if it is satisfied.
@@ -216,6 +288,8 @@ FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod) :-
 	// FL_OPPOSES_AUX is made symmetric in T1,?H1, ?T2,?H2 by an axiom
 	// in genincludes/flrdefeasible.fli
 	FL_OPPOSES_AUX(?Mod,?T1,?H1,?T2,?H2),
+	\naf FL_CANCEL_AUX(?Mod,?T1,?H1), // MK 6/6/24: cancel kills conflict
+	\naf FL_CANCEL_AUX(?Mod,?T2,?H2), // MK 6/6/24: cancel kills conflict
 	FL_CANDIDATE(?T1,?H1,?Mod),
 	FL_CANDIDATE(?T2,?H2,?Mod).
 
@@ -227,7 +301,7 @@ beaten_by_strict_rule(?T,?H,?Mod) :- beaten_by_strict_rule(?T,?H,?,?,?Mod).
 beaten_by_strict_rule(?T,?H,?Tstrict,?Hstrict,?Mod) :-
         FL_CANDIDATE(?T,?H,?Mod), // MK added 7/31/2017 - important
 	FL_OPPOSES_AUX(?Mod,?T,?H,?Tstrict,?Hstrict),
-	(isbasefact{?Hstrict}, !
+	(isbasefact{?Hstrict} -->> \true
 	; FL_STRICT_CANDIDATE(?Tstrict,?Hstrict,?Mod)
         ).
 
@@ -246,7 +320,6 @@ FL_STRICT_CANDIDATE(?T,?Head,?Mod) :-
 
 // must have this in order for FL_STATUS to have right argument translation
 ?- flora_set_argdef(FL_STATUS,2,[FL_OID,FL_BODYFORMULA],\@)@\prolog(flrarguments).
-
 
 #if defined(FLORA_NONINCREMENTAL_TABLING) && !defined(FLORA_INCREMENTAL_TABLING)
 // Hook for abolishing FL_CANDIDATE/3, FL_STRICT_CANDIDATE/3 after each query

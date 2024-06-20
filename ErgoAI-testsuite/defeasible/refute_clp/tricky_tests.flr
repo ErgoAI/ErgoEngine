@@ -22,19 +22,11 @@
 
 /*
   Group 2
-  Differs from new GCLP
-
     Here B2 > A2 and A2 > C2, but not B2 > C2
     B2 does not oppose C2, but A2 opposes everything.
 
-  New GCL:
-    B2 is true, A2 is false. c2/C2 is disqualified with truth value
-    undefined.  So, it is defeated with truth value undefined, and so its
-    truth value is undefined also.
-
-  Old GCL:
-    The only difference is that c2/C2 is false rather than undefined.
-    It is false because it is refuted.
+  Similar to New GCL:
+    B2 is true, A2 is false. c2/C2 is true, since no rebuttals
 */
 
 @{a2} A2.
@@ -47,8 +39,7 @@
 \opposes(A2,C2).
 
 %tst3 :- write('test3: ')@\plg,
-          true{B2}, false{C2}, false{A2}, writeln(success)@\plg.
-// this test first time does not return anything. XSB bug? Omit.
+          true{B2}, true{C2}, false{A2}, writeln(success)@\plg.
 %tst4 :- write('test4: ')@\plg,
           ?L = collectset{?R|status(?I,A2)[howDefeated->?Z]@rclp, ?R=(?I/A2,?Z)},
           writeln(?L)@\io.
@@ -113,9 +104,8 @@
 	 numbervars(?L)@\plg(num_vars),
 	 writeln(?L)@\io.
 
-// test 4 is omitted: misbehaves. The first time ?L = [].
 // Only the second time it returns the right answer.
-%pretest :- %tst1, %tst2, %tst3, %tst5, %tst6, %tst7, %tst8, %tst9.
+%pretest :- %tst1, %tst2, %tst3, %tst4, %tst5, %tst6, %tst7, %tst8, %tst9.
 
 %test :- tell(temp)@\plg(),
 	Method[mustDefine(on)]@\sys,
