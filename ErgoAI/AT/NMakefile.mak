@@ -26,6 +26,8 @@ OBJEXT = .xwam
 PROLOGEXT = .P
 
 ALLOBJS = flrgclp$(PROLOGEXT) \
+	  refute_clp$(PROLOGEXT) \
+	  flrgclp_wfsx$(PROLOGEXT) \
 	  gclpe$(PROLOGEXT) \
 	  ogclp$(PROLOGEXT) \
 	  sgclp$(PROLOGEXT) \
@@ -36,6 +38,9 @@ ALLOBJS = flrgclp$(PROLOGEXT) \
 	  atco2$(PROLOGEXT) \
 	  atco3$(PROLOGEXT) \
 	  atck1alt$(PROLOGEXT)
+
+#Deprecated:
+#	sgclp$(PROLOGEXT) \
 
 OPTIONS = [optimize]
 

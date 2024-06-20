@@ -27,9 +27,10 @@ PROLOGEXT=.P
 FLORADIR=..
 
 ALL = flrgclp$(PROLOGEXT) \
+	refute_clp$(PROLOGEXT) \
+	flrgclp_wfsx$(PROLOGEXT) \
 	gclpe$(PROLOGEXT) \
 	ogclp$(PROLOGEXT) \
-	sgclp$(PROLOGEXT) \
 	ogclpe$(PROLOGEXT) \
 	atck2$(PROLOGEXT) \
 	atck3$(PROLOGEXT) \
@@ -37,6 +38,9 @@ ALL = flrgclp$(PROLOGEXT) \
 	atco2$(PROLOGEXT) \
 	atco3$(PROLOGEXT) \
 	atck1alt$(PROLOGEXT)
+
+# Deprecated:
+#	sgclp$(PROLOGEXT) \
 
 Option = [optimize]
 

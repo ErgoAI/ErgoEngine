@@ -41,6 +41,7 @@
 #include "flora_porting.flh"
 #include "flora_tabling_methods.flh"
 
+:- symbol_context{compromised(?,?)@?}.
 :- symbol_context{defeated(?,?)@?, candidate(?,?)@?, strict_candidate(?,?)@?}.
 :- symbol_context{conflicts(?,?,?,?)@?, rebuts(?,?,?,?)@?, refutes(?,?,?,?)@?}.
 :- symbol_context{prlg beaten_by_strict_rule(?,?,?,?,?)}.
@@ -72,6 +73,7 @@
 	  refutes(?,?,?,?),
 	  rebuts(?,?,?,?),
 	  conflicts(?,?,?,?),
+	  compromised(?,?),
 	  candidate(?,?),
 	  strict_candidate(?,?),
 	  defeated(?,?)}.
@@ -94,8 +96,7 @@ FL_UNDEFEATED(?Id,?FileName,?Vars,?H,?Mod) :-
 	// creation of multiple tables for different rule Ids
 	// for \naf FL_DEFEATED_ID(?Id,?FileName,?Vars,?GH,?Mod).
 	//flora_replace_last(?H,FL_CONTEXT(?Mod,?,?)@\plg,?GH)@\prolog(flrtrim),
-        ?H = ?GH,
-	\naf FL_DEFEATED_ID(?Id,?FileName,?Vars,?GH,?Mod).
+	\naf FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod).
 
 FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod) :-
 	get_tag_descriptor_info(?Id,?FileName,?Mod,?T,?Vars)@\prolog(flrdescriptor_support),
@@ -142,6 +143,9 @@ rebuts(?T1,?H1,?T2,?H2) :-
 conflicts(?T1,?H1,?T2,?H2) :-
         caller{?Mod},
 	FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod).
+compromised(?T,?H) :-
+        caller{?Mod},
+	FL_COMPROMISED(?T,?H,?Mod).
 
 // Axioms for Courteous LP
 
@@ -159,8 +163,8 @@ FL_REBUTTED(?T,?H,?Mod)  :- FL_REBUTS(?,?,?T,?H,?Mod).
 
 // Modifiers of the original GCLP: FL_COMPROMISED and FL_DISQUALIFIED
 FL_COMPROMISED(?T,?H,?Mod)  :-
-	FL_REFUTED(?T,?H,?Mod),
-	FL_DEFEATED(?T,?H,?Mod).
+	//FL_DEFEATED(?T,?H,?Mod),
+	FL_REFUTED(?T,?H,?Mod).
 FL_DISQUALIFIED(?T,?H,?Mod) :-
 	synonymous_tag_with_head(?T,?Mod,?T2,?H)@\plg(flrdescriptor_support),
 	FL_TRANS_DEFEATS(?T,?H,?T2,?H,?Mod),
@@ -181,6 +185,7 @@ FL_REFUTES(?T1,?H1,?T2,?H2,?Mod) :-
 	synonymous_tag_with_head(?T1,?Mod,?T11,?H1)@\plg(flrdescriptor_support),
 	FL_OVERRIDES_AUX(?Mod,?T11,?H1,?T22,?H2),
 	synonymous_tag_with_head(?T22,?Mod,?T2,?H2)@\plg(flrdescriptor_support),
+	\naf FL_COMPROMISED(?T11,?H1,?Mod),
 	FL_CONFLICTS(?T11,?H1,?T22,?H2,?Mod).
 FL_REFUTES(?T1,?H1,?T2,?H2,?Mod) :-
 	// This order is potentially better, since normally
@@ -188,6 +193,7 @@ FL_REFUTES(?T1,?H1,?T2,?H2,?Mod) :-
 	synonymous_tag_with_head(?T2,?Mod,?T22,?H2)@\plg(flrdescriptor_support),
 	FL_OVERRIDES_AUX(?Mod,?T11,?H1,?T22,?H2),
 	synonymous_tag_with_head(?T11,?Mod,?T1,?H1)@\plg(flrdescriptor_support),
+	\naf FL_COMPROMISED(?T11,?H1,?Mod),
 	FL_CONFLICTS(?T11,?H1,?T22,?H2,?Mod).
 
 FL_REBUTS(?T1,?H1,?T2,?H2,?Mod)  :-
@@ -218,22 +224,20 @@ FL_REBUTS(?T1,?H1,?T2,?H2,?Mod)  :-
 FL_STATUS(?T,?H)[howDefeated -> refutedBy(?DT,?DH)] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
-	FL_REFUTES(?DT,?DH,?T,?HM,?RealMod),
-	\naf FL_COMPROMISED(?DT,?DH,?RealMod).
+	FL_REFUTES(?DT,?DH,?T,?HM,?RealMod).
 FL_STATUS(?T,?H)[howDefeated -> rebuttedBy(?DT,?DH)] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
-	FL_REBUTS(?DT,?DH,?T,?HM,?RealMod),
-	\naf FL_COMPROMISED(?DT,?DH,?RealMod).
+	FL_REBUTS(?DT,?DH,?T,?HM,?RealMod).
 FL_STATUS(?T,?H)[howDefeated -> disqualified] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
 	FL_DISQUALIFIED(?T,?HM,?RealMod).
 
-FL_STATUS(?T,?H)[howDefeated->beatenByStrictRule(?SH)] :-
+FL_STATUS(?T,?H)[howDefeated->disqualified] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
-	beaten_by_strict_rule(?T,?HM,?,?SH,?RealMod).
+	beaten_by_strict_rule(?T,?HM,?,?,?RealMod).
 
 FL_STATUS(?T,?H)[info -> refutes(?RefutedT,?RefutedH)] :-
 	caller{?Mod},
@@ -255,7 +259,7 @@ FL_STATUS(?T,?H)[info->candidate] :-
 	FL_CANDIDATE(?T,?HM,?RealMod).
 
 // think of a better way to construct a cycle of defeats at ?T,?H.
-FL_STATUS(?T,?H)[howDisqualified->defeatCycle(?DefeaterT,?DefeaterH,?DefeatedT,?DefeatedH)] :-
+FL_STATUS(?T,?H)[howDisqualified->defeatCycleEdge(?DefeaterT,?DefeaterH,?DefeatedT,?DefeatedH)] :-
 	caller{?Mod},
         // if ?H's module is \@ then change it to ?Mod; otherwise - don't.
         // ?RealMod tells us what the module of ?HM has become in the end.
@@ -266,29 +270,41 @@ FL_STATUS(?T,?H)[howDisqualified->defeatCycle(?DefeaterT,?DefeaterH,?DefeatedT,?
 	// is bound; it might loop if Arg2 is unbound.
 	// This is why ?DefeaterT,?DefeaterH
 	// and ?DefeatedT,?DefeatedH are in Arg1.
-	FL_TRANS_DEFEATS(?DefeaterT,?DefeaterH,?T2,?HM,?RealMod),
-	FL_TRANS_DEFEATS(?DefeatedT,?DefeatedH,?T2,?HM,?RealMod),
+	FL_TRANS_DEFEATS(?T2,?HM,?DefeaterT,?DefeaterH,?RealMod),
+	FL_DEFEATS(?DefeaterT,?DefeaterH,?DefeatedT,?DefeatedH,?RealMod),
 	(?DefeaterT,DefeaterH) != (?DefeatedT,?DefeatedH),
-	FL_DEFEATS(?DefeaterT,?DefeaterH,?DefeatedT,?DefeatedH,?RealMod).
+	FL_TRANS_DEFEATS(?DefeatedT,?DefeatedH,?T2,?HM,?RealMod).
+        // This alt order gives nonground state error in new_gclp/actions.flr
+        // if used with alternative order in FL_TRANS_DEFEATS def.
+	//FL_TRANS_DEFEATS(?DefeatedT,?DefeatedH,?T2,?HM,?RealMod),
+	//(?DefeaterT,DefeaterH) != (?DefeatedT,?DefeatedH),
+	//FL_DEFEATS(?DefeaterT,?DefeaterH,?DefeatedT,?DefeatedH,?RealMod).
 
 FL_STATUS(?T,?H)[howDisqualified->canceled] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
 	FL_CANCEL_AUX(?RealMod,?T,?HM).
 
-FL_STATUS(?T,?H)[howDisqualified->beatenByStrictRule(?SH)] :-
+FL_STATUS(?T,?H)[howDisqualified->beatenByStrictRule(?ST,?SH)] :-
 	caller{?Mod},
 	change_module(?H,?Mod,?RealMod,?HM),
-	beaten_by_strict_rule(?T,?HM,?,?SH,?RealMod).
+	beaten_by_strict_rule(?T,?HM,?ST,?SH,?RealMod).
 
+FL_STATUS(?T,?H)[howDisqualified->overridenCancellation(?T,?HM)] :-
+	caller{?Mod},
+	change_module(?H,?Mod,?RealMod,?HM),
+        FL_OVERRIDEN_CANCELLATION(?T,?HM,?RealMod).
 
 /***************************** Auxiliary Predicates ***********************/
 // this works only if Arg2 is bound
 FL_TRANS_DEFEATS(?T1,?H1,?T2,?H2,?Mod) :- FL_DEFEATS(?T1,?H1,?T2,?H2,?Mod).
 FL_TRANS_DEFEATS(?T1,?H1,?T3,?H3,?Mod) :-
-	// This order seems to be faster than others
-	FL_TRANS_DEFEATS(?T2,?H2,?T3,?H3,?Mod),
-	FL_DEFEATS(?T1,?H1,?T2,?H2,?Mod).
+	FL_DEFEATS(?T1,?H1,?T2,?H2,?Mod),
+	FL_TRANS_DEFEATS(?T2,?H2,?T3,?H3,?Mod).
+	// This other order gives nonground state error in new_gclp/actions.flr
+        // if used with alternative order in defeatCycleEdge
+	//FL_TRANS_DEFEATS(?T2,?H2,?T3,?H3,?Mod),
+	//FL_DEFEATS(?T1,?H1,?T2,?H2,?Mod).
 
 // Given a rule Tag and possibly Head, find body and test if it is satisfied.
 // This predicate's tables are abolished after each query by an
@@ -353,8 +369,9 @@ FL_STRICT_CANDIDATE(?T,?Head,?Mod) :-
 #if defined(FLORA_NONINCREMENTAL_TABLING) && !defined(FLORA_INCREMENTAL_TABLING)
 // Hook for abolishing FL_CANDIDATE/3, FL_STRICT_CANDIDATE/3 after each query
 FL_DEFEASIBLE_CLEANUP(?,?) :-
-	// abolishing this causes warnings in actions.flr
-	//flora_abolish_table_call(${FL_TRANS_DEFEATS(?,?,?,?,?)})@\prolog(flrtables),
+	// abolishing FL_TRANS_DEFEATS/5 causes warnings in actions.flr,
+        // so the next flora_abolish_table_call is commented out
+	//flora_abolish_table_call(${FL_TRANS_DEFEATS(?,?,?,?,?)})@\plg(flrtables),
 	flora_abolish_table_call(${FL_CANDIDATE(?,?,?)})@\prolog(flrtables),
 	flora_abolish_table_call(${FL_STRICT_CANDIDATE(?,?,?)})@\prolog(flrtables).
 
