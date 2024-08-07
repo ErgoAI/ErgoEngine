@@ -874,6 +874,7 @@ naf_struct_flora(Goal,FreeVars,Code) :-
 	),
 	delay_checking_code_for_rulelog_naf(Goal,DelayCheckCode),
 	conjunct_struct(GoalCode,DelayCheckCode,FullGoal),
+        writeln('9999freevars_in_naf_struct_flora' = FreeVars),
 	pure_naf_struct_flora(FullGoal,FreeVars,PureNAFcode),
 	%% delay default negation
 	delay_naf_struct(PureNAFcode,DelayCode),
@@ -2799,9 +2800,9 @@ add_underscore(Atom,NewAtom) :-
 
   VarList1 can be either prvars or flvars.
   VarNameList is a list of names of vars.
-  The result is a list of variables whose names do not appear in VarsList2
-  or VarNameList2.
-  Anonymous variables are considered as distinct names and are not subtracted.
+  The result is a list of variables from VarList1 whose names
+  do not appear in VarNameList.
+  Anonymous variables are viewed as distinct names and are not subtracted.
 *******************************************************************************/
 %% subtract_vars/3: subtract flvars from flvars or prvars from prvars
 subtract_vars([],_,[]) :- !.
@@ -6388,6 +6389,7 @@ compile_body(ParserTerm,Code,Status) :-
 
 compile_body(ParserTerm,Code,Status) :-
 	is_fllogicquantifier(ParserTerm,QuantType,QuantVarNames,VarsCode,Formula,Idx),
+        writeln(qqqqq=QuantType+QuantVarNames+Formula),
 	!,
 	%% no quantified don't care vars (?,?_) allowed
 	(memberchk(FL_ANON_VAR,QuantVarNames) ->
@@ -6410,12 +6412,15 @@ compile_body(ParserTerm,Code,Status) :-
 	    ; compiling_error(Idx,QUANT_VARS_NOT_SUBSET,Err4),
 		Stat4 = [Err4]
 	    ),
+        writeln('111quantvarnames_formVarList'=QuantVarNames+FormVarList),
 	    (QuantVarNames == FL_STAR -> FreeVarObjs_aux = []
 	    ; subtract_varnames_from_vars(FormVarList,QuantVarNames,FreeVarObjs_aux)
 	    ),
 	    remove_prdontcare_and_FL_CONTEXT_vars(FreeVarObjs_aux,FreeVarObjs_aux2),
 	    %% this is used if naf-exists is nested deep inside the code
 	    remove_quantified_vars(FreeVarObjs_aux2,FreeVarObjs),
+            writeln('2222freevarobjs1'=FreeVarObjs_aux2),
+            writeln('2222freevarobjs2'=FreeVarObjs),
 
 	    (QuantVarNames == FL_STAR ->
                 RenamedFormCode = FormCode,
@@ -6423,19 +6428,21 @@ compile_body(ParserTerm,Code,Status) :-
 	    ;
                 compile_datatype_objects(VarsCode,PRVarsCode,StatVarsCode),
                 rename_prvariables(QuantVarNames,NEWQUANTIFIEDVAR,
-                                 (PRVarsCode,FormCode),
-				 (RenamedPRVarsCode,RenamedFormCode),
+                                 (PRVarsCode,FreeVarListObj,FormCode),
+				 (RenamedPRVarsCode,RenamedFreeVarListObj,RenamedFormCode),
                                  RenamedQuantVars),
                 append(StatVarsCode,Stat4,Status)
 	    )
 	; Status = S3
 	),
+        list_struct(FreeVarObjs,[],FreeVarListObj),
+        writeln('999quantnames_freevarlistobj1'=QuantVarNames+FreeVarListObj),
+        writeln('999renamed_quantnames_freevarlistobj1'=RenamedQuantVars+RenamedFreeVarListObj),
 	!,
 	( no_errors_found(Status) ->
 	    %% Create code for compiled quantification.
 	    list_struct(RenamedQuantVars,[],RenamedQuantVarsListObj),
 	    (QuantType==FL_EXISTS ->
-		list_struct(FreeVarObjs,[],FreeVarListObj),
                 %% push typed var binding code (RenamedPRVarsCode) past nearest
                 %% \naf, if any.
                 (extract_goal_from_prrulelognaf(RenamedFormCode,ExtractedGoal,
@@ -6456,13 +6463,13 @@ compile_body(ParserTerm,Code,Status) :-
 		remove_prdontcare_and_FL_CONTEXT_vars(AllVars_pre,AllVars),
 		list_struct(AllVars,[],AllVarsListObj),
 		propagate_rulelog_naf(RenamedFormCode,AllVarsListObj,Code1),
-		list_struct(FreeVarObjs,[],FreeVarListObj),
                 conjunct_struct(RenamedPRVarsCode,Code1,CombinedCode),
 		naf_struct_flora(CombinedCode,FreeVarListObj,Code)
 	    )
 	;
 	    true
-	).
+	),
+        writeln('999quantnames_freevarlistobj2'=QuantVarNames+FreeVarListObj).
 
 
 compile_body(ParserTerm,Code,Status) :-
