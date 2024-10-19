@@ -389,15 +389,36 @@ In addition, the following is needed:
     \\
     (by adding a \#, as shown).
     
+    \item The program \texttt{makedepend} often must be installed in advance.
+      In Ubuntu, it resides in the package \texttt{xutils-dev}, which must
+      be installed. You can find the package where \texttt{makedepend}
+      belongs using
+      %% 
+\begin{verbatim}
+     apt-cache search makedepend
+\end{verbatim}
+      %% 
+      if you have an APT-based Linux. On an RPM-based Linux, use
+      %% 
+\begin{verbatim}
+     yum whatprovides makedepend
+\end{verbatim}
+      %% 
   \item  One may also want to install these \textbf{optional} items:
     \begin{itemize}
-    \item MySQL, UnixODBC and MyODBC developer's packages. These are required
+    \item MySQL or MariaDB (\textbf{cannot} have both
+      because these DBs use some of
+      the same resources, like sockets), UnixODBC and MyODBC developer's packages. These are required
       for database connectivity. Note that here we need developer's
       packages. These packages usually have names like unixODBC-devel,
-      unixodbc-dev, MySQL-devel, mysql-client, mysql-connector-odbc, or
-      similar.  Use your system's package manager to find if these packages are
+      unixodbc-dev, mysql-server, mysql-client,
+      libmysqld-dev,
+      or similar.
+      (Alternatively, for MariaDB, use libmariadb-dev-compat, libmariadb-dev,
+      mariadb-server).
+      Use your system's package manager to find out if these packages are
       installed (and the packages' exact names) and install them if not.
-    \item The package pcre-devel, libpcre-devel, libpcre++-dev, or a similarly
+    \item The package pcre-devel, libpcre-devel, libpcre3-dev, libpcre++-dev, or a similarly
       named package---needed if one wants to use Perl-style regular
       expressions.
     \item The package curl-devel, libcurl-devel, libcurl4-openssl-dev, or
@@ -407,6 +428,41 @@ In addition, the following is needed:
       command history, which can be browsed via the Up/Down arrows on the
       keyboard.
     \end{itemize}
+    How would you know the exact names of the above developer packages on
+    your system? Fortunately, every major Linux distribution has a search
+    command. For APT-based Linuxes, one can use 
+    %% 
+    \begin{quote}
+      apt search regular-expression     
+    \end{quote}
+    %% 
+    For instance,
+    %% 
+    \begin{quote}
+      \texttt{
+      apt search .*curl.*-dev.* 
+      }
+    \end{quote}
+    %% 
+    Here is partial output of the above command on Ubuntu 24:
+    %% 
+\begin{verbatim}
+v   libcurl-dev          
+v   libcurl-ssl-dev     
+v   libcurl3-dev       
+v   libcurl3-openssl-dev   
+v   libcurl4-dev          
+i   libcurl4-openssl-dev
+\end{verbatim}
+    %% 
+    RPM-based Linuxes, such as CentOS, use  
+    %% 
+    \begin{quote}
+      \texttt{
+      yum list regular-expression
+      }
+    \end{quote}
+    %% 
   \end{itemize}
 \item[] \textbf{Mac:}
   %% 
@@ -22077,4 +22133,5 @@ semantics). The main differences are enumerated below.
 %%% Local Variables:
 %%% mode: latex
 %%% TeX-PDF-mode: t
+%%% TeX-master: "ergo-manual"
 %%% End:
