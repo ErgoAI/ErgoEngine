@@ -1,0 +1,41 @@
+
+Approximation of F == exist(X)^naf exist(Y)^p(X,Y) in Ergo.
+
+1. If naf exist(X,Y)^p(X,Y) is t, then F should be t.  
+    Proof by contrapositive: if naf(F) is t, then
+    naf exist(X)^naf exist(Y)^p(X,Y) is t.
+    Thus, forall(X)^exist(Y)^p(X,Y). Contrary to naf exist(X,Y)^p(X,Y)
+    which is equivalent to forall(X,Y)^naf p(X,Y).
+
+2. If neg p(a,b) is t then F = naf p(a,b) is t.
+    Proof: by the semantics of neg.
+
+3. If forall(X)^exist(Y)^p(X,Y) is t, then F should be f. 
+    Proof by contrapositive: if F is t, there must be c such that p(c,Y) is
+    false for all Y. So, forall(X,Y)^p(X,Y) can't be true.
+
+4. Else: use u_not.
+     If X,Y is empty varlist then check ground naf p(t1,t2)
+     If X,Y is not empty, i.e., p(...) is not ground, set F to u.
+
+
+Prolog implementation:
+
+%% exists_not(ExistentialVarsInGoal,Goal)
+exists_not(_,Goal):- not_exists(Goal).
+exists_not(_Vars,Goal):- neg(Goal).
+exists_not(Vars,Goal):- 
+	Vars \= [],
+        %% This means: if not case 3 then use u_not, which is likely to
+        %% make things undefined.
+        %% If myforall(Vars,Goal) is true, then exists_not fails and the
+        %% query is f.
+	not_exists(myforall(Vars,Goal)),
+	u_not(Goal).
+
+
+myforall(Vars,Goal):- 
+	copy_term(Vars,Vars1),
+	call(Goal),
+	variant(Vars,Vars1).
+

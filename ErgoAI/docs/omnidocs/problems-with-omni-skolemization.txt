@@ -1,0 +1,62 @@
+
+/*
+    Problems related to doing directionalization before skolemization in
+    the omni transform (which is the current choice).
+    The opposite order also has problems.
+*/
+
+:- compiler_options{omni=on}.
+
+// PROBLEM 1
+/*
+    the two ==>-rules below form a negative \naf cycle, leading
+       to \neg thing_exists - undefined and thus thing_exists - undefined
+
+     This can be fixed by applying skolemization before directionalization.
+*/
+thing_exists ==>      exists(?W)^thing(?W).
+\neg thing_exists ==> \neg exists(?W)^thing(?W).
+
+// should give thing_exists - true, not undefined
+?- writeln(thing_exists)@\plg, thing_exists.
+
+//////////////////////////////////////////////
+
+
+// BUT: skolemizing in cranial rules BEFORE directionalization
+// makes this rule give q=false instead of undefined.
+p({1,2,3}).
+forall(?X)^p(?X) ==> q.
+
+// should give q - undefined, not false
+?- writeln('q is:')@\plg, q.
+
+
+// PROBLEM 2
+/*
+   This is an abstract form for, say,
+      exist(?Sen)^(senator(?_State,?Sen) <== state(?_State)).
+*/
+
+exists(?X)^pp(?X,?Y) <== qq(?Y).
+
+/*
+   Directionalize
+*/
+exists(?X)^pp(?X,?Y) :- qq(?Y).
+\neg qq(?Y) :- forall(?X)^\neg pp(?X,?Y).
+
+// Problem: forall(?X)^\neg pp(?X,?Y)  == \naf\naf pp(?X,?Y) == pp(?X,?Y),
+//          by L-T, since exists(?X) (which would go between the naf's does
+//          not really exist in Prolog. So, the 2nd rule translates into crap.
+
+//          Note: Skolemize then directionalize is not any better,
+//          Indeed, Skolemize:
+pp(\#(?Y),?Y) <== qq(?Y).
+
+// Directionalize:
+pp(\#(?Y),?Y) :- qq(?Y).
+\neg qq(?Y) :- \neg pp(\#(?Y),?Y).
+
+// Nothing in the KB is going to match \neg pp(\#(?Y),?Y), so the second
+// rule is crap again.
