@@ -1,0 +1,107 @@
+lexer-composer-parser-compiler-coder
+=====================================
+
+First, pne need to know that any statement goes through flrlexer.P then
+flrcomposer.P (deals with operators) then flrcompiler.P 
+then flrcoder.P ----> XSB+gpp code comes out here.
+
+
+The main things for most people who needs to extend the syntax are
+flrparser and flrcompiler.  Flrcoder pretty straightforwardly converts the
+terms representing compiled sentences into XSB code. In theory, it could
+convert into some other syntax.
+
+How this all works together, see, For instance, util_rpc_file/9 in flrutils.P. 
+
+
+THe parser&copiler have preds that are used to parse then compile various
+situations. for instance, the parser has
+
+/****************************************************************************
+  parse_body_pathexp(+CanoniTerm,+TransFlag,+DWS,+TermArgMode,-PathExpression,-Status)
+
+  Parse path expression represented by CanoniTerm. A path expression is
+  oid[frame].oid[frame]. ... .oid[frame]
+  (frames are optional)
+  Also term:term, term::term, and lists
+  TermArgMode: PURE_PATHEXPS_ONLY/ANY_PATHEXP
+               whether to allow only object-valued arguments or also frames
+
+**********************************/
+...
+
+or
+
+
+/****************************************************************************
+  parse_head_pathexplist(+ListOfCanoniTerms,+DWS,+TermArgMode,-ListOfPathExpressions,-Status)
+  TermArgMode: PURE_PATHEXPS_ONLY/ANY_PATHEXP
+               whether to allow only object-valued arguments or also frames
+****************************************************************************/
+parse_head_pathexplist([],_DWS,_TermArgMode,[],NO_ERRORS) :- !.
+
+....
+
+
+
+To really learn how things call each other, it is necessary to use debug print statements (don't forget to remove them after).
+
+Built-in axioms
+================
+
+Built in axioms such as those that govern inheritance, equality, typing,
+are implemented in fixed pieces of code that is part of the trailer.
+
+That code in the trailer gets changed by gpp depending on the Ergo module
+into which the corresponding ergo code is loaded. The inheritance axioms,
+for example, are in
+
+closure/flrcommon_inh.fli
+closure/flreqltrailer_inh.fli
+closure/flreqltrailer_neg_inh.inc
+
+etc.
+
+The include files
+==================
+
+The include files usually have extensions .fli or .flh. These files are
+mostly in the directories includes/, flrincludes/, grnincludes/,
+headerinc/, etc.
+
+Some files have both an .flh and a .fli version. In that case, the .flh
+version if generated from the .fli version with the help of small
+preprocessor flWrapAround/1 in flrwraparound.P
+This is done because some .flh would have many repetitive parts and writing
+them by hand is very error prone. flWrapAround/1 saves this effort.
+The .fli files are run through flWrapAround/1 by makeergo, which creates
+The resulting  .flh files are the ones that are included in the trailers.
+
+Note: if you happen to edit a .flh or a .fli, always run makeergo
+afterwards. At least 'makeergo base' (this is faster and sufficient in most
+cases).
+
+Of course, never edit an .flh file if there is a corresponding .fli because
+the edits to .flh would be wiped out when makeergo is run.
+
+WORKSPACE macros
+================
+
+Note: the .flh files get changed by gpp as part of flWrapAround/1. For
+instance, flrcommon.flh has things like
+
+:-( FLORA_THIS_WORKSPACE(inferred^sub)(_h1364,_h1446,_h1528),
+    dtype_sub(_h1364,_h1446)).
+
+
+That FLORA_THIS_WORKSPACE(...)  is a gpp macro that gets changed by gpp so
+that the resulting string will contain the name of the ergo module into
+which this trailer gets loaded.
+
+This idea is key to the implementation of ergo modules.
+
+See
+
+includes/flrheader.flh:#define FLORA_THIS_WORKSPACE(X)         FLORA_WORKSPACE(FLORA_VAR_WORKSPACE,#1)
+
+and trace from there.
