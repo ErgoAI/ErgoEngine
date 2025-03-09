@@ -845,26 +845,33 @@ decode_prolog_call([FL_SILENT_EQUAL,_,2],_WS,[],_Depth) :-
 	!.
 
 %% NULL value
-decode_prolog_call([':',[usermod,'NULL'(_)],_N],_WS,['\\@?'],_Depth) :- !.
+decode_prolog_call([FL_COLON,[usermod,'NULL'(_)],_N],_WS,['\\@?'],_Depth) :- !.
 
 %% prolog call mod:p(args) for builtins in flora_prlgdef_repl/4
-decode_prolog_call([':',[Module,Term],_N],_WS,Code,Depth) :-
+decode_prolog_call([FL_COLON,[Module,Term],_N],_WS,Code,Depth) :-
 	functor(Term,Fun,Arity),
 	flora_prlgdef_repl(UsrName,Arity,Fun,Module),
 	!,
+        %%%%writeln(ooo=Module+Term),
 	Term =.. [_|Args],
 	decode_builtin(UsrName,Arity,Args,Code,Depth).
 %% prolog call mod:p(args) 
-decode_prolog_call([':',[Module,Term],2],WS,Code,Depth) :-
+decode_prolog_call([FL_COLON,[Module,Term],2],WS,Code,Depth) :-
 	!,
 	Term =.. [F|Args],
 	functor(Term,_,Arity),
 	workspace_prolog_code(F,Arity,Module,WS,PrlgSuffixCode),
+        %%%%writeln(uuuu=F+Arity+('Module'=Module)+(term=Term)+('WS'=WS)+PrlgSuffixCode),
 	%%(PrlgSuffixCode == '' -> ReifyStart='', ReifyEnd=''
 	%%; ReifyStart='${', ReifyEnd='}'
 	%%),
         ReifyStart='', ReifyEnd='',
 	escape(F,EscF),
+        /*
+        %%%%writeln(jjjj=EscF + Module+Term),
+	%%%%(Args == [] ->  Code = [ReifyStart,'(',FL_COLON(Module,EscF),')',PrlgSuffixCode,ReifyEnd]
+        %%%%,writeln(iiii=Code)
+        */
 	(Args == [] ->  Code = [ReifyStart,EscF,'()',PrlgSuffixCode,ReifyEnd]
 	;
 	    Depth1 is Depth+1,
@@ -993,7 +1000,7 @@ special_prolog_call(sub_compound,4,[M1,M2,_,_],['Method `',M1Out,'\' specializes
 special_prolog_call(sub_compound_eq,5,[M1,M2,_,_,_],['Method `',M1Out,'\' specializes method `',M2Out,'\'']) :-
 	decode_literal_internal(M1,M1Out,0,0),
 	decode_literal_internal(M2,M2Out,0,0).
-special_prolog_call(dtype_sub,2,[C1,C2],[C1Out,'::',C2Out]) :-
+special_prolog_call(dtype_sub,2,[C1,C2],[C1Out,FL_DBLCOLON,C2Out]) :-
 	decode_literal_internal(C1,C1Out,0,0),
 	decode_literal_internal(C2,C2Out,0,0).
 special_prolog_call(Fun,2,[FunResult,FunAppl|_],[FunApplCode,' := ',FunResultCode]) :-
@@ -1319,13 +1326,24 @@ workspace_code1(WS,WSCode) :-
 %% if Module is a variable then no prolog module
 %% WS is the module for modularized Prolog predicates
 workspace_prolog_code(F,Arity,Module,WS,Code) :-
+        %%%%writeln(yyy=WS+Module+Arity+F),
 	(
-	  standard_modular_prolog_functor(F,Arity) -> Code = ['@',WS]
-	; standard_modular_prolog_functor(F,Arity,WS) -> Code = ['@',WS]
+          %%%%nonvar(WS),
+          standard_modular_prolog_functor(F,Arity)
+        -> Code = ['@',WS]
+        ;
+	%%%%nonvar(WS),
+        standard_modular_prolog_functor(F,Arity,WS)
+        -> Code = ['@',WS]
 	; standard_plain_prolog_functor(F,Arity) -> Code = ''
 	; var(Module) -> Code = '@\\prolog'
-	; Code = ['@\\prolog(',Module,')']
-	).
+	;
+          %%%%F==FL_COLON ->
+          Code = ['@\\prolog(', Module, ')']
+        %%; Code = '@\\prolog'
+	),
+        %%%%writeln(jjjjj=Code),
+        true.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%% Decode anonymous OID %%%%%%%%%%%%%%%%%%%%%%
 decode_anon_oid(NewOid,Code,Depth) :-
@@ -2049,7 +2067,7 @@ decode_literal_internal((Call FL_METAUNIV [Pred|Args], ModCall = Module:Call, ca
 	atom(Module),
 	!,
 	Term =.. [Pred|Args],
-	decode_prolog_call([':',[Module,Term],2],_WS,Code,Depth).
+	decode_prolog_call([FL_COLON,[Module,Term],2],_WS,Code,Depth).
 
 %% Call prolog predicate in a different module; must be before commalist
 %% We loose the module name in decoding. Case of =..

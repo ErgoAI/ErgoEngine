@@ -34,7 +34,7 @@
 
 :- import
 	flora_abort/1,
-	%%flora_abort/2,
+	flora_abort/2,
 	flora_term_to_atom/2,
 	flora_match_substring/3,
 	flora_match_substring/5,

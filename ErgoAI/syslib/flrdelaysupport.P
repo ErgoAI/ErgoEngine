@@ -120,13 +120,16 @@
 /*******    Wrappers for builtins    ********/
 flora_delayed_literal_wrapper(Builtin,FileN,Line,Args) :-
 	delay_spec_to_predicate(Builtin,FileN,Line,Args,Call,Condition_pre),
-	%% sometimes statically created delay conditions need postprocessing
+	%% the below just sets Condition to Condition_pre.
+        %% If needed, we could use it for postprocessing Condition_pre.
 	make_delay_condition(Builtin,Args,Condition_pre,Condition),
 	!,
 	%% If Condition is ground, no point in using when/2.
 	%% This speeds up cases where args are mostly ground.
 	%% E.g., argumentation theories become faster by some 10%
-	(ground(Condition) -> Call
+	(
+          \+ experimental_feature(subgoal_delay) -> Call
+        ; ground(Condition) -> Call
 	; nondelayable_pattern(Builtin,Args) -> Call
 	; flora_when(Condition,Call)
 	).
@@ -340,9 +343,11 @@ flora_arith_IS_builtin(File,Line,X,Y) :-
 		  _Ball,
 		  builtin_instantiation_error(File,Line,2,FL_IS,'invalid type in',X,Y))
 	; atom(Y) -> X = Y
+        /*
 	; \+ground(Y) ->
 	    %% error check
 	    builtin_instantiation_error(File,Line,2,FL_IS,'non-ground expression in',X,Y)
+        */
 	; %% arithmetics
 	  catch(X is Y,_,builtin_instantiation_error(File,Line,FL_IS,'non-numeric value',X,Y))
 	).
@@ -740,6 +745,10 @@ flora_delay_quantifier(File,Line,[FL_MUST,Condition,Goal]) :-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%  FLORA_DELAY_CHECKER == flora_execute_delayed_calls (in syslib/flrgateway.P)
+flora_execute_delayed_calls(_InstantiatedBodyVars,_HeadVars) :-
+        \+ experimental_feature(subgoal_delay),
+        !.
+
 flora_execute_delayed_calls(InstantiatedBodyVars,HeadVars) :-
         extract_triggers_and_execute_all(InstantiatedBodyVars,HeadVars),
 	%%flrterm_vars_split(HeadVars, _RegularHeadVars, HeadVars,0),
@@ -1021,8 +1030,7 @@ flora_register_delay(SensorType,_,_,_,_,_,_) :-
    true.
 
 
-%% make_delay_condition is not used now, but keep it just in case
-%% catchall
+%% make_delay_condition is not used currently; we keep it just in case
 make_delay_condition(_,_,Cond,Cond).
 
 
@@ -1118,7 +1126,8 @@ printable_thing(L,PL) :-
         ; PL=unknown
         ).
 
-
+%% support for switchable features
+%% (user access through flrutils.P and enablefeature{...})
 enable_feature(X) :- assert(experimental_feature(X)).
 disable_feature(X) :-
 	(ground(X) -> retract(experimental_feature(X))
@@ -1126,5 +1135,7 @@ disable_feature(X) :-
 	).
 feature_enabled(Exper) :- experimental_feature(Exper).
 
+%% switchable features
 experimental_feature(naf_delay).
 experimental_feature(defeat_delay).
+experimental_feature(subgoal_delay).

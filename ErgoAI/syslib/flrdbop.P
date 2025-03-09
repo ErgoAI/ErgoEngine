@@ -5,8 +5,8 @@
 ** Contact:   see  ../CONTACTS.txt
 **
 ** Copyright (C) by
-**      The Research Foundation of the State University of New York, 1999-2018;
-**      Coherent Knowledge Systems, LLC, 2014-2018.
+**      The Research Foundation of the State University of New York, 1999-2025;
+**      Coherent Knowledge Systems, LLC, 2014-2025
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -80,6 +80,7 @@
    from usermod.
 
 :- import
+        flora_term_to_atom/2,
 	flora_abort/2
    from flrporting.
 
@@ -105,7 +106,8 @@
 /*****************************************************************************
   fllibinsert(+Module,+List)
 *****************************************************************************/
-FLLIBINSERT(ThisModuleName,List) :- FLLIBINSERT(ThisModuleName,List,true).
+FLLIBINSERT(ThisModuleName,List) :-
+        FLLIBINSERT(ThisModuleName,List,true).
 
 
 /*****************************************************************************
@@ -177,11 +179,22 @@ flora_storage_insertfacts(ThisModuleName,[FLLIBMODLIT(Wrap,(First,Rest),ModuleNa
 flora_storage_insertfacts(ThisModuleName,[FLLIBMODLIT(F,Args,ModuleName1,FWContext)|T]) :-
 	!,
 	P2H_CONVERSION(ModuleName,ModuleName1),
-	(get_canonical_form(FLLIBMODLIT(F,Args,ModuleName,FWContext), FLCANON(_,_,NewMod,P,_)), NewMod \== FL_INVALIDMODULE  ->
+	(get_canonical_form(FLLIBMODLIT(F,Args,ModuleName,FWContext), FLCANON(_,_,NewMod,P,_)), NewMod \== FL_INVALIDMODULE, Args \= WRAP_HILOG(_,_,_) ->
 	    flora_storage_check_module_name(NewMod)
 	;
-	    flora_decode_goal_as_atom(Args,AtomArgs),
-	    flora_abort(['a non-fact argument in ',FL_INSERT,'{...}, ', AtomArgs],FLORA_ABORT_NOTRACE)
+            %% Should handle:
+            %%  insert{?X|member(?X,[a::b,c:d])@\plgall(basics),writeln(?X)@\io}
+            %%  insert{?X|member(?X,[a:b,c:d])@\plgall(basics),writeln(?X)@\io}
+            %%  insert{?X|member(?X,[a:=:b])@\plgall(basics),writeln(?X)@\io}
+            %%  insert{?X|member(?X,[a\in b])@\plgall(basics),writeln(?X)@\io}
+	    %%  OLD: flora_decode_goal_as_atom(Args,AtomArgs),
+            (Args =.. [WRAP_HILOG, HP | RestArgs] ->
+                HilogForm =.. [HP|RestArgs],
+                flora_term_to_atom(HilogForm,AtomArgs)
+            ;
+                flora_decode_goal_as_atom(Args,AtomArgs)
+            ),
+	    flora_abort(['a non-fact member found in ',FL_INSERT,'{...}, ', AtomArgs],FLORA_ABORT_NOTRACE)
 	),
         ((F == FL_LIBMOD ; F == FL_NEGLIBMOD ; F == FL_TRANSLIBMOD)
 	-> 
@@ -248,10 +261,10 @@ flora_storage_insertfacts(ThisModuleName,[P|T]) :-
 	;
 	    flora_decode_goal_as_atom(P,PA),
 	    ( F == WRAP_HILOG ->
-		flora_abort(['attempt to insert a HiLog term (not a fact or a rule), ',
+		flora_abort(['attempt to insert a HiLog term (a non-fact), ',
 			     PA],FLORA_ABORT_NOTRACE)
 	    ;
-		flora_abort(['attempt to insert a Prolog term (not a fact or a rule), ',
+		flora_abort(['attempt to insert a Prolog term (a non-fact), ',
 			     PA],FLORA_ABORT_NOTRACE)
 	    )
 	).

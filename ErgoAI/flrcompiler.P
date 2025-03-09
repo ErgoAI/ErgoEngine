@@ -874,7 +874,7 @@ naf_struct_flora(Goal,FreeVars,Code) :-
 	),
 	delay_checking_code_for_rulelog_naf(Goal,DelayCheckCode),
 	conjunct_struct(GoalCode,DelayCheckCode,FullGoal),
-        writeln('9999freevars_in_naf_struct_flora' = FreeVars),
+        %%writeln('9999freevars_in_naf_struct_flora' = FreeVars),
 	pure_naf_struct_flora(FullGoal,FreeVars,PureNAFcode),
 	%% delay default negation
 	delay_naf_struct(PureNAFcode,DelayCode),
@@ -6389,7 +6389,7 @@ compile_body(ParserTerm,Code,Status) :-
 
 compile_body(ParserTerm,Code,Status) :-
 	is_fllogicquantifier(ParserTerm,QuantType,QuantVarNames,VarsCode,Formula,Idx),
-        writeln(qqqqq=QuantType+QuantVarNames+Formula),
+        %%writeln(qqqqq=QuantType+QuantVarNames+Formula),
 	!,
 	%% no quantified don't care vars (?,?_) allowed
 	(memberchk(FL_ANON_VAR,QuantVarNames) ->
@@ -6412,15 +6412,15 @@ compile_body(ParserTerm,Code,Status) :-
 	    ; compiling_error(Idx,QUANT_VARS_NOT_SUBSET,Err4),
 		Stat4 = [Err4]
 	    ),
-        writeln('111quantvarnames_formVarList'=QuantVarNames+FormVarList),
+        %%writeln('111quantvarnames_formVarList'=QuantVarNames+FormVarList),
 	    (QuantVarNames == FL_STAR -> FreeVarObjs_aux = []
 	    ; subtract_varnames_from_vars(FormVarList,QuantVarNames,FreeVarObjs_aux)
 	    ),
 	    remove_prdontcare_and_FL_CONTEXT_vars(FreeVarObjs_aux,FreeVarObjs_aux2),
 	    %% this is used if naf-exists is nested deep inside the code
 	    remove_quantified_vars(FreeVarObjs_aux2,FreeVarObjs),
-            writeln('2222freevarobjs1'=FreeVarObjs_aux2),
-            writeln('2222freevarobjs2'=FreeVarObjs),
+            %%writeln('2222freevarobjs1'=FreeVarObjs_aux2),
+            %%writeln('2222freevarobjs2'=FreeVarObjs),
 
 	    (QuantVarNames == FL_STAR ->
                 RenamedFormCode = FormCode,
@@ -6436,8 +6436,8 @@ compile_body(ParserTerm,Code,Status) :-
 	; Status = S3
 	),
         list_struct(FreeVarObjs,[],FreeVarListObj),
-        writeln('999quantnames_freevarlistobj1'=QuantVarNames+FreeVarListObj),
-        writeln('999renamed_quantnames_freevarlistobj1'=RenamedQuantVars+RenamedFreeVarListObj),
+        %%writeln('999quantnames_freevarlistobj1'=QuantVarNames+FreeVarListObj),
+        %%writeln('999renamed_quantnames_freevarlistobj1'=RenamedQuantVars+RenamedFreeVarListObj),
 	!,
 	( no_errors_found(Status) ->
 	    %% Create code for compiled quantification.
@@ -6469,7 +6469,8 @@ compile_body(ParserTerm,Code,Status) :-
 	;
 	    true
 	),
-        writeln('999quantnames_freevarlistobj2'=QuantVarNames+FreeVarListObj).
+        %%writeln('999quantnames_freevarlistobj2'=QuantVarNames+FreeVarListObj),
+        true.
 
 
 compile_body(ParserTerm,Code,Status) :-

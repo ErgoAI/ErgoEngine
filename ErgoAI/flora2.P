@@ -136,6 +136,7 @@
 	FLQUERYCMD/5,
 	flora_shell/0,
 	ergo_shell/0,
+	'\\ergoimport'/1,
 	'\\flimport'/1,
 	'\\compile'/1,
 	'\\compileadd'/1,
@@ -361,12 +362,12 @@ set_directory_configuration :-
         add_flora_configuration_dir(cwd,BaseDir).
 
 /************************************************************************
-  Flora-2 import stuff
+  Ergo import stuff
 
   Syntax:
-      :- '\\flimport' Pred/Arity as Pred1(_,_,...) from File[.flr]>>FloraModule
+      :- '\\ergoimport' Pred/Arity as Pred1(_,_,...) from File[.ergo]>>FloraModule
   or
-      :- '\\flimport' Pred/Arity as Pred1(_,_,...) from FloraModule
+      :- '\\ergoimport' Pred/Arity as Pred1(_,_,...) from FloraModule
 
   Also to load into the default module FROM WITHIN Prolog:
       :- '\\load'(file).
@@ -397,6 +398,7 @@ set_directory_configuration :-
 ************************************************************************/
 
 :- op(1170,fx,('\\flimport')).
+:- op(1170,fx,('\\ergoimport')).
 
 %% The other operators, '>>' and 'from', are already defined in Prolog
 
@@ -408,8 +410,9 @@ set_directory_configuration :-
 '\\flimport'(as(What,from(AsWhat,FileMod))) :-
 	!,
 	process_import_statement(What,AsWhat,FileMod).
-'\\flimport'(X) :- flora_abort(['Invalid _flimport syntax: ', X],
+'\\flimport'(X) :- flora_abort(['Invalid \\ergoimport syntax: ', X],
                                FLORA_ABORT_NOTRACE).
+'\\ergoimport'(X) :- '\\flimport'(X).
 
 process_import_statement(What,AsWhat,FileMod) :-
 	(atom(FileMod)  % in this case FileMod is a module name

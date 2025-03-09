@@ -14,7 +14,7 @@
 \usepackage{relsize}
 \usepackage{etoolbox} %% support for conditional compilation
 
-\pagestyle{headings}
+%%\pagestyle{headings}
 \bibliographystyle{plain}
 
 %%\setlength{\topmargin}{-0.25in}
@@ -4920,13 +4920,13 @@ predicates (not frames) defined in \FLSYSTEM knowledge bases. To expose such
 predicates to Prolog,
 they must be imported by the Prolog program.
 
-\subsubsection{Importing \FLSYSTEM Predicates into Prolog}
+\subsubsection{Importing \FLSYSTEM Predicates into Prolog Programs}
 
 To import an \FLSYSTEM predicate into a Prolog shell, the following must be done:
 %%
 %%
 \begin{itemize}
-\item The query
+\item First, the command
   \index{\FLBOOTSTRAP command}
 %%
 \begin{quote}
@@ -4934,7 +4934,7 @@ To import an \FLSYSTEM predicate into a Prolog shell, the following must be done
      ?- [flora2], \FLBOOTSTRAP.
 \end{quote}
 %%
-must be executed first. If you are importing \FLSYSTEM predicates into a
+must be executed in Prolog. If you are importing \FLSYSTEM predicates into a
 Prolog program, say {\tt test.P}, and not just into a Prolog shell then
 the above must be executed \emph{before compiling or loading} {\tt test.P}
 and
@@ -4942,27 +4942,27 @@ the following additional directive  must appear near the top of {\tt test.P}, \e
   \FLSYSTEM predicates:
    %%
   \begin{verbatim}
-    :- import ('\\flimport')/1 from flora2.
+    :- import ('\\ergoimport')/1 from flora2.
   \end{verbatim}
   %%
 \item 
-  \index{'\bs{}\bs{}flimport' operator}
+  \index{'\bs{}\bs{}ergoimport' operator}
   %%
-  One of the following {\tt '\bs{}\bs{}flimport'} queries must be executed in the shell:
+  One of the following {\tt '\bs{}\bs{}ergoimport'} commands must be executed in the shell:
   \begin{quote}
     \tt
-        ?- '\bs{}\bs{}flimport' {\it ergo-predicate/arity} as {\it
+        ?- '\bs{}\bs{}ergoimport' {\it ergo-predicate/arity} as {\it
       xsb-name}(\_,\_,...,\_)\\
     \hspace*{5cm}from {\it filename} >{}> {\it ergo-module-name}
     \\
-        ?- '\bs{}\bs{}flimport' {\it ergo-predicate/arity} as {\it 
+        ?- '\bs{}\bs{}ergoimport' {\it ergo-predicate/arity} as {\it 
       xsb-name}(\_,\_,...,\_)\\
     \hspace*{5cm}from {\it ergo-module-name}
   \end{quote}
 %%
-We will explain shortly which {\tt '\bs{}\bs{}flimport'} query should be
+We will explain shortly which {\tt '\bs{}\bs{}ergoimport'} command should be
 used in what situation.
-Note that a double-backslash is required in front of \texttt{flimport}
+Note that a double-backslash is required in front of \texttt{ergoimport}
 because in Prolog the backslash is an escape character.
 This is also the reason why the backslash appears
 twice in the various commands in the rest of this section.
@@ -4981,7 +4981,7 @@ This is done by executing the prolog instruction
 before calling any of the \FLSYSTEM modules. Observe that {\tt asserta} and
 \emph{not} {\tt assert} must be used.
 
-The first form for {\tt '\bs{}\bs{}flimport'} above is used to both import
+The first form for {\tt '\bs{}\bs{}ergoimport'} above is used to both import
 a predicate and also to load the file containing it into a given
 \FLSYSTEM user module. The second syntax is used when the \FLSYSTEM
 knowledge base
@@ -4989,7 +4989,7 @@ is already loaded into a module and we only need to import the
 corresponding predicate.
 
 \index{non-tabled predicates!importing into Prolog}
-In {\tt '\bs{}\bs{}flimport'}, \emph{ergo-predicate} is the name of the imported
+In {\tt '\bs{}\bs{}ergoimport'}, \emph{ergo-predicate} is the name of the imported
 predicate as it is known in the \FLSYSTEM module. For non-tabled predicates,
 whose names start with {\tt \%} in \FLSYSTEM, \emph{ergo-predicate} should
 have the following syntax: {\tt \%(predicate-name)}. For instance, to
@@ -4997,7 +4997,7 @@ import an \FLSYSTEM non-tabled predicate {\tt \%foobar} of arity 3 one can use
 the following statement:
 %%
 \begin{verbatim}
-   ?- '\\flimport' '%'(foobar)/3 as foobar(_,_,_) from mymodule.
+   ?- '\\ergoimport' '%'(foobar)/3 as foobar(_,_,_) from mymodule.
 \end{verbatim}
 %%
   
@@ -5010,7 +5010,7 @@ number of arguments as in the \FLSYSTEM predicate. For instance, {\tt
 is imported, it can be used under its Prolog name as a regular predicate.
 
 Prolog programs can also load and compile \FLSYSTEM knowledge bases using the following
-queries (again,  {\tt \FLBOOTSTRAP} must be executed in advance): 
+command (again,  {\tt \FLBOOTSTRAP} must be executed in advance): 
 %%
 \index{'\bs{}\bs{}load'/1 predicate}
 \index{'\bs{}\bs{}compile''/1 predicate}
@@ -5023,10 +5023,10 @@ queries (again,  {\tt \FLBOOTSTRAP} must be executed in advance):
  ?- '\bs{}\bs{}compile'({\it ergo-file}).
 \end{quote}
 %%
-The first query loads the file {\it ergo-file\/} into the given user
-module and compiles it, if necessary. The second query loads the knowledge
+The first command loads the file {\it ergo-file\/} into the given user
+module and compiles it, if necessary. The second command loads the knowledge
 base
-into the default module {\tt main}. The last two queries compile the file
+into the default module {\tt main}. The last two commands compile the file
 for loading into the module {\it ergo-module} and {\tt main},
 respectively, but do not load it.
 
@@ -5056,13 +5056,13 @@ knowledge base, then the best way is to start XSB and \FLSYSTEM using the {\tt
 distribution of \FLSYSTEM.
 \hfill $\Box$
 
-\subsubsection{Passing Arbitrary Queries to \FLSYSTEM}
+\subsubsection{Submitting Arbitrary Queries to \FLSYSTEM}
 
 The method of calling \FLSYSTEM from Prolog, which we just described, assumes
 that the user knows which predicates and methods to call in the \FLSYSTEM
-module. Sometimes, it is useful to be able to pass arbitrary queries to
-\FLSYSTEM. This is particularly useful when \FLSYSTEM runs under the control of a
-Java or C program.
+module. Sometimes, it is useful to be able to submit arbitrary queries to
+\FLSYSTEM. This is particularly useful when \FLSYSTEM runs under the
+control of an external program written in C, Python, or Java.
 
 \index{\FLQUERYCMD/5 predicate}
 %%
@@ -6442,7 +6442,7 @@ wants to process the Prolog terms into which \FLSYSTEM literals are encoded
 internally (which is probably hardly ever necessary).
 
 
-\subsection{Passing Parameters between \FLSYSTEM and Prolog}\label{sec-passing-args}
+\subsection{Passing Terms between \FLSYSTEM and Prolog}\label{sec-passing-args}
 
 The native HiLog support in \FLSYSTEM causes some tension when crossing the
 boundaries from one system to another. The reason is that \FLSYSTEM terms and Prolog
@@ -9141,7 +9141,7 @@ Thus, the two queries, below,
 ?- %q(?X,?Y), writeln(done)@\prolog.
 \end{verbatim}
 %%
-will produce the same result where {\tt a, b, c} and {\tt done}
+will produce the same result where \texttt{a, b, c} and \texttt{done}
 alternate in the output.
 
 \subsection{Tabling and Performance}
@@ -20801,6 +20801,49 @@ The following syntactic constructs are available only in the expert mode:
   ``if'' is called for.
 \end{itemize}
 %% 
+
+\section{Disabling Advanced Features}\label{sec=disablefeature}
+
+In some cases, the advanced features related to evaluation delay of
+subgoals or to user-defined equality may need to be disabled.
+The features that can be controlled are
+%% 
+\begin{itemize}
+\item \texttt{naf\_delay} --  disabling this makes \texttt{\RULELOGNAF}
+  execute immediately, without delaying --- even for nonground subgoals. 
+\item \texttt{defeat\_delay} -- disabling this makes testing for whether
+  rules are  defeated immediate, even for non-ground such tests.
+\item \texttt{subgoal\_delay} -- disabling this makes all delayable
+  builtins execute immediately. Also ignores delay quantifiers.
+\end{itemize}
+%% 
+The following calls disable these features
+%% 
+\begin{itemize}
+\item  \texttt{disablefeature\{attr\_vars\}}  
+\item  \texttt{disablefeature\{naf\_delay\}}  
+\item  \texttt{disablefeature\{defeat\_delay\}}  
+\end{itemize}
+%% 
+and the following re-enable them:
+%% 
+\begin{itemize}
+\item  \texttt{enablefeature\{attr\_vars\}}  
+\item  \texttt{enablefeature\{naf\_delay\}}  
+\item  \texttt{enablefeature\{defeat\_delay\}}  
+\end{itemize}
+%% 
+All these features are enabled by default. For example,
+%% 
+\begin{verbatim}
+ ....  :-  ....,                       // \naf is delayed here
+           disablefeature{naf_delay},
+           ....                        // \naf is not delayed here
+           enablefeature{naf_delay},
+           .....                      // here \naf is delayed again
+\end{verbatim}
+%% 
+
 
 \appendix
 

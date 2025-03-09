@@ -170,8 +170,8 @@
 
 /******************************************************************************
   get_canonical_form(+Term,-Canon)
-  get the canonical form Canon of the given Term. Canon is in the form
-  of FLCANON(Wrap,Args,Module,Callable,TablingStatus)
+  get the canonical form Canon of the given Term. Canon has the form
+  FLCANON(Wrap,Args,Module,Callable,TablingStatus)
 ******************************************************************************/
 %% Case of Var
 get_canonical_form(Term,FLCANON(_,_,_,Term,_)) :-
@@ -183,15 +183,16 @@ get_canonical_form(FLLIBMODLIT(Wrap,Term,Mod,_FWContext),Canon) :-
 	!,
 	%% Case of Var@...
 	(Wrap == FL_LIBMOD ->
-	    %% this is not entirely true, since Term can later be bound to
-	    %% transactional or modular prolog.
-	    %% we should monitor this one
-	    %% We might have to split the cases where we know that
-	    %% an FLLIBMODLIT is tabled and when we do not.
-	    %% Right now FL_LIBMOD denotes both, but this is not entirely true.
-	    Canon = FLCANON(_,_,Mod,Term,FL_TABLED)
-	%% Case of neg Var@...
-	; Wrap == FL_NEGLIBMOD ->
+            %% this is not entirely true, since Term can later
+            %% be bound to transactional or modular prolog.
+            %% we should monitor this one
+            %% We might have to split the cases where we know that
+            %% an FLLIBMODLIT is tabled and when we do not.
+            %% Right now FL_LIBMOD denotes both, but this
+            %% is not entirely true.
+            Canon = FLCANON(_,_,Mod,Term,FL_TABLED)
+        %% Case of neg Var@...
+        ; Wrap == FL_NEGLIBMOD ->
 	    Canon = FLCANON(_,_,Mod,Callable,FL_TABLED_NEG),
 	    Term = FLLIBMODLIT(FL_NEGLIBMOD,Callable,Mod,_FWContext)
 	%% Case of %?Var@... 
@@ -204,23 +205,23 @@ get_canonical_form(FLLIBMODLIT(Wrap,Term,Mod,_FWContext),Canon) :-
 %% Case of neg ?Var@... where ?Var is bound
 %% Case of %?Var@... where ?Var is bound
 get_canonical_form(FLLIBMODLIT(Wrap,Term,Mod,_FWContext),Canon) :-
-	%% If Mod is a var, bind it to the module specified in Term
+	%% If Mod is a var, bind it to the module given in Term
 	(var(Mod), Term = FLLIBMODLIT(_,_,Mod,_) -> true
 	; var(Mod), flora_decode_module_name(Term,Mod) -> true
 	; true
 	),
-	(Wrap == FL_LIBMOD
-	-> PredType = FL_TABLED,
+	(Wrap == FL_LIBMOD ->
+            PredType = FL_TABLED,
 	    GenericWrap = WRAP_TABLED_HILOG,
 	    BodyWrap = FLBodyPREFIX(WRAP_TABLED_HILOG),
 	    Message = 'non-'
-	; Wrap == FL_NEGLIBMOD
-	-> PredType = FL_TABLED_NEG,
+	; Wrap == FL_NEGLIBMOD ->
+            PredType = FL_TABLED_NEG,
 	    negate_wrapper(WRAP_TABLED_HILOG,GenericWrap),
 	    BodyWrap = FLNEGBodyPREFIX(WRAP_TABLED_HILOG),
 	    Message = 'non-'
-	; Wrap == FL_TRANSLIBMOD
-	-> PredType = FL_NOTTABLED,
+	; Wrap == FL_TRANSLIBMOD ->
+            PredType = FL_NOTTABLED,
 	    GenericWrap = WRAP_NONTABLED_HILOG,
 	    BodyWrap = FLBodyPREFIX(WRAP_NONTABLED_HILOG),
 	    Message = ''
@@ -238,17 +239,24 @@ get_canonical_form(FLLIBMODLIT(Wrap,Term,Mod,_FWContext),Canon) :-
             )
         ; is_flora_callable_literal(Term) ->
 	    %% Callable predicates can have a different type than
-	    %% PredType, which is determined merely by Wrap
+	    %% PredType, which is determined via Wrap
             ( get_canonical_form(Term,FLCANON(NW,NA,NM,NC,PredType1)) ->
 		(PredType == FL_TABLED_NEG
 		-> negate_wrapper(NW,RealNW),
 		    negate_predicate_type(PredType1,RealPredType),
 		    flrwrapper:negate_predicate(NC,RealNC)
-		; RealNW = NW, RealPredType = PredType1, RealNC = NC
+		; RealNW = NW, RealPredType=PredType1, RealNC = NC
 		),
                 Canon = FLCANON(RealNW,NA,NM,RealNC,RealPredType)
             ;
-                flora_abort([Message,'transactional predicate expected'],
+                %%  FLCANON(Wrap,Args,Module,Callable,TablingStatus)
+                %%flrprint:flora_stdmsg_string(term=Term),
+                %%flrprint:flora_stdmsg_string(PredType+BodyWrap),
+                flora_decode_goal_as_atom(Term,TermErgoForm),
+                flora_abort(['In flrcanon.P: ',
+                             Message,'transactional predicate expected, got ',
+                             '\n    Input term: ', Term,
+                             '\n    Ergo form:  ', TermErgoForm],
 			    FLORA_ABORT_NOTRACE)
             )
 
@@ -269,7 +277,14 @@ get_canonical_form(FLLIBMODLIT(Wrap,Term,Mod,_FWContext),Canon) :-
 		    NM=Mod
 		)
             ;
-                flora_abort([Message,'transactional predicate expected'],
+                %% FLCANON(RealNW,NA,NM,RealNC,RealPredType)
+                flrprint:flora_stdmsg_string(canon=Canon),
+                flora_decode_goal_as_atom(Term,TermErgoForm),
+                flora_abort(['In flrcanon.P: ',
+                             Message,'transactional predicate expected, got ',
+                             '\n    Input term: ', Term,
+                             '\n    Ergo form:  ', TermErgoForm,
+                             '\n    Canon form', Canon],
 			    FLORA_ABORT_NOTRACE)
             )
 
@@ -299,7 +314,7 @@ get_canonical_form(FLLIBMODLIT(Wrap,Term,Mod,_FWContext),Canon) :-
 get_canonical_form(FLLIBMODLIT(Wrap,Args,Mod,_FWContext), Canon) :-
 	!,
         ( flora_is_transactional_wrapper(Wrap) ->  TableFlag = FL_NOTTABLED
-	; flora_is_neg_wrapper(Wrap) ->  TableFlag = FL_TABLED_NEG
+	; flora_is_neg_wrapper(Wrap) -> TableFlag = FL_TABLED_NEG
         ;
             TableFlag = FL_TABLED
         ),

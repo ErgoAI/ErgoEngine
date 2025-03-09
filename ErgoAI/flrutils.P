@@ -5574,9 +5574,6 @@ ergo_disable_feature(E) :-
         flora_warning_line('must specify an experiment to disable (attr_vars, defeat_delay, naf_delay, java)'),
         !.
 
-ergo_enable_feature(attr_vars) :- flrwhen:flora_enable_attributed_variables.
-ergo_disable_feature(attr_vars) :-
-        flrwhen:flora_disable_attributed_variables.
 ergo_enable_feature(naf_delay) :-
         flrdelaysupport:enable_feature(naf_delay).
 ergo_disable_feature(naf_delay) :-
@@ -5585,8 +5582,15 @@ ergo_enable_feature(defeat_delay) :-
         flrdelaysupport:enable_feature(defeat_delay).
 ergo_disable_feature(defeat_delay) :-
         flrdelaysupport:disable_feature(defeat_delay).
+ergo_enable_feature(subgoal_delay) :-
+        flrdelaysupport:enable_feature(subgoal_delay).
+ergo_disable_feature(subgoal_delay) :-
+        flrdelaysupport:disable_feature(subgoal_delay).
+%% the below are not announced in the manual for now (security by obscurity)
 ergo_enable_feature(java) :- assert(JAVA_IS_DISABLED).
 ergo_disable_feature(java) :- retractall(JAVA_IS_DISABLED).
+ergo_enable_feature(attr_vars)  :- flrwhen:flora_enable_attributed_variables.
+ergo_disable_feature(attr_vars) :- flrwhen:flora_disable_attributed_variables.
 
 
 /*********************************************************************
