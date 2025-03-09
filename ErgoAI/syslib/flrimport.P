@@ -1,11 +1,11 @@
-/* File:      flrimport.P - implementation of \flimport, Prolog/Flora interface
+/* File:      flrimport.P - implementation of \flimport, \ergoimport Prolog/Ergo interface
 **
 ** Author(s): Michael Kifer
 **
 ** Contact:   see  ../CONTACTS.txt
 **
 ** Copyright (C) by
-**      The Research Foundation of the State University of New York, 1999-2018.
+**      The Research Foundation of the State University of New York, 1999-2025.
 **      Coherent Knowledge Systems, 2016-2018.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,12 +35,12 @@
 
 FLORA_SYMBOL('check_args')(P,A,Module) :-
 	(atom(Module),!
-	; flora_error_line('\\flimport: Module name must be an atom'),
+	; flora_error_line('\\ergoimport: Module name must be an atom'),
 	  abort
 	),
 	%% check that P is given as foo/arity
 	(functor(P,'/',_) -> true
-	; flora_error_line('\\flimport: ~w Arg 1 must have the form Pred/Arity',
+	; flora_error_line('\\ergoimport: ~w Arg 1 must have the form Pred/Arity',
 			   [P]),
 	    %% don't use flora_abort here because this predicate can be
 	    %% called from pure prolog where this exception is not caught.
@@ -50,12 +50,12 @@ FLORA_SYMBOL('check_args')(P,A,Module) :-
 	),
 	%% check that A is given as bar(_,_,_) and not as bar/Arity
 	(functor(A,'/',_)
-	-> flora_error_line('\\flimport: ~w Arg 2 must have the form Pred(_,_,...)',
+	-> flora_error_line('\\ergoimport: ~w Arg 2 must have the form Pred(_,_,...)',
 			    [A]),
 	    abort
 	%% check if A and P have the same arity
 	; functor(A,_,Arity), P=_/Arity -> true
-	; flora_error_line('\\flimport: ~w and ~w must have the same arity',
+	; flora_error_line('\\ergoimport: ~w and ~w must have the same arity',
 			   [P,A]),
 	    abort
 	).
@@ -84,9 +84,10 @@ FLORA_SYMBOL('funish_up')(NewA,NewP,File,Module) :-
 %%         bar(X,Y,Z) :- PREFIXfoo(X,Y,Z).
 %% for the right arity, where PREFIX is the appropriate Flora prefix for Module
 %% Make bar(...) dynamic and place it
-%% into the correct XSB module (the module where \flimport is called)
+%% into the correct XSB module (the module where \ergoimport is called)
 %% Use:
 %%        :- \flimport P as A from File>>Module.
+%%        :- \ergoimport P as A from File>>Module.
 
 
 %% This assumes that P is a prolog predicate within a flora program.
