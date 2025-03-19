@@ -189,7 +189,8 @@ if test -f "$RES_FILE"; then
 fi
 
 
-LOG_FILE_SIZE=400000
+LOG_FILE_SIZE0=4500000
+LOG_FILE_SIZE=$LOG_FILE_SIZE0
 if test -f "$LOG_FILE"; then
     if [ "$(uname)" = "Darwin" ]; then
 	LOG_FILE_SIZE=$(stat -f %z "$LOG_FILE")
@@ -202,8 +203,8 @@ if test -f "$LOG_FILE"; then
 fi
 
 # if the tests were canceled in the middle, give a reasonable size estimate
-if [ $LOG_FILE_SIZE -le 410000 ]; then
-    LOG_FILE_SIZE=410000
+if [ $LOG_FILE_SIZE -le $LOG_FILE_SIZE0 ]; then
+    LOG_FILE_SIZE=$LOG_FILE_SIZE0
 fi
 
 

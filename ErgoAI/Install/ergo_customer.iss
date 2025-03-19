@@ -32,25 +32,6 @@
 #define xsbapp    "{app}\XSB"
 #define ergoAIapp "{app}"
 
-;; Skip this step if you are not an authorized Coherent code signer.
-;;
-;; This is setup in the IDE of Inno Setup
-;; coherentsigntool: "C:\Program Files (x86)\Windows Kits\8.1\bin\x86\signtool.exe" sign /a /n "Coherent Knowledge Systems, LLC" /d  "ErgoAI Reasoner" $f
-;; Find CertMdg on your machine (in Control Panel or c:\Windows\System32)
-;; and import the certificate
-;; H:\ERGOAI\ErgoEngine\ErgoAI\Install\certs\ergo-code-sign-cert.pfx
-;; Password protected. ergo-code-sign-cert.pfx must be first placed at
-;; H:\ERGOAI\ErgoEngine\ErgoAI\Install\certs\
-
-[Setup]
-;; Comment this section out if you are not an authorized Coherent code signer.
-;;
-;; This is a signtool for SHA1
-;;SignTool=coherentsigntool /fd sha1 /t http://timestamp.comodoca.com/authenticode
-;; This is a signtool for SHA256:
-SignTool=coherentsigntool /fd sha256 /td sha256 /as /tr http://timestamp.comodoca.com/rfc3161
-SignedUninstaller=yes
-
 AppName={#MyAppName}
 AppVersion={#ErgoAIVersion}
 AppId={#MyAppName} {#ErgoAIVersion}
