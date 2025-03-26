@@ -20310,7 +20310,7 @@ formulas in rule heads.
 
 \subsection{Composite Frames in Rule Heads}
 
-Another common mistake is the inappropriate use of complex frames in
+Another common mistake is misuse of complex frames in
 rule heads. When using a complex frame, such as {\tt a[b->c, d->e]},
 one must always keep in mind that  its meaning is {\tt a[b->c] and a[d->e]}
 whether the frame occurs in a rule head or in its body. Therefore, if
@@ -20329,7 +20329,7 @@ then the rule can be broken in two using the usual logical tautology
     a[d->e] :- body.
 \end{verbatim}
 %%
-Forgetting this tautology sometimes causes logical mistakes.
+Forgetting this tautology may sometimes led to a logical error.
 For instance, suppose {\tt flight} is a binary relation that represents
 direct flights between cities. Then a rule like this
 %%
@@ -20337,12 +20337,13 @@ direct flights between cities. Then a rule like this
     flightobj[from->?F, to->?T] :- flight(?F,?T).  
 \end{verbatim}
 %%
-is likely to be a mistake if the user simply wanted to convert the
-relational representation into an object-oriented one. Indeed, in the head,
-{\tt flightobj} is a \emph{single} object and therefore both {\tt from} and
-{\tt to} will get multiple values and it will not be possible to find out
+is likely a mistake if the user simply wanted to convert the
+relational representation into the frame representation. Indeed,
+here the head
+is a \emph{single} object with an Id \texttt{flightobj} and therefore both {\tt from} and
+{\tt to} will normally be multi-values, so it will not be possible to find out
 (by querying that object) which cities have direct flights between them.
-The easiest way to see this is through the use of the aforesaid tautology:
+The easiest way to see this is to realize that the above is equivalent to
 %%
 \begin{verbatim}
      flightobj[from->?F] :- flight(?F,?T).
@@ -20356,7 +20357,7 @@ Therefore, if the {\tt flight} relation has the following facts
      flight(Seattle,Toronto).  
 \end{verbatim}
 %%
-then the following frames will be derived (where the last two are
+then the following frames will be derivable (where the last two are
 unintended):
 %%
 \begin{verbatim}
@@ -20756,7 +20757,8 @@ The following syntactic constructs are available only in the expert mode:
    expert mode.
 
    One reason why embedded ISA-literals in rule heads
-   are not advisable to novice users is because they tend to confuse them
+   are not advisable to novice users is because a novice tends to confuse
+   such literals
    with typed variables. Note that
 %% 
 \begin{verbatim}
@@ -20785,7 +20787,7 @@ The following syntactic constructs are available only in the expert mode:
    but using \texttt{?X$\hat{~}\hat{~}$foo} can be much
    more efficient, since the actual tests for class membership are done only
    when the variable gets bound. 
-\item  \emph{Expanded scope of the operators $\mvd$ and $\Mvd$.}
+\item  \emph{Expanded scope for the operators $\mvd$ and $\Mvd$.}
   The symbols $\mvd$ and $\Mvd$ are infix operators when they appear in the
   context of a frame.  In other contexts, using them as infix operators
   will cause an error, as mistyping round parentheses for square brackets

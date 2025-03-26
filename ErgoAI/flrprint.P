@@ -137,6 +137,7 @@ flora_stdmsg_line(Fmt,Args) :-
 	flora_msg_stream(Stream),
 	format(Stream,Fmt,Args),
 	nl(Stream).
+flora_stdmsg_flush :- flora_msg_stream(Stream), file_flush(Stream,_).
 
 
 flora_stdfdbk_nl :-
@@ -373,14 +374,16 @@ flora_message_writeln(Msg) :-
 	flora_message_heading,
 	write(Stream,Msg),
 	STDDFLTCTL
-	flora_stderr_nl.
+	%%flora_stderr_nl.
+	flora_stdmsg_nl.
 
 flora_message_writeln_noheader(Msg) :-
 	flora_msg_stream(Stream),
 	STDMSGCTL
 	write(Stream,Msg),
 	STDDFLTCTL
-	flora_stderr_nl.
+	%%flora_stderr_nl.
+	flora_stdmsg_nl.
 
 flora_loader_message(Str) :-
 	(flora_banner_control(quietload) -> true

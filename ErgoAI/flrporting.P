@@ -449,11 +449,11 @@ flora_copy_input :-
 
 %% From, To are file names. Variable means stdin or stdout, respectively
 flora_copy_input(From,To) :-
-	(var(From), !  ; seeing(OldIn), see(From)),
-	(var(To), !    ; telling(OldOut), tell(To)),
+	(var(From) -> true  ; seeing(OldIn), see(From)),
+	(var(To) -> true    ; telling(OldOut), tell(To)),
 	flora_copy_input,
-	(var(From), !  ; seen, see(OldIn)),
-	(var(To), !    ; told, tell(OldOut)).
+	(var(From) -> true  ; seen, see(OldIn)),
+	(var(To) -> true    ; told, tell(OldOut)).
 
 
 flora_write_atom_quoted_as_needed(Atom) :-

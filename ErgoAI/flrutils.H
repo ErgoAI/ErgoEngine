@@ -289,6 +289,7 @@
 
 	flora_loader_msg_nl/0,
 	%%flora_stdmsg_nl/0,
+        %%flora_stdmsg_flush/0,
 	
 	flora_send_abnormality_ctl_chars/1,
 	%%flora_message_line/1,

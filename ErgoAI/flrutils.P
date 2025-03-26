@@ -992,7 +992,7 @@ flora_flload(FlrFile,Module,HostFile,ReportingType,FileStatus,ErrList) :-
 
 save_user_clauses(FlrFile) :-
         (flora_running_under(windows) -> CtlChar = 'Z' ; CtlChar = 'D'),
-        flora_message_line('type statements into scratchpad below; Ctl-~w when done',
+        flora_message_line('type statements into the scratchpad below; Ctl-~w when done',
                            [CtlChar]),
         (\+flora_running_under(windows) ->
             seeing(In),
@@ -1008,7 +1008,13 @@ save_user_clauses(FlrFile) :-
             see(In)
         ; true
         ),
-        flora_message_line('Program saved in file ~w', [FlrFile]).
+        %% XSB seems to haave problems with format/2 when ~w is used inside
+        %% the format/2, so we hack flora_message_line_noheader/2 via
+        %% flora_stdmsg_string/1. The latter just uses write/1.
+        %%flrprint:flora_message_line_noheader('[Ergo: Program saved in file ~w]', [FlrFile]).
+        flrprint:flora_stdmsg_string('[Ergo: Statements saved in file '),
+        flrprint:flora_stdmsg_string(FlrFile),
+        flrprint:flora_stdmsg_string(']\n').
 
 
 /*************************************************************************

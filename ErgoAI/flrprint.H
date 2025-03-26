@@ -65,6 +65,7 @@
 	flora_stdwarn_string/2,
 	
 	flora_stdmsg_nl/0,
+        flora_stdmsg_flush/0,
 	flora_stdmsg_string/1,
 	flora_stdmsg_string/2,
 	flora_stdmsg_line/1,
