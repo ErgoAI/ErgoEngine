@@ -264,7 +264,7 @@ int local_ground(CPtr pterm)
     goto groundBegin;
 
   default:
-    xsb_abort("[FLORA]: BUG in flrground/1: term with unknown tag (%d)",
+    xsb_abort("[ErgoAI]: possibly a BUG in flrground/1: term with unknown tag (%d)",
 	      (int)cell_tag(pterm));
     return FALSE;	/* so that g++ does not complain */
   }
@@ -302,7 +302,7 @@ prolog_term trim(CPtr pterm)
     return trim_compound((prolog_term)pterm,arity);
 
   default:
-    xsb_abort("[FLORA]: internal bug (flrtrim_last/2): term with unknown tag (%d)",
+    xsb_abort("[ErgoAI]: internal bug (flrtrim_last/2): term with unknown tag (%d)",
 	      (int)cell_tag(pterm));
     return FALSE;
   }
@@ -400,7 +400,7 @@ void term_vars(CPtr pterm, CPtr* pvars, CPtr* pvarstail, Integer ignore_negative
     goto groundBegin;
 
   default:
-    xsb_abort("[FLORA]: BUG in flrterm_vars/2: term with unknown tag (%d)",
+    xsb_abort("[ErgoAI]: possibly a BUG in flrterm_vars/2: term with unknown tag (%d)",
 	      (int)cell_tag(pterm));
     return;
   }
@@ -472,7 +472,7 @@ void term_vars_split(CPtr pterm,
     goto groundBegin;
 
   default:
-    xsb_abort("[FLORA]: BUG in flrterm_vars_split/3: term with unknown tag (%d)",
+    xsb_abort("[ErgoAI]: possibly a BUG in flrterm_vars_split/3: term with unknown tag (%d)",
 	      (int)cell_tag(pterm));
     return;
   }
