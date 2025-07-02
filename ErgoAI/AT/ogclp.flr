@@ -137,7 +137,9 @@ rebuts(?T1,?H1,?T2,?H2) :-
         FL_REBUTS(?T1,?H1,?T2,?H2,?Mod).
 conflicts(?T1,?H1,?T2,?H2) :-
         caller{?Mod},
-	FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod).
+	change_module_nocheck(?H1,?Mod,?RealMod,?MH1),
+	change_module_nocheck(?H2,?Mod,?RealMod,?MH2),
+	FL_CONFLICTS(?T1,?MH1,?T2,?MH2,?RealMod).
 compromised(?T,?H) :-
         caller{?Mod},
 	FL_COMPROMISED(?T,?H,?Mod).

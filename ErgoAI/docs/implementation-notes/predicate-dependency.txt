@@ -2,16 +2,46 @@
                     Predicate dependencies in FLORA-2
                     =================================
 
+The background theories embedded in Ergo (closure axioms for isa (:) and
+subclass (::), inheritance axioms, etc., are written down in .fli and .flh
+files.
+
 Note: all *.fli source files here indicate where the particular plumbing
 rule comes from. The makeergo shell script, among other things, processes
 the .fli files into .flh files where many macros are replaced with their
-definitions.  The Ergo code actually includes .flh, not .fli, but as
-preprocessed code, .flh is hard to read and writing/modifying it by hand is
-hard and error-prone.  This is why the code containing a lot of gpp macros
-is appears in .fli files.
+definitions.  The Ergo code actually includes .flh, not .fli.
+But writing .flh files for the axioms that constitute the background
+theories of Ergo (eg, the rules for class membership and subclassing)
+requires that the implementer remembers and follows all low-level coding
+conventions, such as remembering the naming conventions for modularized
+wrappers (for example, using  FLORA_THIS_WORKSPACE(isa) or
+FLORA_THIS_WORKSPACE(mvd) instead of just isa and mvd).
+
+For instance, in flrtrailer_mono_inh, we would have to  manually 
+write
+
+:-( FLORA_THIS_WORKSPACE(mvd)(_h1485,_h1567,_h1649,'_$ctxt'(_h1807,_h1889,_h1971)),
+    ','(predicate_property(FLORA_THIS_WORKSPACE(mvd)(_h2281,_h2363,_h2445,_h2527),tabled),','(FLORA_THIS_WORKSPACE(isa)(_h1485,_h2917,'_$ctxt'(_h1807,_h3155,_h3237)),FLORA_THIS_WORKSPACE(imvd)(_h2917,_h1567,_h1649,'_$ctxt'(_h1807,_h1889,_h1971))))).
+:-( FLORA_THIS_WORKSPACE(imvd)(_h1485,_h1567,_h1649,'_$ctxt'(_h1807,_h1889,_h1971)),
+    ','(predicate_property(FLORA_THIS_WORKSPACE(imvd)(_h2281,_h2363,_h2445,_h2527),tabled),','(FLORA_THIS_WORKSPACE(inheritance^sub)(_h1485,_h2917,'_$ctxt'(_h1807,_h3155,_h3237)),FLORA_THIS_WORKSPACE(imvd)(_h2917,_h1567,_h1649,'_$ctxt'(_h1807,_h1889,_h1971))))).
+:-( FLORA_THIS_WORKSPACE(mvddef)(_h1485,_h1567,'_$ctxt'(_h1725,_h1807,_h1889)),
+    ','(predicate_property(FLORA_THIS_WORKSPACE(mvddef)(_h2199,_h2281,_h2363),tabled),','(FLORA_THIS_WORKSPACE(isa)(_h1485,_h2753,'_$ctxt'(_h1725,_h2991,_h3073)),FLORA_THIS_WORKSPACE(imvddef)(_h2753,_h1567,'_$ctxt'(_h1725,_h1807,_h1889))))).
+:-( FLORA_THIS_WORKSPACE(imvddef)(_h1485,_h1567,'_$ctxt'(_h1725,_h1807,_h1889)),
+    ','(predicate_property(FLORA_THIS_WORKSPACE(imvddef)(_h2199,_h2281,_h2363),tabled),','(FLORA_THIS_WORKSPACE(inheritance^sub)(_h1485,_h2753,'_$ctxt'(_h1725,_h2991,_h3073)),FLORA_THIS_WORKSPACE(imvddef)(_h2753,_h1567,'_$ctxt'(_h1725,_h1807,_h1889))))).
+
+instead of this much clearer flrtrailer_mono_inh.fli code:
+
+WRAP_MVD(O,M,R,FL_CONTEXT(Caller,Id1,Id2)) :-
+        predicate_property(WRAP_MVD(_,_,_,_), tabled),
+	WRAP_ISA(O,C,FL_CONTEXT(Caller,_,_)),
+	WRAP_IMVD(C,M,R,FL_CONTEXT(Caller,Id1,Id2)).
+
+Such high-level fli code would be much easier to debug and maintain.
+To do this magic,  we use a special preprocessor for converting 
+.fli to .flh  --- in  ErgoAI/flrwraparound.P
 
 In the diagram, Wrap refers to one of the wrappers used to encode various
-F-logic constracts.
+F-logic constructs.
 
 Partial list of the Prolog wrapper types used to encode the extended F-logic
 ----------------------------------------------------------------------------
@@ -70,8 +100,8 @@ FLTRAILERPREFIX: inferred^Wrap <--- FLHEADPREFIX: derived^Wrap
        |                         :                                 :
        |                         v                                 :
 FLUndefinedPREFIX: undef^Wrap <------------- FLDefinedPREFIX: defined^Wrap
-                                                ^                  :
-                                               /|\                 :
+                                                |                  :
+                                                |                  :
                                                 |                  :
                                                 |<.................:
                                                 |
@@ -88,14 +118,16 @@ FLUndefinedPREFIX: undef^Wrap <------------- FLDefinedPREFIX: defined^Wrap
                          +----------------  FLDYNZPREFIX: dynz^Wrap
                                             FLDYNAPREFIX: dynz^Wrap
 
-FLTRAILERPREFIX:     inferred^
-FLHEADPREFIX:        derived^
-FLDYNAPREFIX:        dyna^
+FLTRAILERPREFIX:     inferred^       - rules in the trailer have this prefix
+FLHEADPREFIX:        derived^        - prefix for heads of the rules constructed by the compiler
+the compiler
+FLDYNAPREFIX:        dyna^           - ditto for dyamic user rules
 FLDYNZPREFIX:        dynz^
-FLBodyPREFIX:        d^
+FLBodyPREFIX:        d^              - prefix given to tabled body predicates defined by the user
 FLDefinedPREFIX:     defined^
 FLUndefinedPREFIX:   undef^
-FLSTATIC_HEAD_PREFIX: static^
+FLSTATIC_HEAD_PREFIX: static^       - prefix for heads of the rules constructed by
+                                      the compiler from the user's source rules
 
 FLNEGTRAILERPREFIX:  neg^inferred^
 FLNEGHEADPREFIX:     neg^derived^

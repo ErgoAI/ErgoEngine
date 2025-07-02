@@ -595,13 +595,16 @@ parse_codelist([T|L]) :-
 
 parse_code(Term) :-
 	( is_prrule(Term,Head,Body) ->
+            %%writeln(333=rule+Term),
             parse_rule(Head,Body)
+           %%, writeln(444=parsed_rule)
 	; is_prdirective(Term,Direct) ->
 	    ( is_prignoredep(Direct,PList) ->
 		assert_ignoredlist(PList)
 	    ; true
 	    )
         ;
+            %%writeln(333=non_rule_dir+Term),
             true
 	).
 
@@ -643,14 +646,18 @@ assert_ignoredlist([H|L]) :-
 	).
 
 parse_rule(Head,Body) :-
+        %%writeln(555=rulehead+Head),
 	%% See note on why DUMMY_WORKSPACE is used here at the top of file
 	flora_build_struct(Head,DUMMY_WORKSPACE,CODER_GENERIC_CONTEXT,VarList,HeadCode,HCI,Status_Head),
+        %%writeln(555=rulehead_code+HeadCode),
 	( Status_Head == [] ->
 	    functor(HeadCode,F,N),
 	    ( default_tabled(F,N) -> asserta(tabled_head((HeadCode,HCI)))
 	    ;  true
 	    ),
+            %%writeq(666=rulebody+Body), nl,
 	    flora_build_struct(Body,DUMMY_WORKSPACE,CODER_GENERIC_CONTEXT,VarList,BodyCode,BCI,Status_Body),
+            %%writeln(666=rulebody_code+BodyCode),
 	    ( Status_Body == [] ->
 		assert_rule((HeadCode,HCI),BodyCode,BCI,anu(_,_,_))
 	    ;
@@ -749,6 +756,7 @@ check_for_dependencies(CodeList,WarnList) :-
 	%% flora_abolish_table_predicate is ok here
         flora_abolish_table_predicate(rec_depend(_,_,_,_,_,_,_)),
         assert_targets,
+        %%writeln(222),
 	generate_rules(CodeList),
         findall(Head,tabled_head(Head),TabledList),
 	flora_get_maxwarnings(MaxWarnings),

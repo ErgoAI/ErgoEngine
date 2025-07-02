@@ -152,8 +152,11 @@
         register_negated_call/1.
 
 
-%% Simulates not exists. The workhorse is the predicate my_not_exists/1.
-%% tables created while computing negation. Also, tries to deal with
+%% Ergo generalizes not_exists/1 t0 the form
+%%  \naf exist(?X)^Goal, where ?Y = vars(Goal)-?X (?X can be a sequence of vars)
+%%  are all the free vars in Goal. These free vars can be bound from the outside
+%% of \naf exist(?X)^Goal.
+%% The workhorse is the predicate base_not_exists/1. Also, tries to deal with
 %% various builtins, like var, integer, =, directly.
 
 %% Gives existential semantics to nonground negative calls. That is
@@ -165,13 +168,15 @@
 FLORA_NAF_PREDICATE(Goal) :-
         FLORA_NAF_PREDICATE(Goal,[],NULL,NULL).
 
+%%  Case 0 for FLORA_NAF_PREDICATE/4 
+%%  check that Goal is not a misconstructed cyclic term
 FLORA_NAF_PREDICATE(Goal,_FreeVars,_Line,_File) :-
         is_cyclic(Goal),
         !,
         fail.
 
 /*
-   exists_not implementation:
+   The implementation for exists_not in Ergo - an outline:``
       neg Goal
       naf_exists Goal
       u_not Goal
@@ -184,16 +189,20 @@ FLORA_NAF_PREDICATE(Goal,_FreeVars,_Line,_File) :-
 */
 
 /*
-%% Trying neg Goal. 
-%% Maybe add a catch(call0) here later once we understand
-%% what kind of errors might arise
+   Major Case 1 for FLORA_NAF_PREDICATE/4
 
+%% Try \neg Goal. 
+%% If \neg Goal is true then \naf Goal must succeed. 
 exists_not(_Vars,Goal):- neg(Goal).
+
+%% Maybe add a catch(call0) here later once we understand
+%% what kind of errors might arise?
 */
-%% Try neg Goal
 FLORA_NAF_PREDICATE(Goal,_FreeVars,_Line,_File) :-
         neg_implies_naf_check(Goal,_FreeVars,_Line,_File).
-
+/*
+   Given a goal, construct \neg G
+*/
 neg_implies_naf_check(Goal,_FreeVars,_Line,_File) :-
         %%DBGOUTLN(initial_goal2=Goal),
         flora_unwrap_negation_strip_delay(Goal,UnwrappedGoal),
@@ -209,12 +218,13 @@ neg_implies_naf_check(Goal,_FreeVars,_Line,_File) :-
         %%machine:xwam_state(DELAY_REG,_XX), _XX=0,  %% this is NOT sound - do NOT use
         true.
 
+%% Major Case 2 for FLORA_NAF_PREDICATE/4
 %% Trying naf_exists
 FLORA_NAF_PREDICATE(Goal,_FreeVarsTerm,Line,File) :-
         %%DBGOUTLN(initial_goal=Goal),
         %%machine:xwam_state(DELAY_REG,_YY), DBGOUTLN(naf_succeeded=_YY),
         /* Uncommenting the tnot below breaks the tian.ergo test.
-           But commenting it breaks naf_test in explicit_negation.flr
+           But commenting it away breaks naf_test in explicit_negation.flr
            See also these tests:
                tian.ergo
                negnaftest.flr - broken
@@ -228,8 +238,9 @@ FLORA_NAF_PREDICATE(Goal,_FreeVarsTerm,Line,File) :-
 
 
 /*
-%% Finally trying naf exists forall Vars Goal. At a high level, this does:
-exists_not(Vars,Goal):- 
+   Major Case 3 for FLORA_NAF_PREDICATE/4
+   Finally try naf exists forall Vars Goal. At a high level, this does:
+   exists_not(Vars,Goal):- 
         Vars \= [],
         // the next one says:
         //     if forall Vars Goal is true then exists_not(Vars,Goal) is false
@@ -241,19 +252,19 @@ FLORA_NAF_PREDICATE(Goal,FreeVarsTerm,Line,File) :-
         %%writeln(aaaaaaaaa33333=FreeVarsTerm+Line+File),
         %%machine:xwam_state(DELAY_REG,_XX), DBGOUTLN(naf_2=_XX+Goal),
         %%DBGOUTLN(initial_goal3=Goal),
-        /* The my_not_exists below is needed for the following test to work:
+        /* The base_not_exists below is needed for the following test to work:
                \neg p(1).
                ?- \naf p(?X).
            Without this we get 2 answers: ?X=1 & ?X=_  - undefined
            See also these tests:
                tian.ergo
                negnaftest.flr - broken
-           So, if neg_implies_naf_check is true, it means we already got
+           So, if neg_implies_naf_check is true, it means we already have
            an answer from the 1st case of FLORA_NAF_PREDICATE and we
            don't need to continue here.
         */
-        %% using my_not_exists/1 - the main trick.
-        my_not_exists(neg_implies_naf_check(Goal,FreeVarsTerm,Line,File)),
+        %% using base_not_exists/1 - the main trick.
+        base_not_exists(neg_implies_naf_check(Goal,FreeVarsTerm,Line,File)),
         flora_unwrap_negation_strip_delay(Goal,UnwrappedGoal),
         functor(Goal,FL_Tabled_Unnumber_Call_PredName,_),
         flora_get_symbol_module(FL_Tabled_Unnumber_Call_PredName,Module),
@@ -304,11 +315,20 @@ naf_exists(Goal,Line,File) :-
         %% acyclicity of the goal is checked upfront
         flora_unwrap_negation_strip_delay(Goal,UnwrappedGoal),
         %%DBGOUTLN(initial_goal5_3=UnwrappedGoal),
+
+        %% Map known builtin Ergo forms onto their Prolog implementations,
+        %% i.e., convert Goal (an Ergo builtin) to NewGoal (its implementation
+        %% in Prolog). Then execute the Prolog implementation.
+        %% Note, the catch-all case in make_negated_goal/3 is
+        %%  base_not_exists(OrigGoal), So, the Ergo builtins like =, !=, are
+        %% mapped into their standard Prolog implementations, but user-defined 
+        %% predicates are mapped into base_not_exists(OrigGoal)
         make_negated_goal(UnwrappedGoal,TabledGoal,NewGoal),
         %%DBGOUTLN(initial_goal5_4=NewGoal),
         %%call0(NewGoal).   %% this one is for debugging
         ErrorBall = error(typed_table_error(incremental_tabling),_Context),
         %%flrdecode:flora_decode_goal_as_atom(NewGoal,GoalAtm), DBGOUTLN(initial_goal=GoalAtm),
+        %% Execute NewGoal,  implementation of Goal.
         catch(call0(NewGoal),
               ErrorBall,
               incr_tabling_error_handler(Line,File,UnwrappedGoal,ErrorBall)).
@@ -448,13 +468,19 @@ incr_tabling_error_handler(Line,File,Goal,_Ball) :-
         ).
 
 %% Optimizations for common cases. More to be added as needed
+%% A special builtin Ergo call into its Prolog implementation,
+%% usually \+(...).
 %%
-%% NOT pushing through conjunctions and disjunctions,
+%% NOT pushing negation through conjunctions and disjunctions,
 %% as it might be unsound when variables are shared
+%%
+%% Ergo maps negation of many builltin cases like =, !=, into their builtin
+%% Prolog implementations, but user-defined predicates/fraes are mapped into
+%% base_not_exists(OrigGoal)
 
 %% First safeguard against unbound or attr variables. Test case:
 %% ?- ?X ~ \naf ?(?)@?,   ?X.
-make_negated_goal(UnwrappedGoal,OrigGoal,my_not_exists(OrigGoal)) :-
+make_negated_goal(UnwrappedGoal,OrigGoal,base_not_exists(OrigGoal)) :-
         var(UnwrappedGoal),
         !,
 #ifdef NEGATION_DEBUG_STATS
@@ -558,8 +584,8 @@ make_negated_goal(UnwrappedGoal,_OrigGoal,\+(UnwrappedGoal)) :-
 #endif
         !.
         
-%% General case
-make_negated_goal(_UnwrappedGoal,OrigGoal,my_not_exists(OrigGoal)) :-
+%% The General case
+make_negated_goal(_UnwrappedGoal,OrigGoal,base_not_exists(OrigGoal)) :-
 #ifdef NEGATION_DEBUG_STATS
         flrporting:flora_increment_counter(neggenerl,1,_,_),
 #endif
@@ -642,16 +668,18 @@ get_negation_stats :-
 #endif
 
 
-%% my_not_exists/1 - the new version! Does not require numbervar!
-%% The catch extension is Teri's fix to prevent losing exceptions during
+%% base_not_exists/1 - the new version! Does not require numbervar!
+%% Goal is wrapped by a tabed predicate by the Ergo  compiler so Goal
+%% itself need not be tabled.
+%% The catch/3 extension is Teri's fix to prevent losing exceptions during
 %% execution of *delayed* goals. Here is the explanation:
 %%   What would happen if Goal = catch(Goal1,..)?
 %%   Then the catch would execute its handler and fail. 
-%%   If the choice point it failed to is the choice point in my_not_exists/1,
+%%   If the choice point it failed to is the choice point in base_not_exists/1,
 %%   it would call tnot(Goal) where any table for Goal would have been removed.
 %%   Since Goal is non ground, tnot will flounder.
 %%   To prevent floundering, Goal is catch'ed.
-my_not_exists(Goal) :-
+base_not_exists(Goal) :-
         (
           catch(Goal,Ball,throw(Ball)),
           fail
@@ -729,13 +757,13 @@ unsafe_NAF_warning(File,Line,Goal,GoalStripped,FreeVarList) :-
 /*****/
 
 
-%% yields undefined, if goal is nonground; otherwise, like my_not_exists(Goal)
-flr_u_not(Goal,Undefined) :-
+%% yields undefined, if goal is nonground; otherwise, like base_not_exists(Goal)
+flr_u_not(Goal,UndefinedFlag) :-
         (flora_ground:flrground_cyc(Goal) ->
-            Undefined = defined,
-            my_not_exists(Goal)
+            UndefinedFlag = defined,
+            base_not_exists(Goal)
         ; check_cyclic(Goal,'flr_u_not/1',1),
-            Undefined = undefined,
+            UndefinedFlag = undefined,
             undefined
         ).
 

@@ -98,6 +98,11 @@ FL_UNDEFEATED(?Id,?FileName,?Vars,?H,?Mod) :-
 	\naf FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod).
 
 FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod) :-
+        // Acesses the meta info about the TAGs, i.e., about the rule
+        // descriptors of the form  @Term. Fetches  this metainfo from
+        // FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,Tag,VarTerm).
+        // This info is created by the compiler from the rule descriptors
+        // in the file that's beeing compilied.
 	get_tag_descriptor_info(?Id,?FileName,?Mod,?T,?Vars)@\prolog(flrdescriptor_support),
 	FL_DEFEATED(?T,?H,?Mod).
 
@@ -138,7 +143,9 @@ refutes(?T1,?H1,?T2,?H2) :-
         FL_REFUTES(?T1,?H1,?T2,?H2,?Mod).
 conflicts(?T1,?H1,?T2,?H2) :-
         caller{?Mod},
-	FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod).
+	change_module_nocheck(?H1,?Mod,?RealMod,?MH1),
+	change_module_nocheck(?H2,?Mod,?RealMod,?MH2),
+	FL_CONFLICTS(?T1,?MH1,?T2,?MH2,?RealMod).
 compromised(?T,?H) :-
         caller{?Mod},
 	FL_COMPROMISED(?T,?H,?Mod).
