@@ -2636,8 +2636,8 @@ flora_real_token_number(Idx,RealIds) :-
 
   collect_flvars(+ParserTerm,-Vars,-TailVars,-ProtectedVars,-ProtectedTailVars)
 
-  ProtectedVars are grouping and aggregate vars: we don't allow the
-  user to have them outside
+  ProtectedVars are grouping and sorting vars in aggregates: we don't allow the
+  user to have them outside  the aggregates.
 ****************************************************************************/
 collect_flvars(ParserTermOrList,Vars) :-
 	collect_flvars(ParserTermOrList,Vars,[],_ProtectedVars,[]).
@@ -2694,6 +2694,7 @@ collect_flvars(ParserTerm,Vars,TVars,ProtVars,TailProtVars) :-
 	subtract_varnames_from_vars(Vars1,VarNames,Vars).
 
 %% Note: Vars, ProtVars are always passed unbound.
+%% In the agggregates, protected vars are grouping vars and sort-spec vars
 collect_flvars(ParserTerm,Vars,TVars,ProtVars,TailProtVars) :-
 	is_flaggregate(ParserTerm,_,AggrFlVar,GrpFlVars,SortSpec,FormulaCode),
 	!,
@@ -3187,6 +3188,8 @@ check_latent_query_flvars_for_safety(CodeFLVars,Body,Status) :-
         ; Status = UnsafeWarn
         ).
 
+%% In the agggregates, protected vars are grouping vars and sort-spec vars
+%% This warning is issued if one finds protected vars in some context
 protected_vars_warning(Vars,ProtectedVars,Status) :-
 	varlist_left_membercheck(ProtectedVars,Vars,Var),
 	!,
@@ -5062,7 +5065,7 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
 	    length(DescrVarsCode,VarListLen),
 	    %% construct the term containing all the vars in the descriptor
             %% Do not use prolog liblit here - use prolog term.
-            %% Liblits may get usermod: attached to them, which may cause
+            %% Liblits may get usermod: attached to the literals, which may cause
             %% misunification between _$_$_ergo'descr_vars and
             %% usermod:_$_$_ergo'descr_vars
 	    %%generate_prolog_liblit(FL_DESCRIPTOR_VARS_WRAPPER,VarListLen,DescrVarsCode,DescrVarsTermOut)
@@ -5074,6 +5077,7 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
                 generate_prolog_term(FL_DESCRIPTOR_VARS_WRAPPER,VarListLen,DescrVarsCode,DescrVarsTermOut)
             )
 	%% we are compiling clause{...} or a query
+        %% (Mode FL_DESCRMODE_CLAUSE or FL_DESCRMODE_PLAIN_QUERY?)
 	%% Generate a var in this case
 	;   new_prvariable(NO_INDEX,DescrVarsTermOut)
 	),
@@ -5083,6 +5087,7 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
          %%, Mode \== FL_DESCRMODE_UDFRULE
 	->
 	    extract_features_from_descriptor_list(FlatDescrList,DescrFeatures),
+            %% verify that Id belongs to a defeasible rule
 	    determine_defeasibility(DescrFeatures,Mode,DescrIdCode,CurrFileName,DescrModule,DescrVarsTermOut,DefeatMetaFact,StatDefeat),
 	    (no_errors_found(StatDefeat) ->
 		compile_descriptor_list1(FlatDescrList,Mode,DescrIdCode,CurrFileName,DescrModule,RuleidFrameCode,DescrVarsTermOut,MetaFacts1-MetaFactsTail,StatDescr),
@@ -6489,6 +6494,7 @@ compile_body(ParserTerm,Code,Status) :-
 	is_fllatent_query(Statement,Body),
 	!,
 	approx_flindex(Statement,RuleIdx),
+        %%writeln(aaaDescr=Descriptor),
 	compile_descriptor_list(Descriptor-RuleIdx,FL_DESCRMODE_LATENT_ADDQUERY,DescrIdCode,_DescrVarsTerm,MetaFacts,Status1),
 	(no_errors_found(Status1) ->
 	    compile_latent_query(DescrIdCode,MetaFacts,Body,FL_DESCRMODE_LATENT_ADDQUERY,CodeList-[],Status),
@@ -6502,6 +6508,7 @@ compile_body(ParserTerm,Code,Status) :-
 	is_fldescriptor(ParserTerm,_,FLRULEID,_),
 	!,
 	approx_flindex(ParserTerm,QueryIdx),
+        %%writeln(aaaDEscr=Descriptor),
 	compile_descriptor_list([ParserTerm]-QueryIdx,FL_DESCRMODE_PLAIN_QUERY,_,_,CodeList-[],Status),
 	conjunct_code(CodeList,Code).
 
@@ -11252,6 +11259,7 @@ compile_dynrule(Op,R,RCode,Status) :-
 	; DescrMode = FL_DESCRMODE_DYNRULE
 	),
 	compile_descriptor_list(DescriptorList-RuleIdx,DescrMode,DescrIdCode,DescrVarsTerm,MetaFactDiffList,DescriptorStatus),
+                %%writeln(aaaaDescr=DescriptorList),
         !,
 	( no_errors_found(DescriptorStatus) -> 
 	    (is_fllatent_query(Body,RealBody) ->
@@ -11303,6 +11311,10 @@ compile_dyn_latent_query(Op,DescrIdCode,MetaFactDiffList,Body,LatentQuerySigCode
 	    list_struct(MetaFactList,[],MetaFactCode),
 	    (is_fldeleteruleop(Op) ->
 		florasyslib_struct(FLSYSDELQUERYSIG,5,[DescrIdCode,File,ThisMod,MetaFactCode,LatentQueryBodyCode],LatentQuerySigCode)
+            %% This is done only for latent queries
+            %% TODO
+            %% Add DescrVarTerm as argument, for uniformity
+            %% Will be FLSYSINSQUERYSIG,9,[...]
 	    ; florasyslib_struct(FLSYSINSQUERYSIG,8,[DescrIdCode,File,ThisMod,StmtNum,MetaFactCode,PreLatentQueryCode,LatentQueryBodyCode,BVL],LatentQuerySigCode)
 	    )
 	;
@@ -11468,6 +11480,7 @@ compile_refresh(List,Code,Status) :-
 ****************************************************************************/
 compile_clause(Descriptor,Mode,HeadList,Body,Code,BodyFrontList,Status) :-
 	approx_flindex(HeadList,ClauseIdx),
+        %%writeln(aaaDescr=Descriptor),
 	compile_descriptor_list(Descriptor-ClauseIdx,FL_DESCRMODE_CLAUSE,DescrIdCode,
 				DescrVarTerm,
 				MetaFactDiffList,Descr_Status),
@@ -12667,7 +12680,7 @@ process_contextvars([]) :- !.
 process_contextvars([H|Tail]) :-
 	get_attr(H,CONTEXTATTRIBUTE,_Context),
 	!,
-	del_attr(H,CONTEXTATTRIBUTE),
+    del_attr(H,CONTEXTATTRIBUTE),
 	new_context_prvariable(NO_INDEX,H),
 	process_contextvars(Tail).
 process_contextvars([_|Tail]) :-

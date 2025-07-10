@@ -295,11 +295,11 @@ flora_insert_rules(InsOp,[FLSYSRULEUPDATE(RuleId,FileName,DescrVarTerm,RuleNum,D
 	!,
 	inst_body(Body,InstBody),
 	%% flrunify_handlers.P defines the unify handler for FLDYNRULEVARCHECK
-        (get_attr(HV,FLDYNRULEVARCHECK,HVars) -> true
-	; HVars = []
+        (get_attr(HV,FLDYNRULEVARCHECK,NamedHVars) -> true
+	; NamedHVars = []
 	),
-	(get_attr(BV,FLDYNRULEVARCHECK,BVars) -> true
-	; BVars = []
+	(get_attr(BV,FLDYNRULEVARCHECK,NamedBVars) -> true
+	; NamedBVars = []
 	),
 	del_attr(HV,FLDYNRULEVARCHECK),
 	del_attr(BV,FLDYNRULEVARCHECK),
@@ -318,23 +318,25 @@ flora_insert_rules(InsOp,[FLSYSRULEUPDATE(RuleId,FileName,DescrVarTerm,RuleNum,D
         ; true
         ),
 
-	(HVars == [], BVars == [] -> true
+	(NamedHVars == [], NamedBVars == [] -> true
 	; 
 	    get_full_filename(FileName,ModName,FullFile),
-	    '_$flr_check_vars'(RuleId,DescrVarTerm,FullFile,HeadList,(H2BFList,Body,H2BBList),HVars,BVars,Warns),
+	    '_$flr_check_vars'(RuleId,DescrVarTerm,FullFile,HeadList,(H2BFList,Body,H2BBList),NamedHVars,NamedBVars,Warns),
 	    sort(Warns,SortedWarns),
 	    flora_show_warnings(SortedWarns)
 	),
 	flora_insert_rules(InsOp,L).
 
+%% TODO: add DescrVarTerm as an argument in flrcompiler
 flora_insert_rules(InsOp,[FLSYSINSQUERYSIG(RuleId,FileName,Module,RuleNum,DescrMetaFacts,PreBody,Body,BV)|L]) :-
 	!,
 	FLLIBINSQUERYSIG(RuleId,FileName,Module,RuleNum,DescrMetaFacts,PreBody,Body),
-	(get_attr(BV,FLDYNRULEVARCHECK,BVars) -> true
-	; BVars = []
+	(get_attr(BV,FLDYNRULEVARCHECK,NamedBVars) -> true
+	; NamedBVars = []
 	),
 	get_full_filename(FileName,Module,FullFile),
-	'_$flr_check_vars'(RuleId,DescrMetaFacts,FullFile,NULL,Body,[],BVars,Warns),
+        %% descriptor vars here, for insert rule check for unsafe descriptor vars
+	'_$flr_check_vars'(RuleId,DescrMetaFacts,FullFile,NULL,Body,[],NamedBVars,Warns),
 	sort(Warns,SortedWarns),
 	flora_show_warnings(SortedWarns),
 	flora_insert_rules(InsOp,L).
@@ -720,11 +722,11 @@ new_dynruleid(NewRuleId) :-
 
 
 /***********************************************************************
- '_$flr_check_vars'(+RuleId,+FileName,+HeadList,+Body,+NamedHeadVars,+NamedBodyVars,-Warnings)
+ '_$flr_check_vars'(+RuleId,+DescrVarTerm,+FileName,+HeadList,+Body,+NamedHeadVars,+NamedBodyVars,-Warnings)
 ************************************************************************/ 
-'_$flr_check_vars'(RuleId,VarTerm,FileName,HeadList,Body,NamedHVars,NamedBVars,Warnings) :-
+'_$flr_check_vars'(RuleId,DescrVarTerm,FileName,HeadList,Body,NamedHVars,NamedBVars,Warnings) :-
 	%% include descriptor vars among the head vars
-        flrterm_vars([VarTerm,HeadList],HVars,0), %% 0: collect all vars
+        flrterm_vars([DescrVarTerm,HeadList],HVars,0), %% 0: collect all vars
         flrterm_vars(Body,BVars,0),
         append(HVars,BVars,Vars),
         singleton_vars(Vars,Vars,SingletonVars),
@@ -741,6 +743,7 @@ singleton_vars(AllVars,[H|L], [H|SL]) :-
 singleton_vars(AllVars,[_H|L],SL) :-
         singleton_vars(AllVars,L,SL).
 
+%% true if arg 2 is a singleton var in the list of vars of arg 1
 is_singleton([],_V,_Cnt) :- !.
 is_singleton([H|L],V,Cnt) :-
         (H==V ->
