@@ -77,12 +77,12 @@
 %% flrcompile_redefinitions
 is_flstealthlit(FLSTEALTHLIT(Lit),Lit).
 stealth_code(HeadCode,HeadCode1) :-
-	generate_prolog_liblit(WRAP_STEALTHLIT,1,[HeadCode],HeadCode1).
+        generate_prolog_liblit(WRAP_STEALTHLIT,1,[HeadCode],HeadCode1).
 
-#define NEWVAR	        	 newvar
+#define NEWVAR	                 newvar
 #define NEWDONTCAREVAR	       	 newdontcarevar
 #define NEWQUANTIFIEDVAR       	 newquantvar
-#define NEWFLCONTEXTVAR	       	 newcontextvar
+#define NEWFLCONTEXTVAR          newcontextvar
 #define SKOLEMSYMVAR	       	 skolemsymvar
 #define NEWUDFPREDVAR	         newudfpredvar
 #define NEWPREDICATE_COUNTER   	 '_$$''''global_newpredicate_counter'
@@ -147,7 +147,7 @@ is_fludfdef_fact(FLUDFFACT(Function,Value),Function,Value).
 udfdef_struct(Name,N,UDFCode,PredName,PredCode,PRUDFDEFINITION(Name,N,UDFCode,PredName,PredCode)).
 %% records that there was a useudf directive
 useudf_struct(Fun/Arity/Idx,PRUSEUDF(Fun,Arity,File,Line)) :-
-	code_line_and_file_by_index(Idx,Line,File).
+        code_line_and_file_by_index(Idx,Line,File).
 
 is_fludfsymbol(FLUDFSYM(ParserTerm),ParserTerm).
 is_flsensorsymbol(FLSENSORSYM(ParserTerm),ParserTerm).
@@ -209,9 +209,9 @@ is_default_negation(FLPLGNAF(Goal),Goal,FL_PLGNAF).
 is_default_negation(FLRULELOGNAF(Goal),Goal,FL_RULELOGNAF).
 
 is_fllogicquantifier(FLQUANTIFIER(Quant,VarNames,VarsCode,FormulaCode,Idx),
-		     Quant,VarNames,VarsCode,FormulaCode,Idx).
+                     Quant,VarNames,VarsCode,FormulaCode,Idx).
 is_fldelayquant(FLDELAYQUANTIFIER(Quant,Condition,Goal,Index),
-		Quant,Condition,Goal,Index).
+                Quant,Condition,Goal,Index).
 
 
 is_flhypothetical(FLHYPOTHETICAL(Op,Goal,Index),Op,Goal,Index).
@@ -237,11 +237,11 @@ is_flworkspace(FLWORKSPACE(P,WS),P,WS).
 is_flruleworkspace(FLRULEWORKSPACE(R,WS),R,WS).
 
 detach_flworkspace(ParserTerm,ParserTermSansWS,WS) :-
-	is_flworkspace(ParserTerm,ParserTermSansWS,WS),
-	!.
+        is_flworkspace(ParserTerm,ParserTermSansWS,WS),
+        !.
 detach_flworkspace(ParserTerm,ParserTermSansWS,WS) :-
-	is_flruleworkspace(ParserTerm,ParserTermSansWS,WS),
-	!.
+        is_flruleworkspace(ParserTerm,ParserTermSansWS,WS),
+        !.
 detach_flworkspace(ParserTerm,ParserTerm,FL_THISMODULE).
 
 %% P@\M - Flora system module
@@ -287,28 +287,28 @@ is_flterm(FLTERM(Funct,Arity,Args),Funct,Arity,Args).
 /*
 %%  unused
 is_flterm(FLTERM(Funct,Arity,Args),Funct,Arity,Args) :-
-	\+is_fltransactionalatom(Funct,_),
-	\+is_fltransactionalterm(Funct,_,_,_),
-	\+is_fltransactionalpredspec(Funct,_).
+        \+is_fltransactionalatom(Funct,_),
+        \+is_fltransactionalterm(Funct,_,_,_),
+        \+is_fltransactionalpredspec(Funct,_).
 */
 is_fltransactionalterm(FLTRANSACTIONALTERM(Func,N,Args),Func,N,Args).
 /*
 %%  unused
 is_fltransactionalterm(FLTERM(Term,Arity,Args),Funct,Arity,Args) :-
-	is_fltransactionalpredspec(Term,Funct),
-	!.
+        is_fltransactionalpredspec(Term,Funct),
+        !.
 is_fltransactionalterm(FLTERM(Term,Arity,Args),Term,Arity,Args) :-
-	is_fltransactionalterm(Term,_,_,_),
-	!.
+        is_fltransactionalterm(Term,_,_,_),
+        !.
 is_fltransactionalterm(FLTERM(F,Arity,Args),F,Arity,Args) :-
-	is_fltransactionalatom(F,_).
+               is_fltransactionalatom(F,_).
 */
 
 is_flterm_or_flatom(Term,Funct,Arity,Args) :-
-	is_flterm(Term,Funct,Arity,Args),
-	!.
+        is_flterm(Term,Funct,Arity,Args),
+        !.
 is_flterm_or_flatom(Atom,Atom,0,[]) :-
-	is_flatom(Atom,_).
+        is_flatom(Atom,_).
 
 is_flarith(FLARITH(Expr),Expr).
 
@@ -364,22 +364,22 @@ is_fltransig(FLTRANSIG(Att,Arrow,Type),Att,Arrow,Type).
 /*
 %%  unused
 is_fltranspec(FLTRANSPEC(QN,Type),Tran,Type) :- 
-	is_fltransactionalpredspec(QN,Tran),
-	!.
+        is_fltransactionalpredspec(QN,Tran),
+        !.
 */
 is_fltranspec(FLTRANSPEC(Tran,Type),Tran,Type).
 
 /*
 %%  unused
 is_fltranspec(FLMETHSPEC(Meth,Type),Tran,Type) :-
-	is_fltransactionalpredspec(Meth,Tran),
-	!.
+        is_fltransactionalpredspec(Meth,Tran),
+        !.
 is_fltranspec(FLMETHSPEC(QN,Type),QN,Type) :- 
-	is_fltransactionalatom(QN,_),
-	!.
+        is_fltransactionalatom(QN,_),
+        !.
 is_fltranspec(FLMETHSPEC(QN,Type),QN,Type) :- 
-	is_fltransactionalterm(QN,_,_,_),
-	!.
+        is_fltransactionalterm(QN,_,_,_),
+        !.
 */
 
 is_flmethspec(FLMETHSPEC(Meth,Type),Meth,Type).
@@ -874,7 +874,7 @@ naf_struct_flora(Goal,FreeVars,Code) :-
 	),
 	delay_checking_code_for_rulelog_naf(Goal,DelayCheckCode),
 	conjunct_struct(GoalCode,DelayCheckCode,FullGoal),
-        %%writeln('9999freevars_in_naf_struct_flora' = FreeVars),
+        %%writeln(2,'9999freevars_in_naf_struct_flora' = FreeVars),
 	pure_naf_struct_flora(FullGoal,FreeVars,PureNAFcode),
 	%% delay default negation
 	delay_naf_struct(PureNAFcode,DelayCode),
@@ -1130,7 +1130,7 @@ neg_struct(Goal,_Idx,Code,[]) :-
 
 neg_struct(Goal,_Idx,Code,[]) :-
 	(workspace_struct(PRNEG(L),WS,Goal)
-	-> workspace_struct(L,WS,Code) % double negation
+	-> workspace_struct(L,WS,Code) %% double negation
 	;  workspace_struct(L,WS,Goal)
 	-> workspace_struct(PRNEG(L),WS,Code)
 	; is_florasyslib_struct(Goal,Idx,FLLIBMODLIT,N,Args)
@@ -1141,7 +1141,7 @@ neg_struct(Goal,_Idx,Code,[]) :-
 	-> florasyslib_struct(Idx,FLLIBMODLIT,N,Args,Code)
 	; is_prvariable(Goal,_VarName,Idx),
 	    has_context(CONTEXT_COMPILER_GOAL_REIFICATION)
-	-> % When variable is negated under ~, as in ?X ~ neg ?Y.
+	-> %% When variable is negated under ~, as in ?X ~ neg ?Y.
 	    thismodule_struct(ThisModule),
 	    body_context_info_structure(ThisModule,FWContext),
 	    %% ...:-...,\neg ?X, is compiled into
@@ -1394,8 +1394,8 @@ transactionalnumobj_struct(FLTRANSACTIONALNUMBER(Number,I),PRTRANSACTIONALNUMBER
 prvar_to_flvar_struct(PRVARIABLE(Name,Index),FLVAR(Name,Index)).
 %% decompile prvar list  to flvar list 
 prvar_to_flvar_struct_list([], []) :- !.
-prvar_to_flvar_struct_list([Var|Rest], [FlVar|FlRest]) :-
-	prvar_to_flvar_struct(Var,FlVar),
+prvar_to_flvar_struct_list([Var|Rest], [FLVar|FlRest]) :-
+	prvar_to_flvar_struct(Var,FLVar),
 	prvar_to_flvar_struct_list(Rest,FlRest).
 
 flvar_struct_change_index(FLVAR(Name,_Index),FlIndex,FLVAR(Name,FlIndex)).
@@ -2457,9 +2457,9 @@ prvariable_for_numbered_skolem(Index,SkolemNumber,VarObj) :-
 	varobj_struct(Name,Index,VarObj).
 
 %% new_flvariable/3: makes both new flvariable and a corresponding prvariable
-new_flvariable(Index,FlVar,NewPrvar) :-
-	new_prvariable(Index,NewPrvar),
-	prvar_to_flvar_struct(NewPrvar,FlVar).
+new_flvariable(Index,FLVar,NewPRVar) :-
+	new_prvariable(Index,NewPRVar),
+	prvar_to_flvar_struct(NewPRVar,FLVar).
 
 
 new_prvarlist(0,[]) :- !.
@@ -2696,19 +2696,19 @@ collect_flvars(ParserTerm,Vars,TVars,ProtVars,TailProtVars) :-
 %% Note: Vars, ProtVars are always passed unbound.
 %% In the agggregates, protected vars are grouping vars and sort-spec vars
 collect_flvars(ParserTerm,Vars,TVars,ProtVars,TailProtVars) :-
-	is_flaggregate(ParserTerm,_,AggrFlVar,GrpFlVars,SortSpec,FormulaCode),
+	is_flaggregate(ParserTerm,_,AggrFLVar,GrpFLVars,SortSpec,FormulaCode),
 	!,
-	is_flvariable(AggrFlVar,AggrVarName,_),
+	is_flvariable(AggrFLVar,AggrVarName,_),
 	collect_flvars(FormulaCode,Vars1,TVars1,ProtVars,TailProtVars1),
         (SortSpec==NULL -> SortVars=[]
         ; collect_flvars(SortSpec,SortVars)
         ),
 	%% append grouping&sort vars to avoid "singleton var" warning for them
-        append(GrpFlVars,SortVars,GrpAndSortVars),
+        append(GrpFLVars,SortVars,GrpAndSortVars),
         %% TVars is a tail variable in the difflist TVars1
 	append(GrpAndSortVars,TVars,TVars1),
 	subtract_varnames_from_vars(Vars1,[AggrVarName],Vars),
-	append(GrpFlVars,TailProtVars,TailProtVars1).
+	append(GrpFLVars,TailProtVars,TailProtVars1).
 
 collect_flvars(ParserTerm,Vars,TVars,ProfVars,TailProtVars) :-
 	ParserTerm =.. [_F|L],
@@ -2754,7 +2754,6 @@ collect_prdatatypevars(CompilerTermOrList,NewVars,Vars) :-
 	nonvar(CompilerTermOrList),
 	is_prdatatype(CompilerTermOrList,TypeCode,VarCode,_Index),
 	!,
-	%% TODO: get rid of the appends here!
         (is_prvariable(VarCode,VarName,VarIdx)
 	-> strip_underscore(VarName,UsrGivenVarName),
 	    %% create ?_Y =?__Y^^type
@@ -2765,6 +2764,7 @@ collect_prdatatypevars(CompilerTermOrList,NewVars,Vars) :-
 			      DatatypeVarCode),
 	    NewVars = [DatatypeVarCode|Vars]
 	; is_list(VarCode)
+	%% TODO: get rid of the appends here!
 	-> collect_prdatatypevars(VarCode,AddlVars),
 	    append(AddlVars,Vars,NewVars)
 	; is_prdatatypelist(VarCode,ListOfLits)
@@ -3018,6 +3018,22 @@ namevars([Index-Name|L],[NV|NVs]) :-
 	prologterm_struct(FCode,2,[NCode,VCode],NV),
 	namevars(L,NVs).
 
+/* 
+    Named prvars (Name=Var pairs) can be given as FLDYNRULEVARCHECK
+    attribute of various vars and in this way we can track named variables from compile
+    time to run time.
+
+    flvar_list_to_PRNamedVarPairs(+FLVars,-TransporterVar)
+*/
+flvar_list_to_PRNamedVarPairs(FLVars,TransporterVar) :-
+        new_prvariable(NO_INDEX,TransporterVar), %% attr var for descriptor var list
+        collect_name_var_pairs(FLVars,PRVarPairs),
+        list_struct(PRVarPairs,[],VarNamePairPRList),
+        (PRVarPairs==[] ->  true
+        ; report_dynrule_varlist(TransporterVar,VarNamePairPRList)
+        ).
+
+
 
 /****************************************************************************
   singleton_flvars(+SortedVarsList,-SingletonVars)
@@ -3119,7 +3135,7 @@ singleton_warning([V|L],WarnList,WarnTail) :-
   Warnings are not generated for variables beginning with an underscore.
 ****************************************************************************/
 unsafe_var_warning(VarList,WarnList,WarnTail) :-
-	unsafe_var_warning(VarList,WarnList,WarnTail,UNBOUND_VAR).
+	unsafe_var_warning(VarList,WarnList,WarnTail,UNSAFE_VAR).
 
 unsafe_var_warning([],WarnList,WarnList,_).
 
@@ -3137,13 +3153,16 @@ unsafe_var_warning([V|L],WarnList,WarnTail,WarningMessage) :-
 
 
 /****************************************************************************
-  check_rule_vars_for_safety(+HeadTermList,+BodyTerm,-Status)
+  check_rule_vars_for_safety(+DescrVarsTerm,+HeadTermList,+BodyTerm,-Status)
 ****************************************************************************/
-check_rule_vars_for_safety(HeadTermList,BodyTerm,Status) :-
+check_rule_vars_for_safety(DescrVarsTerm,HeadTermList,BodyTerm,Status) :-
 	collect_flvars(HeadTermList,HeadVars),
 	collect_flvars(BodyTerm,BodyVars,ProtectedVars),
-	append(HeadVars,BodyVars,Vars),
-	%% Singleton_flvars relies on sorting.
+	append(HeadVars,BodyVars,HBVars),
+   %%%% writeln(2,vvvvvv=HeadVars+ProtectedVars+DescrVarsTerm),
+        get_descr_flvar_weeded(DescrVarsTerm,DescrFLVars),
+
+	%% singleton_flvars relies on sorting to eliminate duplicates
 	%% Using parsort/4 does NOT eliminate duplicates so that singletons
 	%% will be correctly reported in NL templates.
 	%% For cases like ?X[a->b,c->d] we still can report duplicates
@@ -3151,28 +3170,44 @@ check_rule_vars_for_safety(HeadTermList,BodyTerm,Status) :-
 	%% ?X[a->b,c->d] has just one occurrence of ?X. The
 	%% problem with sort/2 is that it would erroneously report singletons
 	%% in a template like this:  \(if ?X is a boy then ?X plays ball\).
-	machine:parsort(Vars,asc,0,SortedVars),
+	machine:parsort(HBVars,asc,0,SortedHBVars),
         %% grouping vars in rule head are ok
-	protected_vars_warning(BodyVars,ProtectedVars,Stat_vars),
-	(no_errors_found(Stat_vars) ->
-	    singleton_flvars(SortedVars,SingletonVars),
+	protected_vars_warning(BodyVars,ProtectedVars,BodyVarsStatus),
+
+        remove_silent_flvars(SortedHBVars,LoudSortedHBVars),
+        subtract_vars(DescrFLVars, LoudSortedHBVars, UnsafeDescriptorFLVars),
+
+	(no_errors_found(BodyVarsStatus) ->
+	    singleton_flvars(SortedHBVars,SingletonVars),
 	    singleton_warning(SingletonVars,Status_pre,WarnTail),
             remove_silent_flvars(HeadVars,LoudHeadVars),
-	    subtract_vars(LoudHeadVars,BodyVars,UnboundVars),
-	    sort(UnboundVars,UnboundSortedVars),
-            (UnboundSortedVars == [] -> WarnTail = []
+	    subtract_vars(LoudHeadVars,BodyVars,UnsafeHeadVars),
+	    sort(UnsafeHeadVars,UnsafeHeadSortedVars),
+            (UnsafeHeadSortedVars == [] -> WarnTail = []
             ; flora_ignore_unsafe_vars(HeadTermList) -> WarnTail = []
 	    ; BodyTerm == [] ->
-		unsafe_var_warning(UnboundSortedVars,WarnTail,[],UNBOUND_VAR_IN_FACT)
-	    ; unsafe_var_warning(UnboundSortedVars,WarnTail,[])
+		unsafe_var_warning(UnsafeHeadSortedVars,WarnTail,[],UNSAFE_VAR_IN_FACT)
+	    ; unsafe_var_warning(UnsafeHeadSortedVars,WarnTail,[])
 	    ),
-	    (var(WarnTail) -> WarnTail = Stat_vars, Status = Status_pre
-	    ; append(Status_pre,Stat_vars,Status)
-	    )
-	; Status = Stat_vars
+	    (var(WarnTail) -> WarnTail = BodyVarsStatus, StatusOfWarns = Status_pre
+	    ; append(Status_pre,BodyVarsStatus,StatusOfWarns)
+	    ),
+            (UnsafeDescriptorFLVars \== [] ->
+                approx_flindex(UnsafeDescriptorFLVars,ErrIdx),
+                printable_flvarlist(UnsafeDescriptorFLVars,
+                                   PrintableFLVarList),
+                compiling_error(ErrIdx,[UNSAFE_VARS_IN_RULE_DESCRIPTOR,
+                                        PrintableFLVarList,
+                                        UNSAFE_VARS_IN_RULE_DESCRIPTOR_EXPLANATION], Err),
+                StatusOfErrors = [[Err] | BodyVarsStatus]
+            ; StatusOfErrors = []
+            ),
+            append(BodyVarsStatus,StatusOfErrors,Status)
+	; Status = BodyVarsStatus
 	),
 	!.
 
+%% TODO: check this test, but a warning here seems ok
 %% Like check_latent_query_flvars_for_safety/3 but first arg is PRCode
 check_latent_query_prvars_for_safety(PRCode,Body,Status) :-
         get_user_flvars_from_prcode(PRCode,CodeFLVars),
@@ -3180,10 +3215,10 @@ check_latent_query_prvars_for_safety(PRCode,Body,Status) :-
 %% Arg1 - list of flvars
 %% Check if CodeFLVars has any vars not in Body; issue unsafety warning
 check_latent_query_flvars_for_safety(CodeFLVars,Body,Status) :-
-	collect_flvars(Body,BodyFLvars,_),
-        subtract_vars(CodeFLVars,BodyFLvars,UnboundVars),
-        sort(UnboundVars,UnboundSortedVars),
-        unsafe_var_warning(UnboundSortedVars,UnsafeWarn,[],UNBOUND_VAR_IN_LATENT_QUERY),
+	collect_flvars(Body,BodyFLVars,_),
+        subtract_vars(CodeFLVars,BodyFLVars,UnsafeVars),
+        sort(UnsafeVars,UnsafeSortedVars),
+        unsafe_var_warning(UnsafeSortedVars,UnsafeWarn,[],UNSAFE_VAR_IN_LATENT_QUERY),
         (var(UnsafeWarn) -> UnsafeWarn = [], Status = []
         ; Status = UnsafeWarn
         ).
@@ -3228,7 +3263,7 @@ check_udf_vars_for_safety(Function,Predicate,ReturnValue,Status) :-
         sort(Vars,SortedVars), %% singleton_flvars relies on sorting
         singleton_flvars(SortedVars,SingletonVars),
         singleton_warning(SingletonVars,Status,WarnTail),
-        subtract_vars(FuncVars,PredVars,UnboundVars),
+        subtract_vars(FuncVars,PredVars,UnsafeVars),
         %% Don't issue the unboundedness var warning for facts
 	%% (facts can be defined using function definition)
         (Predicate == NULL ->
@@ -3236,7 +3271,7 @@ check_udf_vars_for_safety(Function,Predicate,ReturnValue,Status) :-
             ; true
             )
         ;
-            unsafe_var_warning(UnboundVars,WarnTail,[],UNBOUND_UDF_VAR)
+            unsafe_var_warning(UnsafeVars,WarnTail,[],UNSAFE_UDF_VAR)
         ),
 	(var(WarnTail) -> WarnTail=[]
 	; true
@@ -4230,16 +4265,16 @@ compile_direct(DirectTerm,_,[Code1,Code2],NO_ERRORS) :-
 compile_direct(DirectTerm,_,[Code],Status) :-
 	is_flsensordirect(DirectTerm,SensCall,DelayCond),
 	!,
-	compile_defsensor_direct(SensCall,DelayCond,Direct,S1),
+	compile_defsensor_direct(SensCall,DelayCond,Direct,Stat1),
 	query_struct(Direct,QueryCode),
-	( no_errors_found(S1) -> 
-	    flora_intern_code([QueryCode],NULL,PrologCode,S2),
-	    ( no_errors_found(S2) -> call(PrologCode)
+	( no_errors_found(Stat1) -> 
+	    flora_intern_code([QueryCode],NULL,PrologCode,Stat2),
+	    ( no_errors_found(Stat2) -> call(PrologCode)
 	    ; true
 	    ),
 	    directive_struct(Direct,Code),
-	    append(S1,S2,Status)
-	; Status = S1
+	    append(Stat1,Stat2,Status)
+	; Status = Stat1
 	),
 	!.
 
@@ -4664,17 +4699,17 @@ compile_defsensor_direct(SensCall,DelayCond,Code,Status) :-
 	conjunct_struct(OidCode,WSCode,SensCode),
 	(no_errors_found(S1) ->
 	    detach_flworkspace(DelayCond,DelayCondSansWS,WS),
-	    compile_body_literal_top(DelayCondSansWS,WS,DelayOidCode,DelayWSCode,[],S2),
+	    compile_body_literal_top(DelayCondSansWS,WS,DelayOidCode,DelayWSCode,[],Stat2),
 	    conjunct_struct(DelayOidCode,DelayWSCode,DelayCheckCode)
-	; S2 = S1
+	; Stat2 = S1
 	),
-	(no_errors_found(S2) ->
+	(no_errors_found(Stat2) ->
 	    %% record symbol as sensor symbol, for error checking
 	    flprologlib_functor(SensCall,SensFunct),
 	    verify_symbol_context(SensFunct,SensArity,
 				  SENSOR_SYMBOL,NONTRANSACTIONAL_SYMBOL,
 				  Status)
-	; Status = S2
+	; Status = Stat2
 	),
 	!,
 	report_option(FLSYSLIB(FLLIBSENSOR),NO_INDEX),
@@ -4703,11 +4738,12 @@ compile_fact(Head,DescriptorIdCode,DescrVarsTerm,RuleDiffList,SigDiffList,FactDi
 	!,
 	( no_errors_found(HeadStat) ->
 	    compile_factlist(HeadCode,DescriptorIdCode,DescrVarsTerm,H2BCodeFront,H2BCodeBack,RuleDiffList,SigDiffList,FactDiffList,MetaFactDiffList),
-	    (has_context(CONTEXT_COMPILER_UDF_DEFINITION) -> S2 = NO_ERRORS
+	    (has_context(CONTEXT_COMPILER_UDF_DEFINITION) -> Stat2 = NO_ERRORS
 	    %% for UDFs, variables are checked separately
-	    ; check_rule_vars_for_safety(Head,[],S2)
+	    ;
+                check_rule_vars_for_safety(DescrVarsTerm,Head,[],Stat2)
 	    ),
-	    append(HeadStat,S2,Status)
+	    append(HeadStat,Stat2,Status)
         ;
 	  Status=HeadStat
 	),
@@ -4720,11 +4756,12 @@ compile_fact_add(Head,DescriptorIdCode,DescrVarsTerm,RuleDiffList,FactDiffList,M
 	!,
 	( no_errors_found(HeadStat) ->
 	    compile_factlist_add(HeadCode,DescriptorIdCode,DescrVarsTerm,H2BCodeFront,H2BCodeBack,RuleDiffList,FactDiffList,MetaFactDiffList),
-	    (has_context(CONTEXT_COMPILER_UDF_DEFINITION) -> S2 = NO_ERRORS
+	    (has_context(CONTEXT_COMPILER_UDF_DEFINITION) -> Stat2 = NO_ERRORS
 	    %% for UDFs, variables are checked separately
-	    ; check_rule_vars_for_safety(Head,[],S2)
+	    ;
+                check_rule_vars_for_safety(DescrVarsTerm,Head,[],Stat2)
 	    ),
-	    append(HeadStat,S2,Status)
+	    append(HeadStat,Stat2,Status)
         ;
 	    Status=HeadStat
 	),
@@ -4850,12 +4887,23 @@ make_dynrule_from_fact(H,DescrIdCode,DescrVarsTerm,H2BF,H2BB,[Code|RT]-RT,Metafa
         copy_term(MetafactsDiffList,MetafactsDiffListCopy),
 	MetafactsDiffListCopy = MetafactsList - [],
 	list_struct(MetafactsList,[],MetaFactCode),
-	list_struct([],[],EmptyListCode), %% empty list
-	HVL = EmptyListCode,
-	HBL = EmptyListCode,
+	%%list_struct([],[],EmptyListCode), %% empty list
+	%%HVL = EmptyListCode,
+	%%HBL = EmptyListCode,
 	PreBody = RuleEnablerTest,
+        flvar_list_to_PRNamedVarPairs([],HVL),
+        flvar_list_to_PRNamedVarPairs([],BVL),
+        get_descr_flvar_weeded(DescrVarsTerm,DescrFLVars),
+        flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL),
+        /*
+        collect_name_var_pairs(DescrFLVars,NamedDescrVarsList),
+        list_struct(NamedDescrVarsList,[],NamedDescrVarsListCode),
+        */
+        %% for  make_dynrule_from_fact
 	florasyslib_struct(FLSYSRULEUPDATE,15,
-			   [DescrIdCode,FileName,DescrVarsTerm,
+			   [DescrIdCode,FileName,
+                            %%DescrVarsTerm,
+                            DescrVL,
 			    StmtNum,
 			    MetaFactCode, %% Meta facts
 			    HeadCodeList,
@@ -4866,7 +4914,7 @@ make_dynrule_from_fact(H,DescrIdCode,DescrVarsTerm,H2BF,H2BB,[Code|RT]-RT,Metafa
 			    H2BCodeBackList,
 			    PreBody,
 			    PostBodyList, %% postbody, delay checker
-			    FL_TRUE], %% defeat condition
+			    FL_TRUE],     %% defeat condition
 			   RuleCode),
 	list_struct([RuleCode],[],RuleCodeList),
 	updaterule_syslib(FL_INSERTRULE_Z,UpdateruleLib),
@@ -4895,7 +4943,8 @@ attrvar_code(Var,Val,AttrName,Code) :-
 	atomobj_struct(flora_put_attr,PutAttrFunct),
         atomobj_struct(AttrName,AttrCode),
         prologterm_struct(PutAttrFunct,3,[Var,AttrCode,Val],flrwhen,VCode),
-        prologliblit_struct(VCode,Code).
+        prologliblit_struct(VCode,Code),
+        true.
 
 %% This version creates record that will enable flrutils.P
 %% flora_put_attr_and_insert_fact to create attributed variables
@@ -4905,10 +4954,10 @@ attrvar_code_delayed(Var,Val,AttrName,Code) :-
         prologterm_struct(VarValFunct,3,[Var,AttrName,Val],Code).
 
 /****************************************************************************
-  compile_query(+Body,-QueryDiffList,-Status)
+compile_query(+Body,-QueryDiffList,-Status)
 
-  QueryDiffList is a difference list in the form of [...|R]-R.
-	It is used to optimize append/3
+QueryDiffList is a difference list in the form of [...|R]-R.
+It is used to optimize append/3
 ****************************************************************************/
 compile_query(Body,_,[Err]) :-
 	is_flterm(Body,Funct,2,_),
@@ -4924,8 +4973,8 @@ compile_query(Body,_,[Err]) :-
 compile_query(Body,QueryList-QueryTail,Status) :-
 	%% check for protected variables misuse
 	collect_flvars(Body,BodyVars,ProtectedVars),
-	protected_vars_warning(BodyVars,ProtectedVars,Stat_vars),
-	(no_errors_found(Stat_vars) ->
+	protected_vars_warning(BodyVars,ProtectedVars,BodyVarsStatus),
+	(no_errors_found(BodyVarsStatus) ->
 	    compile_body_top(Body,BCode,Status_body),
             !,
 	    ( no_errors_found(Status_body) -> 
@@ -4943,16 +4992,16 @@ compile_query(Body,QueryList-QueryTail,Status) :-
 		florasyslib_struct(FLLIBANSWER,2,[AugmentedBodyCode,NVCode],Goal),
 		query_struct(Goal,QueryCode),
 		QueryList = [QueryCode|QueryTail],
-		append(Status_body,Stat_vars,Status)
+		append(Status_body,BodyVarsStatus,Status)
 	    ;
 		Status = Status_body
 	    )
-	; Status = Stat_vars
+	; Status = BodyVarsStatus
 	),
 	!.
 
 /******************************************************************************
-    compile_latent_query(+DescrIdCode,+MetaFactDiffList,+Body,+Mode,-LatentQueryDiffList,-Status)
+compile_latent_query(+DescrIdCode,+MetaFactDiffList,+Body,+Mode,-LatentQueryDiffList,-Status)
 ******************************************************************************/
 compile_latent_query(DescrIdCode,MetaFactDiffList,Body,Mode,LatentQueryList-LatentQueryTail,Status) :-
 	compile_body_top(Body,BCode,BodyStatus),
@@ -4981,22 +5030,53 @@ compile_latent_query(DescrIdCode,MetaFactDiffList,Body,Mode,LatentQueryList-Late
 	    ),
 	    LatentQueryList = [LatentQuerySigCode|LatentQueryTail]
 	;
-	  true
+            true
 	),
         check_latent_query_prvars_for_safety((DescrIdCode,MetaFactDiffList),
-                                             Body, VarStat),
-        flatten([BodyStatus,VarStat],Status),
+                                             Body, LatentQueryVarStat),
+        flatten([BodyStatus,LatentQueryVarStat],Status),
 	!.
 
 
-/****************************************************************************
-  compile_annotated_construct(+DescriptorList,+MainPartOfRule,-RuleDiffList,-SigDiffList,-FactDiffList,-QueryList,-LatentQueryList,-MetaFactDiffList,-Status)
+%% Singleton_flvars relies on sorting to eliminate duplicates
+%% Using parsort/4 does NOT eliminate duplicates so that singletons
+%% will be correctly reported in NL templates.
+%% For cases like ?X[a->b,c->d] we still can report duplicates
+%% since we are looking at flvars, not prvars, and in fl-code
+%% ?X[a->b,c->d] has just one occurrence of ?X. The problem
+%% with sort/2 is that it would erroneously report singletons
+%% in a template like this: \(if ?X is a boy then ?X plays ball\).
+get_descr_flvars(DescrVarsPRTerm, DescrFLVars) :-
+        get_descr_prvarlist(DescrVarsPRTerm,DescrPRVars),
+	prvar_to_flvar_struct_list(DescrPRVars,DescrFLVars).
+%% weeded means sorted varlist, minus anon and don't care vars
+weeded_flvars(DescrFLVars,LoudSortedDescrFLVars) :-
+        machine:parsort(DescrFLVars,asc,0,SortedDescrFLVars),
+        remove_silent_flvars(SortedDescrFLVars,LoudSortedDescrFLVars_pre),
+        remove_dontcare_flvars(LoudSortedDescrFLVars_pre,LoudSortedDescrFLVars).
 
-  RuleDiffList is a difference list in the form of [...|R]-R.
-		It is used for append/3 optimization
-  SigDiffList = diff list of rule signatures
-  FactDiffList = the diff list of facts
-		 FactList includes meta-facts
+get_descr_flvar_weeded(DescrVarsPRTerm,[]) :- is_prvariable(DescrVarsPRTerm,_,_), !.
+get_descr_flvar_weeded(DescrVarsPRTerm,LoudSortedDescrFLVars) :-
+        get_descr_flvars(DescrVarsPRTerm, DescrFLVars),
+        weeded_flvars(DescrFLVars,LoudSortedDescrFLVars).
+
+%% Normally, the first arg is bound.
+%% If not, assume DescrVarsList is [].
+get_descr_prvarlist(InputVar,[]) :- var(InputVar), !.
+get_descr_prvarlist(InputVar,[]) :- is_prvariable(InputVar,_,_), !.
+get_descr_prvarlist(PRATOM(FL_DESCRIPTOR_VARS_WRAPPER,_),[]) :- !.
+get_descr_prvarlist(DescrVarTerm,DescrVarsList) :-
+        is_prologterm(DescrVarTerm,DescrVarTermFunctor,_idx,DescrVarsList),
+        is_pratom(DescrVarTermFunctor,FL_DESCRIPTOR_VARS_WRAPPER).
+
+/****************************************************************************
+compile_annotated_construct(+DescriptorList,+MainPartOfRule,-RuleDiffList,-SigDiffList,-FactDiffList,-QueryList,-LatentQueryList,-MetaFactDiffList,-Status)
+
+RuleDiffList is a difference list in the form of [...|R]-R.
+It is used for append/3 optimization
+SigDiffList = diff list of rule signatures
+FactDiffList = the diff list of facts
+FactList includes meta-facts
 ****************************************************************************/
 compile_annotated_construct(DescriptorList,MainPartOfRule,RuleDiffList,SigDiffList,FactDiffList,QueryList,LatentQueryList,MetaFacts-MetaFactsTail,Status) :-
 	approx_flindex(MainPartOfRule,RuleIdx),
@@ -5021,17 +5101,19 @@ compile_annotated_construct(DescriptorList,MainPartOfRule,RuleDiffList,SigDiffLi
 
 
 /*
- compile_descriptor_list(+DescriptorList-RuleIdx,+Mode,-DescrIdCode,-DescrVarsTermOut,
-                         -MetaFactDiffList,-Status)
- Mode - FL_DESCRMODE_RULE/FL_DESCRMODE_PLAIN_QUERY/FL_DESCRMODE_DYNRULE.
-        The FL_DESCRMODE_PLAIN_QUERY mode is used for the @!{...} queries.
-        The FL_DESCRMODE_CLAUSE mode is used for the clause{...} construct.
-        FL_DESCRMODE_DYNRULE is for dynamic rules.
- DescrVarsTermOut normally is output as vars(VariablesInDescriptorList)
- If DescrVarsTermOut is bound then we assume that we are compiling
-     for the clause{....} statement and so we pass a new unbound variable to
-     compile_descriptor_list1, so MetaFacts will have unbound variable as arg 2.
-     This is what we need for clause{....}
+compile_descriptor_list(+DescriptorList-RuleIdx,+Mode,-DescrIdCode,-DescrVarsTermOut,
+                        -MetaFactDiffList,-Status)
+Mode - FL_DESCRMODE_RULE/FL_DESCRMODE_PLAIN_QUERY/FL_DESCRMODE_DYNRULE.
+The FL_DESCRMODE_PLAIN_QUERY mode is used for the @!{...} queries.
+The FL_DESCRMODE_CLAUSE mode is used for the clause{...} construct.
+FL_DESCRMODE_DYNRULE is for dynamic rules.
+DescrVarsTermOut normally is output as vars(VariablesInDescriptorList)
+If DescrVarsTermOut is bound then we assume that we are compiling
+for the clause{....} statement and so we pass a new unbound variable to
+compile_descriptor_list1, so MetaFacts will have unbound variable as arg 2.
+This is what we need for clause{....}
+
+compile_descriptor_list(+DescriptorList-RuleIdx,+Mode,-DescrIdCode,-DescrVarsTermOut,-MetaFacts-MetaFactsTail,-Status) :-
 */
 compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut,MetaFacts-MetaFactsTail,Status) :-
 	flatten(DescriptorList,FlatDescrList),
@@ -5039,6 +5121,8 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
 	findall(IdTerm-Idx,
 		member(FLDESCRIPTOR(IdTerm,FLRULEID,Idx),FlatDescrList),
 		IdParserTermList),
+       %%%% writeln(2,'IdParserTermList'=IdParserTermList),
+       %%%% writeln(2,'DescrVarsTermOut'=DescrVarsTermOut),
 	!,
 	push_context(CONTEXT_COMPILER_NO_SYMBOL_CHECK),
 	set_context(CONTEXT_COMPILER_DESCRIPTORS(Mode)),
@@ -5046,7 +5130,7 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
 	-> IdParserTermList = [_,_-Idx|_],
 	    compiling_error(Idx,MULTIPLE_RULE_IDS,Err),
 	    IdStatus = [Err]
-	; IdParserTermList == [] % no explicit rule id
+	; IdParserTermList == [] %% no explicit rule id
 	->
 	    construct_default_ruleid_descriptor(Mode,RuleIdx,DescrIdCode),
 	    RuleidFrameCode = _M - _M,
@@ -5073,7 +5157,7 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
                 %% For arity=0, use atomobj, which generates just an atom.
                 %% generate_prolog_term(_,0,_,_) makes atom(), which crashes XSB
                 atomobj_struct(FL_DESCRIPTOR_VARS_WRAPPER,DescrVarsTermOut)
-            ;
+            ; integer(VarListLen) ->
                 generate_prolog_term(FL_DESCRIPTOR_VARS_WRAPPER,VarListLen,DescrVarsCode,DescrVarsTermOut)
             )
 	%% we are compiling clause{...} or a query
@@ -5081,10 +5165,12 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
 	%% Generate a var in this case
 	;   new_prvariable(NO_INDEX,DescrVarsTermOut)
 	),
+       %%%% writeln(2,'000'= Mode),
+       %%%% writeln(2,'000'= VarListLen+DescrVarsTermOut),
 	get_current_compile_file_for_descriptor(CurrFileName,Mode),
 	get_descriptor_module(ExplicitModule,Mode,DescrModule),
 	(IdStatus == NO_ERRORS
-         %%, Mode \== FL_DESCRMODE_UDFRULE
+        %%, Mode \== FL_DESCRMODE_UDFRULE
 	->
 	    extract_features_from_descriptor_list(FlatDescrList,DescrFeatures),
             %% verify that Id belongs to a defeasible rule
@@ -5108,23 +5194,23 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
 	; Status = IdStatus,
 	    MetaFacts = []
 	),
+       %%%% writeln(2,'000'= qqq+VarListLen+DescrVarsTermOut+mode(Mode)),
 	clear_context(CONTEXT_COMPILER_DESCRIPTORS(Mode)),
 	pop_context(CONTEXT_COMPILER_NO_SYMBOL_CHECK).
 
 
-
 /*
-    determine_defeasibility(+FlatDescrList,+Mode,+DescrIdCode,+CurrFileName,+DescrModule,+DescrVarsTerm,-DefeatMetaFact,-Status)
+determine_defeasibility(+FlatDescrList,+Mode,+DescrIdCode,+CurrFileName,+DescrModule,+DescrVarsTerm,-DefeatMetaFact,-Status)
 
-    If more than one defeasibility descriptor - error
-    If exactly one defeasibility descriptor - noop.
-          Note: tag+strict is allowed because one might turn
-	        defeasibility on later
-    If no defeasibility specified:
-          If tag is specified, assume defeasible.
-          Otherwise: assume strict.
+If more than one defeasibility descriptor - error
+If exactly one defeasibility descriptor - noop.
+Note: tag+strict is allowed because one might turn
+defeasibility on later
+If no defeasibility specified:
+If tag is specified, assume defeasible.
+Otherwise: assume strict.
 */
-%% If Mode=FL_DESCRMODE_CLAUSE/FL_DESCRMODE_PLAIN_QUERY then don't produce defeasibility fact
+%% If Mode=FL_DESCRMODE_CLAUSE/FL_DESCRMODE_PLAIN_QUERY then don't produce defeasibility facts, ie, return NULL
 determine_defeasibility(_Features,Mode,_DescrIdCode,_FileName,_Module,_DescrVarsTerm,NULL,NO_ERRORS) :-
 	memberchk(Mode,[FL_DESCRMODE_CLAUSE,FL_DESCRMODE_PLAIN_QUERY,FL_DESCRMODE_LATENT_QUERY,FL_DESCRMODE_LATENT_DYNQUERY,FL_DESCRMODE_LATENT_ADDQUERY,FL_DESCRMODE_UDFRULE]),
 	!.
@@ -5164,7 +5250,7 @@ determine_defeasibility(DescrFeatures,Mode,DescrIdCode,FileName,Module,DescrVars
                                             DescrVarsTerm, DefeasibleDescr,
                                             [DefeatMetaFact|Tail]-Tail,StatDsc),
             append(StatWarn,StatDsc,Status)
-	;  %% otherwise, assume strict rule
+	; %% otherwise, assume strict rule
 	    flatom_struct(FL_STRICT,NO_INDEX,StrictDescr),
 	    construct_bool_descriptor_facts(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,StrictDescr,[DefeatMetaFact|Tail]-Tail,Status)
 	).
@@ -5227,31 +5313,31 @@ extract_features_from_objspec(_Spec, []).
 
 
 /*
-   compile_descriptor_list1(+DescriptorList,+Mode,+DescrIdCode,+CurrFileName,+DescrModule,+RuleidFrameCode,+DescrVarsTerm,-MetaFactDiffList,-Status)
-   Mode - FL_DESCRMODE_RULE/FL_DESCRMODE_CLAUSE/FL_DESCRMODE_PLAIN_QUERY/FL_DESCRMODE_DYNRULE/FL_DESCRMODE_ADDRULE/FL_DESCRMODE_LATENT_QUERY/FL_DESCRMODE_LATENT_DYNQUERY/FL_DESCRMODE_LATENT_ADDQUERY/FL_DESCRMODE_UDFRULE
-        FL_DESCRMODE_CLAUSE is used for the clause{...} construct.
-        FL_DESCRMODE_PLAIN_QUERY is for the @!{...} metainfo queries in bodies.
-        FL_DESCRMODE_DYNRULE is for dynamic rules.
-	etc.
+compile_descriptor_list1(+DescriptorList,+Mode,+DescrIdCode,+CurrFileName,+DescrModule,+RuleidFrameCode,+DescrVarsTerm,-MetaFactDiffList,-Status)
+Mode - FL_DESCRMODE_RULE/FL_DESCRMODE_CLAUSE/FL_DESCRMODE_PLAIN_QUERY/FL_DESCRMODE_DYNRULE/FL_DESCRMODE_ADDRULE/FL_DESCRMODE_LATENT_QUERY/FL_DESCRMODE_LATENT_DYNQUERY/FL_DESCRMODE_LATENT_ADDQUERY/FL_DESCRMODE_UDFRULE
+FL_DESCRMODE_CLAUSE is used for the clause{...} construct.
+FL_DESCRMODE_PLAIN_QUERY is for the @!{...} metainfo queries in bodies.
+FL_DESCRMODE_DYNRULE is for dynamic rules.
+etc.
 */
 compile_descriptor_list1([],_Mode,_DescrIdCode,_FileName,_Module,_RuleidFrameCode,_DescrVarsTerm,M-M,NO_ERRORS) :- !.
 compile_descriptor_list1([Descriptor|RestDescr],Mode,DescrIdCode,FileName,Module,RuleidFrameCode,DescrVarsTerm,MetaFacts-MetaTail,Status) :-
-	compile_descriptor(Descriptor,Mode,DescrIdCode,FileName,Module,RuleidFrameCode,DescrVarsTerm,MetaFacts-Tail,S1),
-	(no_errors_found(S1)
+	compile_descriptor(Descriptor,Mode,DescrIdCode,FileName,Module,RuleidFrameCode,DescrVarsTerm,MetaFacts-Tail,Stat1),
+	(no_errors_found(Stat1)
 	->  
 	    compile_descriptor_list1(RestDescr,Mode,DescrIdCode,FileName,Module,RuleidFrameCode,DescrVarsTerm,Tail-MetaTail,Status)
-	; Status = S1
+	; Status = Stat1
 	).
 
 
 /*
-   compile_descriptor(+Descriptor,+Mode,+DescrIdCode,+DescrVarsTerm,-MetaFactDiffList,-Status)
-   Mode - FL_DESCRMODE_RULE/FL_DESCRMODE_CLAUSE/FL_DESCRMODE_PLAIN_QUERY/FL_DESCRMODE_DYNRULE/FL_DESCRMODE_ADDRULE/FL_DESCRMODE_LATENT_QUERY/FL_DESCRMODE_LATENT_DYNQUERY/FL_DESCRMODE_LATENT_ADDQUERY/FL_DESCRMODE_UDFRULE
-        FL_DESCRMODE_RULE - rule descriptor in static rules
-        FL_DESCRMODE_CLAUSE mode is used for the clause{...} construct.
-        FL_DESCRMODE_PLAIN_QUERY - for @!{...} queries in rule bodies
-        FL_DESCRMODE_DYNRULE is for dynamic rules.
-	etc.
+compile_descriptor(+Descriptor,+Mode,+DescrIdCode,+DescrVarsTerm,-MetaFactDiffList,-Status)
+Mode - FL_DESCRMODE_RULE/FL_DESCRMODE_CLAUSE/FL_DESCRMODE_PLAIN_QUERY/FL_DESCRMODE_DYNRULE/FL_DESCRMODE_ADDRULE/FL_DESCRMODE_LATENT_QUERY/FL_DESCRMODE_LATENT_DYNQUERY/FL_DESCRMODE_LATENT_ADDQUERY/FL_DESCRMODE_UDFRULE
+FL_DESCRMODE_RULE - rule descriptor in static rules
+FL_DESCRMODE_CLAUSE mode is used for the clause{...} construct.
+FL_DESCRMODE_PLAIN_QUERY - for @!{...} queries in rule bodies
+FL_DESCRMODE_DYNRULE is for dynamic rules.
+etc.
 */
 compile_descriptor(Descriptor,Mode,DescrIdCode,FileName,Module,RuleidFrameCode,DescrVarsTerm,MetaFactDiffList,Status) :-
 	is_fldescriptor(Descriptor,DescrContents,Type,_Index),
@@ -5274,24 +5360,24 @@ compile_ruleid_descriptor(IdDescriptorWithFrame,DescrIdCode,FrameCode,ExplicitMo
 
 
 /*
-   Mode - FL_DESCRMODE_RULE/FL_DESCRMODE_CLAUSE/FL_DESCRMODE_PLAIN_QUERY/FL_DESCRMODE_DYNRULE/FL_DESCRMODE_ADDRULE/FL_DESCRMODE_LATENT_QUERY/FL_DESCRMODE_LATENT_DYNQUERY/FL_DESCRMODE_LATENT_ADDQUERY/FL_DESCRMODE_UDFRULE
-        FL_DESCRMODE_RULE - rule descriptor in static (loaded) rules
-        FL_DESCRMODE_CLAUSE mode is used for the clause{...} construct.
-	       In that case, the default rule Id is just a new variable.
-	       Same for FL_DESCRMODE_DYNRULE/FL_DESCRMODE_ADDRULE/FL_DESCRMODE_LATENT_DYNQUERY/FL_DESCRMODE_LATENT_ADDQUERY: these Ids are set at run time,
-	            so here we just make the id into a variable.
-        FL_DESCRMODE_PLAIN_QUERY is for @!{....} queries to metainfo in rule bodies
-        FL_DESCRMODE_DYNRULE is for dynamic rules inserted at run time by insertrule.
-        FL_DESCRMODE_ADDRULE is for dynamic rules inserted by _add.
-        FL_DESCRMODE_LATENT_QUERY is for for static (loaded) latent queries
-        FL_DESCRMODE_LATENT_ADDQUERY is for for latent queries inserted by _add.
-        FL_DESCRMODE_LATENT_DYNQUERY is for for latent queries inserted by insert{}.
-        FL_DESCRMODE_UDFRULE is for rules created as part of the UDF encoding
+Mode - FL_DESCRMODE_RULE/FL_DESCRMODE_CLAUSE/FL_DESCRMODE_PLAIN_QUERY/FL_DESCRMODE_DYNRULE/FL_DESCRMODE_ADDRULE/FL_DESCRMODE_LATENT_QUERY/FL_DESCRMODE_LATENT_DYNQUERY/FL_DESCRMODE_LATENT_ADDQUERY/FL_DESCRMODE_UDFRULE
+FL_DESCRMODE_RULE - rule descriptor in static (loaded) rules
+FL_DESCRMODE_CLAUSE mode is used for the clause{...} construct.
+In that case, the default rule Id is just a new variable.
+Same for FL_DESCRMODE_DYNRULE/FL_DESCRMODE_ADDRULE/FL_DESCRMODE_LATENT_DYNQUERY/FL_DESCRMODE_LATENT_ADDQUERY: these Ids are set at run time,
+so here we just make the id into a variable.
+FL_DESCRMODE_PLAIN_QUERY is for @!{....} queries to metainfo in rule bodies
+FL_DESCRMODE_DYNRULE is for dynamic rules inserted at run time by insertrule.
+FL_DESCRMODE_ADDRULE is for dynamic rules inserted by _add.
+FL_DESCRMODE_LATENT_QUERY is for for static (loaded) latent queries
+FL_DESCRMODE_LATENT_ADDQUERY is for for latent queries inserted by _add.
+FL_DESCRMODE_LATENT_DYNQUERY is for for latent queries inserted by insert{}.
+FL_DESCRMODE_UDFRULE is for rules created as part of the UDF encoding
 
-     Now we just use the rule number generated by the lexer as rule Id
-     for static and UDF rules.
-     This is because previously we used long atoms 20 chars and longer,
-     and this takes a huge amount of space on the heap.
+Now we just use the rule number generated by the lexer as rule Id
+for static and UDF rules.
+This is because previously we used long atoms 20 chars and longer,
+and this takes a huge amount of space on the heap.
 */
 construct_default_ruleid_descriptor(FL_DESCRMODE_RULE,Idx,RuleIdCode) :-
 	!,
@@ -5396,7 +5482,7 @@ construct_type_descriptor_fact(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,Me
 	; memberchk(Mode,[FL_DESCRMODE_RULE,FL_DESCRMODE_ADDRULE,FL_DESCRMODE_DYNRULE]) -> atomobj_struct(FL_DESCRTYPE_RULE,Val)
 	; memberchk(Mode,[FL_DESCRMODE_CLAUSE]) -> atomobj_struct(FL_DESCRTYPE_RULE,Val)
 	; Mode==FL_DESCRMODE_UDFRULE -> atomobj_struct(FL_DESCRTYPE_UDF,Val)
-	;  %% this should be unreachable
+	; %% this should be unreachable
 	    flora_abort(['Compiler bug!!! construct_type_descriptor_fact: unreachable statement'], FLORA_ABORT_NOTRACE)
 	),
 	construct_prop_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,Prop,Val,MetaFact).
@@ -5427,10 +5513,10 @@ construct_prop_descriptor_facts(_,_,_,_,_,FL_TRUE,Meta-Meta,NO_ERRORS) :- !.
 construct_prop_descriptor_facts(DescrIdCode,File,Module,Mode,DescrVarsTerm,RuleidFrameCode,LeftMeta-RightTail,Status) :-
 	is_prconjunct(RuleidFrameCode,Left,Right),
 	!,
-	construct_prop_descriptor_facts(DescrIdCode,File,Module,Mode,DescrVarsTerm,Left,LeftMeta-LeftTail,S1),
-	(S1 == NO_ERRORS ->
+	construct_prop_descriptor_facts(DescrIdCode,File,Module,Mode,DescrVarsTerm,Left,LeftMeta-LeftTail,Stat1),
+	(Stat1 == NO_ERRORS ->
 	    construct_prop_descriptor_facts(DescrIdCode,File,Module,Mode,DescrVarsTerm,Right,LeftTail-RightTail,Status)
-	; Status =S1
+	; Status =Stat1
 	).
 %% this should be unreachable due to the parser, but just in case
 construct_prop_descriptor_facts(_,_,_,Mode,_,RuleidFrameCode,_,[Err]) :-
@@ -5525,14 +5611,14 @@ compile_complex_descriptor(DescrContentsWS,FramesOK,Object,FrameCode,ExplicitMod
 	%% CONTEXT_COMPILER_BODY_PATHEXP context.
 	detach_flworkspace(DescrContentsWS,DescrContents,WS),
 	(has_context(CONTEXT_COMPILER_BODY_PATHEXP),
-	    compile_body_pathexp_top(DescrContents,WS,Object,NULL,FrameCode,[],S1) 
+	    compile_body_pathexp_top(DescrContents,WS,Object,NULL,FrameCode,[],Stat1) 
 	-> set_context(CONTEXT_COMPILER_BODY_PATHEXP)
 	;
-	    compile_body_pathexp_top(DescrContents,WS,Object,NULL,FrameCode,[],S1)
+	    compile_body_pathexp_top(DescrContents,WS,Object,NULL,FrameCode,[],Stat1)
 	-> true
 	; approx_flindex(DescrContents,Idx),
 	    compiling_error(Idx,SIMPLE_FRAMES_IN_RULE_DESCRIPTORS,Err),
-	    S1 = [Err]
+	    Stat1 = [Err]
 	),
 	
 	%% don't let the user define a posint rule Id explicitly to avoid
@@ -5540,12 +5626,12 @@ compile_complex_descriptor(DescrContentsWS,FramesOK,Object,FrameCode,ExplicitMod
 	%% the context is set to CONTEXT_COMPILER_ALLOW_NUMERIC_RULEIDS
 	(is_pratom(Object,NULL,RidIdx) ->
             compiling_error(RidIdx,NO_NULL_AS_RULEID,Err2),
-	    Status = [Err2|S1]
-        ; has_context(CONTEXT_COMPILER_ALLOW_NUMERIC_RULEIDS) -> Status = S1
+	    Status = [Err2|Stat1]
+        ; has_context(CONTEXT_COMPILER_ALLOW_NUMERIC_RULEIDS) -> Status = Stat1
 	; is_prnumber(Object,RuleId,RidIdx), integer(RuleId), RuleId > 0 ->
 	    compiling_error(RidIdx,NO_INTEGERS_AS_RULEID,Err2),
-	    Status = [Err2|S1]
-	; Status = S1
+	    Status = [Err2|Stat1]
+	; Status = Stat1
 	),
 	clear_context(CONTEXT_COMPILER_ALLOW_NUMERIC_RULEIDS),
 
@@ -5560,7 +5646,7 @@ compile_complex_descriptor(DescrContentsWS,FramesOK,Object,FrameCode,ExplicitMod
         -> true
 	; ExplicitModule = NULL
 	).
-	
+
 %% construct_rule_enabling_fact(+DescrIdCode,+Mode,-RuleEnablerMetaFact)
 %% For clause{...} and the @!{...} query, don't construct the rule-enabling fact
 construct_rule_enabling_fact(_DescrIdCode,_FileName,FL_DESCRMODE_CLAUSE,NULL) :- !.
@@ -5571,10 +5657,10 @@ construct_rule_enabling_fact(DescrIdCode,FileName,Mode,RuleEnablerMetaFact) :-
 	(memberchk(Mode,[FL_DESCRMODE_RULE,FL_DESCRMODE_LATENT_QUERY]) ->
             fact_struct(RuleEnablerMetaTerm,RuleEnablerMetaFact)
         ; Mode == FL_DESCRMODE_UDFRULE ->
-             (\+ has_context(CONTEXT_COMPILER_FOR_ADDITION) ->
-                 fact_struct(RuleEnablerMetaTerm,RuleEnablerMetaFact)
-             ; RuleEnablerMetaFact = RuleEnablerMetaTerm
-             )
+            (\+ has_context(CONTEXT_COMPILER_FOR_ADDITION) ->
+                fact_struct(RuleEnablerMetaTerm,RuleEnablerMetaFact)
+            ; RuleEnablerMetaFact = RuleEnablerMetaTerm
+            )
 	; %% Mode = FL_DESCRMODE_CLAUSE/FL_DESCRMODE_PLAIN_QUERY/FL_DESCRMODE_DYNRULE/FL_DESCRMODE_ADDRULE/FL_DESCRMODE_LATENT_DYNQUERY/FL_DESCRMODE_LATENT_ADDQUERY/FL_DESCRMODE_UDFRULE
 	    RuleEnablerMetaTerm = RuleEnablerMetaFact
 	).
@@ -5614,8 +5700,8 @@ construct_tag_descriptor_fact_from_id(DescrIdCode,FileName,Module,Mode,DescrVars
 
 
 /***************************************************************************
-  Compile the export directive
-  The body can be a list of export terms, which are compiled individually.
+Compile the export directive
+The body can be a list of export terms, which are compiled individually.
 ***************************************************************************/
 compile_export(BodyTerm,Code,Status) :-
 	%% CONTEXT_COMPILER_EXPORT_DIRECTIVE context prevents recording the use
@@ -5628,20 +5714,20 @@ compile_export(BodyTerm,Code,Status) :-
 
 
 /****************************************************************************
-  compile_export_predicate_list(+List,-Code,-Status)
-  To recursively compile a list of export predicates.
+compile_export_predicate_list(+List,-Code,-Status)
+To recursively compile a list of export predicates.
 ****************************************************************************/
 compile_export_predicate_list([H|T],Code,Status) :-
-	compile_export_predicate(H,HCode,S1),
-	compile_export_predicate_list(T,TCode,S2),
-	append(S1,S2,Status),
+	compile_export_predicate(H,HCode,Stat1),
+	compile_export_predicate_list(T,TCode,Stat2),
+	append(Stat1,Stat2,Status),
 	Code = [HCode|TCode].
-	
+
 compile_export_predicate_list([],[],NO_ERRORS) :- !.
 
 
 /****************************************************************************
-  compile_export_predicate(+ExportTerm,-Code,-Status)
+compile_export_predicate(+ExportTerm,-Code,-Status)
 ****************************************************************************/
 compile_export_predicate(ExportTerm,Code,Status) :-
 	( is_flexport(ExportTerm,BodyTerm,ModuleList,IsUpdatable),
@@ -5663,7 +5749,7 @@ compile_export_predicate(ExportTerm,Code,Status) :-
 	compile_body_pathexp_top(IsUpdatable,FL_THISMODULE,IsUpdatableCode,_,_,[],_StatusUpd),
 	( WS == FL_THISMODULE -> StatusWS = NO_ERRORS
 	;
-	  compile_body_pathexp_top(WS,FL_THISMODULE,WSCode,_,_,[],StatusWS)
+            compile_body_pathexp_top(WS,FL_THISMODULE,WSCode,_,_,[],StatusWS)
 	),
 	append(StatusFact,StatusWS,Status),
 	%% It may be that the predicate itself is a comma separated list
@@ -5673,10 +5759,10 @@ compile_export_predicate(ExportTerm,Code,Status) :-
 
 
 /****************************************************************************
-  compile_export_list_convert(+Args,-Code)
-   Args is a difference list of the form : [H|_V] -_V.
-   Ground _V to [] and convert the diff list to a list
-   Then processes the list with compile_export_extract_facts
+compile_export_list_convert(+Args,-Code)
+Args is a difference list of the form : [H|_V] -_V.
+Ground _V to [] and convert the diff list to a list
+Then processes the list with compile_export_extract_facts
 ****************************************************************************/
 compile_export_list_convert(ListBodyTermCode - T, WSCode, ModuleListCode,IsUpdatableCode,Code) :-
 	T = [],
@@ -5685,9 +5771,9 @@ compile_export_list_convert(ListBodyTermCode - T, WSCode, ModuleListCode,IsUpdat
 
 
 /****************************************************************************
-  compile_export_extract_facts(+Args,+InitialTerm,+WSCode,+ModuleListCode,+IsUpdatableCode,-Code)
-  Encloses the individual predicates of the Args list in a PREXPORT struct. 
-  Then the whole list is compiled as a list_struct.
+compile_export_extract_facts(+Args,+InitialTerm,+WSCode,+ModuleListCode,+IsUpdatableCode,-Code)
+Encloses the individual predicates of the Args list in a PREXPORT struct. 
+Then the whole list is compiled as a list_struct.
 ****************************************************************************/
 compile_export_extract_facts([H|T],InitTerm,WSCode,ModuleListCode,IsUpdatableCode,Code) :-
 	is_prfact(H,HTermCode),
@@ -5700,20 +5786,20 @@ compile_export_extract_facts([],InitTerm,_WSCode,_ModuleListCode,_IsUpdatableCod
 
 
 /****************************************************************************
-  construct_export_struct(+Term,+WSCode,+IsUpdatableCode,+ModuleListCode,-Code)
-  Constructs an appropriate prexport struct.
-  Here WSCode is the dynamic module name. It is used only in
-  executable instruction like this:
-  ?- (export pred(?)>>foo)@bar.
-  where dynamic module name = bar.
+construct_export_struct(+Term,+WSCode,+IsUpdatableCode,+ModuleListCode,-Code)
+Constructs an appropriate prexport struct.
+Here WSCode is the dynamic module name. It is used only in
+executable instruction like this:
+?- (export pred(?)>>foo)@bar.
+where dynamic module name = bar.
 ****************************************************************************/
 construct_export_struct(TermCode,WSCode,IsUpdatableCode,ModuleListCode,Code) :-
 	thismodule_struct(ThisModule),
 	atomobj_struct(FLEXPORT,FCode),
 	( var(WSCode) ->
-		prologterm_struct(FCode,4,[IsUpdatableCode,ThisModule,ModuleListCode,TermCode],Code)
+            prologterm_struct(FCode,4,[IsUpdatableCode,ThisModule,ModuleListCode,TermCode],Code)
 	;
-		prologterm_struct(FCode,5,[WSCode,IsUpdatableCode,ThisModule,ModuleListCode,TermCode],Code)
+            prologterm_struct(FCode,5,[WSCode,IsUpdatableCode,ThisModule,ModuleListCode,TermCode],Code)
 	).
 
 
@@ -5745,19 +5831,19 @@ construct_export_struct(TermCode,WSCode,IsUpdatableCode,ModuleListCode,Code) :-
 %%    UDF Literal used to implement this UDF
 
 /****************************************************************************
-  compile_udf_definition(+Function,+Body,+DescrIdCode,+DescrVarsTerm,+ReturnValue,-RuleDiffList,-SigDiddList,-FactDiffList,-UDFPredsDiffList,-Status)
+compile_udf_definition(+Function,+Body,+DescrIdCode,+DescrVarsTerm,+ReturnValue,-RuleDiffList,-SigDiddList,-FactDiffList,-UDFPredsDiffList,-Status)
 
-  Compile a UDF definition:
-  udf Function := if Body.
-  Creates a predicate representing the UDF and a rule for that predicate.
+Compile a UDF definition:
+udf Function := if Body.
+Creates a predicate representing the UDF and a rule for that predicate.
 
-  Function - udf term
-  Body - body of udf definition
-  ReturnValue - return expression
-  RuleDiffList - a difference list in the form of [...|T]-T. It is for
-                  the optimization of append.
-  FactDiffList - the same for facts
-  UDFPredsDiffList -  the same for the list of tabled predicates
+Function - udf term
+Body - body of udf definition
+ReturnValue - return expression
+RuleDiffList - a difference list in the form of [...|T]-T. It is for
+the optimization of append.
+FactDiffList - the same for facts
+UDFPredsDiffList -  the same for the list of tabled predicates
 ****************************************************************************/
 compile_udf_definition(Function,Body,DescrIdCode,DescrVarsTerm,ReturnValue,CodeList-ListTail,SigDiffList,FactDiffList,UDFPreds-UDFPredsTail,Status) :-
 	set_context(CONTEXT_COMPILER_UDF_DEFINITION),
@@ -5810,14 +5896,14 @@ compile_udf_definition(Function,Body,DescrIdCode,DescrVarsTerm,ReturnValue,CodeL
 		    verify_symbol_context(FuncSym,FuncSymArity,UDF_SYMBOL,
 					  NONTRANSACTIONAL_SYMBOL,
 					  SymbolStatus),
-		    check_udf_vars_for_safety(Function,Body,ReturnValue,VarStatus),
-		    append(SymbolStatus,VarStatus,Status)
+		    check_udf_vars_for_safety(Function,Body,ReturnValue,UdfVarStatus),
+		    append(SymbolStatus,UdfVarStatus,Status)
 		;
 		    Status=S
 		)
 	    ;
 		Status = FStatus
-	   )
+            )
 	;
 	    approx_flindex(Function,Index),
 	    compiling_error(Index,ERROR_UDF,Err),
@@ -5828,24 +5914,24 @@ compile_udf_definition(Function,Body,DescrIdCode,DescrVarsTerm,ReturnValue,CodeL
 
 
 /*
-       new_udf_predicate(+Funct,-FunctCompiled,-FunctName,-UDFCode,
-                         +N,+FunctionArgs,-New_udf_predicate_FUNC,
-			 -New_udf_predicate_name,-New_udf_predicate_arity,
-			 -NewReturnValue,-New_udf_predicate_FUNC_code,-Status)
-   Funct - UDF functor
-   FunctCompiled - UDF functor compiled (pr-object)
-   FunctName - the functor name (atom). Used only for symbol-context checks.
-               If the UDF is hilog, then FunctName is set to HILOG_SYMBOL_NAME.
-               This is a simplifying assumption for symbol context checking.
-   UDFCode - the udf term compiled (pr-object)
-   N - UDF arity
-   FunctionArgs - the UDF arguments (fl-object, not compiled)
-   New_udf_predicate_FUNC - new_udf_predicate_XXX term
-                          (fl-obj, not compiled)
-   New_udf_predicate_name - new_udf_predicate_XXX name
-   New_udf_predicate_arity - new_udf_predicate_XXX arity
-   NewReturnValue - a new variable generated for the return expression of udf
-   New_udf_predicate_FUNC_code - new_udf_predicate_XXX term compiled
+new_udf_predicate(+Funct,-FunctCompiled,-FunctName,-UDFCode,
+                  +N,+FunctionArgs,-New_udf_predicate_FUNC,
+                  -New_udf_predicate_name,-New_udf_predicate_arity,
+                  -NewReturnValue,-New_udf_predicate_FUNC_code,-Status)
+Funct - UDF functor
+FunctCompiled - UDF functor compiled (pr-object)
+FunctName - the functor name (atom). Used only for symbol-context checks.
+If the UDF is hilog, then FunctName is set to HILOG_SYMBOL_NAME.
+This is a simplifying assumption for symbol context checking.
+UDFCode - the udf term compiled (pr-object)
+N - UDF arity
+FunctionArgs - the UDF arguments (fl-object, not compiled)
+New_udf_predicate_FUNC - new_udf_predicate_XXX term
+(fl-obj, not compiled)
+New_udf_predicate_name - new_udf_predicate_XXX name
+New_udf_predicate_arity - new_udf_predicate_XXX arity
+NewReturnValue - a new variable generated for the return expression of udf
+New_udf_predicate_FUNC_code - new_udf_predicate_XXX term compiled
 */
 new_udf_predicate(Funct,FunctCompiled,FunctName,UDFCode,N,FunctionArgs,New_udf_predicate_FUNC,New_udf_predicate_name,New_udf_predicate_arity,NewReturnValue,New_udf_predicate_FUNC_code,Status) :-
 	new_udf_predicate_funct(Funct,FunctCompiled,N,NPFunct,NPFunctCompiled,New_udf_predicate_name,New_udf_predicate_arity,Stat1),
@@ -5876,18 +5962,18 @@ new_udf_predicate(Funct,FunctCompiled,FunctName,UDFCode,N,FunctionArgs,New_udf_p
 	;
 	    Status = Stat1
 	).
-	
+
 
 
 /*
-    new_udfrule_body(+Body,+FunctIndex,+ReturnValue,+NewReturnValue,-NewBody)
+new_udfrule_body(+Body,+FunctIndex,+ReturnValue,+NewReturnValue,-NewBody)
 
-    Body - body of udf definition
-    FunctIndex - lexer's index of udf functor
-    ReturnValue - return expression of udf definition
-    NewReturnValue - new variable generated for new_udf_predicate_XXX
-                     which gets bound to return expression of udf
-    NewBody - the actual body of the rule for new_udf_predicate_XXX
+Body - body of udf definition
+FunctIndex - lexer's index of udf functor
+ReturnValue - return expression of udf definition
+NewReturnValue - new variable generated for new_udf_predicate_XXX
+which gets bound to return expression of udf
+NewBody - the actual body of the rule for new_udf_predicate_XXX
 */
 new_udfrule_body(Body,FunctIndex,ReturnValue,NewReturnValue,NewBody) :-
 	%% Form body for the new rule.
@@ -5900,16 +5986,16 @@ new_udfrule_body(Body,FunctIndex,ReturnValue,NewReturnValue,NewBody) :-
 
 
 /*
-    new_udf_predicate_funct(+Funct,-FunctCompiled,+Arity,
-                            -NewPredicateFunct,-NPFunctCompiled,-NewName,
-			    -NPArity,-Status)
-    Funct - UDF functor
-    FunctCompiled - UDF functor compiled
-    Arity - UDF arity 
-    NewPredicateFunct - functor of new_udf_predicate_XXX
-    NPFunctCompiled  - compiled functor of new_udf_predicate_XXX
-    NewName - name (atom) of new_udf_predicate_XXX
-    NPArity - new_udf_predicate_XXX arity
+new_udf_predicate_funct(+Funct,-FunctCompiled,+Arity,
+                        -NewPredicateFunct,-NPFunctCompiled,-NewName,
+                        -NPArity,-Status)
+Funct - UDF functor
+FunctCompiled - UDF functor compiled
+Arity - UDF arity 
+NewPredicateFunct - functor of new_udf_predicate_XXX
+NPFunctCompiled  - compiled functor of new_udf_predicate_XXX
+NewName - name (atom) of new_udf_predicate_XXX
+NPArity - new_udf_predicate_XXX arity
 */
 new_udf_predicate_funct(Funct,FunctCompiled,Arity,
 			NewPredicateFunct,NPFunctCompiled,NewName,NPArity,
@@ -5924,9 +6010,9 @@ new_udf_predicate_funct(Funct,FunctCompiled,Arity,
 	NPArity is Arity+1.
 
 /****************************************************************************
-    encode_prterm(+Term,-EncodedBuildTerm)
+encode_prterm(+Term,-EncodedBuildTerm)
 
-    Encode a Term into a String to create a UDF Predicate Name
+Encode a Term into a String to create a UDF Predicate Name
 ****************************************************************************/
 encode_prterm(Term,EncodedBuildTerm):-
 	collect_prvars(Term,VarList),
@@ -5935,12 +6021,12 @@ encode_prterm(Term,EncodedBuildTerm):-
 	encode_term_build(EncodedTerm,EncodedBuildTerm).
 
 /***************************************************************************
-    encode_prvariables(+VarNameList,+VarType,+OldFormula,-NewFormula,-NewVarList)
-       Replaces each occurrence of each variable in VarNameList with
-       a counter value
-    rename_one_prvariable(+VarName,+NewVarObj,+Body,-NewBody),
-       Replaces each occurrence of a a var object having VarName
-       as the variable name with NewVarObj. Returns the newly created formula.
+encode_prvariables(+VarNameList,+VarType,+OldFormula,-NewFormula,-NewVarList)
+Replaces each occurrence of each variable in VarNameList with
+a counter value
+rename_one_prvariable(+VarName,+NewVarObj,+Body,-NewBody),
+Replaces each occurrence of a a var object having VarName
+as the variable name with NewVarObj. Returns the newly created formula.
 ***************************************************************************/
 encode_prvariables([],Body,Body,[]) :- !.
 
@@ -5975,8 +6061,8 @@ encode_one_prvariable_in_list(VarName,NewVarObj,[T|Terms],[NewT|NewTerms]) :-
 
 
 /***************************************************************************
-    encode_term_build(Term,BuildTerm)
-    encode_term_build_list(Term,BuildTerm)
+encode_term_build(Term,BuildTerm)
+encode_term_build_list(Term,BuildTerm)
 ****************************************************************************/
 encode_term_build(Term,BuildTerm):-
         is_prterm(Term,Funct,_Arity,Args),
@@ -6003,24 +6089,24 @@ encode_term_build_list([Term|TermList],[',',BuildTerm|BuildTermList]):-
 
 
 /****************************************************************************
-  compile_rule(+Head,+Body,+DescriptorIdCode,+DescrVarsTerm,-RuleDiffList,-SigDiffList,-FactDiffList,-Status)
+compile_rule(+Head,+Body,+DescriptorIdCode,+DescrVarsTerm,-RuleDiffList,-SigDiffList,-FactDiffList,-Status)
 
-  DescriptorIdCode is either code for term/object or NULL
+DescriptorIdCode is either code for term/object or NULL
 
-  RuleDiffList is a difference list in the form of [...|T]-T. It is for
-  the optimization of append.
-  FactDiffList = Facts-Facts: the empty diff list
+RuleDiffList is a difference list in the form of [...|T]-T. It is for
+the optimization of append.
+FactDiffList = Facts-Facts: the empty diff list
 ****************************************************************************/
 compile_rule(Head,Body,DescriptorIdCode,DescrVarsTerm,RuleList-RuleTail,SigDiffList,Facts-Facts,Status) :-
 	set_context(CONTEXT_COMPILER_RULE(DescriptorIdCode)),
 	(has_context(CONTEXT_COMPILER_UDF_DEFINITION) ->
 	    /* When compiling headlits of UDF rules, we should turn
-	       off UDF conversion. For instance, for
-		   \udf c(?x):=?y \if pred(?x,?y).
-	       we create the rule:
-	         new_udf_predicate_c(RetVal,flapply(c,x)) :- pred(X,Y),RetVal=Y.
+            off UDF conversion. For instance, for
+        \udf c(?x):=?y \if pred(?x,?y).
+        we create the rule:
+        new_udf_predicate_c(RetVal,flapply(c,x)) :- pred(X,Y),RetVal=Y.
 	    */
-	    set_context(CONTEXT_COMPILER_BLOCK_UDF_EXPANSION),
+        set_context(CONTEXT_COMPILER_BLOCK_UDF_EXPANSION),
 	    push_context(CONTEXT_COMPILER_NO_SYMBOL_CHECK)
 	; true
 	),
@@ -6039,19 +6125,23 @@ compile_rule(Head,Body,DescriptorIdCode,DescrVarsTerm,RuleList-RuleTail,SigDiffL
 		construct_rule_enabling_test(DescriptorIdCode,FL_DESCRMODE_RULE,RuleEnablerTest,_),
 		PreBody = RuleEnablerTest,
 		PostBodyList = DelayCheckCodeList,
+       %%%% writeln(2,uuuuuuuu22222=DescrVarsTerm),
 		make_rules_and_signatures(HeadCode,H2BCodeFront,H2BCodeBack,
 					  BCode,PreBody,PostBodyList,
 					  BodyDTvarscode,
 					  DescriptorIdCode,DescrVarsTerm,
 					  RuleList-RuleTail,
 					  SigDiffList,
-					  FinalStatus),
-		( no_errors_found(FinalStatus),
+					  FinalRuleConstructionStatus),
+       %%%% writeln(2,uuuuuuuu33333= FinalRuleConstructionStatus+DescrVarsTerm),
+		( no_errors_found(FinalRuleConstructionStatus),
 		    %% for UDFS checking of variables is done separately
 		    \+ has_context(CONTEXT_COMPILER_UDF_DEFINITION) ->
-		    check_rule_vars_for_safety(Head,Body,VarStat),
-		    flatten([HeadStatus,BodyStatus,FinalStatus,VarStat],Status)
-		; Status = FinalStatus
+              %%%% writeln(2,uuuuu4444=DescrVarsTerm+Head),
+		    check_rule_vars_for_safety(DescrVarsTerm,Head,Body,AllVarStat),
+              %%%% writeln(2,uuuuu5555=DescrVarsTerm+Head),
+		    flatten([HeadStatus,BodyStatus,FinalRuleConstructionStatus,AllVarStat],Status)
+		; Status = FinalRuleConstructionStatus
 		)
 	    ;
 		Status=BodyStatus
@@ -6063,16 +6153,16 @@ compile_rule(Head,Body,DescriptorIdCode,DescrVarsTerm,RuleList-RuleTail,SigDiffL
 	!.
 
 /****************************************************************************
-  make_rules_and_signatures(+HeadCodeList,+H2BFrontList,+H2BBackList,+BodyCode,+PreBody,+PostBodyList,+BodyDTvarscode,+DescriptorIdCode,+DescrVarsTerm,RuleDiffList,SigDiffList,Status)
+make_rules_and_signatures(+HeadCodeList,+H2BFrontList,+H2BBackList,+BodyCode,+PreBody,+PostBodyList,+BodyDTvarscode,+DescriptorIdCode,+DescrVarsTerm,RuleDiffList,SigDiffList,Status)
 
-  HeadCodeList is a list of atoms in the rule head. BodyCode is the formula
-  in the rule body. This procedure splits the list of atoms in the rule
-  head and generates a difference list.
+HeadCodeList is a list of atoms in the rule head. BodyCode is the formula
+in the rule body. This procedure splits the list of atoms in the rule
+head and generates a difference list.
 
-  DescriptorIdCode is a term code
-  DescrVarsTerm is code for vars(variables in the descriptor list)
+DescriptorIdCode is a term code
+DescrVarsTerm is the code for FL_DESCRIPTOR_VARS_WRAPPER(variables in the descriptor list)
 
-  Note: delay checker is NOT added to the body in signatures
+Note: delay checker is NOT added to the body in signatures
 ****************************************************************************/
 make_rules_and_signatures([],_H2BFront,_H2BBack,_BodyCode,_PreBody,_PostBody,_BodyDTvarscode,_DescriptorIdCode,_DescrVarsTerm,Rule-Rule,Sig-Sig,NO_ERRORS) :- !.
 make_rules_and_signatures([H|HList],[H2BF|H2BFrontL],[H2BB|H2BBackL],BodyCode,PreBody,[PostBody|PostBodyList],BodyDTvarscode,DescriptorIdCode,DescrVarsTerm,RulesHead-RTail,SigHead-STail,Status) :-
@@ -6080,12 +6170,12 @@ make_rules_and_signatures([H|HList],[H2BF|H2BFrontL],[H2BB|H2BBackL],BodyCode,Pr
 	make_rules_and_signatures(HList,H2BFrontL,H2BBackL,BodyCode,PreBody,PostBodyList,BodyDTvarscode,DescriptorIdCode,DescrVarsTerm,RulesTail-RTail,SigTail-STail,Status).
 
 /*
-  make_one_rule_and_signature/11 can expect single-literal heads
-  or conjunctions of single literals. These cnjunctions are closely related.
-  For instance, they might come from ?X[?P=>?O] :- ...
-  which involves a conjunction of (mvdsig(....),mvdcondef(.....)) wrappers.
+make_one_rule_and_signature/11 can expect single-literal heads
+or conjunctions of single literals. These cnjunctions are closely related.
+For instance, they might come from ?X[?P=>?O] :- ...
+which involves a conjunction of (mvdsig(....),mvdcondef(.....)) wrappers.
 
-  This is diff from make_rules_and_signatures/11, which takes lists of heads.
+This is diff from make_rules_and_signatures/11, which takes lists of heads.
 */
 make_one_rule_and_signature(H,H2BF,H2BB,BodyCode,PreBody,PostBody,BodyDTvarscode,DescriptorIdCode,DescrVarsTerm,RuleList-RTail,SigCode-STail) :-
 	is_prconjunct(H,H1,H2),
@@ -6105,11 +6195,11 @@ make_one_rule_and_signature(H,H2BF,H2BB,BodyCode,PreBody,PostBody,BodyDTvarscode
 
 
 /*
-   For static rules only. Creates the query
-   ?- FLLIBINSRULESIG(....).
-   which is added to the compiled file. When the file is loaded,
-   the signature for that static rule is added to the rule registry.
-   Body: includes H2BFront and H2BBack
+For static rules only. Creates the query
+?- FLLIBINSRULESIG(....).
+which is added to the compiled file. When the file is loaded,
+the signature for that static rule is added to the rule registry.
+Body: includes H2BFront and H2BBack
 */
 make_insert_rulesig_code(_HeadCode,_Body,_,_PreBody,_PostBody,_,_,NULL) :-
         /*
@@ -6160,7 +6250,7 @@ construct_defeasible_condition_for_signature_or_dynrule(HeadCode,DescrIdCode,Des
 	    ),
 	    delay_defeat_struct(HeadIdx,DefeatCondCode,
 				EmptyListObj,EmptyListObj, %% no headvars
-				DummyVarObj4Head,  %% will be bound to head
+				DummyVarObj4Head, %% will be bound to head
 				DelayedDefeatCondCode)
 	;
 	    DelayedDefeatCondCode = true
@@ -6206,10 +6296,10 @@ construct_static_defeasible_condition(HeadCode,DescrIdCode,DescrVarsTerm,Delayed
 
 
 /****************************************************************************
-  prconjunct2list(+ConjunctCode,-CodeList)
-  prconjunct2list(+ConjunctCode,-CodeList,-ListTail)
+prconjunct2list(+ConjunctCode,-CodeList)
+prconjunct2list(+ConjunctCode,-CodeList,-ListTail)
 
-  ConjunctCode may contain NULL.
+ConjunctCode may contain NULL.
 ****************************************************************************/
 prconjunct2list(ConjunctCode,CodeList) :-
 	prconjunct2list(ConjunctCode,CodeList,[]).
@@ -6226,42 +6316,42 @@ prconjunct2list(Code,[Code|ListTail],ListTail) :- !.
 
 
 /****************************************************************************
-  compile_head_top(+ParsTermL,-ParsTermLNF,+Context,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
-      compile_head(+ParsTermL,         -Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_top(+ParsTermL,-ParsTermLNF,+Context,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head(+ParsTermL,         -Code,-H2BCodeFront,-H2BCodeBack,-Status)
 
-  Context: rule or fact
-  ParsTermLNF  - a transformed version of ParsTermL. Used in some ergoisms
-  H2BCodeFront - code passed from head to body, which is supposed to be
-                 prepended to the code of the body
-  H2BCodeBack - code passed from head to body, which is supposed to be
-                appended to the code of the body
+Context: rule or fact
+ParsTermLNF  - a transformed version of ParsTermL. Used in some ergoisms
+H2BCodeFront - code passed from head to body, which is supposed to be
+prepended to the code of the body
+H2BCodeBack - code passed from head to body, which is supposed to be
+appended to the code of the body
 ****************************************************************************/
 
 :- import to_Cranial_list/4 from flrparser.
 
 compile_head_top(ParserTerm,ParsedHeadList,Context,Code,H2BCodeFront,H2BCodeBackCombined,Status) :-
 	(Context==fact -> true
-	; collect_flvars(ParserTerm,FlVars),
-	    %% TODO: pass FlVars to compile_head as a parameter
-	    %%       Then pass it also to compile_body_top, compile_body,
+	; collect_flvars(ParserTerm,FLVars),
+	    %% TODO: pass FLVars to compile_head as a parameter
+	    %% and also to compile_body_top, compile_body,
 	    %%       compile_stop_delay
-	    set_context(compiling_head(FlVars))
+	    set_context(compiling_head(FLVars))
 	),
 	%% cranial returns diff lists, so terminate them with the []
-	to_Cranial_list(ParserTerm,ParsedHeadList-[],ParsedCranialBodyL-[],S0),
+	to_Cranial_list(ParserTerm,ParsedHeadList-[],ParsedCranialBodyL-[],Stat0),
 	!, %% to prevent backtracking if compile_head/5 fails
-	(no_errors_found(S0) ->
-	    compile_cranial_body_list(ParsedCranialBodyL,CranialBodyCodeL,S1),
-	    (no_errors_found(S1) ->
-		compile_head(ParsedHeadList,Code,H2BCodeFront,H2BCodeBack,S2),
+	(no_errors_found(Stat0) ->
+	    compile_cranial_body_list(ParsedCranialBodyL,CranialBodyCodeL,Stat1),
+	    (no_errors_found(Stat1) ->
+		compile_head(ParsedHeadList,Code,H2BCodeFront,H2BCodeBack,Stat2),
 		maplist_conjunct(H2BCodeBack,CranialBodyCodeL,H2BCodeBackCombined),
-		append(S1,S2,Status)
-	    ; Status = S1
+		append(Stat1,Stat2,Status)
+	    ; Status = Stat1
 	    )
-	; Status = S0
+	; Status = Stat0
 	),
 	(Context==fact -> true
-	; clear_context(compiling_head(FlVars))
+	; clear_context(compiling_head(FLVars))
 	),
 	!.
 
@@ -6296,11 +6386,11 @@ compile_head([ParserTerm|ParserTermList],Code,H2BCodeFront,H2BCodeBack,Status) :
 		H2BCodeFront = [PH2BCodeFront|PLH2BCodeFront],
 		H2BCodeBack = [PH2BCodeBack|PLH2BCodeBack],
 		append(S,S2,Status)
-	     ;
-		Status=S2
+            ;
+		Status=Stat2
 	    )
 	;
-	  Status=S
+            Status=S
         ),
 	!.
 compile_head([ParserTerm|_],_,_,_,Status) :-
@@ -6310,17 +6400,17 @@ compile_head([ParserTerm|_],_,_,_,Status) :-
 
 
 /****************************************************************************
-  compile_body_top(+ParserTerm,-Code,-Status)
-  compile_body(+ParserTerm,-Code,-Status)
+compile_body_top(+ParserTerm,-Code,-Status)
+compile_body(+ParserTerm,-Code,-Status)
 ****************************************************************************/
 %% this is a top-level entry into the body compile. Called by compile_query/rule
 compile_body_top(ParserTerm,Code,Status) :-
-	collect_flvars(ParserTerm,FlVars),
-	%% TODO: pass FlVars to compile_body as a parameter
+	collect_flvars(ParserTerm,FLVars),
+	%% TODO: pass FLVars to compile_body as a parameter
 	%%       Then pass it to compile_body_literal_top, compile_stop_delay
-	push_context(CONTEXT_COMPILER_BODY(FlVars)),
+	push_context(CONTEXT_COMPILER_BODY(FLVars)),
 	compile_body(ParserTerm,Code,Status),
-	pop_context(CONTEXT_COMPILER_BODY(FlVars)),
+	pop_context(CONTEXT_COMPILER_BODY(FLVars)),
 	!.
 
 
@@ -6333,10 +6423,10 @@ compile_body(ParserTerm,Code,Status) :-
 	    ( no_errors_found(S2) ->
 		conjunct_struct(LCode,RCode,Code),
 		append(S,S2,Status)
-	    ; Status=S2
+	    ; Status=Stat2
 	    )
 	;
-	  Status=S
+            Status=S
         ).
 
 compile_body(ParserTerm,Code,Status) :-
@@ -6348,9 +6438,9 @@ compile_body(ParserTerm,Code,Status) :-
 	    ( no_errors_found(S2) ->
 		disjunct_struct(LCode,RCode,Code),
 		append(S,S2,Status)
-	    ; Status=S2)
+	    ; Status=Stat2)
 	;
-	  Status=S
+            Status=S
         ).
 
 
@@ -6359,8 +6449,8 @@ compile_body(ParserTerm,Code,Status) :-
 	!,
 	compile_body(G,GCode,Status1),
 	( no_errors_found(Status1) ->
-	   neg_struct(GCode,Idx,Code,Status2),
-	   append(Status1,Status2,Status)
+            neg_struct(GCode,Idx,Code,Status2),
+            append(Status1,Status2,Status)
 	; Status = Status1
 	).
 
@@ -6394,7 +6484,7 @@ compile_body(ParserTerm,Code,Status) :-
 
 compile_body(ParserTerm,Code,Status) :-
 	is_fllogicquantifier(ParserTerm,QuantType,QuantVarNames,VarsCode,Formula,Idx),
-        %%writeln(qqqqq=QuantType+QuantVarNames+Formula),
+        %%writeln(2,qqqqq=QuantType+QuantVarNames+Formula),
 	!,
 	%% no quantified don't care vars (?,?_) allowed
 	(memberchk(FL_ANON_VAR,QuantVarNames) ->
@@ -6403,8 +6493,8 @@ compile_body(ParserTerm,Code,Status) :-
 	; S1 = NO_ERRORS
 	),
 
-	compile_body(Formula,FormCode,S2),
-	(S1==NO_ERRORS -> S3=S2
+	compile_body(Formula,FormCode,Stat2),
+	(S1==NO_ERRORS -> S3=Stat2
 	; S3 = [Err1|S2]
 	),
 	%% We use prvars so that newly introduced vars will be accounted for
@@ -6417,15 +6507,15 @@ compile_body(ParserTerm,Code,Status) :-
 	    ; compiling_error(Idx,QUANT_VARS_NOT_SUBSET,Err4),
 		Stat4 = [Err4]
 	    ),
-        %%writeln('111quantvarnames_formVarList'=QuantVarNames+FormVarList),
+            %%writeln(2,'111quantvarnames_formVarList'=QuantVarNames+FormVarList),
 	    (QuantVarNames == FL_STAR -> FreeVarObjs_aux = []
 	    ; subtract_varnames_from_vars(FormVarList,QuantVarNames,FreeVarObjs_aux)
 	    ),
 	    remove_prdontcare_and_FL_CONTEXT_vars(FreeVarObjs_aux,FreeVarObjs_aux2),
 	    %% this is used if naf-exists is nested deep inside the code
 	    remove_quantified_vars(FreeVarObjs_aux2,FreeVarObjs),
-            %%writeln('2222freevarobjs1'=FreeVarObjs_aux2),
-            %%writeln('2222freevarobjs2'=FreeVarObjs),
+            %%writeln(2,'2222freevarobjs1'=FreeVarObjs_aux2),
+            %%writeln(2,'2222freevarobjs2'=FreeVarObjs),
 
 	    (QuantVarNames == FL_STAR ->
                 RenamedFormCode = FormCode,
@@ -6433,16 +6523,16 @@ compile_body(ParserTerm,Code,Status) :-
 	    ;
                 compile_datatype_objects(VarsCode,PRVarsCode,StatVarsCode),
                 rename_prvariables(QuantVarNames,NEWQUANTIFIEDVAR,
-                                 (PRVarsCode,FreeVarListObj,FormCode),
-				 (RenamedPRVarsCode,RenamedFreeVarListObj,RenamedFormCode),
-                                 RenamedQuantVars),
+                                   (PRVarsCode,FreeVarListObj,FormCode),
+                                   (RenamedPRVarsCode,RenamedFreeVarListObj,RenamedFormCode),
+                                   RenamedQuantVars),
                 append(StatVarsCode,Stat4,Status)
 	    )
 	; Status = S3
 	),
         list_struct(FreeVarObjs,[],FreeVarListObj),
-        %%writeln('999quantnames_freevarlistobj1'=QuantVarNames+FreeVarListObj),
-        %%writeln('999renamed_quantnames_freevarlistobj1'=RenamedQuantVars+RenamedFreeVarListObj),
+        %%writeln(2,'999quantnames_freevarlistobj1'=QuantVarNames+FreeVarListObj),
+        %%writeln(2,'999renamed_quantnames_freevarlistobj1'=RenamedQuantVars+RenamedFreeVarListObj),
 	!,
 	( no_errors_found(Status) ->
 	    %% Create code for compiled quantification.
@@ -6474,7 +6564,7 @@ compile_body(ParserTerm,Code,Status) :-
 	;
 	    true
 	),
-        %%writeln('999quantnames_freevarlistobj2'=QuantVarNames+FreeVarListObj),
+        %%writeln(2,'999quantnames_freevarlistobj2'=QuantVarNames+FreeVarListObj),
         true.
 
 
@@ -6483,7 +6573,7 @@ compile_body(ParserTerm,Code,Status) :-
 	!,
 	compile_body(Goal,GCode,Status),
 	( no_errors_found(Status) ->
-		hypothetical_struct(Op,GCode,Index,Code)
+            hypothetical_struct(Op,GCode,Index,Code)
 	;
 	    true
 	).
@@ -6494,7 +6584,6 @@ compile_body(ParserTerm,Code,Status) :-
 	is_fllatent_query(Statement,Body),
 	!,
 	approx_flindex(Statement,RuleIdx),
-        %%writeln(aaaDescr=Descriptor),
 	compile_descriptor_list(Descriptor-RuleIdx,FL_DESCRMODE_LATENT_ADDQUERY,DescrIdCode,_DescrVarsTerm,MetaFacts,Status1),
 	(no_errors_found(Status1) ->
 	    compile_latent_query(DescrIdCode,MetaFacts,Body,FL_DESCRMODE_LATENT_ADDQUERY,CodeList-[],Status),
@@ -6508,7 +6597,6 @@ compile_body(ParserTerm,Code,Status) :-
 	is_fldescriptor(ParserTerm,_,FLRULEID,_),
 	!,
 	approx_flindex(ParserTerm,QueryIdx),
-        %%writeln(aaaDEscr=Descriptor),
 	compile_descriptor_list([ParserTerm]-QueryIdx,FL_DESCRMODE_PLAIN_QUERY,_,_,CodeList-[],Status),
 	conjunct_code(CodeList,Code).
 
@@ -6535,16 +6623,16 @@ compile_body_literal_list([HWS|T],[HOidCode|TOidCode],[HSpecCode|TSpecCode],Fron
 
 
 /****************************************************************************
-  compile_ifthenelse(+Cond,+Then,+Else,-Code,-Status)
+compile_ifthenelse(+Cond,+Then,+Else,-Code,-Status)
 ****************************************************************************/
 compile_ifthenelse(Cond,Then,Else,Code,Status) :-
 	compile_body(Cond,CondCode,S1),
-	compile_body(Then,ThenCode,S2),
-	append(S1,S2,CondThenStatus),
+	compile_body(Then,ThenCode,Stat2),
+	append(S1,Stat2,CondThenStatus),
 	( no_errors_found(CondThenStatus) ->
 	    compile_body(Else,ElseCode,Status),
 	    ( no_errors_found(Status) ->
-	       ifthenelse_struct(CondCode,ThenCode,ElseCode,Code)
+                ifthenelse_struct(CondCode,ThenCode,ElseCode,Code)
 	    ;
 		true
 	    )
@@ -6554,27 +6642,27 @@ compile_ifthenelse(Cond,Then,Else,Code,Status) :-
 
 
 /****************************************************************************
-  compile_ifthen(+Cond,+Then,-Code,-Status)
+compile_ifthen(+Cond,+Then,-Code,-Status)
 ****************************************************************************/
 compile_ifthen(Cond,Then,Code,Status) :-
 	compile_body(Cond,CondCode,S1),
 	( no_errors_found(S1) ->
 	    compile_body(Then,ThenCode,Status),
 	    ( no_errors_found(Status) ->
-	       ifthen_struct(CondCode,ThenCode,Code)
+                ifthen_struct(CondCode,ThenCode,Code)
 	    ;
 		true
 	    )
 	;
-	  Status=S1
+            Status=Stat1
 	).
 
 /****************************************************************************
-  compile_univeqform(+Left,+Right,-Code,-Status)
+compile_univeqform(+Left,+Right,-Code,-Status)
 
-  Compiling ~
-  This produces only spec code -- no oid code, because each argument
-  is treated as Meta, so no oid is passed utside of this term
+Compiling ~
+This produces only spec code -- no oid code, because each argument
+is treated as Meta, so no oid is passed utside of this term
 ****************************************************************************/
 compile_univeqform(Left,Right,Code,Status) :-
         push_context(CONTEXT_COMPILER_GOAL_REIFICATION),
@@ -6588,15 +6676,15 @@ compile_univeqform(Left,Right,Code,Status) :-
 		true
 	    )
 	;
-	  Status=S1
+            Status=Stat1
 	),
         clear_context(CONTEXT_COMPILER_UNIVEQFORM),
         pop_context(CONTEXT_COMPILER_GOAL_REIFICATION).
 
 
 /****************************************************************************
-  compile_metauniv(+Left,+Right,-OidCode,-Code,-Status)
-  Compiling =..
+compile_metauniv(+Left,+Right,-OidCode,-Code,-Status)
+Compiling =..
 ****************************************************************************/
 compile_metauniv(Left,Right,OidCode,Code,Status) :-
 	%% Use pathexp translation instead of body translation, because we
@@ -6629,50 +6717,50 @@ compile_metauniv(Left,Right,OidCode,Code,Status) :-
 	    ; true
 	    )
 	;
-	    Status=S1
+	    Status=Stat1
 	),
         clear_context(CONTEXT_COMPILING_METAUNIV).
 
 /****************************************************************************
-  compile_prologifthen(+Left,+Right,-Code,-Status)
-  Compiling -->>
-****************************************************************************/
-compile_prologifthen(Left,Right,Code,Status) :-
-	/* Do not push CONTEXT_COMPILER_GOAL_REIFICATION. Otherwise,
-	   Left,Right will get reified and their context arguments will
-	   be zapped. Then, in encapsulated Flora-2 modules this will cause
-	   errors. For instance, calling (foo(?X) -->> bar(?X) ; ...) will
-	   not pass the module context to foo and bar.
-	   This will cause the "calling unexported method" error.
-	*/
-        %%push_context(CONTEXT_COMPILER_GOAL_REIFICATION),
-	compile_body(Left,LeftCode,S1),
-	( no_errors_found(S1) ->
-	    compile_body(Right,RightCode,Status),
-	    ( no_errors_found(Status) ->
-		atomobj_struct(('->'),ArrowObj),
-		prologterm_struct(ArrowObj,2,[LeftCode,RightCode],Code)
-	    ;
-		true
-	    )
-	;
-	  Status=S1
-	),
-        %%pop_context(CONTEXT_COMPILER_GOAL_REIFICATION),
-	true.
+compile_prologifthen(+Left,+Right,-Code,-Status)
+Compiling -->>
+        ****************************************************************************/
+        compile_prologifthen(Left,Right,Code,Status) :-
+                /* Do not push CONTEXT_COMPILER_GOAL_REIFICATION. Otherwise,
+                Left,Right will get reified and their context arguments will
+                be zapped. Then, in encapsulated Flora-2 modules this will cause
+                errors. For instance, calling (foo(?X) -->> bar(?X) ; ...) will
+                not pass the module context to foo and bar.
+This will cause the "calling unexported method" error.
+                */
+                %%push_context(CONTEXT_COMPILER_GOAL_REIFICATION),
+                compile_body(Left,LeftCode,S1),
+                ( no_errors_found(S1) ->
+                    compile_body(Right,RightCode,Status),
+                    ( no_errors_found(Status) ->
+                        atomobj_struct(('->'),ArrowObj),
+                        prologterm_struct(ArrowObj,2,[LeftCode,RightCode],Code)
+                    ;
+                        true
+                    )
+                ;
+                    Status=Stat1
+                ),
+                %%pop_context(CONTEXT_COMPILER_GOAL_REIFICATION),
+                true.
 
 
 /****************************************************************************
-  compile_controlconstruct(+Cond,+Action,+Wrapper,-Code,-Status)
+compile_controlconstruct(+Cond,+Action,+Wrapper,-Code,-Status)
 
-  Handle control stmts while-do,do-until,while-loop,loop-until,unless-do
+Handle control stmts while-do,do-until,while-loop,loop-until,unless-do
 ****************************************************************************/
 compile_controlconstruct(Cond,Action,Wrapper,Code,Status) :-
 	compile_body(Cond,CondCode,S1),
 	( no_errors_found(S1) ->
 	    compile_body(Action,ActionCode,Status),
 	    ( no_errors_found(Status) -> 
-	       controlconstruct_struct(CondCode,ActionCode,Wrapper,Code)
+                controlconstruct_struct(CondCode,ActionCode,Wrapper,Code)
 	    ; true
 	    )
 	; Status = S1
@@ -6680,9 +6768,9 @@ compile_controlconstruct(Cond,Action,Wrapper,Code,Status) :-
 
 
 /***************************************************************************
-   compile_datatype_objects(+ParserTerm,-VarBindingCode,-Status)
-   Used to compile vatiable typing code from quantifiers.
-   Eg, forall(?X^^foo)^... exist(?X^^foo,?Y^^bar)^....
+compile_datatype_objects(+ParserTerm,-VarBindingCode,-Status)
+Used to compile vatiable typing code from quantifiers.
+Eg, forall(?X^^foo)^... exist(?X^^foo,?Y^^bar)^....
 ****************************************************************************/
 compile_datatype_objects(NULL,true,NO_ERRORS) :- !.
 compile_datatype_objects(ParserTerm,VarBindingCode,Status) :-
@@ -6704,11 +6792,11 @@ compile_datatype_objects(ParserTerm,VarBindingCode,Status) :-
 verify_symbol_context(+Funct,+Arity,+SymbolContext,+Transactional,-SymbolContextStatus)
 verify_symbol_context(+Funct,+Arity,+WS,+SymbolContext,+Transactional,-SymbolContextStatus)
 
-  The context CONTEXT_COMPILER_TERM_NAME is set in rule body responsible
-  for compiling a term (e.g. compile_body_termlit).
-  It is cleared before compiling arguments of the term.
-  It is needed to distinguish between compiling an atom as a term
-  name and atom by itself
+The context CONTEXT_COMPILER_TERM_NAME is set in rule body responsible
+for compiling a term (e.g. compile_body_termlit).
+It is cleared before compiling arguments of the term.
+It is needed to distinguish between compiling an atom as a term
+name and atom by itself
 
 ****************************************************************************/
 verify_symbol_context(Funct,Arity,SymbolContext,Transactional,Status) :-
@@ -6810,9 +6898,9 @@ verify_symbol_context(Funct,Arity,WS,SymbolContext,Transactional,SymbolContextSt
 	    %% note: we need to backtrack through enough of symbols to
 	    %% get a warning
 	    !
-	 ;
+        ;
 	    SymbolContextStatus = NO_ERRORS
-         ),
+        ),
 	!,
 	get_index_line(Index,Line),
 	add_symbol(Name,Arity,WS,Index,Line,CurFile,SymbolContext,Transactional).
@@ -6846,7 +6934,7 @@ suppress_symbol_warning(Name,Arity,NULL,SymbolContext,Transactional):-
 	%% if workspace for symbol is NULL then ignore warnings
 	%% only if StoredWS is current module or NULL
 	(has_nowarn_any_symbol(Name,Arity,NULL,SymbolContext,Transactional);
-	has_nowarn_any_symbol(Name,FL_STAR,NULL,SymbolContext,Transactional)),
+            has_nowarn_any_symbol(Name,FL_STAR,NULL,SymbolContext,Transactional)),
 	!.
 */
 
@@ -6930,12 +7018,12 @@ make_symbol_context_status(UsedSymContext,UsedLine,UsedFileMsg,_UsedTransactiona
 	    ; (UsedArity =\= 1, UsedArity =\= 2)
 	    ; (SymbolArity =\= 1, SymbolArity =\= 2)
 	    )
-	    ->
+        ->
 	    compiling_symbol_warning(SymbolName,SymbolArity,SymbolWS,FUNCTION_SYMBOL,SymbolTransactional,SymbolIndex,
 				     [WARN_FUNC_ARITY_SYMBOL,ERRLINE_NO,
 				      UsedLine,UsedFileMsg],
 				     SymContextStatus)
-	;   %% for the following, we warn only if there was prior use as
+	; %% for the following, we warn only if there was prior use as
 	    %% hilog predicate, modular prolog predicate, or sensor
 	    %% with the ***same*** number of arguments
 	    UsedSymContext==PREDICATE_SYMBOL, UsedArity==SymbolArity,
@@ -6955,13 +7043,13 @@ make_symbol_context_status(UsedSymContext,UsedLine,UsedFileMsg,_UsedTransactiona
 				     [WARN_FUNC_SENS_SYMBOL,ERRLINE_NO,
 				      UsedLine,UsedFileMsg],
 				     SymContextStatus)
-/*
+        /*
 	; UsedSymContext==BUILTIN_SYMBOL,
 	    (UsedArity==SymbolArity
 	    -> compiling_symbol_warning(SymbolName,SymbolArity,SymbolWS,FUNCTION_SYMBOL,SymbolTransactional,SymbolIndex, [WARN_BUILTIN_SYMBOL], SymContextStatus)
 	    ; compiling_symbol_warning(SymbolName,SymbolArity,SymbolWS,FUNCTION_SYMBOL,SymbolTransactional,SymbolIndex, [WARN_BUILTIN_ARITY_SYMBOL], SymContextStatus)
 	    )
-*/
+        */
 	;
 	    SymContextStatus = NO_ERRORS
         ),
@@ -7119,18 +7207,18 @@ make_symbol_context_status(UsedSymContext,UsedLine,UsedFileMsg,_UsedTransactiona
 			    [ERROR_PROLOG_UDF_SYMBOL,ERRLINE_NO,
 			     UsedLine,UsedFileMsg],
 			    Err),
-		SymContextStatus=[Err]
+            SymContextStatus=[Err]
 	; UsedSymContext==PROLOG_SYMBOL, UsedArity\=SymbolArity ->
 	    compiling_symbol_warning(SymbolName,SymbolArity,SymbolWS,PROLOG_SYMBOL,SymbolTransactional,SymbolIndex,
 				     [WARN_PROLOG_ARITY_SYMBOL,ERRLINE_NO,
 				      UsedLine,UsedFileMsg],
 				     SymContextStatus)
 	; UsedSymContext==FUNCTION_SYMBOL, UsedArity==SymbolArity ->
-		compiling_error(SymbolIndex,
-				[ERROR_PROLOG_FUNC_SYMBOL,ERRLINE_NO,
-				 UsedLine,UsedFileMsg],
-				Err),
-		SymContextStatus=[Err]
+            compiling_error(SymbolIndex,
+                            [ERROR_PROLOG_FUNC_SYMBOL,ERRLINE_NO,
+                             UsedLine,UsedFileMsg],
+                            Err),
+            SymContextStatus=[Err]
 	; UsedSymContext==PREDICATE_SYMBOL,
 	    (UsedArity==SymbolArity
 	    -> compiling_error(SymbolIndex,
@@ -7146,7 +7234,7 @@ make_symbol_context_status(UsedSymContext,UsedLine,UsedFileMsg,_UsedTransactiona
 	; UsedSymContext==BUILTIN_SYMBOL,
 	    (UsedArity==SymbolArity
 	    -> compiling_error(SymbolIndex, WARN_BUILTIN_SYMBOL, Err),
-		    SymContextStatus=[Err]
+                SymContextStatus=[Err]
 	    ; compiling_symbol_warning(SymbolName,SymbolArity,SymbolWS,PROLOG_SYMBOL,SymbolTransactional,SymbolIndex, [WARN_BUILTIN_ARITY_SYMBOL], SymContextStatus)
 	    )
 	;
@@ -7158,8 +7246,8 @@ make_symbol_context_status(_,_,_,_,_,_,_,_,_,_,_,NO_ERRORS).
 
 
 /****************************************************************************
-  compile_load(+LoadList,+Mode,-Code,-Status)
-  Mode: FL_LOAD/FL_ADD
+compile_load(+LoadList,+Mode,-Code,-Status)
+Mode: FL_LOAD/FL_ADD
 ****************************************************************************/
 compile_load(LoadList,Mode,Code,Status) :-
 	is_fllist(LoadList,L,T,I),
@@ -7189,12 +7277,12 @@ compile_load(LoadList,Mode,Code,Status) :-
 			       [ObjList,ProgramFile,Mod,PositionCode],LCode),
 	    conjunct_struct(OCode,LCode,Code)
 	;
-	  true
+            true
         ).
 
 
 /****************************************************************************
-  compile_var(+Name,+Index,-VarObject)
+compile_var(+Name,+Index,-VarObject)
 ****************************************************************************/
 compile_var(FL_ANON_VAR,Index,VarObject) :-
 	!,
@@ -7216,18 +7304,18 @@ compile_transactionalvar(Name,Index,VarObject) :-
 
 %% takes list of flvars
 compile_var_list([],[]) :- !.
-compile_var_list([Var|Rest],[PrVar|PrRest]) :-
+compile_var_list([Var|Rest],[PRVar|PrRest]) :-
 	is_flvariable(Var,Name,Index),
-	compile_var(Name,Index,PrVar),
+	compile_var(Name,Index,PRVar),
 	compile_var_list(Rest,PrRest).
 
 /****************************************************************************
-  compile_atomobj(+ParserTerm,-Object,?BodyFrontList,-Status)
+compile_atomobj(+ParserTerm,-Object,?BodyFrontList,-Status)
 
-  ?BodyFrontList - code to add at the beginning of the body
-                  (mostly for user defined fnctions),
-		  it is output argument, but if it is initialized to empty ([])
-		  ignores user defined functions
+?BodyFrontList - code to add at the beginning of the body
+(mostly for user defined fnctions),
+it is output argument, but if it is initialized to empty ([])
+ignores user defined functions
 ****************************************************************************/
 compile_atomobj(ParserTerm,Object,BodyFrontList,Status):-
 	var(BodyFrontList),
@@ -7255,23 +7343,23 @@ compile_atomobj(ParserTerm,Object,[],Status):-
 
 
 /****************************************************************************
-  compile_udf_body_literal(+Funct,+Predicate,-PCode,-PBodyFrontList,-Status)
+compile_udf_body_literal(+Funct,+Predicate,-PCode,-PBodyFrontList,-Status)
 
-  Compile a UDF literal in the body.
+Compile a UDF literal in the body.
 
-  PBodyFrontList contains the UDFHILOGPREDICATENAME/4 predicates that have
-  to be fronted before the predicate being translated. For instance,
-  if foo/1, bar/1 are UDFs and we are translating mypred(foo(?X),bar(?X))
-  then we get:
+PBodyFrontList contains the UDFHILOGPREDICATENAME/4 predicates that have
+to be fronted before the predicate being translated. For instance,
+if foo/1, bar/1 are UDFs and we are translating mypred(foo(?X),bar(?X))
+then we get:
 
-        UDFHILOGPREDICATENAME(foo(X),1,\@,Newvar1),
-        UDFHILOGPREDICATENAME(bar(X),1,\@,Newvar2),
-	mypred(Newvar1,Newvar2).
-   
-  Here the UDFHILOGPREDICATENAME part goes into PBodyFrontList. Note that there
-  is redundancy in the above translation, if foo(X) and bar(X) can be rewritten
-  in myltiple ways. This would result in unnecessary backtracking. An example
-  is givein in flora2-testsuite/functions/test_func_eq.flr
+UDFHILOGPREDICATENAME(foo(X),1,\@,Newvar1),
+UDFHILOGPREDICATENAME(bar(X),1,\@,Newvar2),
+mypred(Newvar1,Newvar2).
+
+Here the UDFHILOGPREDICATENAME part goes into PBodyFrontList. Note that there
+is redundancy in the above translation, if foo(X) and bar(X) can be rewritten
+in myltiple ways. This would result in unnecessary backtracking. An example
+is givein in flora2-testsuite/functions/test_func_eq.flr
 ****************************************************************************/
 compile_udf_body_literal(Funct,Predicate,PCode,PBodyFrontList,Status) :-
 	%% If we set CONTEXT_COMPILER_NO_SYMBOL_CHECK here then clear it out
@@ -7291,9 +7379,9 @@ compile_udf_body_literal(Funct,Predicate,PCode,PBodyFrontList,Status) :-
 
 
 /****************************************************************************
-  find_UDF(+BaseName,+N,-UDFCode,-Predicate) 
+find_UDF(+BaseName,+N,-UDFCode,-Predicate) 
 
-  Indicate if there is an active UDF
+Indicate if there is an active UDF
 ****************************************************************************/
 find_UDF(BaseName,N,UDFCode,Predicate) :-
 	has_permaoption(udf_option(BaseName,N,UDFCode,_PredName,Predicate)),
@@ -7303,24 +7391,24 @@ find_UDF(BaseName,N,UDFCode,Predicate) :-
 	!.
 
 /****************************************************************************
-  has_UDF(+Funct,+N,-Predicate,-ReturnValue,-BodyFrontList,-Status) 
+has_UDF(+Funct,+N,-Predicate,-ReturnValue,-BodyFrontList,-Status) 
 
-  Tells if there is an active UDF with this Funct/N
+Tells if there is an active UDF with this Funct/N
 
-  Funct - Functor of UDF
-  N - Arity of UDF
-  Predicate - the new_udf_predicate_XXX that computes this UDF
-  ReturnValue - the variable representing the return value of this UDF;
-                it appears in Predicate as Arg 1.
-  BodyFrontList - a list of literals to be added to rule body where udf appears
-                 (again for cases when udf functor is a term)
-  Example:
-     head :- q(?x(a,b)(?x))
-     head :- udf_hilog_predicate(?x(a,b),?var2),
-	     udf_hilog_predicate(?var2(?x)),?var1),
-             q(?var1) 
+Funct - Functor of UDF
+N - Arity of UDF
+Predicate - the new_udf_predicate_XXX that computes this UDF
+ReturnValue - the variable representing the return value of this UDF;
+it appears in Predicate as Arg 1.
+BodyFrontList - a list of literals to be added to rule body where udf appears
+(again for cases when udf functor is a term)
+Example:
+head :- q(?x(a,b)(?x))
+        head :- udf_hilog_predicate(?x(a,b),?var2),
+                udf_hilog_predicate(?var2(?x)),?var1),
+q(?var1) 
 ****************************************************************************/
-%% TODO: Status seems to be always [] - remove?
+%% TODO: Status seems to always be [] - keep for future?
 has_UDF(Funct,N,Args,Predicate,ReturnValue,[],NO_ERRORS) :-
 	\+ has_context(CONTEXT_COMPILER_BLOCK_UDF_EXPANSION),
 	\+ has_context(CONTEXT_COMPILER_UDF_HILOG(Funct)),
@@ -7366,17 +7454,17 @@ has_UDF(Funct,N,Args,Predicate,ReturnValue,[],NO_ERRORS) :-
 	make_udf_hilog_predicate(Funct,N,Args,Predicate,ReturnValue).
 
 /****************************************************************************
-  make_udf_hilog_predicate(+Funct,+N,+Args,+ReturnOrigPred,-Predicate,-ReturnValue) 
+make_udf_hilog_predicate(+Funct,+N,+Args,+ReturnOrigPred,-Predicate,-ReturnValue) 
 
-  makes the predicate for UDF with term names (hilog).
+makes the predicate for UDF with term names (hilog).
 
-  Funct - UDF functor
-  N - UDF arity
-  Args - UDF arguments
-  Predicate - UDFHILOGPREDICATENAME code
-  ReturnValue - code for the return variable which represents the return value
-                of udf_hilog_predicate. This variable appears as argument 5 in
-		UDFHILOGPREDICATENAME.
+Funct - UDF functor
+N - UDF arity
+Args - UDF arguments
+Predicate - UDFHILOGPREDICATENAME code
+ReturnValue - code for the return variable which represents the return value
+of udf_hilog_predicate. This variable appears as argument 5 in
+UDFHILOGPREDICATENAME.
 ****************************************************************************/
 make_udf_hilog_predicate(Funct,N,Args,NewHeadCode,NewReturnValueObj):-
 	get_udf_hilog_predicate_funct(NPFunct),
@@ -7388,10 +7476,10 @@ make_udf_hilog_predicate(Funct,N,Args,NewHeadCode,NewReturnValueObj):-
 	flplib_struct(NewHeadCodePre,NewHeadCode).
 
 /*
-   Convert a UDFHILOGPREDICATENAME(UDF,_,_,Result) to
-   Result = UDF.
-   This is needed when compiling UDFs under clause{...}. In this case,
-   UDFs get injected into the clause by the code executed before clause{...}
+Convert a UDFHILOGPREDICATENAME(UDF,_,_,Result) to
+Result = UDF.
+This is needed when compiling UDFs under clause{...}. In this case,
+UDFs get injected into the clause by the code executed before clause{...}
 */
 convert_udf_hilog_predlist([],[]) :- !.
 convert_udf_hilog_predlist([H|T],[HOut|TOut]) :-
@@ -7415,9 +7503,9 @@ convert_one_udf_hilog_pred(PRBAND(_Aux,H), HOut) :-
 
 
 /****************************************************************************
-  get_udf_hilog_predicate_funct(-Funct) 
+get_udf_hilog_predicate_funct(-Funct) 
 
-  form predicate functor for UDF with term names (hilog).
+form predicate functor for UDF with term names (hilog).
 ****************************************************************************/
 get_udf_hilog_predicate_funct(Funct):-
 	flatom_struct(UDFHILOGPREDICATENAME,NO_INDEX,Funct).
@@ -7427,7 +7515,7 @@ get_udf_hilog_predicate_prfunct(Funct):-
 
 
 /****************************************************************************
-  compile_delayquant(+Quant,+Condition,+Goal,+Index,-SpecCode,-BodyFrontList,-Status)
+compile_delayquant(+Quant,+Condition,+Goal,+Index,-SpecCode,-BodyFrontList,-Status)
 ****************************************************************************/
 compile_delayquant(Quant,ConditionWS,Goal,Index,SpecCode,BodyFrontList,Status):-
 	collect_flvar_names(ConditionWS,CondVarNames),
@@ -7442,14 +7530,14 @@ compile_delayquant(Quant,ConditionWS,Goal,Index,SpecCode,BodyFrontList,Status):-
 	strong_conjunct_struct(OidCode,WSCode,ConditionCode),
 	(subset(CondVarNames,GoalVarNames) ->
 	    ( no_errors_found(S1) ->
-		compile_body(Goal,GoalCode,S2),
-		( no_errors_found(S2) ->
-		    append(S1,S2,Status),
+		compile_body(Goal,GoalCode,Stat2),
+		( no_errors_found(Stat2) ->
+		    append(S1,Stat2,Status),
 		    delay_struct(Index,FL_DELAYQUANT,
 				 [Quant,ConditionCode,GoalCode],
 				 SpecCode)
 		;
-		    Status = S2
+		    Status = Stat2
 		)
 	    ;
 		Status = S1
@@ -7462,9 +7550,9 @@ compile_delayquant(Quant,ConditionWS,Goal,Index,SpecCode,BodyFrontList,Status):-
 
 
 /****************************************************************************
- compile_aggregate(+Op,+AggVar,+GVars,+SortSpec,+BodyTerm,-Object,-Code,-Status)
- SortSpec can be a list of vars used for duplicate control in sum, avg, count
- Or it is a more complex sort spec used by setof and bagof
+compile_aggregate(+Op,+AggVar,+GVars,+SortSpec,+BodyTerm,-Object,-Code,-Status)
+SortSpec can be a list of vars used for duplicate control in sum, avg, count
+Or it is a more complex sort spec used by setof and bagof
 ****************************************************************************/
 compile_aggregate(Op,AggVar,GVars,SortSpec,BodyTerm,Object,Code,Status) :-
 	compile_body(BodyTerm,BodyPureCode,S),
@@ -7483,7 +7571,7 @@ compile_aggregate(Op,AggVar,GVars,SortSpec,BodyTerm,Object,Code,Status) :-
 		%% make agg var unique so it won't get bound from the outside
 		rename_prvariables([AggVarName],NEWDONTCAREVAR,BCode,NewBCode,[NewAggVarCode]),
 		(SortSpec==NULL ->
-                    list_struct([],[],SpecCode),  %% empty list
+                    list_struct([],[],SpecCode), %% empty list
                     aggregate_struct(Op,NewAggVarCode,GVarsListCode,SpecCode,NewBCode,Object,Code),
 		    Status = NO_ERRORS
                 ; is_list(SortSpec) -> %% duplicate control in sum/count/avg
@@ -7504,39 +7592,39 @@ compile_aggregate(Op,AggVar,GVars,SortSpec,BodyTerm,Object,Code,Status) :-
 		    )
 		)
 	    ;
-	      Status = S1
+                Status = S1
 	    )
 	;
-	  Status=S
+            Status=S
         ),
 	!.
 
 
 /****************************************************************************
-  check_aggregate(+AggVar,+GroupVars,+SortSpec,+BodyTerm,-Status)
-     SortSpec is used only if it is a list of uniquification vars
-     for count, sum, avg.
-  check_repeatedvar(+Vars,-Status,-TailStatus)
-  allgvar_notin(+SortedVars,-Status,-TailStatus)
-  Checks for any abnormalities with grouping and aggregate variables.
+check_aggregate(+AggVar,+GroupVars,+SortSpec,+BodyTerm,-Status)
+SortSpec is used only if it is a list of uniquification vars
+for count, sum, avg.
+check_repeatedvar(+Vars,-Status,-TailStatus)
+allgvar_notin(+SortedVars,-Status,-TailStatus)
+Checks for any abnormalities with grouping and aggregate variables.
 ****************************************************************************/
 check_aggregate(AggVar,GVars,SortSpec,BodyTerm,Status) :-
 	is_flvariable(AggVar,AggVarName,AggVarIndex),
 	%% Check if the aggregate variable is anonymous.
 	( AggVarName == FL_ANON_VAR ->
 	    compiling_error(AggVarIndex,ERROR_AVAR,M1),
-	    Status=[M1|S1]
+	    Status=[M1|Stat1]
 	;
-	  Status=S1
+            Status=Stat1
         ),
 	%% Check if any grouping variable is anonymous.
-	check_gvar(GVars,S1,S2),
+	check_gvar(GVars,S1,Stat2),
 	%% Check if the aggregate variable is also used for grouping.
 	( AggVarName \= FL_ANON_VAR, is_flvariable(U,AggVarName,_Iu),
 	    memberchk(U,GVars) ->
 	    compiling_error(AggVarIndex,AVAR_ASGVAR,M2),
-	    S2=[M2|S3]
-	; S3=S2
+	    Stat2=[M2|Stat3]
+	; S3=Stat2
         ),
 	%% Check if there are any repeated grouping variables.
 	sort(GVars,SVars),
@@ -7544,26 +7632,26 @@ check_aggregate(AggVar,GVars,SortSpec,BodyTerm,Status) :-
 	collect_flvars(BodyTerm,BVars),
 	%% Check if aggregate variable is used in the aggregate body.
 	( (AggVarName == FL_ANON_VAR; is_flvariable(W,AggVarName,_Iw), memberchk(W,BVars)) ->
-	    S5=S4
+	    Stat5=Stat4
         ;
-	  compiling_error(AggVarIndex,AVAR_NOTIN,M5),
-	  S4=[M5|S5]
+            compiling_error(AggVarIndex,AVAR_NOTIN,M5),
+            S4=[M5|Stat5]
         ),
 	%% Check if all grouping variables are used in the aggregate body.
 	( subtract_vars(GVars,BVars,L), L \== [] ->
 	    sort(L,SL),
-	    allgvar_notin(SL,S5,S6)
+	    allgvar_notin(SL,Stat5,Stat6)
 	;
-	  S6 = S5
+            Stat6 = Stat5
         ),
 	%% Check if all SortVars (if it is a list of uniquification vars
         %% for sum, count, avg) are used in the aggregate body.
 	( subtract_vars(SortSpec,BVars,L), L \== [] ->
             approx_flindex(L,Index),
             compiling_error(Index,UNIQVAR_NOTIN,Msg),
-            S6 = [Msg]
+            Stat6 = [Msg]
 	;
-	  S6 = NO_ERRORS
+            Stat6 = NO_ERRORS
         ),
 	!.
 
@@ -7576,7 +7664,7 @@ check_gvar([H|L],Status,TS) :-
 	    Status=[M|S],
 	    check_gvar(L,S,TS)
 	;
-	  check_gvar(L,Status,TS)
+            check_gvar(L,Status,TS)
         ).
 
 
@@ -7595,7 +7683,7 @@ check_repeatedvar([H1,H2|T],Status,TS) :-
 	    Status=[Msg|S],
 	    check_repeatedvar([H1|T],S,TS)
 	;
-	  check_repeatedvar([H2|T],Status,TS)
+            check_repeatedvar([H2|T],Status,TS)
         ).
 
 
@@ -7614,9 +7702,9 @@ allgvar_notin([H|T],[Msg|S],TS) :-
 
 
 /****************************************************************************
-  compile_head_fltoken(+Token,+Index,-Object)
+compile_head_fltoken(+Token,+Index,-Object)
 
-  Handles \#, \#123, \@, atoms
+Handles \#, \#123, \@, atoms
 ****************************************************************************/
 compile_head_fltoken(FL_THISMODULE,_Index,Object) :-
 	!,
@@ -7630,7 +7718,7 @@ compile_head_fltoken(Token,Index,Object) :-
         atomobj_struct(Token,Index,Object).
 
 /****************************************************************************
-  compile_head_fltoken(+Token,+Num,+Index,-Object,-Status)
+compile_head_fltoken(+Token,+Num,+Index,-Object,-Status)
 ****************************************************************************/
 compile_head_fltoken(FL_NEWOID,Suffix,Index,Object,NO_ERRORS) :-
 	!,
@@ -7644,7 +7732,7 @@ compile_head_fltoken(FLSPECIALSKOLEM,Suffix,Index,Object,NO_ERRORS) :-
         %% Generated by skolemization during the omni transform
 	new_oidobj(Suffix,Index,Object).
 compile_head_fltoken(Token,Suffix,Index,Object,Status) :-
-        (%% \@F
+        ( %% \@F
 	    Token == FL_SPECIAL_CONST_TOKEN, Suffix == FL_SPECIAL_FILE_TOKEN ->
 	    get_current_compile_file(FileName),
             (has_context(CONTEXT_COMPILER_FOR_ADDITION) ->
@@ -7657,7 +7745,7 @@ compile_head_fltoken(Token,Suffix,Index,Object,Status) :-
 	    flora_token_index_to_line(Index,Line),
 	    numobj_struct(Line,Index,Object),
 	    Status = NO_ERRORS
-	;  %% \@!, the rule id
+	; %% \@!, the rule id
 	    Token == FL_SPECIAL_CONST_TOKEN, Suffix == FL_RULEID_SYM ->
 	    ( has_context(CONTEXT_COMPILER_DESCRIPTORS(Mode))
 	    -> construct_default_ruleid_descriptor(Mode,Index,DescrIdCode),
@@ -7702,30 +7790,30 @@ compile_head_setarg_list([],_WS,[],_,NULL,NULL,NO_ERRORS) :- !.
 compile_head_setarg_list([Elt|Rest],WS,SetList,Code,H2BCodeFront,H2BCodeBack,Status) :-
 	compile_head_pathexp(Elt,WS,EltObj,EltFrameStuff,EltH2BCodeFront,EltH2BCodeBack,S),
 	( no_errors_found(S) -> 
-	    compile_head_setarg_list(Rest,WS,RestSetList,RestCode,RestH2BCodeFront,RestH2BCodeBack,S2),
-	    ( no_errors_found(S2) -> 
+	    compile_head_setarg_list(Rest,WS,RestSetList,RestCode,RestH2BCodeFront,RestH2BCodeBack,Stat2),
+	    ( no_errors_found(Stat2) -> 
 		SetList = [EltObj|RestSetList],
 		conjunct_struct(EltFrameStuff,RestCode,Code),
 		conjunct_struct(EltH2BCodeFront,RestH2BCodeFront,H2BCodeFront),
 		conjunct_struct(EltH2BCodeBack,RestH2BCodeBack,H2BCodeBack),
-		append(S,S2,Status)
-	    ; Status=S2
+		append(S,Stat2,Status)
+	    ; Status=Stat2
 	    )
 	;
-	  Status=S
+            Status=S
         ).
 */
 
 
 /****************************************************************************
-  compile_floraliblit(+ParserTerm,+Workspace,-OidCode,-Code,?BodyFrontList,-Status)
+compile_floraliblit(+ParserTerm,+Workspace,-OidCode,-Code,?BodyFrontList,-Status)
 
-  This procedure compiles a literal that is associated with a Flora system
-  module specification.
- ?BodyFrontList - code to add at the beginning of the body
-                 (mostly for user defined fnctions),
-		 it is output argument, but if it is initialized to
-		 empty ([]) ignores user defined functions
+This procedure compiles a literal that is associated with a Flora system
+module specification.
+?BodyFrontList - code to add at the beginning of the body
+(mostly for user defined fnctions),
+it is output argument, but if it is initialized to
+empty ([]) ignores user defined functions
 ****************************************************************************/
 compile_floraliblit(ParserTerm,WS,OidCode,Code,BodyFrontList,Status) :-
 	%% Flora system modules are like normal user modules except that
@@ -7739,18 +7827,18 @@ compile_floraliblit(ParserTerm,WS,OidCode,Code,BodyFrontList,Status) :-
 
 
 /****************************************************************************
-  compile_body_literal_top(+ParserTerm,+Workspace,-OidCode,-BodyLitCode,?BodyFrontList,-Status)
-  BodyLitCode is the main code for the literal. It may be multiplied if
-              it contains set arguments. Eg, p({a,b}) becomes p(a),p(b).
-              This is done by replacing {a,b} with an attributed variable X
-	      that has member(X,[a,b]) as an attribute. At the end of
-	      compile_body_literal_top/6, we do
-	      findall(WSCode,member(X,[a,b]),BodyLitCode), which does
-	      the multiplication trick.
-  ?BodyFrontList - code to add at the beginning of the body
-                  (mostly for user defined fnctions),
-		  it is output argument, but if it is initialized to
-		  empty ([]) ignores user defined functions
+compile_body_literal_top(+ParserTerm,+Workspace,-OidCode,-BodyLitCode,?BodyFrontList,-Status)
+BodyLitCode is the main code for the literal. It may be multiplied if
+it contains set arguments. Eg, p({a,b}) becomes p(a),p(b).
+This is done by replacing {a,b} with an attributed variable X
+that has member(X,[a,b]) as an attribute. At the end of
+compile_body_literal_top/6, we do
+findall(WSCode,member(X,[a,b]),BodyLitCode), which does
+the multiplication trick.
+?BodyFrontList - code to add at the beginning of the body
+(mostly for user defined fnctions),
+it is output argument, but if it is initialized to
+empty ([]) ignores user defined functions
 ****************************************************************************/
 compile_body_literal_top(ParserTerm,WS,OidCode,BodyLitCode,BodyFrontList,Status) :-
 	%%compile_body_literal(ParserTerm,WS,OidCode,BodyLitCodePre,BodyFrontList,Status),
@@ -7761,7 +7849,8 @@ compile_body_literal_top(ParserTerm,WS,OidCode,BodyLitCode,BodyFrontList,Status)
 
 
 %% TODO: no need for separate OidCode+WSCode. This is used only in
-%% compile_floraliblit, but compile_floraliblit does not need it either!!!
+%% compile_floraliblit, but compile_floraliblit does not need
+%% it either!!!
 compile_body_literal(ParserTerm,WS,OidCode,BodyLitCode,BodyFrontList,Status) :-
 	is_fltransactionalterm(ParserTerm,Funct,N,Args),
 	!,
@@ -7784,16 +7873,16 @@ compile_body_literal(ParserTerm,WS,NULL,BodyLitCode,[],NO_ERRORS) :-
 	  )
 	-> BodyLitCode = V
 	;
-	  %% Not to promote term to predicate, but to bind caller module
-	  %% Needed only for calls when a variable occurs by itself in
-	  %% the rule body:  ... :- ..., X, ,,,
-	  thismodule_struct(ThisModule),
-	  %% doesn't matter??
-	  body_context_info_structure(ThisModule,FWContext),
-	  %% ...:-...,X, is compiled into
-	  %%    FLLIBMODLIT(libmod_wrapper,X,FL_INVALIDMODULE,FWContext)
-	  atomobj_struct(FL_INVALIDMODULE,Module),
-	  florasyslib_struct(VIndex,FLLIBMODLIT,3,[V,Module,FWContext],BodyLitCode)
+            %% Not to promote term to predicate, but to bind caller module
+            %% Needed only for calls when a variable occurs by itself in
+            %% the rule body:  ... :- ..., X, ,,,
+            thismodule_struct(ThisModule),
+            %% doesn't matter??
+            body_context_info_structure(ThisModule,FWContext),
+            %% ...:-...,X, is compiled into
+            %%    FLLIBMODLIT(libmod_wrapper,X,FL_INVALIDMODULE,FWContext)
+            atomobj_struct(FL_INVALIDMODULE,Module),
+            florasyslib_struct(VIndex,FLLIBMODLIT,3,[V,Module,FWContext],BodyLitCode)
 	).
 
 %% Variable with @module, where module != \@.  E.g., ?- ?X=p, ?X@qr.
@@ -8027,7 +8116,7 @@ compile_body_literal(ParserTerm,_WS,NULL,BodyLitCode,[],Status) :-
 	is_flupdaterule(ParserTerm,Op,List),
 	!,
 	compile_updaterule(Op,List,BodyLitCode,Status).
-		
+
 compile_body_literal(ParserTerm,_WS,NULL,BodyLitCode,BodyFrontList,Status) :-
         is_flclause(ParserTerm,Head,Body),
 	!,
@@ -8082,7 +8171,7 @@ compile_body_literal(ParserTerm,_WS,NULL,BodyLitCode,[],Status) :-
 	is_flcontrolconstruct(ParserTerm,Wrapper,Cond,Action),
 	!,
 	compile_controlconstruct(Cond,Action,Wrapper,BodyLitCode,Status).
-	
+
 compile_body_literal(ParserTerm,_WS,NULL,BodyLitCode,[],NO_ERRORS) :-
 	is_flcut(ParserTerm,I),
 	!,
@@ -8146,14 +8235,14 @@ compile_body_literal(ParserTerm,_WS,_OidCode,_BodyLitCode,_BodyFrontL,[Err]) :-
         is_fllist(ParserTerm,_,_,Idx),
         !,
         compiling_error(Idx, ERROR_BDLITERAL,Err).
-        
+
 compile_body_literal(ParserTerm,_WS,_OidCode,_BodyLitCode,_BodyFrontL,[Err]) :-
 	approx_flindex(ParserTerm,ErrIdx),
 	compiling_error(ErrIdx,[UNKNOWN_ERROR,'\n\t\t Details: in compile_body_literal'],Err).
 
 
 /****************************************************************************
-  compile_floralibobj(+ParserTerm,+Workspace,-Object,-OidCode,-Code,-Status)
+compile_floralibobj(+ParserTerm,+Workspace,-Object,-OidCode,-Code,-Status)
 ****************************************************************************/
 compile_floralibobj(ParserTerm,WS,Object,OidCode,Code,Status) :-
 	is_flatom(WS,WSName,Index),
@@ -8164,11 +8253,11 @@ compile_floralibobj(ParserTerm,WS,Object,OidCode,Code,Status) :-
 
 
 /****************************************************************************
-  compile_body_pathexplist(+ParserTermList,+Workspace,-ObjectList,-OidCode,-Code,?BodyFrontList,-Status)
-  ?BodyFrontList - code to add at the beginning of the body
-                  (mostly for user defined fnctions),
-		  it is normally an output parameter, but if bound to []
-		  then ignores user defined functions
+compile_body_pathexplist(+ParserTermList,+Workspace,-ObjectList,-OidCode,-Code,?BodyFrontList,-Status)
+?BodyFrontList - code to add at the beginning of the body
+(mostly for user defined fnctions),
+it is normally an output parameter, but if bound to []
+then ignores user defined functions
 ****************************************************************************/
 compile_body_pathexplist([],_WS,[],NULL,NULL,[],NO_ERRORS) :- !.
 
@@ -8196,7 +8285,7 @@ compile_body_pathexplist([T|L],WS,[TObj|LObj],OidCode,Code,BodyFrontList,Status)
 		conjunct_struct(TCode,LCode,Code),
 		conjunct_struct(OidCodeFront,OidCodeBack,OidCode),
 		append(S,S2,Status)
-	    ; Status=S2
+	    ; Status=Stat2
 	    )
 	; Status=S
         ),
@@ -8204,37 +8293,37 @@ compile_body_pathexplist([T|L],WS,[TObj|LObj],OidCode,Code,BodyFrontList,Status)
 
 
 /****************************************************************************
-  compile_body_pathexp_top(+ParserTerm,+Workspace,-Object,-OidCode,-Code,?BodyFrontList,-Status)
+compile_body_pathexp_top(+ParserTerm,+Workspace,-Object,-OidCode,-Code,?BodyFrontList,-Status)
 
-  Handles pathexps that are atoms, numbers, special tokens, like \#, \#123, \@,
-  vars, strings
+Handles pathexps that are atoms, numbers, special tokens, like \#, \#123, \@,
+vars, strings
 
-  Object  - the term that goes in place of this path expression.
-  OidCode - conjunction of the code for computing the arguments of
-            the pathexp such as a.b[c.d->e.f]
-	    Eg, AND(a[b->?X],c[d-?Y],e[f->?Z]) - the code for computing the
-	        objects that go in place of a.b, c.d, e.f. These objects are
-		?X, ?Y, ?Z, respectively.
-            OidCode comes before the code for the frame or predicate
-	    where the path expression occurs. For instance, in the above,
-	    we'll have:
-	      AND(a[b->?X],c[d-?Y],e[f->?Z]), <<--- OidCode for path expressions
-		?X[?Y->?Z],                   <<--- the actual frame.
-                                                    ?X,?Y,?Z are Object(s)
-						    for path expressions
-		   Code(for a.b,c.d,e.f)      <<--- Code for path expressions
-  Code    - code for the actual Boolean expression that corresponds to
-            a.b[c.d->e.f], ie, ?X[?Y->?Z].
-            Note: Code is conjoined from the right. For instance,
-	          in obj[attr->c.d], the Code for c.d appears after the code
-		  for obj[attr->...]. Namely, the overall code will be:
-		    OidCode(for_c.d,Object(for_c.d)),
-		      obj[attr->Object(for_c.d)],
-		        Code(for_c.d)
-  BodyFrontList - code to add at the beginning of the body
-                 (mostly for user defined fnctions),
-		 it is output argument, but if it is initialized to empty ([])
-		 ignores user defined functions
+Object  - the term that goes in place of this path expression.
+OidCode - conjunction of the code for computing the arguments of
+the pathexp such as a.b[c.d->e.f]
+Eg, AND(a[b->?X],c[d-?Y],e[f->?Z]) - the code for computing the
+objects that go in place of a.b, c.d, e.f. These objects are
+?X, ?Y, ?Z, respectively.
+OidCode comes before the code for the frame or predicate
+where the path expression occurs. For instance, in the above,
+we'll have:
+AND(a[b->?X],c[d-?Y],e[f->?Z]), <<--- OidCode for path expressions
+?X[?Y->?Z],                   <<--- the actual frame.
+?X,?Y,?Z are Object(s)
+for path expressions
+Code(for a.b,c.d,e.f)      <<--- Code for path expressions
+Code    - code for the actual Boolean expression that corresponds to
+a.b[c.d->e.f], ie, ?X[?Y->?Z].
+Note: Code is conjoined from the right. For instance,
+in obj[attr->c.d], the Code for c.d appears after the code
+for obj[attr->...]. Namely, the overall code will be:
+OidCode(for_c.d,Object(for_c.d)),
+obj[attr->Object(for_c.d)],
+Code(for_c.d)
+BodyFrontList - code to add at the beginning of the body
+(mostly for user defined fnctions),
+it is output argument, but if it is initialized to empty ([])
+ignores user defined functions
 ****************************************************************************/
 %% ParserTerm is a primitive object -- no oid code and no spec code results
 compile_body_pathexp_top(ParserTerm,WS,Object,OidCode,Code,BodyFrontList,Status) :-
@@ -8474,8 +8563,8 @@ compile_pathexp_no_workspace(ParserTerm,Object,OidCode,Code,[],Status) :-
 	verify_symbol_context(ParserTerm,0,FUNCTION_SYMBOL,NONTRANSACTIONAL_SYMBOL,Status),
 	*/
 	( (has_context(CONTEXT_COMPILER_GOAL_REIFICATION)
-	 ; has_context(CONTEXT_COMPILER_DESCRIPTORS(_))
-	 )
+          ; has_context(CONTEXT_COMPILER_DESCRIPTORS(_))
+          )
 	->
 	    Code = NULL,
 	    (compiling_flrshell_command ->
@@ -8679,7 +8768,7 @@ compile_pathexp_no_workspace(ParserTerm,Object,OidCode,NULL,BodyFrontList,Status
 	is_reifyop(ParserTerm,Formula),
 	!,
         (has_context(CONTEXT_COMPILER_BODY_REIFY_4_DELETE) ->
-            new_flvariable(NO_INDEX,_Flvar,Object), %% head var replacing Object
+            new_flvariable(NO_INDEX,_FLVar,Object), %% head var replacing Object
             compile_reifyop(Formula,FormulaObject,OidCode,Status),
             %% ppp(${ooo}) is translated as ?X ~ ooo, ppp(?X) in agreement with
             %% compile_head_pathexp/6
@@ -8713,7 +8802,7 @@ compile_pathexp_no_workspace(ParserTerm,Object,OidCode,Code,BodyFrontList,Status
 	is_flpliball(ParserTerm,P,Module),
 	!,
 	compile_prologalllibobj(P,Module,Object,OidCode,Code,BodyFrontList,Status).
-	
+
 compile_pathexp_no_workspace(ParserTerm,Object,OidCode,Code,[],Status) :-
 	is_flfloralib(ParserTerm,P,Module),
 	!,
@@ -8721,14 +8810,14 @@ compile_pathexp_no_workspace(ParserTerm,Object,OidCode,Code,[],Status) :-
 
 
 /******************************************************************************
-  compile_body_termobj(+FunctorTerm,+Arity,+ArgList,+Workspace,-Object,-OidCode,-Code,?BodyFrontList,+Transactional,-Status)
+compile_body_termobj(+FunctorTerm,+Arity,+ArgList,+Workspace,-Object,-OidCode,-Code,?BodyFrontList,+Transactional,-Status)
 
-  BodyFrontList - code to add at the beginning of the body
-                  (mostly for user defined fnctions),
-		  it is output argument, but if it is initialized to
-		  empty ([]) ignores user defined functions
-  Transactional - flag if Funct is transactional
-		    Values: TRANSACTIONAL_SYMBOL or NONTRANSACTIONAL_SYMBOL
+BodyFrontList - code to add at the beginning of the body
+(mostly for user defined fnctions),
+it is output argument, but if it is initialized to
+empty ([]) ignores user defined functions
+Transactional - flag if Funct is transactional
+Values: TRANSACTIONAL_SYMBOL or NONTRANSACTIONAL_SYMBOL
 ******************************************************************************/
 compile_body_termobj(Funct,N,Args,WS,Object,OidCode,Code,BodyFrontList,Transactional,CompileStatus) :-
 	var(BodyFrontList),
@@ -8782,11 +8871,11 @@ compile_body_termobj(Funct,N,Args,WS,Object,OidCode,Code,[],Transactional,Compil
 	append(SymbolStatus,Status,CompileStatus).
 
 /****************************************************************************
-  compile_body_termlit(+FunctorTerm,+Arity,+ArgList,+Workspace,-OidCode,-Code,?BodyFrontList,-Status)
-  BodyFrontList - code to add at the beginning of the body
-                  (mostly for user defined fnctions),
-		  it is output argument, but if it is initialized to
-		  empty ([]) ignores user defined functions
+compile_body_termlit(+FunctorTerm,+Arity,+ArgList,+Workspace,-OidCode,-Code,?BodyFrontList,-Status)
+BodyFrontList - code to add at the beginning of the body
+(mostly for user defined fnctions),
+it is output argument, but if it is initialized to
+empty ([]) ignores user defined functions
 ****************************************************************************/
 %% Terms declared with :- usesensor are treated here
 compile_body_termlit(Funct,N,Args,WS,OidCode,Code,BodyFrontList,CompileStatus) :-
@@ -8854,13 +8943,13 @@ compile_body_transactional_termlit(Funct,N,Args,WS,OidCode,Code,BodyFrontList,Co
 	).
 
 /****************************************************************************
-  compile_body_list_obj(+ObjTermList,+ObjTerm,+Index,+WS,-Object,-OidCode,-Code,?BodyFrontList,-Status)
-    Lists are like this: [a,b,c|rest]
-    ObjTermList refers to the list [a,b,c] and ObjTerm to rest.
+compile_body_list_obj(+ObjTermList,+ObjTerm,+Index,+WS,-Object,-OidCode,-Code,?BodyFrontList,-Status)
+Lists are like this: [a,b,c|rest]
+ObjTermList refers to the list [a,b,c] and ObjTerm to rest.
 
- BodyFrontList - code to add at the beginning of the body
-                 (mostly for user defined fnctions),
-		 it is output argument, but if it is initialized to empty ([]) ignores user defined functions
+BodyFrontList - code to add at the beginning of the body
+(mostly for user defined fnctions),
+it is output argument, but if it is initialized to empty ([]) ignores user defined functions
 ****************************************************************************/
 compile_body_list_obj(ObjTermList,ObjTerm,Index,WS,Object,OidCode,Code,BodyFrontList,Status) :-
 	(var(BodyFrontList) -> true; BodyFrontList1=[], BodyFrontList2=[]),
@@ -8873,31 +8962,31 @@ compile_body_list_obj(ObjTermList,ObjTerm,Index,WS,Object,OidCode,Code,BodyFront
 		ObjCode=NULL,
 		Status = NO_ERRORS
 	    ;
-	      compile_body_pathexp_top(ObjTerm,WS,Obj,OidCodeObj,ObjCode,BodyFrontList2,Status),
-	      ( var(BodyFrontList) ->
-		append(BodyFrontList1,BodyFrontList2,BodyFrontList)
-	      ;
-		true
-	      )
+                compile_body_pathexp_top(ObjTerm,WS,Obj,OidCodeObj,ObjCode,BodyFrontList2,Status),
+                ( var(BodyFrontList) ->
+                    append(BodyFrontList1,BodyFrontList2,BodyFrontList)
+                ;
+                    true
+                )
 	    ),
 	    ( no_errors_found(Status) -> 
 		list_struct(ObjList,Obj,Index,Object),
 		conjunct_struct(ObjListCode,ObjCode,Code),
 		conjunct_struct(OidCodeList,OidCodeObj,OidCode)
 	    ;
-	      true
+                true
 	    )
 	;
-	  Status=S
+            Status=S
         ),
 	!.
 
 
 /****************************************************************************
-  compile_body_objref(+ObjTerm,+SpecType,+AttTerm,+Workspace,-Object,-OidCode,-Code,-Status)
+compile_body_objref(+ObjTerm,+SpecType,+AttTerm,+Workspace,-Object,-OidCode,-Code,-Status)
 
-  Process an object reference like a.b.c@module
-  An objref can be more complex, e.g., a[f->g].b[h->p].c[k->u]@module
+Process an object reference like a.b.c@module
+An objref can be more complex, e.g., a[f->g].b[h->p].c[k->u]@module
 ****************************************************************************/
 compile_body_objref(ObjTerm,SpecType,AttTerm,WS,Object,OidCode,Code,Status) :-
 	compile_body_pathexplist([ObjTerm,AttTerm],WS,[Obj,Att],OidCodeList,OACode,[],PathexpStatus),
@@ -8918,7 +9007,7 @@ compile_body_objref(ObjTerm,SpecType,AttTerm,WS,Object,OidCode,Code,Status) :-
 
 
 /****************************************************************************
-  compile_body_bin_relation(+ObjTerm1,+RelType,+ObjTerm2,+Workdpace,-Object,-OidCode,-Code,-Status)
+compile_body_bin_relation(+ObjTerm1,+RelType,+ObjTerm2,+Workdpace,-Object,-OidCode,-Code,-Status)
 ****************************************************************************/
 compile_body_bin_relation(ObjTerm1,RelType,ObjTerm2,WS,Obj1,OidCode,Code,Status) :-
 	compile_body_pathexplist([ObjTerm1,ObjTerm2],WS,[Obj1,Obj2],OidCode,OCode,BodyFrontList,PathexpStatus),
@@ -8937,24 +9026,24 @@ compile_body_bin_relation(ObjTerm1,RelType,ObjTerm2,WS,Obj1,OidCode,Code,Status)
 
 
 /****************************************************************************
-  compile_body_objspec(+SpecBody,+ObjTerm,+Workspace,-Object,-OidCode,-Code,-BodyFrontList,-Status)
+compile_body_objspec(+SpecBody,+ObjTerm,+Workspace,-Object,-OidCode,-Code,-BodyFrontList,-Status)
 
-  Code produced by this and similar predicates is divided into
-  OidCode and Code. 
-  OidCode is the code needed to compute the attribute of frame
-  and the oid of the value part (in ->, *->, etc.)
-  Code represents the code needed to compute the the attribute specification.
-  For instance, in  a.b[c.d->e.f],
-      OidCode will represent the computation of a.b, c.d, and e.f:
-	 prand(prmvd(a,b,_newvar1),prand(prmvd(c,d,_newvar2),prmvd(e,f,_newvar3)))
-      Code will represent the -> part:
-                 prmvd(_newvar1,_newvar2,_newvar3)
-      Object is the code for restricting
+Code produced by this and similar predicates is divided into
+OidCode and Code. 
+OidCode is the code needed to compute the attribute of frame
+and the oid of the value part (in ->, *->, etc.)
+Code represents the code needed to compute the the attribute specification.
+For instance, in  a.b[c.d->e.f],
+OidCode will represent the computation of a.b, c.d, and e.f:
+prand(prmvd(a,b,_newvar1),prand(prmvd(c,d,_newvar2),prmvd(e,f,_newvar3)))
+Code will represent the -> part:
+prmvd(_newvar1,_newvar2,_newvar3)
+Object is the code for restricting
 ****************************************************************************/
 compile_body_objspec(SpecBody,ObjTerm,WS,Object,OidCode,Code,BodyFrontList,Status) :-
-	%% TODO: check if SpecBody can be a var. If not, we could optimize
-	%% by splitting this into 2 clauses and putting [] in place of SpecBody
-	%% in the rule head.
+	%% TODO: check if SpecBody can be a var. If not, we could
+        %% optimize by splitting this into 2 clauses and putting
+        %% [] in place of SpecBody in the rule head.
 	( SpecBody == [] ->
 	    ( is_flobjref(ObjTerm,OTerm,ATerm,SpecType) ->
 		compile_body_pathexplist([OTerm,ATerm],WS,[OObj,AObj],OidCode,ObjCode,BodyFrontList,PathexpStatus),
@@ -8989,29 +9078,29 @@ compile_body_objspec(SpecBody,ObjTerm,WS,Object,OidCode,Code,BodyFrontList,Statu
 		; Status = WSStatus
 		)
 	    )
-	; % oid spec plus object spec. something like a.b[c->d]@module
-	  compile_body_pathexp_top(ObjTerm,WS,Object,ObjOidCode,ObjCode,BodyFrontList1,S),
-	  ( no_errors_found(S) -> 
-	      compile_body_specbody(Object,SpecBody,WS,SpecOidCode,SpecCode,
-				    BodyFrontList2,Stat2),
-              !,
-	      ( no_errors_found(Stat2) -> 
-		  %% Because ObjCode contains : and ::, we put it after
-		  %% the code for frame --- a heuristic that assumes that
-		  %% computing a:b  (or a::b)when a or b are vars, is expensive.
-		  %% Ideally we should check the type of ObjCode or used
-		  %% delay for ObjCode
-		  conjunct_struct(SpecCode,ObjCode,Code),
-		  conjunct_struct(ObjOidCode,SpecOidCode,OidCode)
-	      ; 
-		  true
-	      ),
-	      append(S,Stat2,Status),
-	      append(BodyFrontList1,BodyFrontList2,BodyFrontList)
-	  ;
-	    BodyFrontList = BodyFrontList1,
-	    Status=S
-          )
+	; %% oid spec plus object spec. something like a.b[c->d]@module
+            compile_body_pathexp_top(ObjTerm,WS,Object,ObjOidCode,ObjCode,BodyFrontList1,S),
+            ( no_errors_found(S) -> 
+                compile_body_specbody(Object,SpecBody,WS,SpecOidCode,SpecCode,
+                                      BodyFrontList2,Stat2),
+                !,
+                ( no_errors_found(Stat2) -> 
+                    %% Because ObjCode contains : and ::, we put it after
+                    %% the code for frame --- a heuristic that assumes that
+                    %% computing a:b  (or a::b)when a or b are vars, is expensive.
+                    %% Ideally we should check the type of ObjCode or used
+                    %% delay for ObjCode
+                    conjunct_struct(SpecCode,ObjCode,Code),
+                    conjunct_struct(ObjOidCode,SpecOidCode,OidCode)
+                ; 
+                    true
+                ),
+                append(S,Stat2,Status),
+                append(BodyFrontList1,BodyFrontList2,BodyFrontList)
+            ;
+                BodyFrontList = BodyFrontList1,
+                Status=S
+            )
         ),
 	!.
 compile_body_objspec(SpecBody,_ObjTerm,_WS,_Object,_OidCode,_Code,_BodyFrontList,[Err]) :-
@@ -9020,14 +9109,14 @@ compile_body_objspec(SpecBody,_ObjTerm,_WS,_Object,_OidCode,_Code,_BodyFrontList
 
 
 /****************************************************************************
-  compile_body_specbody(+Object,+SpecTerm,+Workspace,-OidCode,-Code,-BodyFrontList,-Status)
+compile_body_specbody(+Object,+SpecTerm,+Workspace,-OidCode,-Code,-BodyFrontList,-Status)
 
-     SpecTerm here represents the inner part of a frame.
-     Object represents the frame's oid.
+SpecTerm here represents the inner part of a frame.
+Object represents the frame's oid.
 
-     For instance, in a[c->d,e->f], Object will be pratom(a,4) and SpecTerm
-     flconjunct(flmvdattspec(flatom(c,8),->,[flatom(d,10)]),
-                flmvdattspec(flatom(e,12),->,[flatom(f,14)]))
+For instance, in a[c->d,e->f], Object will be pratom(a,4) and SpecTerm
+flconjunct(flmvdattspec(flatom(c,8),->,[flatom(d,10)]),
+           flmvdattspec(flatom(e,12),->,[flatom(f,14)]))
 ****************************************************************************/
 compile_body_specbody(Object,SpecTerm,WS,OidCode,Code,BodyFrontList,Status) :-
 	is_flconjunct(SpecTerm,L,R),
@@ -9043,7 +9132,7 @@ compile_body_specbody(Object,SpecTerm,WS,OidCode,Code,BodyFrontList,Status) :-
 	    ),
 	    append(BodyFrontList1,BodyFrontList2,BodyFrontList)
 	;
-	  Status=S
+            Status=S
         ).
 
 compile_body_specbody(Object,SpecTerm,WS,OidCode,Code,BodyFrontList,Status) :-
@@ -9059,7 +9148,7 @@ compile_body_specbody(Object,SpecTerm,WS,OidCode,Code,BodyFrontList,Status) :-
 	    ),
 	    append(BodyFrontList1,BodyFrontList2,BodyFrontList)
 	;
-	  Status=S
+            Status=S
         ).
 
 compile_body_specbody(Object,SpecTerm,WS,OidCode,Code,BodyFrontList,Status) :-
@@ -9104,7 +9193,7 @@ compile_body_specbody(Object,SpecTerm,WS,OidCode,Code,BodyFrontList,Status) :-
 
 	compile_body_specbody(Object,Formula,WS,OidCode,FormCode,BodyFrontList,S2),
         !,
-	(S1==NO_ERRORS -> S3=S2
+	(S1==NO_ERRORS -> S3=Stat2
 	; S3 = [Err1|S2]
 	),
 	%% We use prvars so that newly introduced vars will be accounted for
@@ -9162,20 +9251,20 @@ compile_body_specbody(Object,SpecTerm,WS,NULL,Code,BodyFrontList,Status) :-
 		%% Fold OidCode in front of frame
 		conjunct_code([AOidCode,ACode,WSCode],Code)
 	    ;
-	      compile_body_mvd_attspec(Object,AttObj,SpecType,ValTermList,WS,VOidCode,WSCode,BodyFrontList2,Status1),
-	      ( no_errors_found(Status1) -> 
-		  %% ACode: Code to produce attribute
-		  %% WSCode: code to produce pure attr specs and 
-		  %%         the objects that represents the values
-		  conjunct_code([AOidCode,VOidCode,ACode,WSCode],Code)
-	      ; true
-	      )
+                compile_body_mvd_attspec(Object,AttObj,SpecType,ValTermList,WS,VOidCode,WSCode,BodyFrontList2,Status1),
+                ( no_errors_found(Status1) -> 
+                    %% ACode: Code to produce attribute
+                    %% WSCode: code to produce pure attr specs and 
+                    %%         the objects that represents the values
+                    conjunct_code([AOidCode,VOidCode,ACode,WSCode],Code)
+                ; true
+                )
 	    ),
 	    append(S,Status1,Status),
 	    append(BodyFrontList1,BodyFrontList2,BodyFrontList)
         ;
-	  BodyFrontList = BodyFrontList1,
-	  Status=S
+            BodyFrontList = BodyFrontList1,
+            Status=S
         ).
 
 %% signatures: =>, *=>, etc.
@@ -9388,11 +9477,11 @@ compile_body_specbody(Object,SpecTerm,WS,NULL,Code,BodyFrontList,Status) :-
 
 
 /****************************************************************************
-  compile_body_mvd_attspec(+Object,+AttObj,+SpecType,+ValTermList,+Workspace,-OidCode,-Code,?BodyFrontList,-Status)
+compile_body_mvd_attspec(+Object,+AttObj,+SpecType,+ValTermList,+Workspace,-OidCode,-Code,?BodyFrontList,-Status)
 
-  SpecType: INHERITABLE/NONINHERITABLE
+SpecType: INHERITABLE/NONINHERITABLE
 
-  Compiles ->, etc., when it has one or more value terms
+Compiles ->, etc., when it has one or more value terms
 ****************************************************************************/
 compile_body_mvd_attspec(Object,AttObj,SpecType,[T],WS,OidCode,Code,BodyFrontList,Status) :-
 	!,
@@ -9422,12 +9511,12 @@ compile_body_mvd_attspec(Object,AttObj,SpecType,[T|L],WS,OidCode,Code,BodyFrontL
 	    ),
 	    append(BodyFrontList1,BodyFrontList2,BodyFrontList)
 	;
-	  Status=S
+            Status=S
         ).
 
 
 /****************************************************************************
-  compile_body_objeql(+Obj1,+Obj2,+Workspace,-OidCode,-Code,-BodyFrontList,-Status)
+compile_body_objeql(+Obj1,+Obj2,+Workspace,-OidCode,-Code,-BodyFrontList,-Status)
 ****************************************************************************/
 compile_body_objeql(Obj1,Obj2,WS,OidCode,Code,BodyFrontList,Status) :-
 	compile_body_pathexplist([Obj1,Obj2],WS,[O1,O2],OidCode,OCode,BodyFrontList,PathexpStatus),
@@ -9445,8 +9534,8 @@ compile_body_objeql(Obj1,Obj2,WS,OidCode,Code,BodyFrontList,Status) :-
 
 
 /****************************************************************************
-  compile_reifyop(+Formula,-Object,-OidCode,-Status)
-  Compiling ${...}
+compile_reifyop(+Formula,-Object,-OidCode,-Status)
+Compiling ${...}
 ****************************************************************************/
 /*
 compile_reifyop(Formula,Object,OidCode,Status) :-
@@ -9519,8 +9608,8 @@ convert_FLLIBMODLIT_to_FLLIBMODOBJ(LibType,Index,Args,LibModObjVar,PrLibModObj) 
 
 
 /****************************************************************************
-  compile_simple_primitive(+PrimName,+Args,+WS,-OidCode,-Code,-Status)
-  Compiles true{...}, false{...}, undefined{...}
+compile_simple_primitive(+PrimName,+Args,+WS,-OidCode,-Code,-Status)
+Compiles true{...}, false{...}, undefined{...}
 ****************************************************************************/
 compile_simple_primitive(PrimName,Args,WS,OidCode,Code,Status) :-
         approx_flindex(Args,PrimIndex),
@@ -9602,21 +9691,21 @@ check_textit_arguments(PrimIndex,Args,ErrorIssued,Status) :-
         ).
 
 /****************************************************************************
-  compile_truthvalue(+Form,+Op,-OidCode,-Code,-Status)
-  Compiles true{...}, false{...}, undefined{...}
+compile_truthvalue(+Form,+Op,-OidCode,-Code,-Status)
+Compiles true{...}, false{...}, undefined{...}
 ****************************************************************************/
 compile_truthvalue(Formula,Op,Code,Status) :-
 	atomobj_struct(Op,OpCode),
 	compile_body(Formula,FCode,Status),
 	!,
 	( no_errors_found(Status) -> 
-	   truthvalue_struct(FCode,OpCode,Code)
+            truthvalue_struct(FCode,OpCode,Code)
 	; true
 	).
 
 
 /****************************************************************************
-   compile_tag_primitive(+DescriptorParserTerm,?HeadList,-Code,-Status)
+compile_tag_primitive(+DescriptorParserTerm,?HeadList,-Code,-Status)
 ****************************************************************************/
 compile_tag_primitive(DescriptorParserTerm,HeadList,Code,Status) :-
 	compile_body_pathexp_top(DescriptorParserTerm,FL_THISMODULE,TagCode,_,_,[],S1),
@@ -9639,9 +9728,9 @@ compile_tag_primitive(DescriptorParserTerm,HeadList,Code,Status) :-
 
 
 /****************************************************************************
-   compile_prefixprimitive(+Prefix,+Expansion,+Module,-Code,-Status)
+compile_prefixprimitive(+Prefix,+Expansion,+Module,-Code,-Status)
 
-   Compiles the prefix{...} primitive.
+Compiles the prefix{...} primitive.
 ****************************************************************************/
 compile_prefixprimitive(Prefix,Expansion,Module,Code,Status) :-
 	(memberchk(Module,[NULL,FL_THISMODULE]) -> thismodule_struct(ModuleCode)
@@ -9656,9 +9745,9 @@ compile_prefixprimitive(Prefix,Expansion,Module,Code,Status) :-
 
 
 /****************************************************************************
-  compile_prologliblit(+ParserTerm,-OidCode,-Code,?BodyFrontList,-Status)
+compile_prologliblit(+ParserTerm,-OidCode,-Code,?BodyFrontList,-Status)
 
-  Compiles Prolog library call @\prolog
+Compiles Prolog library call @\prolog
 ****************************************************************************/
 compile_prologliblit(ParserTerm,OidCode,Code,BodyFrontList,Status) :-
 	( is_flterm(ParserTerm,Funct,N,Args) ->
@@ -9679,9 +9768,9 @@ compile_prologliblit(ParserTerm,OidCode,Code,BodyFrontList,Status) :-
 
 
 /*******************************************************************************
- compile_prologliblit(+ParserTerm,+Module,-OidCode,-Code,?BodyFrontList,-Status)
+compile_prologliblit(+ParserTerm,+Module,-OidCode,-Code,?BodyFrontList,-Status)
 
- Compiles Prolog library call @\prolog(module)
+Compiles Prolog library call @\prolog(module)
 *******************************************************************************/
 compile_prologliblit(ParserTerm,Module,OidCode,Code,BodyFrontList,Status) :-
 	( is_flterm(ParserTerm,Funct,N,Args) ->
@@ -9727,19 +9816,19 @@ compile_prologliblit(ParserTerm,Module,OidCode,Code,BodyFrontList,Status) :-
 	    %%directive_struct(ICode,DCode),
 	    %%report_directive(DCode)
 	;
-	  true
+            true
 	).
 */
 
 /*******************************************************************************
-  compile_prologallliblit(+ParserTerm,-OidCode,-Code,-BodyFrontList,-Status)
+compile_prologallliblit(+ParserTerm,-OidCode,-Code,-BodyFrontList,-Status)
 
-  Compiles Prolog library call @\prologall
+Compiles Prolog library call @\prologall
 *******************************************************************************/
 compile_prologallliblit(ParserTerm,OidCode,Code,BodyFrontList,Status) :-
 	compile_prologliblit(ParserTerm,OidCode,PrelimCode,BodyFrontList,Status1),
-	( % here PrelimCode is bound and we decompose it
-	  conjunct_struct(ACode,PrelimTermLitCode,PrelimCode) -> true
+	( %% here PrelimCode is bound and we decompose it
+            conjunct_struct(ACode,PrelimTermLitCode,PrelimCode) -> true
 	; PrelimCode = PrelimTermCode, ACode=NULL
 	),
 	!,
@@ -9762,14 +9851,14 @@ compile_prologallliblit(ParserTerm,OidCode,Code,BodyFrontList,Status) :-
 
 
 /*******************************************************************************
-  compile_prologallliblit(+ParserTerm,+Module,-OidCode,-Code,-BodyFrontList,-Status)
+compile_prologallliblit(+ParserTerm,+Module,-OidCode,-Code,-BodyFrontList,-Status)
 
-  Compiles Prolog library call @\prologall(module)
+Compiles Prolog library call @\prologall(module)
 *******************************************************************************/
 compile_prologallliblit(ParserTerm,Module,OidCode,Code,BodyFrontList,Status) :-
 	compile_prologliblit(ParserTerm,Module,OidCode,PrelimCode,BodyFrontList,Status1),
-	( % here PrelimCode is bound and we decompose it
-	  conjunct_struct(ACode,PrelimTermLitCode,PrelimCode) -> true
+	(  %% here PrelimCode is bound and we decompose it
+            conjunct_struct(ACode,PrelimTermLitCode,PrelimCode) -> true
 	; PrelimCode = PrelimTermLitCode, ACode=NULL
 	),
 	!,
@@ -9792,11 +9881,11 @@ compile_prologallliblit(ParserTerm,Module,OidCode,Code,BodyFrontList,Status) :-
 
 
 /*******************************************************************************
- compile_prologlibobj(+ParserTerm,-Object,-OidCode,-Code,?BodyFrontList,-Status)
+compile_prologlibobj(+ParserTerm,-Object,-OidCode,-Code,?BodyFrontList,-Status)
 
-  Compiles Prolog library call @\prolog in the arguments position
-  E.g., f(member(X,[a])@\prolog)
-  This feature might be useful for meta-programming.  
+Compiles Prolog library call @\prolog in the arguments position
+E.g., f(member(X,[a])@\prolog)
+This feature might be useful for meta-programming.  
 *******************************************************************************/
 compile_prologlibobj(ParserTerm,Object,OidCode,Code,BodyFrontList,Status) :-
 	( is_flterm(ParserTerm,Funct,N,Args) ->
@@ -9814,9 +9903,9 @@ compile_prologlibobj(ParserTerm,Object,OidCode,Code,BodyFrontList,Status) :-
 
 
 /*******************************************************************************
-  compile_prologlibobj(+ParserTerm,+Module,-Object,-OidCode,-Code,?BodyFrontList,-Status)
+compile_prologlibobj(+ParserTerm,+Module,-Object,-OidCode,-Code,?BodyFrontList,-Status)
 
-  Compiles Prolog library call @\prolog(module) in the arguments position
+Compiles Prolog library call @\prolog(module) in the arguments position
 *******************************************************************************/
 compile_prologlibobj(ParserTerm,Module,Object,OidCode,Code,BodyFrontList,Status) :-
 	( is_flterm(ParserTerm,Funct,N,Args) ->
@@ -9836,55 +9925,55 @@ compile_prologlibobj(ParserTerm,Module,Object,OidCode,Code,BodyFrontList,Status)
 
 
 /*******************************************************************************
-  compile_prologalllibobj(+ParserTerm,-Object,-OidCode,-Code-,?BodyFrontList,-Status)
+compile_prologalllibobj(+ParserTerm,-Object,-OidCode,-Code-,?BodyFrontList,-Status)
 
-  Compiles @\prologall in argument position, e.g., foo(f(...)@\prologall
+Compiles @\prologall in argument position, e.g., foo(f(...)@\prologall
 ******************************************************************************/
 compile_prologalllibobj(ParserTerm,Object,OidCode,Code,BodyFrontList,Status) :-
-	compile_prologlibobj(ParserTerm,PrelimObject,PrelimOidCode,PrelimCode,BodyFrontList,Status),
-	%% PrelimObject is bound and we decompose it
-	prologterm_struct(FunctCode,N,ArgsCode,PrelimObject),
-	new_prvarlist(N,NewVarList),
-	generate_convert_to_prolog_code(ArgsCode,NewVarList,ToPrologCode),
-	prologterm_struct(FunctCode,N,NewVarList,Object),
-	generate_convert_from_prolog_code(ArgsCode,NewVarList,FromPrologCode),
-	conjunct_code([ToPrologCode,PrelimOidCode],OidCode),
-	conjunct_code([FromPrologCode,PrelimCode],Code).
+        compile_prologlibobj(ParserTerm,PrelimObject,PrelimOidCode,PrelimCode,BodyFrontList,Status),
+        %% PrelimObject is bound and we decompose it
+        prologterm_struct(FunctCode,N,ArgsCode,PrelimObject),
+        new_prvarlist(N,NewVarList),
+        generate_convert_to_prolog_code(ArgsCode,NewVarList,ToPrologCode),
+        prologterm_struct(FunctCode,N,NewVarList,Object),
+        generate_convert_from_prolog_code(ArgsCode,NewVarList,FromPrologCode),
+        conjunct_code([ToPrologCode,PrelimOidCode],OidCode),
+        conjunct_code([FromPrologCode,PrelimCode],Code).
 
 /****************************************************************************
-  compile_prologalllibobj(+ParserTerm,+Module,-Object,-OidCode,-Code,?BodyFrontList,-Status)
+compile_prologalllibobj(+ParserTerm,+Module,-Object,-OidCode,-Code,?BodyFrontList,-Status)
 
-  Compiles @\prologall(module) in argument position,
-  e.g., foo(f(...)@\prologall(module)
+Compiles @\prologall(module) in argument position,
+e.g., foo(f(...)@\prologall(module)
 ***************************************************************************/
-compile_prologalllibobj(ParserTerm,Module,Object,OidCode,Code,BodyFrontList,Status) :-
-	compile_prologlibobj(ParserTerm,Module,PrelimObject,PrelimOidCode,PrelimCode,BodyFrontList,Status),
-	%% PrelimObject is bound and we decompose it
-	prologterm_struct(FunctCode,N,ArgsCode,PrelimObject),
-	new_prvarlist(N,NewVarList),
-	generate_convert_to_prolog_code(ArgsCode,NewVarList,ToPrologCode),
-	prologterm_struct(FunctCode,N,NewVarList,Object),
-	generate_convert_from_prolog_code(ArgsCode,NewVarList,FromPrologCode),
-	conjunct_code([ToPrologCode,PrelimOidCode],OidCode),
-	conjunct_code([PrelimCode,FromPrologCode],Code).
+         compile_prologalllibobj(ParserTerm,Module,Object,OidCode,Code,BodyFrontList,Status) :-
+         compile_prologlibobj(ParserTerm,Module,PrelimObject,PrelimOidCode,PrelimCode,BodyFrontList,Status),
+          %% PrelimObject is bound and we decompose it
+          prologterm_struct(FunctCode,N,ArgsCode,PrelimObject),
+          new_prvarlist(N,NewVarList),
+          generate_convert_to_prolog_code(ArgsCode,NewVarList,ToPrologCode),
+                                                               prologterm_struct(FunctCode,N,NewVarList,Object),
+          generate_convert_from_prolog_code(ArgsCode,NewVarList,FromPrologCode),
+          conjunct_code([ToPrologCode,PrelimOidCode],OidCode),
+          conjunct_code([PrelimCode,FromPrologCode],Code).
 
 
-/*******************************************************************************
-  compile_prlgterm(+FunctTerm,+Arity,+ArgList,-Object,-OidCode,-Code,?BodyFrontList,-Status)
-  compile_prlgterm(+FunctTerm,+Arity,+ArgList,+PlgModule,-Object,-OidCode,-Code,?BodyFrontList,-Status)
-  
- BodyFrontList - code to add at the beginning of the body
-                 (mostly for user defined fnctions),
-		 it is output argument, but if it is initialized to
-		 empty ([]) ignores user defined functions
+                                                              /*******************************************************************************
+compile_prlgterm(+FunctTerm,+Arity,+ArgList,-Object,-OidCode,-Code,?BodyFrontList,-Status)
+compile_prlgterm(+FunctTerm,+Arity,+ArgList,+PlgModule,-Object,-OidCode,-Code,?BodyFrontList,-Status)
+
+BodyFrontList - code to add at the beginning of the body
+(mostly for user defined fnctions),
+it is output argument, but if it is initialized to
+empty ([]) ignores user defined functions
 *******************************************************************************/
 compile_prlgterm(Funct,N,Args,Object,OidCode,Code,BodyFrontList,Status) :-
-	atomobj_struct(Funct,FObj),
-	prologterm_struct(FObj,N,AObj,Object),
-	push_context(CONTEXT_COMPILER_NO_SYMBOL_CHECK),
-	compile_body_pathexplist(Args,FL_THISMODULE,AObj,OidCode,Code,BodyFrontList,Status),
-	pop_context(CONTEXT_COMPILER_NO_SYMBOL_CHECK),
-	!.
+        atomobj_struct(Funct,FObj),
+        prologterm_struct(FObj,N,AObj,Object),
+        push_context(CONTEXT_COMPILER_NO_SYMBOL_CHECK),
+        compile_body_pathexplist(Args,FL_THISMODULE,AObj,OidCode,Code,BodyFrontList,Status),
+        pop_context(CONTEXT_COMPILER_NO_SYMBOL_CHECK),
+        !.
 
 %% Generate prolog term with module prefix
 compile_prlgterm(Funct,N,Args,Module,Object,OidCode,Code,BodyFrontList,Status) :-
@@ -9895,7 +9984,7 @@ compile_prlgterm(Funct,N,Args,Module,Object,OidCode,Code,BodyFrontList,Status) :
 	pop_context(CONTEXT_COMPILER_NO_SYMBOL_CHECK).
 
 /*******************************************************************************
-   generate_convert_to_prolog_code(+AObjList,+VarList,-Code)
+generate_convert_to_prolog_code(+AObjList,+VarList,-Code)
 *******************************************************************************/
 generate_convert_to_prolog_code([],_,NULL).
 
@@ -9904,9 +9993,9 @@ generate_convert_to_prolog_code([AObjH|AObjT],[VarH|VarT],Code) :-
 	%% P2H_DONOT_UNIFY_VARS - do not unify when both arguments are vars
 	%%prologterm_struct(FlP2H,4,[VarH,AObjH,WRAP_HILOG,P2H_DONOT_UNIFY_VARS],CodeH),
 	/* Previously we used P2H_DONOT_UNIFY_VARS here, but this meant that,
-	   for example     ?- write(f(?X,?X))@\prologall.
-           will print the two versions of ?Y as different vars.
-           Do not know why P2H_DONOT_UNIFY_VARS was used here before.
+        for example     ?- write(f(?X,?X))@\prologall.
+will print the two versions of ?Y as different vars.
+Do not know why P2H_DONOT_UNIFY_VARS was used here before.
 	*/
 	prologterm_struct(FlP2H,4,[VarH,AObjH,WRAP_HILOG,P2H_DONOT_UNIFY_VARS],CodeH),
 	%%prologterm_struct(FlP2H,4,[VarH,AObjH,WRAP_HILOG,P2H_UNIFY_VARS],CodeH),
@@ -9914,7 +10003,7 @@ generate_convert_to_prolog_code([AObjH|AObjT],[VarH|VarT],Code) :-
 	conjunct_struct(CodeH,CodeT,Code).
 
 /*******************************************************************************
-   generate_convert_from_prolog_code(+AObjList,+VarList,-Code)
+generate_convert_from_prolog_code(+AObjList,+VarList,-Code)
 *******************************************************************************/
 generate_convert_from_prolog_code([],_,NULL).
 
@@ -9924,13 +10013,13 @@ generate_convert_from_prolog_code([AObjH|AObjT],[VarH|VarT],Code) :-
 	prologterm_struct(FlP2H,4,[VarH,AObjH,WRAP_HILOG,P2H_UNIFY_VARS],CodeH),
 	generate_convert_from_prolog_code(AObjT,VarT,CodeT),
 	conjunct_struct(CodeH,CodeT,Code).
-		
+
 
 /*******************************************************************************
-  compile_head_floraliblit(+ParserTerm,+Workspace,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_floraliblit(+ParserTerm,+Workspace,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
 
-  This procedure compiles a head literal associated with a Flora system
-  module specification.
+This procedure compiles a head literal associated with a Flora system
+module specification.
 *******************************************************************************/
 compile_head_floraliblit(ParserTerm,WS,Code,H2BCodeFront,H2BCodeBack,Status) :-
 	%% Flora system modules are like normal user modules except that
@@ -9943,15 +10032,15 @@ compile_head_floraliblit(ParserTerm,WS,Code,H2BCodeFront,H2BCodeBack,Status) :-
 
 
 /*******************************************************************************
-  compile_head_literal_top(+ParserTerm,+Workspace,-HeadLitCode,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_literal_top(+ParserTerm,+Workspace,-HeadLitCode,-H2BCodeFront,-H2BCodeBack,-Status)
 
-  HeadLitCode is the main code for the literal.
-              Note: set arguments are treated by the parser, so they don't
-	      appear in the head. But they can appear in the body.
-  H2BCodeFront - code passed from head to body, which is supposed to be
-                 prepended to the code of the body
-  H2BCodeBack - code passed from head to body, which is supposed to be
-                appended to the code of the body
+HeadLitCode is the main code for the literal.
+Note: set arguments are treated by the parser, so they don't
+appear in the head. But they can appear in the body.
+H2BCodeFront - code passed from head to body, which is supposed to be
+prepended to the code of the body
+H2BCodeBack - code passed from head to body, which is supposed to be
+appended to the code of the body
 *******************************************************************************/
 compile_head_literal_top(ParserTerm,WS,HeadLitCode,H2BCodeFront,H2BCodeBack,Status) :-
         set_context(CONTEXT_COMPILER_HEADLITERAL),
@@ -10041,7 +10130,7 @@ compile_head_literal(ParserTerm,WS,HeadLitCode,NULL,NULL,Status) :-
 	(WSStatus == NO_ERRORS -> Status = SymbolStatus
 	; append(SymbolStatus,WSStatus,Status)
 	).
-	
+
 compile_head_literal(ParserTerm,WS,HeadLitCode,NULL,NULL,Status) :-
 	is_fltransactionalatom(ParserTerm,_A),
 	!,
@@ -10071,7 +10160,7 @@ compile_head_literal(ParserTerm,_WS,_HeadLitCode,_H2BFrnt,_H2BBck,[Err]) :-
 
 
 /****************************************************************************
-  compile_head_pathexplist(+ParserTermList,+WS,-ObjectList,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_pathexplist(+ParserTermList,+WS,-ObjectList,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
 ****************************************************************************/
 compile_head_pathexplist([],_WS,[],NULL,NULL,NULL,NO_ERRORS) :- !.
 
@@ -10089,18 +10178,18 @@ compile_head_pathexplist([T|L],WS,[TObj|LObj],Code,H2BCodeFront,H2BCodeBack,Stat
 		conjunct_struct(TH2BCodeBack,LH2BCodeBack,H2BCodeBack),
 		append(S,S2,Status)
 	    ;
-		Status=S2
+		Status=Stat2
 	    )
 	;
-	  Status=S
+            Status=S
         ),
 	!.
 
 
 /*******************************************************************************
-  compile_head_pathexp(+ParserTerm,+WS,-Object,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_pathexp(+ParserTerm,+WS,-Object,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
 
-  Path expression in rule head
+Path expression in rule head
 
 *******************************************************************************/
 compile_head_pathexp(ParserTerm,WS,Object,NULL,NULL,NULL,Status) :-
@@ -10245,11 +10334,11 @@ compile_head_pathexp(ParserTerm,_WS,Object,NULL,H2BCodeFront,NULL,Status) :-
 	!,
 	%% Code: code to get Object
 	/* We push fllibmodobj, creating a reified statement,
-	   to the body. This allows us to have reified statements with
-	   var module in the head. For instance,
-	    p(${a(?X)@?M}) :- a(?X,?M).
-	    a(1,mmm).
-	    ?- p(${a(?X)@mmm}).
+        to the body. This allows us to have reified statements with
+        var module in the head. For instance,
+        p(${a(?X)@?M}) :- a(?X,?M).
+a(1,mmm).
+?- p(${a(?X)@mmm}).
 	*/
 	%% If H2BCodeFront != NULL, it means that head-reification could
 	%% not be fully computed due to a var in the module or literal
@@ -10291,7 +10380,7 @@ compile_head_pathexp(ParserTerm,_WS,_Obj,_Code,_H2BFrnt,_H2BBck,[Err]) :-
 
 
 /****************************************************************************
-  compile_head_termobj(+FunctorTerm,+Arity,+ArgList,+WS,-Object,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_termobj(+FunctorTerm,+Arity,+ArgList,+WS,-Object,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
 
 ****************************************************************************/
 compile_head_termobj(Funct,N,Args,WS,Object,Code,H2BCodeFront,H2BCodeBack,CompileStatus) :-
@@ -10339,7 +10428,7 @@ compile_head_termobj(Funct,N,Args,WS,Object,Code,H2BCodeFront,H2BCodeBack,Compil
 
 
 /****************************************************************************
-  compile_head_termlit(+FunctorTerm,+Arity,+ArgList,+WS,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_termlit(+FunctorTerm,+Arity,+ArgList,+WS,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
 ****************************************************************************/
 compile_head_termlit(Funct,N,Args,WS,Code,H2BCodeFront,H2BCodeBack,CompileStatus) :-
 	verify_symbol_context(Funct,N,WS,PREDICATE_SYMBOL,NONTRANSACTIONAL_SYMBOL,SymbolStatus),
@@ -10378,7 +10467,7 @@ compile_head_transactional_termlit(Funct,N,Args,WS,Code,H2BCodeFront,H2BCodeBack
 
 
 /****************************************************************************
-  compile_head_list_obj(+ObjTermList,+ObjTerm,+Index,+WS,-Object,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_list_obj(+ObjTermList,+ObjTerm,+Index,+WS,-Object,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
 ****************************************************************************/
 compile_head_list_obj(ObjTermList,ObjTerm,Index,WS,Object,Code,H2BCodeFront,H2BCodeBack,Status) :-
 	compile_head_pathexplist(ObjTermList,WS,ObjList,ObjListCode,ObjListH2BCodeFront,ObjListH2BCodeBack,S),
@@ -10391,7 +10480,7 @@ compile_head_list_obj(ObjTermList,ObjTerm,Index,WS,Object,Code,H2BCodeFront,H2BC
 		ObjH2BCodeBack=NULL,
 		Status1 = NO_ERRORS
 	    ;
-	      compile_head_pathexp(ObjTerm,WS,Obj,ObjCode,ObjH2BCodeFront,ObjH2BCodeBack,Status1)
+                compile_head_pathexp(ObjTerm,WS,Obj,ObjCode,ObjH2BCodeFront,ObjH2BCodeBack,Status1)
 	    ),
             !,
 	    ( no_errors_found(Status1) -> 
@@ -10400,18 +10489,18 @@ compile_head_list_obj(ObjTermList,ObjTerm,Index,WS,Object,Code,H2BCodeFront,H2BC
 		conjunct_struct(ObjListH2BCodeFront,ObjH2BCodeFront,H2BCodeFront),
 		conjunct_struct(ObjListH2BCodeBack,ObjH2BCodeBack,H2BCodeBack)
 	    ;
-	      true
+                true
 	    ),
 	    append(S,Status1,Status)
 	;
-	  Status=S
+            Status=S
         ),
 	!.
 
 
 /****************************************************************************
-  compile_head_objref(+ObjT,+SpecType,+AttT,+WS,-Object,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
-  SpecType: INHERITABLE/NONINHERITABLE
+compile_head_objref(+ObjT,+SpecType,+AttT,+WS,-Object,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+SpecType: INHERITABLE/NONINHERITABLE
 ****************************************************************************/
 compile_head_objref(ObjTerm,SpecType,AttTerm,WS,Object,Code,H2BCodeFront,H2BCodeBack,Status) :-
 	compile_head_pathexplist([ObjTerm,AttTerm],WS,[Obj,Att],OACode,OAH2BCodeFront,OAH2BCodeBack,PathexpStatus),
@@ -10433,7 +10522,7 @@ compile_head_objref(ObjTerm,SpecType,AttTerm,WS,Object,Code,H2BCodeFront,H2BCode
 
 
 /****************************************************************************
-  compile_head_bin_relation(+OT1,+RelType,+OT2,+WS,-Object,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_bin_relation(+OT1,+RelType,+OT2,+WS,-Object,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
 ****************************************************************************/
 compile_head_bin_relation(ObjTerm1,RelType,ObjTerm2,WS,Obj1,Code,H2BCodeFront,H2BCodeBack,Status) :-
 	compile_head_pathexplist([ObjTerm1,ObjTerm2],WS,[Obj1,Obj2],OCode,H2BCodeFront,H2BCodeBack,PathexpStatus),
@@ -10451,12 +10540,12 @@ compile_head_bin_relation(ObjTerm1,RelType,ObjTerm2,WS,Obj1,Code,H2BCodeFront,H2
 
 
 /****************************************************************************
-  compile_head_objspec(+SpecBody,+ObjTerm,+WS,-Object,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_objspec(+SpecBody,+ObjTerm,+WS,-Object,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
 ****************************************************************************/
 compile_head_objspec(SpecBody,ObjTerm,WS,Object,Code,H2BCodeFront,H2BCodeBack,Status) :-
-	%% TODO: check if SpecBody can be a var. If not, we could optimize
-	%% by splitting this into 2 clauses and putting [] in place of SpecBody
-	%% in the rule head.
+	%% TODO: check if SpecBody can be a var. If not, we could
+        %% optimize by splitting this into 2 clauses and putting
+        %% [] in place of SpecBody in the rule head.
 	( SpecBody == [] ->
 	    ( is_flobjref(ObjTerm,OTerm,ATerm,SpecType) ->
 		compile_head_objref(OTerm,SpecType,ATerm,WS,Object,Code,H2BCodeFront,H2BCodeBack,Status)
@@ -10475,7 +10564,7 @@ compile_head_objspec(SpecBody,ObjTerm,WS,Object,Code,H2BCodeFront,H2BCodeBack,St
 		)
 	    )
 	;
-	  compile_head_pathexp(ObjTerm,WS,Object,ObjCode,ObjH2BCodeFront,ObjH2BCodeBack,S),
+            compile_head_pathexp(ObjTerm,WS,Object,ObjCode,ObjH2BCodeFront,ObjH2BCodeBack,S),
             !,
             ( no_errors_found(S) -> 
                 compile_head_specbody(SpecBody,Object,WS,SCode,SH2BCodeFront,SH2BCodeBack,Status1),
@@ -10494,7 +10583,7 @@ compile_head_objspec(SpecBody,ObjTerm,WS,Object,Code,H2BCodeFront,H2BCodeBack,St
 
 
 /****************************************************************************
-  compile_head_specbody(+SpecTerm,+Object,+WS,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_specbody(+SpecTerm,+Object,+WS,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
 ****************************************************************************/
 compile_head_specbody(SpecTerm,Object,_WS,Code,H2BCodeFront,H2BCodeBack,Status) :-
 	is_flworkspace(SpecTerm,Spec,SpecWS),
@@ -10515,7 +10604,7 @@ compile_head_specbody(SpecTerm,Object,WS,Code,H2BCodeFront,H2BCodeBack,Status) :
 	    ; true
 	    )
 	;
-	  Status=S
+            Status=S
         ),
 	!.
 
@@ -10542,7 +10631,7 @@ compile_head_specbody(SpecTerm,Object,WS,Code,H2BCodeFront,H2BCodeBack,Status) :
 		H2BCodeFront=AH2BCodeFront,
 		H2BCodeBack=AH2BCodeBack
 	    ;
-	      compile_head_mvd_attspec(Object,AObj,SpecType,VL,WS,VCode,VH2BCodeFront,VH2BCodeBack,Status1),
+                compile_head_mvd_attspec(Object,AObj,SpecType,VL,WS,VCode,VH2BCodeFront,VH2BCodeBack,Status1),
                 !,
                 ( no_errors_found(Status1) -> 
                     conjunct_struct(ACode,VCode,Code),
@@ -10554,7 +10643,7 @@ compile_head_specbody(SpecTerm,Object,WS,Code,H2BCodeFront,H2BCodeBack,Status) :
 	    ),
 	    append(S,Status1,Status)
         ;
-	  Status=S
+            Status=S
         ),
 	!.
 
@@ -10714,7 +10803,7 @@ compile_head_specbody(SpecTerm,Object,WS,Code,H2BCodeFront,H2BCodeBack,Status) :
 	!.
 
 /*******************************************************************************
-  compile_head_mvd_attspec(+Object,+AttObj,+SpecType,+VL,+WS,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_mvd_attspec(+Object,+AttObj,+SpecType,+VL,+WS,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
 *******************************************************************************/
 compile_head_mvd_attspec(_Obj,_AttObj,_SpecType,[],_WS,NULL,NULL,NULL,NO_ERRORS) :- !.
 
@@ -10737,18 +10826,16 @@ compile_head_mvd_attspec(Object,AttObj,SpecType,[T|L],WS,Code,H2BCodeFront,H2BCo
 	    ),
 	    append(S,Status1,Status)
 	;
-	  Status=S
+            Status=S
         ),
 	!.
 
 
 /****************************************************************************
-  compile_head_objeql(+Obj1,+Obj2,+Workspace,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_objeql(+Obj1,+Obj2,+Workspace,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
 
-  H2BCodeFront - code passed from head to body, which is supposed to be
-                 prepended to the code of the body
-  H2BCodeBack - code passed from head to body, which is supposed to be
-                appended to the code of the body
+H2BCodeFront - code passed from head to body, which is supposed to be prepended to the code of the body
+H2BCodeBack - code passed from head to body, which is supposed to be appended to the code of the body
 ****************************************************************************/
 compile_head_objeql(Obj1,Obj2,WS,Code,H2BCodeFront,H2BCodeBack,Status) :-
 	compile_head_pathexplist([Obj1,Obj2],WS,[O1,O2],OCode,H2BCodeFront,H2BCodeBack,PathexpStatus),
@@ -10770,12 +10857,12 @@ compile_head_objeql(Obj1,Obj2,WS,Code,H2BCodeFront,H2BCodeBack,Status) :-
 	!.
 
 /****************************************************************************
-  compile_head_neg(+PosPart,+WS,+Idx,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
+compile_head_neg(+PosPart,+WS,+Idx,-Code,-H2BCodeFront,-H2BCodeBack,-Status)
 
-  H2BCodeFront - code passed from head to body, which is supposed to be
-                 prepended to the code of the body
-  H2BCodeBack - code passed from head to body, which is supposed to be
-                appended to the tail of the code of the body
+H2BCodeFront - code passed from head to body, which is supposed to be
+prepended to the code of the body
+H2BCodeBack - code passed from head to body, which is supposed to be
+appended to the tail of the code of the body
 ****************************************************************************/
 compile_head_neg(PosPart,WS,Idx,Code,H2BCodeFront,H2BCodeBack,Status) :-
 	compile_head_literal_top(PosPart,WS,PosCode,H2BCodeFront,H2BCodeBack,S),
@@ -10797,7 +10884,7 @@ compile_head_neg(PosPart,WS,Idx,Code,H2BCodeFront,H2BCodeBack,Status) :-
 
 
 /****************************************************************************
-  compile_insert(+Op,+List,+Cond,-Code,-Status)
+compile_insert(+Op,+List,+Cond,-Code,-Status)
 ****************************************************************************/
 compile_insert(Op,List,Cond,Code,Status) :-
 	compile_insert_literals(List,CodeList,S),
@@ -10809,19 +10896,19 @@ compile_insert(Op,List,Cond,Code,Status) :-
 		list_struct(CodeList,[],ListCode),
 		insert_struct(Op,ListCode,CondCode,Code)
 	    ;
-	      true
+                true
 	    ),
 	    append(S,Status1,Status)
 	;
-	  Status=S
+            Status=S
         ),
 	!.
 
 /*******************************************************************************
-  compile_insert(+Op,+List,-Code,Status)
-  NOTE: When inserting rules, we check for singleton/unsafe variables
-        at runtime in flrdynrule.P.
-        When inserting facts, we do not check for these variables at run time.
+compile_insert(+Op,+List,-Code,Status)
+NOTE: When inserting rules, we check for singleton/unsafe variables
+at runtime in flrdynrule.P.
+When inserting facts, we do not check for these variables at run time.
 *******************************************************************************/
 compile_insert(Op,List,Code,Status) :-
 	compile_insert_literals(List,CodeList,Status),
@@ -10833,13 +10920,13 @@ compile_insert(Op,List,Code,Status) :-
 	    get_dynrule_varlist(VarList),
 	    add_dynrule_attr_code(VarList,Code1,Code)
 	;
-	  true
+            true
         ),
 	!.
 
 
 /****************************************************************************
-  compile_insert_literals(+List,-DBCodeList,-Status)
+compile_insert_literals(+List,-DBCodeList,-Status)
 ****************************************************************************/
 compile_insert_literals(List,DBCodeList,Status) :-
 	set_context(CONTEXT_COMPILER_UPDATE_LITERALS),
@@ -10855,9 +10942,9 @@ compile_insert_literals(List,DBCodeList,Status) :-
 
 
 /****************************************************************************
-  compile_insert_litlist(+List,-Code,-Status)
+compile_insert_litlist(+List,-Code,-Status)
 
-  Code is the conjunctions of atoms to be inserted.
+Code is the conjunctions of atoms to be inserted.
 ****************************************************************************/
 compile_insert_litlist([],NULL,NO_ERRORS) :- !.
 
@@ -10875,7 +10962,7 @@ compile_insert_litlist([H|T],Code,Status) :-
 	    ),
 	    append(S,Status1,Status)
 	;
-	  Status=S
+            Status=S
 	),
 	!.
 
@@ -10905,25 +10992,35 @@ compile_insert_litlist([HWS|T],Code,Status) :-
 		compile_insert_litlist(T,TCode,S2),
                 !,
 		( no_errors_found(S2) -> 
-		   conjunct_struct(HeadCode1,TCode,Code)
+                    conjunct_struct(HeadCode1,TCode,Code)
 		; true
 		),
 		append(S,S2,Status)
 
-	    ;   %%%% Fact must be converted to rule
+	    ; %%%% Fact must be converted to rule
                 %% arrange for dynrule variables
+               %%%% writeln(2,oldhead=H),
+                flvar_list_to_PRNamedVarPairs(HeadCode1,HVL),
+               %%%% writeln(2,newhead=H+HVL),
+                /*
                 new_prvariable(NO_INDEX,HVL),
-                new_prvariable(NO_INDEX,BVL),
                 collect_name_var_pairs(H,HeadVars),
                 list_struct(HeadVars,[],HVLValue),
                 (HeadVars==[] -> true
                 ; report_dynrule_varlist(HVL,HVLValue)
                 ),
+                */
+               %%%% writeln(2,newbody=[]),
+                flvar_list_to_PRNamedVarPairs([],BVL),
+               %%%% writeln(2,newbody=[]+BVL),
+                /*
+                new_prvariable(NO_INDEX,BVL),
                 collect_name_var_pairs([],BodyVars),
                 list_struct(BodyVars,[],BVLValue),
                 (BodyVars==[] -> true
                 ; report_dynrule_varlist(BVL,BVLValue)
                 ),
+                */
 		%% Head literal contains a path expr, so it becomes a rule.
 		%% Treat it as a dynamically inserted rule.
 
@@ -10951,13 +11048,25 @@ compile_insert_litlist([HWS|T],Code,Status) :-
 		list_struct([H2BCodeFront],[],H2BCodeFrontList),
 		list_struct([H2BCodeBack],[],H2BCodeBackList),
 		list_struct([PostBody],[],PostBodyList),
+               %%%% writeln(2,descrvarsterm=DescrVarsTerm),
+                get_descr_flvar_weeded(DescrVarsTerm,DescrFLVars),
+               %%%% writeln(2,descrvarstermOUT=DescrFLVars),
+                /*
+                collect_name_var_pairs(DescrFLVars,NamedDescrVarsList),
+                list_struct(NamedDescrVarsList,[],NamedDescrVarsListCode),
+                */
+                flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL),
+                %% for compile_insert_litlist
 		florasyslib_struct(FLSYSRULEUPDATE,15,
-				   [DescrIdCode,FileName,DescrVarsTerm,
+				   [DescrIdCode,
+                                    FileName,
+                                    %%DescrVarsTerm,
+                                    DescrVL,
 				    StmtNum,MetaFactCode,
 				    HeadCodeList,
-				    FL_TRUE,  %% Body
+				    FL_TRUE, %% Body
 				    HVL,BVL,
-				    FL_TRUE,  %% DTvarscode
+				    FL_TRUE, %% DTvarscode
 				    H2BCodeFrontList,H2BCodeBackList,
 				    PreBody,
 				    PostBodyList,
@@ -10979,9 +11088,9 @@ compile_insert_litlist([HWS|T],Code,Status) :-
 
 
 /****************************************************************************
-  compile_delete(+Op,+List,+Cond,-Code,-Status)
+compile_delete(+Op,+List,+Cond,-Code,-Status)
 
-  for delete operations with a condition.
+for delete operations with a condition.
 ****************************************************************************/
 compile_delete(Op,List,Cond,Code,Status) :-
 	compile_delete_literals(List,CodeList,S),
@@ -10993,19 +11102,19 @@ compile_delete(Op,List,Cond,Code,Status) :-
 		list_struct(CodeList,[],ListCode),
 		delete_struct(Op,ListCode,CondCode,Code)
 	    ;
-	      true
+                true
 	    ),
 	    append(S,Status1,Status)
 	;
-	  Status=S
+            Status=S
         ),
 	!.
 
 
 /****************************************************************************
-  compile_delete(+Op,+List,-Code,-Status)
+compile_delete(+Op,+List,-Code,-Status)
 
-  for delete operations without a condition.
+for delete operations without a condition.
 ****************************************************************************/
 compile_delete(Op,List,Code,Status) :-
 	compile_delete_literals(List,CodeList,Status),
@@ -11014,12 +11123,12 @@ compile_delete(Op,List,Code,Status) :-
 	    list_struct(CodeList,[],ListCode),
 	    delete_struct(Op,ListCode,Code)
 	;
-	  true
+            true
         ).
 
 
 /****************************************************************************
-  compile_delete_literals(+List,-DBCodeList,-Status)
+compile_delete_literals(+List,-DBCodeList,-Status)
 ****************************************************************************/
 compile_delete_literals(List,DBCodeList,Status) :-
 	set_context(CONTEXT_COMPILER_UPDATE_LITERALS),
@@ -11037,7 +11146,7 @@ compile_delete_literals(List,DBCodeList,Status) :-
 
 
 /****************************************************************************
-  compile_delete_litlist(+List,-CodeList,-Status)
+compile_delete_litlist(+List,-CodeList,-Status)
 ****************************************************************************/
 compile_delete_litlist([],[],NO_ERRORS) :- !.
 
@@ -11060,7 +11169,7 @@ compile_delete_litlist([H|T],CodeList,Status) :-
 	    ; true
 	    )
 	;
-	  Status=S
+            Status=S
         ),
 	!.
 
@@ -11079,7 +11188,7 @@ compile_delete_litlist([H|T],CodeList,Status) :-
 	    ; true
 	    )
 	;
-	  Status=S
+            Status=S
 	),
 	!.
 
@@ -11120,23 +11229,39 @@ compile_delete_litlist([HWS|T],CodeList,Status) :-
 		get_current_stmt_number_for_descriptor(RuleIdx,StmtNum),
 		DefaultMetaFactDiffList = DefaultMetaFactList - [],
 		list_struct(DefaultMetaFactList,[],MetaFactCode),
-		list_struct([],[],EmptyListCode), %% empty list
                 (HOidCode==NULL ->
                     list_struct(LitFrontListCode,[],H2BCodeFrontList)
                 ;
                     list_struct([HOidCode|LitFrontListCode],[],H2BCodeFrontList)
                 ),
 		list_struct([NULL],[],H2BCodeBackList),
-		HVL = EmptyListCode,
-		BVL = EmptyListCode,
+
+		%%list_struct([],[],EmptyListCode), %% empty list
+		%%HVL = EmptyListCode,
+		%%BVL = EmptyListCode,
+                flvar_list_to_PRNamedVarPairs(H1,HVL),
+                flvar_list_to_PRNamedVarPairs([],BVL),
+                get_descr_flvar_weeded(DescrVarsTerm,DescrFLVars),
+                /*
+                %% NamedDescrVarsList is supposed to be [] here
+                collect_name_var_pairs(DescrFLVars,NamedDescrVarsList),
+                list_struct(NamedDescrVarsList,[],NamedDescrVarsListCode),
+                */
+           %%%% writeln(2,aaa999=DescrFLVars),
+                flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL),
+           %%%% writeln(2,bbb=DescrVL),
+                %% for compile_delete_litlist
 		florasyslib_struct(FLSYSRULEUPDATE,15,
-				   [DescrIdCode,FileName,DescrVarsTerm,
+				   [DescrIdCode,
+                                    FileName,
+                                    %%DescrVarsTerm,
+                                    DescrVL,
 				    StmtNum,
 				    MetaFactCode,
 				    HeadCodeList,
-				    FL_TRUE,  %% Body
+				    FL_TRUE, %% Body
 				    HVL,BVL,
-				    FL_TRUE,  %% DTvarscode
+				    FL_TRUE, %% DTvarscode
 				    H2BCodeFrontList,H2BCodeBackList,
 				    PreBody,
 				    PostBodyList,
@@ -11154,23 +11279,23 @@ compile_delete_litlist([HWS|T],CodeList,Status) :-
 		; CodeList = [HWSCode|TCodeList]
 		),
 		append(S,S2,Status)
-	    ; Status=S2
+	    ; Status=Stat2
 	    )
 	;
-	  Status=S
+            Status=S
         ),
 	!.
 
 
 /****************************************************************************
-  compile_dbupdate_list(+CodeList,-DBCodeList)
+compile_dbupdate_list(+CodeList,-DBCodeList)
 
-  This predicate processes the list of literals in a DB update. For each
-  literal, it adds the name of the storage trie for the module.
+This predicate processes the list of literals in a DB update. For each
+literal, it adds the name of the storage trie for the module.
 
-  Note: a DB update can only update a Flora user module or the update's
-        host module. If a Flora system module allows update,
-	it must provide an update interface.
+Note: a DB update can only update a Flora user module or the update's
+host module. If a Flora system module allows update,
+it must provide an update interface.
 ****************************************************************************/
 compile_dbupdate_list([],[]) :- !.
 
@@ -11202,7 +11327,7 @@ compile_dbupdate_list([C|CL],[DBCode|DBCodeList]) :-
 	compile_dbupdate_list(CL,DBCodeList).
 
 /****************************************************************************
-  compile_updaterule(+Op,+List,-Code,-Status)
+compile_updaterule(+Op,+List,-Code,-Status)
 ****************************************************************************/
 compile_updaterule(Op,List,Code,Status) :-
 	is_flatom(Op,OpAtom,Index),
@@ -11249,6 +11374,8 @@ compile_dynrule(_Op,R,RCode,Status) :-
 %%       are not allowed to be dynamic in FLORA-2.
 compile_dynrule(Op,R,RCode,Status) :-
 	is_fldynrule(R,Head,Body,DescriptorList),
+       %%%% writeln(2,1111=Head),
+       %%%% writeln(2,aa11=DescriptorList),
 	approx_flindex(R,RuleIdx),
 	%% If delete op: default rule id descriptor should be Var
 	%% and shouldn't generate the rule enabling metafact.
@@ -11259,7 +11386,7 @@ compile_dynrule(Op,R,RCode,Status) :-
 	; DescrMode = FL_DESCRMODE_DYNRULE
 	),
 	compile_descriptor_list(DescriptorList-RuleIdx,DescrMode,DescrIdCode,DescrVarsTerm,MetaFactDiffList,DescriptorStatus),
-                %%writeln(aaaaDescr=DescriptorList),
+        %%writeln(2,wwww=DescrVarsTerm+DescrIdCode+DescriptorStatus),
         !,
 	( no_errors_found(DescriptorStatus) -> 
 	    (is_fllatent_query(Body,RealBody) ->
@@ -11289,14 +11416,18 @@ compile_dyn_latent_query(Op,DescrIdCode,MetaFactDiffList,Body,LatentQuerySigCode
             remove_nonuser_prvars(DescrPRVarList_pre,DescrPRVarList),
             prvar_to_flvar_struct_list(DescrPRVarList,DescrFLVars),
 
-	    new_prvariable(NO_INDEX,BVL), % attr var for body var list
             collect_flvars(Body,BodyVars),
             subtract_vars(BodyVars,DescrFLVars,BodyOnlyVars),
+            
+            flvar_list_to_PRNamedVarPairs(BodyOnlyVars,BVL),
+            /*
+	    new_prvariable(NO_INDEX,BVL), %% attr var for body var list
 	    collect_name_var_pairs(BodyOnlyVars,BodyVarPairs),
 	    list_struct(BodyVarPairs,[],BVLValue),
 	    (BodyVarPairs==[] -> true
 	    ; report_dynrule_varlist(BVL,BVLValue)
 	    ),
+            */
 
 	    %% code to bind the CallerMod variable to the calling module
 	    caller_module_binding_code(ThisMod,CallerBindingCode),
@@ -11312,17 +11443,15 @@ compile_dyn_latent_query(Op,DescrIdCode,MetaFactDiffList,Body,LatentQuerySigCode
 	    (is_fldeleteruleop(Op) ->
 		florasyslib_struct(FLSYSDELQUERYSIG,5,[DescrIdCode,File,ThisMod,MetaFactCode,LatentQueryBodyCode],LatentQuerySigCode)
             %% This is done only for latent queries
-            %% TODO
-            %% Add DescrVarTerm as argument, for uniformity
             %% Will be FLSYSINSQUERYSIG,9,[...]
 	    ; florasyslib_struct(FLSYSINSQUERYSIG,8,[DescrIdCode,File,ThisMod,StmtNum,MetaFactCode,PreLatentQueryCode,LatentQueryBodyCode,BVL],LatentQuerySigCode)
 	    )
 	;
-	  true
+            true
 	),
         remove_dontcare_flvars(DescrFLVars,DescrFLVarsClean),
-        check_latent_query_flvars_for_safety(DescrFLVarsClean,Body,VarStat),
-        flatten([BodyStatus,VarStat],Status),
+        check_latent_query_flvars_for_safety(DescrFLVarsClean,Body,LatentQueryVarStat),
+        flatten([BodyStatus,LatentQueryVarStat],Status),
 	clear_context(CONTEXT_COMPILER_DYNRULE(DescrIdCode+_)),
 	clear_context(CONTEXT_COMPILER_WITH_VAR_MODULE),
 	!.
@@ -11332,6 +11461,7 @@ compile_dyn_latent_query(Op,DescrIdCode,MetaFactDiffList,Body,LatentQuerySigCode
 compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,RuleCode,Status) :-
         set_context(CONTEXT_COMPILER_WITH_VAR_MODULE),
 	set_context(CONTEXT_COMPILER_DYNRULE(DescrIdCode+Op)),
+   %%%% writeln(2,4444=DescrVarsTerm),
 	compile_head_top(Head,HeadNF,rule,HeadCode,H2BCodeFront,H2BCodeBack,HeadStatusPre),
 	%% no :- prolog predicates in dynamic rule heads
 	(has_prologlit(HeadCode,IdxH)
@@ -11340,35 +11470,46 @@ compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,Rul
 	; PlgStatus = NO_ERRORS
 	),
 	append(HeadStatusPre,PlgStatus,HeadStatus),
-        new_prvariable(NO_INDEX,HVL), % attr var for head var list
-        new_prvariable(NO_INDEX,BVL), % attr var for body var list
         !,
 	( no_errors_found(HeadStatus) -> 
 	    compile_body_top(Body,BodyCode,BodyStatus),
 	    ( no_errors_found(BodyStatus) -> 
 		( is_fldeleteruleop(Op) ->  true
-		;   collect_name_var_pairs(Head,HeadVars),
-		    list_struct(HeadVars,[],HVLValue),
-		    (HeadVars==[] -> true
-		    ; report_dynrule_varlist(HVL,HVLValue)
-		    ),
-		    collect_name_var_pairs(Body,BodyVars),
-		    list_struct(BodyVars,[],BVLValue),
-		    (BodyVars==[] -> true
-		    ; report_dynrule_varlist(BVL,BVLValue)
-		    )
-		),
-		make_datatype_vars_code(HeadCode,HeadDTvarscode),
-		make_datatype_vars_code(BodyCode,BodyDTvarscode),
-		conjunct_struct(HeadDTvarscode,BodyDTvarscode,DTvarscode),
-
-	        list_struct(HeadCode,[],HeadCodeList),
-	        list_struct(H2BCodeFront,[],H2BCodeFrontList),
-	        list_struct(H2BCodeBack,[],H2BCodeBackList),
-		construct_defeasible_condition_for_signature_or_dynrule(HeadCode,DescrIdCode,DescrVarsTerm,DefeatCondCode),
-		%% Note: Head cannot contain sensors, so no need to check
-		%% multi-headed rules if sensors mix with non-sensors
-		(has_context(CONTEXT_COMPILER_UDF_DEFINITION) ->
+		;
+                    %% Head is a parser term (flvar etc).
+                    flvar_list_to_PRNamedVarPairs(Head,HVL),
+                    /*
+                    new_prvariable(NO_INDEX,HVL), %% attr var for head var list %
+                    %% HeadVars is a list at the PR-level
+                    collect_name_var_pairs(Head,HeadVars),
+                    list_struct(HeadVars,[],HVLValue),
+                    (HeadVars==[] -> true
+                    ; report_dynrule_varlist(HVL,HVLValue)
+                    ),
+                    */
+                
+                    flvar_list_to_PRNamedVarPairs(Body,BVL)
+                    /*
+                    new_prvariable(NO_INDEX,BVL), %% attr var for body var list % %
+                    collect_name_var_pairs(Body,BodyVars),
+                    list_struct(BodyVars,[],BVLValue),
+                    (BodyVars==[] -> true
+                    ; report_dynrule_varlist(BVL,BVLValue)
+                    )
+                    */
+                ),
+                make_datatype_vars_code(HeadCode,HeadDTvarscode),
+                make_datatype_vars_code(BodyCode,BodyDTvarscode),
+                conjunct_struct(HeadDTvarscode,BodyDTvarscode,DTvarscode),
+                
+                list_struct(HeadCode,[],HeadCodeList),
+                list_struct(H2BCodeFront,[],H2BCodeFrontList),
+                list_struct(H2BCodeBack,[],H2BCodeBackList),
+        	construct_defeasible_condition_for_signature_or_dynrule(HeadCode,DescrIdCode,DescrVarsTerm,DefeatCondCode),
+   %%%% writeln(2,55555=DefeatCondCode),
+                %% Note: Head cannot contain sensors, so no need to check
+                %% multi-headed rules if sensors mix with non-sensors
+                (has_context(CONTEXT_COMPILER_UDF_DEFINITION) ->
                     RuleEnablerTest = true, FileName = NULL
 		;
                     (has_context(CONTEXT_COMPILER_FOR_ADDITION) ->
@@ -11384,59 +11525,87 @@ compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,Rul
                         clear_context(CONTEXT_COMPILER_DELETE_RULE)
                     ; true
                     )
-		),
-		delay_literals_checking_code_list(HeadNF,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,DelayCheckCodeList),
-		PreBody = RuleEnablerTest,
-		PostBody = DelayCheckCodeList,
-		list_struct(PostBody,[],PostBodyList),
-		approx_prindex(DescrIdCode,RuleIdx),
-		get_current_stmt_number_for_descriptor(RuleIdx,StmtNum),
-		MetaFactDiffList = MetaFactList - [],
-		list_struct(MetaFactList,[],MetaFactCode),
-		florasyslib_struct(FLSYSRULEUPDATE,15,
-				   [DescrIdCode,FileName,DescrVarsTerm,
-				    StmtNum,MetaFactCode,
-				    HeadCodeList,
-				    BodyCode,
-				    HVL,BVL,
-				    DTvarscode,
-				    H2BCodeFrontList,
-				    H2BCodeBackList,
-				    PreBody,
-				    PostBodyList,
-				    DefeatCondCode],
-				   RuleCode),
-		flatten([HeadStatus,BodyStatus],Status)
-	    ;
-		flatten([HeadStatus,BodyStatus],Status)
+                ),
+                delay_literals_checking_code_list(HeadNF,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,DelayCheckCodeList),
+	        PreBody = RuleEnablerTest,
+                PostBody = DelayCheckCodeList,
+                list_struct(PostBody,[],PostBodyList),
+                approx_prindex(DescrIdCode,RuleIdx),
+                get_current_stmt_number_for_descriptor(RuleIdx,StmtNum),
+                MetaFactDiffList = MetaFactList - [],
+                list_struct(MetaFactList,[],MetaFactCode),
+
+               %%%% writeln(2,66222=DescrVarsTerm),
+                %% Make attr var infrastructure for Descriptor
+                get_descr_flvar_weeded(DescrVarsTerm,DescrFLVars),
+                /*
+                new_prvariable(NO_INDEX,DescrVL), %% attr var for descriptor var list
+                collect_name_var_pairs(DescrFLVars,DescrPairs),
+                list_struct(DescrPairs,[],DescrPairsValue),
+                (DescrPairs==[] ->  true
+                ; report_dynrule_varlist(DescrVL,DescrPairsValue)
+                ),
+                */
+                flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL),
+            %%%% writeln(2,666666=DescrVL),
+                %% for compile_dynrule_main
+                florasyslib_struct(FLSYSRULEUPDATE,15,
+                                   [DescrIdCode,FileName,
+                                    %%DescrVarsTerm,
+                                    %% DescrVL is an attriuted
+                                    %% var through  which we pass
+                                    %% name-var pairs for the vars
+                                    %% in the rule descriptor
+                                    %% Also see HVL,BVL below
+                                    DescrVL,
+                                    StmtNum,MetaFactCode,
+                                    HeadCodeList,
+                                    BodyCode,
+                                    %% HVL,BVL are vars that have
+                                    %% attribute FLDYNRULEVARCHECK
+                                    %% valued as list oof var-name
+                                    %% pairs for the head and the
+                                    %% body, respectively
+                                    HVL,BVL,
+                                    DTvarscode,
+		                    H2BCodeFrontList,
+                                    H2BCodeBackList,
+                                    PreBody,
+                                    PostBodyList,
+                                    DefeatCondCode],
+                                   RuleCode),
+               %%%% writeln(2,66666=HeadStatus+BodyStatus),
+                flatten([HeadStatus,BodyStatus],Status)
+            ;
+                flatten([HeadStatus,BodyStatus],Status)
 	    )
-	;
-	    Status=HeadStatus
-	),
-	!,
+        ;
+            Status=HeadStatus
+        ),
+        !,
         clear_context(CONTEXT_COMPILER_WITH_VAR_MODULE),
-	clear_context(CONTEXT_COMPILER_DYNRULE(DescrIdCode+_)).
+        clear_context(CONTEXT_COMPILER_DYNRULE(DescrIdCode+_)).
 
 /*
 remove_empty_list([],[]) :- !.
 remove_empty_list([[]|L],NL) :- 
-	!,
-	remove_empty_list(L,NL).
+        !,
+        remove_empty_list(L,NL).
 remove_empty_list([H|L],[H|NL]) :- 
-	remove_empty_list(L,NL).
+        remove_empty_list(L,NL).
 */
 
 %% remove all occurrences of Elt from List.
 %% this is a stop clause for var-terminated lists
 remove_all(_Elt,Tail,Tail) :-
-	var(Tail),
-	!.
+        var(Tail),
+        !.
 remove_all(_Elt,[],[]) :- !.
 remove_all(Elt,[Elt|List],List2) :-
-	!,
-	remove_all(Elt,List,List2).
+        !,
+        remove_all(Elt,List,List2).
 remove_all(Elt,[H|List],[H|List2]) :-
-	remove_all(Elt,List,List2).
+        remove_all(Elt,List,List2).
 
 
 /****************************************************************************
@@ -11444,20 +11613,20 @@ remove_all(Elt,[H|List],[H|List2]) :-
      !!{...} and !! - immediate execution of delayed literals
 ****************************************************************************/
 compile_stop_delay(_VarList,Idx,_Code,[Err]) :-
-	has_context(CONTEXT_COMPILER_GOAL_REIFICATION),
-	!,
-	compiling_error(Idx,NO_IMMEDIATE_EXECUTION_OF_DELAY,Err).
+        has_context(CONTEXT_COMPILER_GOAL_REIFICATION),
+        !,
+        compiling_error(Idx,NO_IMMEDIATE_EXECUTION_OF_DELAY,Err).
 compile_stop_delay(VarList,_Idx,Code,Status) :-
-	(var(VarList) ->
-	    (has_context(CONTEXT_COMPILER_BODY(BVarList)) -> true ; BVarList = []),
-	    (has_context(CONTEXT_COMPILER_HEAD(HVarList)) -> true ; HVarList = []),
-	    append(HVarList,BVarList,VarList)
-	; true
-	),
-	compile_body_pathexplist(VarList,FL_THISMODULE,VarListCode,_,_,[],Status),
-	list_struct(VarListCode,[],ArgsCode),
-	list_struct([],[],EmptyListCode), %% empty list
-	prologterm_struct(FLORA_DELAY_CHECKER,2,[ArgsCode,EmptyListCode],Code).
+        (var(VarList) ->
+            (has_context(CONTEXT_COMPILER_BODY(BVarList)) -> true ; BVarList = []),
+            (has_context(CONTEXT_COMPILER_HEAD(HVarList)) -> true ; HVarList = []),
+            append(HVarList,BVarList,VarList)
+        ; true
+        ),
+        compile_body_pathexplist(VarList,FL_THISMODULE,VarListCode,_,_,[],Status),
+        list_struct(VarListCode,[],ArgsCode),
+        list_struct([],[],EmptyListCode), %% empty list
+        prologterm_struct(FLORA_DELAY_CHECKER,2,[ArgsCode,EmptyListCode],Code).
 
 
 /****************************************************************************
@@ -11465,13 +11634,13 @@ compile_stop_delay(VarList,_Idx,Code,Status) :-
      refresh{...} removes the corresponding calls from Prolog tables.
 ****************************************************************************/
 compile_refresh(List,Code,Status) :-
-	compile_delete_litlist(List,CodeList,Status),
-	!,
-	( no_errors_found(Status) -> 
-	    list_struct(CodeList,[],ListCode),
-	    table_refresh_struct(ListCode,Code)
-	;
-	  true
+        compile_delete_litlist(List,CodeList,Status),
+        !,
+        ( no_errors_found(Status) -> 
+            list_struct(CodeList,[],ListCode),
+            table_refresh_struct(ListCode,Code)
+        ;
+          true
         ).
 
 /****************************************************************************
@@ -11479,52 +11648,51 @@ compile_refresh(List,Code,Status) :-
   Mode determines which rules to search for: static only, dynamic only, etc.
 ****************************************************************************/
 compile_clause(Descriptor,Mode,HeadList,Body,Code,BodyFrontList,Status) :-
-	approx_flindex(HeadList,ClauseIdx),
-        %%writeln(aaaDescr=Descriptor),
-	compile_descriptor_list(Descriptor-ClauseIdx,FL_DESCRMODE_CLAUSE,DescrIdCode,
-				DescrVarTerm,
-				MetaFactDiffList,Descr_Status),
+        approx_flindex(HeadList,ClauseIdx),
+        compile_descriptor_list(Descriptor-ClauseIdx,FL_DESCRMODE_CLAUSE,DescrIdCode,
+                                DescrVarTerm,
+                                MetaFactDiffList,Descr_Status),
         !,
-	( no_errors_found(Descr_Status) -> 
-	    (Mode == NULL -> ModeCode = Mode
-	    ;
-		compile_atomvar(Mode,ModeCode)
-	    ),
-	    set_context(CONTEXT_COMPILER_CLAUSE_PRIMITIVE),
-	    set_context(CONTEXT_COMPILER_WITH_VAR_MODULE),
-	    set_context(CONTEXT_COMPILER_HEADLITERAL),
+        ( no_errors_found(Descr_Status) -> 
+            (Mode == NULL -> ModeCode = Mode
+            ;
+                compile_atomvar(Mode,ModeCode)
+            ),
+            set_context(CONTEXT_COMPILER_CLAUSE_PRIMITIVE),
+            set_context(CONTEXT_COMPILER_WITH_VAR_MODULE),
+            set_context(CONTEXT_COMPILER_HEADLITERAL),
             set_context(CONTEXT_COMPILER_DELETE),
             /*
                DEPRECATED: compile_delete_litlist(HeadList,HLC,Head_Status),
                            HeadOidCode = [], HeadLitFrontListCodePre = [],
             */
             compile_body_literal_list(HeadList,HeadOidCode,HLC,HeadLitFrontListCodePre,Head_Status),
-	    clear_context(CONTEXT_COMPILER_HEADLITERAL),
+            clear_context(CONTEXT_COMPILER_HEADLITERAL),
             clear_context(CONTEXT_COMPILER_DELETE),
             convert_udf_hilog_predlist(HeadLitFrontListCodePre,HeadLitFrontListCode),
             !,
-	    ( no_errors_found(Head_Status) -> 
-		list_struct(HLC,[],HeadListCode),
-		compile_body_top(Body,BodyCode,Status),
+            ( no_errors_found(Head_Status) -> 
+                list_struct(HLC,[],HeadListCode),
+                compile_body_top(Body,BodyCode,Status),
                 !,
-		( no_errors_found(Status) -> 
-		    MetaFactDiffList = MetaFactList - [],
-		    conjunct_code(MetaFactList,MetaFactsCode),
-		    clause_struct(DescrIdCode,DescrVarTerm,MetaFactsCode,
-				  ModeCode,HeadListCode,BodyCode,Code),
+                ( no_errors_found(Status) -> 
+                    MetaFactDiffList = MetaFactList - [],
+                    conjunct_code(MetaFactList,MetaFactsCode),
+                    clause_struct(DescrIdCode,DescrVarTerm,MetaFactsCode,
+                                  ModeCode,HeadListCode,BodyCode,Code),
                     append(HeadOidCode,HeadLitFrontListCode,BodyFrontList)
-		;
-		    true
-		)
-	    ;
-		Status = Head_Status
-	    )
-	;
-	    Status = Descr_Status
+                ;
+                    true
+                )
+            ;
+                Status = Head_Status
+            )
+        ;
+            Status = Descr_Status
         ),
-	!,
+        !,
         clear_context(CONTEXT_COMPILER_WITH_VAR_MODULE),
-	clear_context(CONTEXT_COMPILER_CLAUSE_PRIMITIVE).
+        clear_context(CONTEXT_COMPILER_CLAUSE_PRIMITIVE).
 
 /****************************************************************************
 	    compile_callmetafacts(+MetaFacts,-Code,-Status)
@@ -11796,7 +11964,7 @@ compile_datatype_list([H|Tail],[HCode|TailCode],Status) :-
 	( no_errors_found(S1) -> 
 	   compile_datatype_list(Tail,TailCode,Status)
 	;
-	    Status=S1
+	    Status=Stat1
 	),
 	!.
 
@@ -11917,10 +12085,11 @@ delay_literals_checking_code(Head,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,Co
 	collect_flvars(Head,HeadVars1),
 	collect_flvars(Body,BodyVars1),
 	%% DescrVarsTerm is a pr-object, so use collect_prvars
-	collect_prvars(DescrVarsTerm,DescrPrvars),
-	prvar_to_flvar_struct_list(DescrPrvars,DescrFlvars),
+	collect_prvars(DescrVarsTerm,DescrPRVars),
+        %%  TODO: come back here for unsafe descriptor vars warning?
+	prvar_to_flvar_struct_list(DescrPRVars,DescrFLVars),
 	%% BodyVars2 now contains descriptor vars
-	append(BodyVars1,DescrFlvars,BodyVars2),
+	append(BodyVars1,DescrFLVars,BodyVars2),
 	remove_dupflvars(HeadVars1,HeadVars),
 	remove_dupflvars(BodyVars2,BodyVars),
 	(has_context(CONTEXT_COMPILER_RULE_REIFICATION),
@@ -12193,12 +12362,12 @@ replace_flvars_with_vars(ParserTerm,ParserTermR) :-
 
 %% Note: Vars, ProtVars are always passed unbound.
 replace_flvars_with_vars(ParserTerm,ParserTermR) :-
-	is_flaggregate(ParserTerm,Op,AggrFlVar,GrpFlVars,Sort,FormulaCode),
+	is_flaggregate(ParserTerm,Op,AggrFLVar,GrpFLVars,Sort,FormulaCode),
 	!,
-	is_flvariable(AggrFlVar,_,_),
-	replace_flvars_with_vars([AggrFlVar,GrpFlVars,Sort,FormulaCode],
-				 [AggrFlVarR,GrpFlVars,SortR,FormulaCodeR]),
-	is_flaggregate(ParserTermR,Op,AggrFlVarR,GrpFlVars,SortR,FormulaCodeR).
+	is_flvariable(AggrFLVar,_,_),
+	replace_flvars_with_vars([AggrFLVar,GrpFLVars,Sort,FormulaCode],
+				 [AggrFLVarR,GrpFLVars,SortR,FormulaCodeR]),
+	is_flaggregate(ParserTermR,Op,AggrFLVarR,GrpFLVars,SortR,FormulaCodeR).
 
 replace_flvars_with_vars(ParserTerm,ParserTermR) :-
 	ParserTerm =.. [F|Args],
@@ -12533,7 +12702,7 @@ compile_body_setarg_list([Elt|Rest],WS,SetList,OidCode,Code,BodyFrontList,Status
 		conjunct_struct(EltFrameStuff,RestCode,Code),
 		append(EltFrontList,RestFrontList,BodyFrontList),
 		append(S,S2,Status)
-	    ; Status=S2
+	    ; Status=Stat2
 	    )
 	;
 	  Status=S
@@ -12719,4 +12888,16 @@ compile_rule_struct_exec_direct(Module,Flag,Code,Status) :-
         generate_prolog_liblit(set_use_rule_structural_db_mode,2,
                                [ModuleCode,FlagCode],flrutils,Code).
 
+printable_flvar(FLVar,['?',Name]) :- 
+       nonvar(FLVar),
+       is_flvariable(FLVar,Name,_).
+printable_flvar(FLVar,_) :-
+        abort(['[Compiler] bug: ', FLVar, ' - non-flvar element in printable_flvar/2.']).
 
+printable_flvarlist([],[]) :-!.
+printable_flvarlist([FLV|Rest],[PrintableFLV,SmartComma|RestPrintable]) :-
+        printable_flvar(FLV,PrintableFLV),
+        (Rest==[] -> SmartComma = ''
+        ; SmartComma = ','
+        ),
+        printable_flvarlist(Rest,RestPrintable).

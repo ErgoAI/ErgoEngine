@@ -14225,6 +14225,12 @@ Note that the query \texttt{tag\{?X,?Y\}} (without the module specification
 for the head, will likely return many answers, as there can be many rules
 in different loaded modules. 
 
+\textbf{Note}: only rules and facts can be  defeasible because this concept  
+is not meaningful for UDFs, queries, and latent queries, even though some of
+these may have descriptors for other uses.
+These constructs have no analogue for rule heads, which
+are necessary in order to even just define what a conflict is.
+
 
 \subsection{Supported Argumentation Theories}\label{sec-exclusion-constr}
 
@@ -16842,7 +16848,7 @@ In addition to the above, \FLSYSTEM provides the following builtin meta-classes:
   HiLog predicates), datatype constants, and builtin class names. For instance,
   \texttt{\$\{p(b,?X)\}:\bs{}callable}  and \texttt{isinteger\{...\}:\bs{}callable}  are true, but \texttt{p(b,?X):\bs{}callable}
   and  \texttt{"abc"$\hat{~}\hat{~}$foobar:\bs{}callable} are false. The
-  former is false because \texttt{p(b,?X)} in a HiLog term, not a predicate,
+  former is false because \texttt{p(b,?X)} is a HiLog term, not a predicate,
   and the latter is false because \texttt{"abc"$\hat{~}\hat{~}$foobar} is a datatype constant.
 \end{itemize}
 %% 
@@ -16851,6 +16857,62 @@ In both cases, if the class member being tested is a variable then the result is
 type. For instance, \texttt{?X:\bs{}modular} is \texttt{\bs{}undefined},
 but \texttt{?X$\hat{~}\hat{~}$\bs{}callable:\bs{}callable} is
 \texttt{\bs{}true}.
+
+\noindent
+\index{metaclass\{...\} primitive}
+\index{primitive!metaclass\{...\}}
+\textbf{metaclass\{...\} primitive.}   
+Related to all this is the \texttt{metaclass\{?x\}} primitive, which
+returns all the classes that are specified as builtin by \ERGOAI.
+Thus, given the database
+%% 
+\begin{verbatim}
+  a:bbb.
+  c:ddd.
+\end{verbatim}
+%% 
+then the query ?X:?Y returns 7 answers, some of which involving builtin classes 
+and may not be desired:
+%% 
+\begin{verbatim}
+ergo> ?X:?Y.
+?X = ?_h9095  - undefined
+?Y = \decimal  - undefined
+
+?X = ?_h9110  - undefined
+?Y = \integer  - undefined
+
+?X = ?_h9125  - undefined
+?Y = \callable  - undefined
+
+?X = ?_h9140  - undefined
+?Y = \modular  - undefined
+
+?X = ?_h9155
+?Y = \object
+
+?X = a
+?Y = bbb
+
+?X = c
+?Y = ddd
+
+7 solution(s) in 0.000 seconds; elapsed time = 0.000
+\end{verbatim}
+%% 
+while this query returns only two answers, ignoring the builtins. In many cases,
+the user might prefer the second variant.
+%% 
+\begin{verbatim}
+ergo> ?X:?Y, \+ metaclass{?Y}.
+?X = a
+?Y = bbb
+
+?X = c
+?Y = ddd
+2 solution(s) 
+\end{verbatim}
+%% 
 
 
 

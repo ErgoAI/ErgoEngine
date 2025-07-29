@@ -297,24 +297,26 @@ flora_synonymous_type_names(X,Y) :-
 
 %% Builtin data types
 flora_builtin_datatype(X) :- var(X), !, fail.
-flora_builtin_datatype(FL_DATETIME).
-flora_builtin_datatype(FL_DATE).
-flora_builtin_datatype(FL_TIME).
-flora_builtin_datatype(FL_DURATION).
-flora_builtin_datatype(FL_INTEGER).
-flora_builtin_datatype(FL_LONG).
-flora_builtin_datatype(FL_SHORT).
-flora_builtin_datatype(FL_DECIMAL).
-flora_builtin_datatype(FL_DOUBLE).
-flora_builtin_datatype(FL_REAL).
-flora_builtin_datatype(FL_FLOAT).
-flora_builtin_datatype(FL_NUMBER).
-flora_builtin_datatype(FL_IRI).
-flora_builtin_datatype(FL_BOOL).
-flora_builtin_datatype(FL_SYMBOL).
-flora_builtin_datatype(FL_STRING).
-flora_builtin_datatype(FL_CHARLIST).
-flora_builtin_datatype(FL_LISTTYPE).
+flora_builtin_datatype(X) :- flora_builtin_datatype1(X).
+
+flora_builtin_datatype1(FL_DATETIME).
+flora_builtin_datatype1(FL_DATE).
+flora_builtin_datatype1(FL_TIME).
+flora_builtin_datatype1(FL_DURATION).
+flora_builtin_datatype1(FL_INTEGER).
+flora_builtin_datatype1(FL_LONG).
+flora_builtin_datatype1(FL_SHORT).
+flora_builtin_datatype1(FL_DECIMAL).
+flora_builtin_datatype1(FL_DOUBLE).
+flora_builtin_datatype1(FL_REAL).
+flora_builtin_datatype1(FL_FLOAT).
+flora_builtin_datatype1(FL_NUMBER).
+flora_builtin_datatype1(FL_IRI).
+flora_builtin_datatype1(FL_BOOL).
+flora_builtin_datatype1(FL_SYMBOL).
+flora_builtin_datatype1(FL_STRING).
+flora_builtin_datatype1(FL_CHARLIST).
+flora_builtin_datatype1(FL_LISTTYPE).
 
 flora_primitive_datatype(FL_SYMBOL).
 flora_primitive_datatype(FL_STRING).
@@ -329,10 +331,18 @@ flora_primitive_datatype(FL_DECIMAL).
 flora_primitive_datatype(FL_BOOL).
 
 flora_builtin_class(X) :- var(X), !, fail.
-flora_builtin_class(FL_TOPTYPE) :- !.
-flora_builtin_class(FL_MODULAR_FORM) :- !.
-flora_builtin_class(FL_CALLABLE_FORM) :- !.
+flora_builtin_class(X) :- flora_builtin_class1(X).
 flora_builtin_class(X) :- flora_builtin_datatype(X).
+
+flora_builtin_class1(FL_TOPTYPE) :- !.
+flora_builtin_class1(FL_MODULAR_FORM) :- !.
+flora_builtin_class1(FL_CALLABLE_FORM) :- !.
+
+%% This primitive is used as metaclass{?X}. in flrsimpleprimitive.P
+:- export flora_metaclass_prim/1.
+flora_metaclass_prim(X) :- flora_builtin_class1(X).
+flora_metaclass_prim(X) :- flora_builtin_datatype1(X).
+
 
 %% Canonical representation of data types
 %% Need to expand!
