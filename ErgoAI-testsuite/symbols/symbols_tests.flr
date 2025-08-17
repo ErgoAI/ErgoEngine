@@ -1,5 +1,6 @@
 #include "standard.h"
 #include "flora_terms.flh"
+#include "flrproduct.flh"
 
 test1 :- (compile{'tests/test_symbols'};\true).
 test2 :- (compile{'tests/test_symbols_nowarn'};\true).
@@ -13,6 +14,10 @@ test8 :- (compile{'tests/test_symbols_builtin'};\true).
 %pretest :- test1, test2, test3, test4, test5, test6, test7, test8.
 
 %test :-
+#mode save
+#mode nostring "\!#'"
+        ?FlsFileName = 'tests/FLORA_HIDDEN_DIR_UNQ/test_symbols_constoff.fls',
+#mode restore
 	(File[exists(symbols_tests_old)]@\io -->> File[unlink(symbols_tests_old)]@\io; \true),
 	(flora_running_as(flora2)@\plg(flrporting) -->>
 	    File[link(symbols_tests_flora_old,symbols_tests_old)]@\io
@@ -31,10 +36,7 @@ test8 :- (compile{'tests/test_symbols_builtin'};\true).
 	close(?Port1)@\plg,
 	close(?Port2)@\plg,
 	flora_file_op(unlink,temp1)@\plg(flrporting),
-#mode save
-#mode nostring "\!#'"
-	open(file('tests/FLORA_HIDDEN_DIR_UNQ/test_symbols_constoff.fls')@\plg,read,?Port3)@\plg,
-#mode restore
+	open(file(?FlsFileName)@\plg,read,?Port3)@\plg,
 	open(file(temp)@\plg,append,?Port4)@\plg,
 	copyIOport(?Port3,?Port4)@\plg(file_io),
 	close(?Port3)@\plg,

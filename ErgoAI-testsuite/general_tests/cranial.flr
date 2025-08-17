@@ -7,19 +7,13 @@
         ).
 /*
 	flora_read_then_parse_file('cranial_data.flr',?_X,?_Y)@\plg(flrutils),
-	(flora_running_as(flora2)@\plg(flrporting) -->> \true
-	; to_Cranial_list(?_X,?_Heads,?_H2Bs)@\plg(flrparser),
-	  flwrite_cranial(?_Heads,?_H2Bs)@\plg(flrparser)
+        to_Cranial_list(?_X,?_Heads,?_H2Bs)@\plg(flrparser),
+	flwrite_cranial(?_Heads,?_H2Bs)@\plg(flrparser)
         ).
 */
 
 
 %test :-
-	(File[exists(cranial_old)]@\io -->> File[unlink(cranial_old)]@\io;\true),
-	(flora_running_as(flora2)@\plg(flrporting) -->>
-	    File[link(cranial_flora_old,cranial_old)]@\io
-	;  File[link(cranial_ergo_old,cranial_old)]@\io
-        ),
 	file_reopen(temp1,w,STDERR,?_)@\plg(file_io),
 	file_reopen(temp2,w,STDWARN,?_)@\plg(file_io),
 	tell(temp)@\plg(),

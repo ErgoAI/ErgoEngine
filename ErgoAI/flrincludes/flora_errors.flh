@@ -169,8 +169,8 @@
 #define EXP_VARIABLE	'variable is expected'
 #define EXP_ATOMICFUNCT	'atomic functor is expected'
 #define EXP_VARORATOM   'variable or atom is expected'
-#define EXP_AGGREGVAR	'aggregate variable is expected'
-#define EXP_AGGRGRPVAR	'aggregate & grouping variables are expected.\n\t\tIf one wants aggregates of the form aggr{expression|condition}\n\t\tuse aggr{NewVar|condition, NewVar = expression}\n\t\t(or NewVar \\is expression, to evaluate the expression)'
+#define EXP_AGGREGVAR	'aggregation variable is expected'
+#define EXP_AGGRGRPVAR	'aggregation & grouping variables are expected.\n\t\tIf one wants aggregates of the form aggr{expression|condition}\n\t\tuse aggr{NewVar|condition, NewVar = expression}\n\t\t(or NewVar \\is expression, to evaluate the expression)'
 #define EXP_AGGRRESSORT	'unexpected sort specification for aggregate grouping'
 #define EXP_AGGRSORTSPC	'invalid sort specification for aggregate result or grouping'
 #define EXP_AGGRUNIQSPC	'invalid uniquification specification for aggregate result'
@@ -185,7 +185,7 @@
 #define NO_LISTTAIL	'list tail specification is illegal in this context'
 #define NO_DISJUNCTION	'only conjunctions of literals are allowed in rule heads & facts:\n\t\t\\or, ==>, and even more general forms are supported\n\t\tby the Ergo reasoner'
 #define NO_DISJUNCTION_STEALTH	'only conjunctions are allowed as stealth update literals'
-#define NO_OMNIFORM	'this is an omniform rule - a very advanced feature;\n\t\tif this is intended, enable the compiler option omni (=on)'
+#define NO_OMNIFORM	'this is an omniform rule - a very advanced feature;\n\t\tif this was intended, enable the compiler option omni (=on)'
 #define ONLY_TRANSACTIONAL_IN_STEALTH	'stealth literals must be transactional'
 #define NO_NEGATION	'default negation in rule head is illegal'
 #define NO_NAF_IMPLY	'~~>, <~~, <~~> in rule head are illegal'
@@ -209,12 +209,12 @@
 */
 #define NO_WORKSPACE	'invalid use of the term@module specification; try explicit reification'
 #define NO_WS_VAR	'module variables (@?Var) in facts & rule heads are illegal'
-#define NO_PRED_VAR	'naked variables or negated variables inside reifications in facts & rule heads are not allowed; if this is intended, use modules as in p(${?X@ \\@}) or  p(${neg ?X@foo}'
-#define NO_REIFY_VAR	'reification of a naked variable or of negated variable is not allowed; if this is intended, use modules as in p(${?X@ \\@}) or p(${neg ?X@foo}'
+#define NO_PRED_VAR	'naked variables or negated variables inside reifications in facts & rule heads are not allowed; if this was intended, use modules as in p(${?X@ \\@}) or  p(${neg ?X@foo}'
+#define NO_REIFY_VAR	'reification of a naked variable or of negated variable is not allowed; if this was intended, use modules as in p(${?X@ \\@}) or p(${neg ?X@foo}'
 #define NO_WSINRULEHEAD	'term@module in arguments in rule heads & facts is illegal unless explicitly reified'
 #define NO_WSASRULEHEAD	'term@module as a rule head or fact is illegal'
 #define NO_WSNESTING	'invalid nesting of module specifications'
-#define NO_WSNESTING_IN_IO  'invalid nesting of module specifications in an I/O primitive; if this is not an error, reify the offending literal'
+#define NO_WSNESTING_IN_IO  'invalid nesting of module specifications in an I/O primitive; if this was intended, reify the offending literal'
 #define NO_REDEFINITION 'redefinition of a built-in in rule head'
 #define UNKNOWN_PRIMITIVE_HEAD	'unsupported primitive in a head predicate/frame'
 #define NO_AGGINHEAD	'aggregation in rule heads is illegal'
@@ -346,11 +346,11 @@
 /*****************************************************
   warnings reported by the Flora-2 compiler
 *****************************************************/
-#define SINGLETON_VAR	        'singleton variable: use ?_Var instead of ?Var, if not an error'
-#define UNBOUND_VAR	        'unsafe variable in rule head (does not occur in rule body): use ?_Var, if not an error'
-#define UNBOUND_VAR_IN_FACT     'unsafe variable in a fact: use ?_Var, if not an error'
-#define UNBOUND_VAR_IN_LATENT_QUERY 'unsafe variable in the descriptor of a latent query'
-#define UNBOUND_UDF_VAR	        'unsafe variable in function definition: use ?_Var, if not an error'
+#define SINGLETON_VAR	        'singleton variable: use ?_var to silence the warning, if this use was intended'
+#define UNSAFE_VAR	        'unsafe variable in rule head (does not occur in the rule body): use ?_var to silence the warning, if this use was intended'
+#define UNSAFE_VAR_IN_FACT     'unsafe variable in a fact: use ?_var to silence the warning, if this was intended'
+#define UNSAFE_VAR_IN_LATENT_QUERY 'unsafe variable in the descriptor of a latent query (i.e., it does not occur in the body of the query'
+#define UNSAFE_UDF_VAR	        'unsafe variable in function definition (i.e., the variable occurs in a UDF argument, but not in the actual definition of the function): use ?_var to silence the warning, if this was intended'
 #define NO_QUANTIFIED_ANONVARS  'don''t care variables must not be quantified'
 #define QUANT_VARS_NOT_SUBSET   'each quantified variable must occur in the formula being quantified'
 #define GROUPING_LEFT_OF 'a grouping variable found in rule body left of the aggregation\n\t\t  where it was declared - a likely mistake: rename such variaables or rewrite the wider surroundings'
@@ -371,12 +371,12 @@
   errors reported by the Flora-2 compiler
 ************************************************/
 #define REPEATED_GVAR	'repeated grouping variables in aggregates are illegal'
-#define GVAR_NOTIN	'grouping variable not in aggregate body'
-#define AVAR_NOTIN	'aggregate variable not in aggregate body'
+#define GVAR_NOTIN	'grouping variable not mentioned in aggregate body'
+#define AVAR_NOTIN	'aggregation variable not mentioned in the aggregate body'
 #define ERROR_GVAR	'invalid grouping variable'
-#define ERROR_AVAR	'invalid aggregate variable'
+#define ERROR_AVAR	'invalid aggregation variable'
 #define AVAR_ASGVAR	'aggregation variables cannot be grouped by'
-#define UNIQVAR_NOTIN	'a variable used for duplicate control is not in aggregate body'
+#define UNIQVAR_NOTIN	'a variable used for duplicate control is not mentioned in aggregate body'
 #define VARWSINHEAD	'variable module in a rule head argument: unimplemented feature'
 #define ILLEGAL_NEGBODY	  'illegal use of explicit negation (NEG) in rule body'
 #define ILLEGAL_NEGSYSLIB 'explicit negation (NEG) of system library calls is not allowed'
@@ -418,10 +418,14 @@
 
 #define ERR_UNEQUATABLE_DATATYPE  'builtin datatypes must not be equated via :=:; use UDF instead'
 
+#define UNSAFE_VARS_IN_RULE_DESCRIPTOR 'unsafe variable(s) found in the descriptor of a rule (i.e., these vars are not mentioned in the rule body): '
+#define UNSAFE_VARS_IN_RULE_DESCRIPTOR_EXPLANATION  '\n\t\tThe use of such variables is a logical fallacy'
+
 #mode save
 #mode nocomment "%"
 #define ERR_TEXTIT_SUBST_MISMATCH 'textit{Goal,Text,Substitutions[,Condition]}: number of provided substitutions does not match the number of substitution points (%s) in Text'
 #mode restore
+
 
 #define ERROR_TEXTIT_PATTERN  'this kind of goal pattern or argument is not supported by textit{...}'
 
@@ -461,7 +465,7 @@
 #define WARN_UDF_FUNC_ARITY_SYMBOL  'user-defined function was also used as a HiLog function symbol with a different number of arguments'
 #define WARN_UDF_PROLOG_SYMBOL       'user-defined function was also used as a symbol defined as :- prolog'
 #define WARN_UDF_SENSOR_SYMBOL       'user-defined function was also used as a sensor'
-#define WARN_SUPPRESS_SYMBOL    '\n\t\t  If this is not an error, use the :- symbol_context directive to suppress this warning'
+#define WARN_SUPPRESS_SYMBOL    '\n\t\t  If this was intended, use the directive :- symbol_context to suppress this warning'
 
 
 #define WARN_PREDICATE_UDF_SYMBOL	'predicate symbol was also declared as user-defined function'

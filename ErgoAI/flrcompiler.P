@@ -1848,21 +1848,22 @@ workspacelit_struct(P,WS,Code,Status) :-
 	    %% to bind thecaller variable
 	    is_fltoken(WS,FL_SPECIAL_VAR_TOKEN,FL_SPECIAL_CALLER_TOKEN,Idx) ->
 	    %% CHANGE _OidCode/_Status to OidCode/Status once ...@\?C gets support
-	    compile_pathexp_no_workspace(WS,WSCode,_OidCode,_,_,_Status),
+	    compile_pathexp_no_workspace(WS,WSCode,_OidCode,_,_,__Stat1),
+            Stat1 = [], %% delete this line once quasi-vars are included as workspaces
 	    body_context_info_structure(ThisModuleName,FWContext),
 	    %% a call to a module
 	    florasyslib_struct(Index,FLLIBMODLIT,3,[P,WSCode,FWContext],Code),
 	    %% temporary error until supported
-	    compiling_error(Idx,ERROR_WSQUASI_VAR,Stat),
-	    Status = [Stat]
+	    compiling_error(Idx,ERROR_WSQUASI_VAR,QuasiVarErr),
+            Status = [QuasiVarErr|Stat1]
 	; is_prfloralib(WS,_,_) ->
 	    %% a Flora system module
 	    workspace_struct(P,WS,Code),
 	    Status = NO_ERRORS
 	;
 	    (approx_flindex(WS,ErrIdx) ; approx_prindex(WS,ErrIdx)) ->
-	    compiling_error(ErrIdx,ERROR_WSNAME,Stat),
-	    Status = [Stat]
+	    compiling_error(ErrIdx,ERROR_WSNAME,QuasiVarErr),
+	    Status = [QuasiVarErr]
 	),
 	!.
 
@@ -2974,36 +2975,64 @@ remove_nonuser_flvars([H|T],[H|Out]) :-
 
 
 /****************************************************************************
-  collect_name_var_pairs(+ParserTerm,-QueryVars)
+  collect_name_var_pairs(+ParserTerm,-QueryVars, +RemoveDuplicates?)
   collects all the queryable variables (those that do not start with an
   underscore) in a parser term (or a list of parser terms) into a list
   of Name=Var constructs.
 
-  indexvars(+SortedNameVars,-IndexVars)
+  indexvars(+SortedNameVars,-IndexVars,RemoveDuplicates)
   namevars(+SortedIndexVars,-QueryVars)
 ****************************************************************************/
-collect_name_var_pairs(ParserTerm,QueryVars) :-
+collect_name_var_pairs(ParserTerm,QueryVars,RemoveDuplicates) :-
 	collect_flvars(ParserTerm,NameVs),
-	%% Sorting eliminated duplicate vars so that, for example,
-	%% Name-Var code in compile_query will have 1 pair per var name.
-	%% So, each var will be printed only once in the answers in the shell.
-	sort(NameVs,SortedNameVs),
-	indexvars(SortedNameVs,IndexVs),
+        %% Sorting is not good here, since at this point it'll cause each variable
+        %% look like a singleton.
+        %% Parsort keeps the duplicates.
+	machine:parsort(NameVs,asc,0,SortedNameVs),
+	%% sort(NameVs,SortedNameVs),
+	indexvars(SortedNameVs,IndexVs,RemoveDuplicates),
 	keysort(IndexVs,SortedIndexVs),
-	namevars(SortedIndexVs,QueryVars).
+	namevars(SortedIndexVs,QueryVars),
+        true.
 
 
-%% creates a list of vars of the form [Idx-Name,Idx-Name,...]
-indexvars([],[]) :- !.
-indexvars([T|L],Vars) :-
+%% Output, in Arg2: a list of vars of the form [Idx-Name,Idx-Name,...], *sorted*  on Name,
+%%        but the Name can be repeated (with diffeerent indexes).
+%% Input, in Arg1: the input list, has the same form as the input, and is sorted,
+%% but duplication with respect to  Names is eliminated, i.e., in [12-XYZ, 17-XYZ, ...],
+%% the member 12-XYZ (and possibly more) would be eliminated.
+%% ARG3: indicate whether duplication with respect to Name should be eliminated.
+%%       true - remove duplicates with respect to Name 
+%%       anything else - leave the duplicates with respect to Name alone
+indexvars([],[],_) :- !.
+indexvars([T|L],Vars, RemoveDuplicates) :-
 	is_any_flvar(T,Name,I),
 	!,
-	( is_silent_var_name(Name) -> indexvars(L,Vars)
+	( is_silent_var_name(Name) -> indexvars(L,Vars,RemoveDuplicates)
+	;
+            Vars=[I-Name|Vs],
+            (RemoveDuplicates== true ->
+                remove_named_flvar_from_list_prefix(L,Name,VL)
+            ;
+               VL = L
+            ),
+            indexvars(VL,Vs,RemoveDuplicates)
+        ).
+
+
+/*
+%% creates a list of vars of the form [Idx-Name,Idx-Name,...]
+indexvars([],[],_) :- !.
+indexvars([T|L],Vars,_) :-
+	is_any_flvar(T,Name,I),
+	!,
+	( is_silent_var_name(Name) -> indexvars(L,Vars,_)
 	;
           Vars=[I-Name|Vs],
 	  remove_named_flvar_from_list_prefix(L,Name,VL),
-	  indexvars(VL,Vs)
+	  indexvars(VL,Vs,_)
         ).
+*/
 
 
 % an Index-VarName list and creates a list of items ?Name = Varobj.
@@ -3023,11 +3052,13 @@ namevars([Index-Name|L],[NV|NVs]) :-
     attribute of various vars and in this way we can track named variables from compile
     time to run time.
 
-    flvar_list_to_PRNamedVarPairs(+FLVars,-TransporterVar)
+    RemoveDuplicates should be true, if we use predicate for compiling queries.
+    It should be false, if using this pred for other things
+    flvar_list_to_PRNamedVarPairs(+FLVars,-TransporterVar,RemoveDuplicates)
 */
-flvar_list_to_PRNamedVarPairs(FLVars,TransporterVar) :-
+flvar_list_to_PRNamedVarPairs(FLVars,TransporterVar,RemoveDuplicates) :-
         new_prvariable(NO_INDEX,TransporterVar), %% attr var for descriptor var list
-        collect_name_var_pairs(FLVars,PRVarPairs),
+        collect_name_var_pairs(FLVars,PRVarPairs,RemoveDuplicates),
         list_struct(PRVarPairs,[],VarNamePairPRList),
         (PRVarPairs==[] ->  true
         ; report_dynrule_varlist(TransporterVar,VarNamePairPRList)
@@ -3063,6 +3094,9 @@ singleton_flvars([V|L],[V|Vs]) :-
 
 singleton_flvars([V],[V]) :- !.
 
+%% if V1,V2 have the same name, they are removed from arg1, ie the input list.
+%% Thus if the input list is sorted, then all the vars that are duplicate are removed 
+%% and the outout list contains only singleton vars
 singleton_flvars([V1,V2|L],Vars) :-
 	( ( is_flvariable(V1,Name,_), is_flvariable(V2,Name,_)
 	  ; is_fltransactionalvariable(V1,Name,_),
@@ -3117,13 +3151,13 @@ get_quantification_info(QuantGoal,Quantifier,Formula,QuantVarListObj,FreeVarList
 ****************************************************************************/
 singleton_warning([],Warn,Warn).
 
-singleton_warning([V|L],WarnList,WarnTail) :-
+singleton_warning([V|L],WarnHead,WarnTail) :-
 	is_any_flvar(V,Name,I),
 	!,
-	( is_silent_var_name(Name) -> singleton_warning(L,WarnList,WarnTail)
+	( is_silent_var_name(Name) -> singleton_warning(L,WarnHead,WarnTail)
 	;
 	    compiling_warning(I,SINGLETON_VAR,W),
-	    WarnList=[W|T],
+	    WarnHead=[W|T],
 	    singleton_warning(L,T,WarnTail)
         ),
 	!.
@@ -3137,17 +3171,23 @@ singleton_warning([V|L],WarnList,WarnTail) :-
 unsafe_var_warning(VarList,WarnList,WarnTail) :-
 	unsafe_var_warning(VarList,WarnList,WarnTail,UNSAFE_VAR).
 
-unsafe_var_warning([],WarnList,WarnList,_).
+unsafe_var_warning([],_Var,_Var,_) :- !.
 
+%%unsafe_var_warning(VarList,WarnList,WarnTail,WarningMessage) :-
 unsafe_var_warning([V|L],WarnList,WarnTail,WarningMessage) :-
+        %%(var(Varlist) -> 
 	is_any_flvar(V,Name,I),
 	!,
-	( is_silent_var_name(Name) ->
+	( nonvar(Name),is_silent_var_name(Name) ->
 	  unsafe_var_warning(L,WarnList,WarnTail,WarningMessage)
-	;
-	  compiling_warning(I,WarningMessage,W),
-	  WarnList=[W|T],
-	  unsafe_var_warning(L,T,WarnTail,WarningMessage)
+	; nonvar(Name) ->
+            compiling_warning(I,WarningMessage,W),
+            (L == [] ->
+                WarnList=[W|WarnTail]
+            ;
+                WarnList=[W|NewHead],
+                unsafe_var_warning(L,NewHead,WarnTail,WarningMessage)
+            )
         ),
 	!.
 
@@ -3159,52 +3199,69 @@ check_rule_vars_for_safety(DescrVarsTerm,HeadTermList,BodyTerm,Status) :-
 	collect_flvars(HeadTermList,HeadVars),
 	collect_flvars(BodyTerm,BodyVars,ProtectedVars),
 	append(HeadVars,BodyVars,HBVars),
-   %%%% writeln(2,vvvvvv=HeadVars+ProtectedVars+DescrVarsTerm),
-        get_descr_flvar_weeded(DescrVarsTerm,DescrFLVars),
+        get_descr_flvar_purified(DescrVarsTerm,DescrFLVars),
 
 	%% singleton_flvars relies on sorting to eliminate duplicates
 	%% Using parsort/4 does NOT eliminate duplicates so that singletons
 	%% will be correctly reported in NL templates.
-	%% For cases like ?X[a->b,c->d] we still can report duplicates
+	%% For cases like ?X[a->b,c->d] we still may report duplicates
 	%% since we are looking at flvars, not prvars, and in fl-code
 	%% ?X[a->b,c->d] has just one occurrence of ?X. The
 	%% problem with sort/2 is that it would erroneously report singletons
 	%% in a template like this:  \(if ?X is a boy then ?X plays ball\).
 	machine:parsort(HBVars,asc,0,SortedHBVars),
         %% grouping vars in rule head are ok
-	protected_vars_warning(BodyVars,ProtectedVars,BodyVarsStatus),
+        Status = ProtectedVarWarnHead,
+	protected_vars_warning(BodyVars,ProtectedVars,
+                               ProtectedVarWarnHead,
+                               ProtectedVarWarnTail),
 
+        SingletonVarWarnHead = ProtectedVarWarnTail,
+        %% Note: singleton_flvars needsarg1 to be sorted
+        singleton_flvars(SortedHBVars,SingletonVars),
+        (SingletonVars  \= [] ->
+            singleton_warning(SingletonVars,SingletonVarWarnHead,SingletonVarWarnTail)
+        ; SingletonVarWarnTail = SingletonVarWarnHead
+        ),
+
+        %% Now the unsafe heads warnings  
+        remove_silent_flvars(HeadVars,LoudHeadVars),
+        subtract_vars(LoudHeadVars,BodyVars,UnsafeHeadVars),
+        sort(UnsafeHeadVars,UnsafeHeadSortedVars),
+
+        UnsafeHeadVarWarnHead = SingletonVarWarnTail,
+        (UnsafeHeadSortedVars == [] ->
+            UnsafeHeadVarWarnHead = UnsafeHeadVarWarnTail
+        ; flora_ignore_unsafe_vars(HeadTermList) -> 
+            UnsafeHeadVarWarnHead = UnsafeHeadVarWarnTail
+        ; BodyTerm == [] ->
+            %% use the unsafe fact warning
+            unsafe_var_warning(UnsafeHeadSortedVars,UnsafeHeadVarWarnHead,UnsafeHeadVarWarnTail,UNSAFE_VAR_IN_FACT)
+        %% use the unsafe rule warning
+        ; unsafe_var_warning(UnsafeHeadSortedVars,UnsafeHeadVarWarnHead,UnsafeHeadVarWarnTail)
+        ),
+
+        %% Now check for unsafe vars in the rule description.
+        %% Note: unsafe descriptors are errors, not warnings, 
+        %% unlike the previous, like the protected var issues,
+        %% singletons and unsafe heads.
         remove_silent_flvars(SortedHBVars,LoudSortedHBVars),
         subtract_vars(DescrFLVars, LoudSortedHBVars, UnsafeDescriptorFLVars),
 
-	(no_errors_found(BodyVarsStatus) ->
-	    singleton_flvars(SortedHBVars,SingletonVars),
-	    singleton_warning(SingletonVars,Status_pre,WarnTail),
-            remove_silent_flvars(HeadVars,LoudHeadVars),
-	    subtract_vars(LoudHeadVars,BodyVars,UnsafeHeadVars),
-	    sort(UnsafeHeadVars,UnsafeHeadSortedVars),
-            (UnsafeHeadSortedVars == [] -> WarnTail = []
-            ; flora_ignore_unsafe_vars(HeadTermList) -> WarnTail = []
-	    ; BodyTerm == [] ->
-		unsafe_var_warning(UnsafeHeadSortedVars,WarnTail,[],UNSAFE_VAR_IN_FACT)
-	    ; unsafe_var_warning(UnsafeHeadSortedVars,WarnTail,[])
-	    ),
-	    (var(WarnTail) -> WarnTail = BodyVarsStatus, StatusOfWarns = Status_pre
-	    ; append(Status_pre,BodyVarsStatus,StatusOfWarns)
-	    ),
-            (UnsafeDescriptorFLVars \== [] ->
-                approx_flindex(UnsafeDescriptorFLVars,ErrIdx),
-                printable_flvarlist(UnsafeDescriptorFLVars,
-                                   PrintableFLVarList),
-                compiling_error(ErrIdx,[UNSAFE_VARS_IN_RULE_DESCRIPTOR,
-                                        PrintableFLVarList,
-                                        UNSAFE_VARS_IN_RULE_DESCRIPTOR_EXPLANATION], Err),
-                StatusOfErrors = [[Err] | BodyVarsStatus]
-            ; StatusOfErrors = []
-            ),
-            append(BodyVarsStatus,StatusOfErrors,Status)
-	; Status = BodyVarsStatus
-	),
+        UnsafeDescriptorErrHead = UnsafeHeadVarWarnTail,
+        (UnsafeDescriptorFLVars \== [] ->
+            approx_flindex(UnsafeDescriptorFLVars,ErrIdx),
+            printable_flvarlist(UnsafeDescriptorFLVars,
+                                PrintableFLVarList),
+            compiling_error(ErrIdx,[UNSAFE_VARS_IN_RULE_DESCRIPTOR,
+                                    PrintableFLVarList,
+                                    UNSAFE_VARS_IN_RULE_DESCRIPTOR_EXPLANATION],
+                            Err),
+            UnsafeDescriptorErrHead = [Err | UnsafeDescriptorErrTail]
+        ; UnsafeDescriptorErrTail = UnsafeDescriptorErrHead
+        ),
+        %% Now convert the err-warn difference list into a list
+        UnsafeDescriptorErrTail = [],
 	!.
 
 %% TODO: check this test, but a warning here seems ok
@@ -3219,19 +3276,26 @@ check_latent_query_flvars_for_safety(CodeFLVars,Body,Status) :-
         subtract_vars(CodeFLVars,BodyFLVars,UnsafeVars),
         sort(UnsafeVars,UnsafeSortedVars),
         unsafe_var_warning(UnsafeSortedVars,UnsafeWarn,[],UNSAFE_VAR_IN_LATENT_QUERY),
+        %% Note: no point checking for uniqueness of vars in a query -- latent or not
+        %% Note: currently we do not check unsafe vars
+        %% in descriptors,but we might staart doing
+        %% this later
         (var(UnsafeWarn) -> UnsafeWarn = [], Status = []
+        ; UnsafeWarn == [] -> Status = []
         ; Status = UnsafeWarn
         ).
 
 %% In the agggregates, protected vars are grouping vars and sort-spec vars
 %% This warning is issued if one finds protected vars in some context
-protected_vars_warning(Vars,ProtectedVars,Status) :-
+%% Bindings:
+%%     protected_vars_warning(+BodyVars,+ProtectedVars,-WarnHead,-WarnTail)
+protected_vars_warning(Vars,ProtectedVars,WarnHead,WarnTail) :-
 	varlist_left_membercheck(ProtectedVars,Vars,Var),
 	!,
 	is_flvariable(Var,_,Idx),
-	compiling_warning(Idx,GROUPING_LEFT_OF,Err),
-	Status = [Err].
-protected_vars_warning(_,_,NO_ERRORS).
+	compiling_warning(Idx,GROUPING_LEFT_OF,Warn),
+	WarnHead = [Warn|WarnTail].
+protected_vars_warning(_,_,WarnList,WarnList).
 
 %% used in the Ergo parser
 flora_singleton_warnings(Formula,Warnings) :-
@@ -3262,20 +3326,20 @@ check_udf_vars_for_safety(Function,Predicate,ReturnValue,Status) :-
         append(FuncVars,PredVars,Vars),
         sort(Vars,SortedVars), %% singleton_flvars relies on sorting
         singleton_flvars(SortedVars,SingletonVars),
-        singleton_warning(SingletonVars,Status,WarnTail),
-        subtract_vars(FuncVars,PredVars,UnsafeVars),
-        %% Don't issue the unboundedness var warning for facts
+        SingletonWarnHead = Status,
+        singleton_warning(SingletonVars,SingletonWarnHead,SingletonWarnTail),
+        %% Don't issue the unsafe var warning for facts
+        %% Ie, in that case we just skip the unsafety check
 	%% (facts can be defined using function definition)
+        %% But we still issue singleton warnings
         (Predicate == NULL ->
-            ( var(Status) -> Status = NO_ERRORS
-            ; true
-            )
+            UnsafeWarnHead = SingletonWarnTail,
+            UnsafeWarnHead = UnsafeWarnTail
         ;
-            unsafe_var_warning(UnsafeVars,WarnTail,[],UNSAFE_UDF_VAR)
+            UnsafeWarnHead = SingletonWarnTail,
+            unsafe_var_warning(UnsafeVars,UnsafeWarnHead,UnsafeWarnTail,UNSAFE_UDF_VAR)
         ),
-	(var(WarnTail) -> WarnTail=[]
-	; true
-	),
+        UnsafeWarnTail = [],  %%turn Status into a list
 	!.
 
 
@@ -3859,7 +3923,8 @@ compile_list_internal([ParserTerm|ParserTermList],RuleDiffList-RuleTail,SigDiffL
 	    UDFTail1 = UDFPredsDiffList2,
 	    append(Stat1,Stat2,Status)
 	; Status = Stat1
-	).
+	),
+        true.
 
 
 
@@ -4887,18 +4952,12 @@ make_dynrule_from_fact(H,DescrIdCode,DescrVarsTerm,H2BF,H2BB,[Code|RT]-RT,Metafa
         copy_term(MetafactsDiffList,MetafactsDiffListCopy),
 	MetafactsDiffListCopy = MetafactsList - [],
 	list_struct(MetafactsList,[],MetaFactCode),
-	%%list_struct([],[],EmptyListCode), %% empty list
-	%%HVL = EmptyListCode,
-	%%HBL = EmptyListCode,
+	list_struct([],[],EmptyListCode), %% empty list
+	HVL = EmptyListCode,
+	HBL = EmptyListCode,
 	PreBody = RuleEnablerTest,
-        flvar_list_to_PRNamedVarPairs([],HVL),
-        flvar_list_to_PRNamedVarPairs([],BVL),
-        get_descr_flvar_weeded(DescrVarsTerm,DescrFLVars),
-        flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL),
-        /*
-        collect_name_var_pairs(DescrFLVars,NamedDescrVarsList),
-        list_struct(NamedDescrVarsList,[],NamedDescrVarsListCode),
-        */
+        get_descr_flvar_purified(DescrVarsTerm,DescrFLVars),
+        flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL,false),
         %% for  make_dynrule_from_fact
 	florasyslib_struct(FLSYSRULEUPDATE,15,
 			   [DescrIdCode,FileName,
@@ -4943,8 +5002,7 @@ attrvar_code(Var,Val,AttrName,Code) :-
 	atomobj_struct(flora_put_attr,PutAttrFunct),
         atomobj_struct(AttrName,AttrCode),
         prologterm_struct(PutAttrFunct,3,[Var,AttrCode,Val],flrwhen,VCode),
-        prologliblit_struct(VCode,Code),
-        true.
+        prologliblit_struct(VCode,Code).
 
 %% This version creates record that will enable flrutils.P
 %% flora_put_attr_and_insert_fact to create attributed variables
@@ -4958,6 +5016,7 @@ compile_query(+Body,-QueryDiffList,-Status)
 
 QueryDiffList is a difference list in the form of [...|R]-R.
 It is used to optimize append/3
+  This compiles only regular queries. For latent queries, see compile_latent_query.
 ****************************************************************************/
 compile_query(Body,_,[Err]) :-
 	is_flterm(Body,Funct,2,_),
@@ -4973,8 +5032,8 @@ compile_query(Body,_,[Err]) :-
 compile_query(Body,QueryList-QueryTail,Status) :-
 	%% check for protected variables misuse
 	collect_flvars(Body,BodyVars,ProtectedVars),
-	protected_vars_warning(BodyVars,ProtectedVars,BodyVarsStatus),
-	(no_errors_found(BodyVarsStatus) ->
+	protected_vars_warning(BodyVars,ProtectedVars,ProtectedVarsStatus,[]),
+	(no_errors_found(ProtectedVarsStatus) ->
 	    compile_body_top(Body,BCode,Status_body),
             !,
 	    ( no_errors_found(Status_body) -> 
@@ -4985,18 +5044,25 @@ compile_query(Body,QueryList-QueryTail,Status) :-
 		%% code to bind the CallerMod variable to the calling module
 		caller_module_binding_code(ThisMod,CallerBindingCode),
 		conjunct_struct(CallerBindingCode,BodyCode,AugmentedBodyCode),
-		collect_name_var_pairs(Body,NV),
+                %% RemoveDuplicates, Arg3 below, = true, which i what must be specified for queries
+                %% here we are compiling for a regular query, so removal name duplication 
+                %% in indexvars/3 is requested 
+                %% by passing Arg3=true to collect_name_var_pairs
+                %% This seems the only place where we pass true to indexvars/3.
+                %% In all other cases we pass false, meaning indexvars/3 should not 
+                %% eliminate duplicates
+		collect_name_var_pairs(Body,NV,true),
 		list_struct(NV,[],NVCode),
 		%% Note: we do not add delay-checker code FLORA_DELAY_CHECKER
 		%% in queries, since it is explicit in FLLIBANSWER
 		florasyslib_struct(FLLIBANSWER,2,[AugmentedBodyCode,NVCode],Goal),
 		query_struct(Goal,QueryCode),
 		QueryList = [QueryCode|QueryTail],
-		append(Status_body,BodyVarsStatus,Status)
+		append(Status_body,ProtectedVarsStatus,Status)
 	    ;
 		Status = Status_body
 	    )
-	; Status = BodyVarsStatus
+	; Status = ProtectedVarsStatus
 	),
 	!.
 
@@ -5049,16 +5115,19 @@ compile_latent_query(DescrIdCode,MetaFactDiffList,Body,Mode,LatentQueryList-Late
 get_descr_flvars(DescrVarsPRTerm, DescrFLVars) :-
         get_descr_prvarlist(DescrVarsPRTerm,DescrPRVars),
 	prvar_to_flvar_struct_list(DescrPRVars,DescrFLVars).
-%% weeded means sorted varlist, minus anon and don't care vars
-weeded_flvars(DescrFLVars,LoudSortedDescrFLVars) :-
+%% purified means sorted varlist, minus anon and don't care vars
+purified(DescrFLVars,LoudSortedDescrFLVars) :-
         machine:parsort(DescrFLVars,asc,0,SortedDescrFLVars),
+        %% Too early to remove duplicates `here -- otherwiswe'll
+        %% be getting 'singleton' designation for every variable,
+        %%DescrFLVars = SortedDescrFLVars,
         remove_silent_flvars(SortedDescrFLVars,LoudSortedDescrFLVars_pre),
         remove_dontcare_flvars(LoudSortedDescrFLVars_pre,LoudSortedDescrFLVars).
 
-get_descr_flvar_weeded(DescrVarsPRTerm,[]) :- is_prvariable(DescrVarsPRTerm,_,_), !.
-get_descr_flvar_weeded(DescrVarsPRTerm,LoudSortedDescrFLVars) :-
+get_descr_flvar_purified(DescrVarsPRTerm,[]) :- is_prvariable(DescrVarsPRTerm,_,_), !.
+get_descr_flvar_purified(DescrVarsPRTerm,LoudSortedDescrFLVars) :-
         get_descr_flvars(DescrVarsPRTerm, DescrFLVars),
-        weeded_flvars(DescrFLVars,LoudSortedDescrFLVars).
+        purified(DescrFLVars,LoudSortedDescrFLVars).
 
 %% Normally, the first arg is bound.
 %% If not, assume DescrVarsList is [].
@@ -5121,8 +5190,6 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
 	findall(IdTerm-Idx,
 		member(FLDESCRIPTOR(IdTerm,FLRULEID,Idx),FlatDescrList),
 		IdParserTermList),
-       %%%% writeln(2,'IdParserTermList'=IdParserTermList),
-       %%%% writeln(2,'DescrVarsTermOut'=DescrVarsTermOut),
 	!,
 	push_context(CONTEXT_COMPILER_NO_SYMBOL_CHECK),
 	set_context(CONTEXT_COMPILER_DESCRIPTORS(Mode)),
@@ -5165,8 +5232,6 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
 	%% Generate a var in this case
 	;   new_prvariable(NO_INDEX,DescrVarsTermOut)
 	),
-       %%%% writeln(2,'000'= Mode),
-       %%%% writeln(2,'000'= VarListLen+DescrVarsTermOut),
 	get_current_compile_file_for_descriptor(CurrFileName,Mode),
 	get_descriptor_module(ExplicitModule,Mode,DescrModule),
 	(IdStatus == NO_ERRORS
@@ -5194,7 +5259,6 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
 	; Status = IdStatus,
 	    MetaFacts = []
 	),
-       %%%% writeln(2,'000'= qqq+VarListLen+DescrVarsTermOut+mode(Mode)),
 	clear_context(CONTEXT_COMPILER_DESCRIPTORS(Mode)),
 	pop_context(CONTEXT_COMPILER_NO_SYMBOL_CHECK).
 
@@ -6125,7 +6189,6 @@ compile_rule(Head,Body,DescriptorIdCode,DescrVarsTerm,RuleList-RuleTail,SigDiffL
 		construct_rule_enabling_test(DescriptorIdCode,FL_DESCRMODE_RULE,RuleEnablerTest,_),
 		PreBody = RuleEnablerTest,
 		PostBodyList = DelayCheckCodeList,
-       %%%% writeln(2,uuuuuuuu22222=DescrVarsTerm),
 		make_rules_and_signatures(HeadCode,H2BCodeFront,H2BCodeBack,
 					  BCode,PreBody,PostBodyList,
 					  BodyDTvarscode,
@@ -6133,13 +6196,10 @@ compile_rule(Head,Body,DescriptorIdCode,DescrVarsTerm,RuleList-RuleTail,SigDiffL
 					  RuleList-RuleTail,
 					  SigDiffList,
 					  FinalRuleConstructionStatus),
-       %%%% writeln(2,uuuuuuuu33333= FinalRuleConstructionStatus+DescrVarsTerm),
 		( no_errors_found(FinalRuleConstructionStatus),
 		    %% for UDFS checking of variables is done separately
 		    \+ has_context(CONTEXT_COMPILER_UDF_DEFINITION) ->
-              %%%% writeln(2,uuuuu4444=DescrVarsTerm+Head),
 		    check_rule_vars_for_safety(DescrVarsTerm,Head,Body,AllVarStat),
-              %%%% writeln(2,uuuuu5555=DescrVarsTerm+Head),
 		    flatten([HeadStatus,BodyStatus,FinalRuleConstructionStatus,AllVarStat],Status)
 		; Status = FinalRuleConstructionStatus
 		)
@@ -6480,7 +6540,8 @@ compile_body(ParserTerm,Code,Status) :-
 	    )
 	; true
 	),
-	clear_context(CONTEXT_COMPILER_DEFAULT_NEGATION).
+    clear_context(CONTEXT_COMPILER_DEFAULT_NEGATION).
+
 
 compile_body(ParserTerm,Code,Status) :-
 	is_fllogicquantifier(ParserTerm,QuantType,QuantVarNames,VarsCode,Formula,Idx),
@@ -6489,18 +6550,18 @@ compile_body(ParserTerm,Code,Status) :-
 	%% no quantified don't care vars (?,?_) allowed
 	(memberchk(FL_ANON_VAR,QuantVarNames) ->
 	    compiling_error(Idx,NO_QUANTIFIED_ANONVARS,Err1),
-	    S1 = [Err1]
-	; S1 = NO_ERRORS
+	    Stat1 = [Err1]
+	; Stat1 = NO_ERRORS
 	),
 
 	compile_body(Formula,FormCode,Stat2),
-	(S1==NO_ERRORS -> S3=Stat2
-	; S3 = [Err1|S2]
+	(Stat1==NO_ERRORS -> Stat3=Stat2
+	; Stat3 = [Err1|Stat2]
 	),
 	%% We use prvars so that newly introduced vars will be accounted for
 	collect_prvars(FormCode,FormVarList),
 	vars_to_var_names(FormVarList,FormVarNames),
-	(no_errors_found(S3) ->
+	(no_errors_found(Stat3) ->
 	    (QuantVarNames == FL_STAR -> Stat4 = NO_ERRORS %% all vars exist'l
 	    %% quantified vars must occur in Formula
 	    ; subset(QuantVarNames,FormVarNames) -> Stat4 = NO_ERRORS
@@ -6528,7 +6589,7 @@ compile_body(ParserTerm,Code,Status) :-
                                    RenamedQuantVars),
                 append(StatVarsCode,Stat4,Status)
 	    )
-	; Status = S3
+	; Status = Stat3
 	),
         list_struct(FreeVarObjs,[],FreeVarListObj),
         %%writeln(2,'999quantnames_freevarlistobj1'=QuantVarNames+FreeVarListObj),
@@ -6722,32 +6783,33 @@ compile_metauniv(Left,Right,OidCode,Code,Status) :-
         clear_context(CONTEXT_COMPILING_METAUNIV).
 
 /****************************************************************************
-compile_prologifthen(+Left,+Right,-Code,-Status)
-Compiling -->>
-        ****************************************************************************/
-        compile_prologifthen(Left,Right,Code,Status) :-
-                /* Do not push CONTEXT_COMPILER_GOAL_REIFICATION. Otherwise,
-                Left,Right will get reified and their context arguments will
-                be zapped. Then, in encapsulated Flora-2 modules this will cause
-                errors. For instance, calling (foo(?X) -->> bar(?X) ; ...) will
-                not pass the module context to foo and bar.
-This will cause the "calling unexported method" error.
-                */
-                %%push_context(CONTEXT_COMPILER_GOAL_REIFICATION),
-                compile_body(Left,LeftCode,S1),
-                ( no_errors_found(S1) ->
-                    compile_body(Right,RightCode,Status),
-                    ( no_errors_found(Status) ->
-                        atomobj_struct(('->'),ArrowObj),
-                        prologterm_struct(ArrowObj,2,[LeftCode,RightCode],Code)
-                    ;
-                        true
-                    )
-                ;
-                    Status=Stat1
-                ),
-                %%pop_context(CONTEXT_COMPILER_GOAL_REIFICATION),
-                true.
+  compile_prologifthen(+Left,+Right,-Code,-Status)
+  Compiling -->>
+****************************************************************************/
+compile_prologifthen(Left,Right,Code,Status) :-
+        /* 
+        Do not push CONTEXT_COMPILER_GOAL_REIFICATION. Otherwise,
+        Left,Right will get reified and their context arguments will
+        be zapped. Then, in encapsulated Flora-2 modules this will cause
+        errors. For instance, calling (foo(?X) -->> bar(?X) ; ...) will
+        not pass the module context to foo and bar.
+        This will cause the "calling unexported method" error.
+        */
+        %%push_context(CONTEXT_COMPILER_GOAL_REIFICATION),
+        compile_body(Left,LeftCode,S1),
+        ( no_errors_found(S1) ->
+            compile_body(Right,RightCode,Status),
+            ( no_errors_found(Status) ->
+                atomobj_struct(('->'),ArrowObj),
+                prologterm_struct(ArrowObj,2,[LeftCode,RightCode],Code)
+            ;
+                true
+            )
+        ;
+            Status=Stat1
+        ),
+        %%pop_context(CONTEXT_COMPILER_GOAL_REIFICATION),
+        true.
 
 
 /****************************************************************************
@@ -6895,7 +6957,7 @@ verify_symbol_context(Funct,Arity,WS,SymbolContext,Transactional,SymbolContextSt
 				       Index,SymbolContext,Transactional,
 				       SymbolContextStatus),
 	    SymbolContextStatus \== NO_ERRORS,
-	    %% note: we need to backtrack through enough of symbols to
+	    %% note: we need to backtrack through enough symbols to
 	    %% get a warning
 	    !
         ;
@@ -7562,8 +7624,8 @@ compile_aggregate(Op,AggVar,GVars,SortSpec,BodyTerm,Object,Code,Status) :-
 	; conjunct_struct(BodyPureCode,PostBody,BCode)
 	),
 	( no_errors_found(S) -> 
-	    check_aggregate(AggVar,GVars,SortSpec,BodyTerm,S1),
-	    ( no_errors_found(S1) -> 
+	    check_aggregate(AggVar,GVars,SortSpec,BodyTerm,Stat1),
+	    ( no_errors_found(Stat1) -> 
 		compile_body_pathexplist([AggVar|GVars],FL_THISMODULE,[_AggVarCode|GVarsCode],NULL,NULL,[],NO_ERRORS),
 		%% Note: grouping vars are global, NOT renamed
 		list_struct(GVarsCode,[],GVarsListCode),
@@ -7592,7 +7654,7 @@ compile_aggregate(Op,AggVar,GVars,SortSpec,BodyTerm,Object,Code,Status) :-
 		    )
 		)
 	    ;
-                Status = S1
+                Status = Stat1
 	    )
 	;
             Status=S
@@ -7618,27 +7680,28 @@ check_aggregate(AggVar,GVars,SortSpec,BodyTerm,Status) :-
             Status=Stat1
         ),
 	%% Check if any grouping variable is anonymous.
-	check_gvar(GVars,S1,Stat2),
+	check_gvar(GVars,Stat1,Stat2),
 	%% Check if the aggregate variable is also used for grouping.
 	( AggVarName \= FL_ANON_VAR, is_flvariable(U,AggVarName,_Iu),
 	    memberchk(U,GVars) ->
 	    compiling_error(AggVarIndex,AVAR_ASGVAR,M2),
 	    Stat2=[M2|Stat3]
-	; S3=Stat2
+	; Stat3=Stat2
         ),
 	%% Check if there are any repeated grouping variables.
 	sort(GVars,SVars),
-	check_repeatedvar(SVars,S3,S4),
+	check_repeatedvar(SVars,Stat3,Stat4),
 	collect_flvars(BodyTerm,BVars),
+        sort(BVars,SortedBVars),
 	%% Check if aggregate variable is used in the aggregate body.
-	( (AggVarName == FL_ANON_VAR; is_flvariable(W,AggVarName,_Iw), memberchk(W,BVars)) ->
+	( (AggVarName == FL_ANON_VAR; is_flvariable(W,AggVarName,_Iw), memberchk(W,SortedBVars)) ->
 	    Stat5=Stat4
         ;
             compiling_error(AggVarIndex,AVAR_NOTIN,M5),
-            S4=[M5|Stat5]
+            Stat4=[M5|Stat5]
         ),
 	%% Check if all grouping variables are used in the aggregate body.
-	( subtract_vars(GVars,BVars,L), L \== [] ->
+	( subtract_vars(GVars,SortedBVars,L), L \== [] ->
 	    sort(L,SL),
 	    allgvar_notin(SL,Stat5,Stat6)
 	;
@@ -7646,7 +7709,7 @@ check_aggregate(AggVar,GVars,SortSpec,BodyTerm,Status) :-
         ),
 	%% Check if all SortVars (if it is a list of uniquification vars
         %% for sum, count, avg) are used in the aggregate body.
-	( subtract_vars(SortSpec,BVars,L), L \== [] ->
+	( subtract_vars(SortSpec,SortedBVars,L), L \== [] ->
             approx_flindex(L,Index),
             compiling_error(Index,UNIQVAR_NOTIN,Msg),
             Stat6 = [Msg]
@@ -7859,7 +7922,8 @@ compile_body_literal(ParserTerm,WS,OidCode,BodyLitCode,BodyFrontList,Status) :-
 compile_body_literal(ParserTerm,WS,OidCode,BodyLitCode,BodyFrontList,Status) :-
 	is_flterm(ParserTerm,Funct,N,Args),
 	!,
-	compile_body_termlit(Funct,N,Args,WS,OidCode,BodyLitCode,BodyFrontList,Status).
+	compile_body_termlit(Funct,N,Args,WS,OidCode,BodyLitCode,BodyFrontList,Status),
+        true.
 
 %% Literal variable without @module
 compile_body_literal(ParserTerm,WS,NULL,BodyLitCode,[],NO_ERRORS) :-
@@ -8263,7 +8327,7 @@ compile_body_pathexplist([],_WS,[],NULL,NULL,[],NO_ERRORS) :- !.
 
 compile_body_pathexplist([T|L],WS,[TObj|LObj],OidCode,Code,BodyFrontList,Status) :-
 	(var(BodyFrontList) -> true ; BodyFrontList1=[],BodyFrontList2=[]),
-	compile_body_pathexp_top(T,WS,TObj,OidCodeFront,TCode,BodyFrontList1,S),
+	compile_body_pathexp_top(T,WS,TObj,OidCodeFront,TCode,BodyFrontList1,Stat1),
         (has_context(CONTEXT_COMPILER_TEXTIT) ->
             %% textit args 2-4 compile in CONTEXT_COMPILER_TEXTIT_ARGS2_4 mode
             %% in that mode, filename/linenumbers are added to delayed
@@ -8274,20 +8338,20 @@ compile_body_pathexplist([T|L],WS,[TObj|LObj],OidCode,Code,BodyFrontList,Status)
         ),
 	(var(TCode) -> TCode = NULL ; true),
 	clear_context(CONTEXT_COMPILER_TERM_NAME),
-	( no_errors_found(S) -> 
-	    compile_body_pathexplist(L,WS,LObj,OidCodeBack,LCode,BodyFrontList2,S2),
+	( no_errors_found(Stat1) -> 
+	    compile_body_pathexplist(L,WS,LObj,OidCodeBack,LCode,BodyFrontList2,Stat2),
 	    (var(LCode) -> LCode = NULL ; true),
 	    ( var(BodyFrontList) ->
 		append(BodyFrontList1,BodyFrontList2,BodyFrontList)
 	    ; true
 	    ),
-	    ( no_errors_found(S2) -> 
+	    ( no_errors_found(Stat2) -> 
 		conjunct_struct(TCode,LCode,Code),
 		conjunct_struct(OidCodeFront,OidCodeBack,OidCode),
-		append(S,S2,Status)
+		append(Stat1,Stat2,Status)
 	    ; Status=Stat2
 	    )
-	; Status=S
+	; Status=Stat1
         ),
 	!.
 
@@ -8368,14 +8432,14 @@ compile_body_pathexp(ParserTerm,WS,Object,OidCode,Code,BodyFrontList,Status) :-
         is_flpassthru(ParserTerm,ParserTermStripped,_,Arg1,_Arg2),
         !,
         push_context(CONTEXT_COMPILING_PASSTHRU),
-        compile_body_pathexp_top(Arg1,WS,Object,OidCode1,Code1,BodyFrontList1,S1),
-        (no_errors_found(S1) ->
-            compile_body_pathexp_top(ParserTermStripped,WS,Object2,OidCode2,Code2,BodyFrontList2,S2),
+        compile_body_pathexp_top(Arg1,WS,Object,OidCode1,Code1,BodyFrontList1,Stat1),
+        (no_errors_found(Stat1) ->
+            compile_body_pathexp_top(ParserTermStripped,WS,Object2,OidCode2,Code2,BodyFrontList2,Stat2),
             append(BodyFrontList1,BodyFrontList2,BodyFrontList),
             conjunct_struct(OidCode1,OidCode2,OidCode),
             conjunct_code([Code1,Code2,Object2],Code),
-            append(S1,S2,Status)
-        ; Status = S1
+            append(Stat1,Stat2,Status)
+        ; Status = Stat1
         ),
         pop_context(CONTEXT_COMPILING_PASSTHRU).
 
@@ -8762,7 +8826,8 @@ compile_pathexp_no_workspace(ParserTerm,Object,OidCode,NULL,[],Status) :-
 	!,
 	%% Aggregates are treated as OID, so its code would come
 	%% ahead of the code of the literal it occurs in
-	compile_aggregate(Op,V,GV,SortSpec,B,Object,OidCode,Status).
+	compile_aggregate(Op,V,GV,SortSpec,B,Object,OidCode,Status),
+        true.
 
 compile_pathexp_no_workspace(ParserTerm,Object,OidCode,NULL,BodyFrontList,Status) :-
 	is_reifyop(ParserTerm,Formula),
@@ -8857,7 +8922,8 @@ compile_body_termobj(Funct,N,Args,WS,Object,OidCode,Code,BodyFrontList,Transacti
 	!,
 	verify_symbol_context(Funct,N,WS,SymbolContext,
 			      Transactional,SymbolStatus),
-	append(SymbolStatus,Status,CompileStatus).
+	append(SymbolStatus,Status,CompileStatus),
+        true.
 
 compile_body_termobj(Funct,N,Args,WS,Object,OidCode,Code,[],Transactional,CompileStatus) :-
 	verify_symbol_context(Funct,N,WS,FUNCTION_SYMBOL,
@@ -8868,7 +8934,8 @@ compile_body_termobj(Funct,N,Args,WS,Object,OidCode,Code,[],Transactional,Compil
 	( no_errors_found(Status) -> termobj_struct(FObj,N,AObj,Object)
 	; true
 	),
-	append(SymbolStatus,Status,CompileStatus).
+	append(SymbolStatus,Status,CompileStatus),
+       true.
 
 /****************************************************************************
 compile_body_termlit(+FunctorTerm,+Arity,+ArgList,+Workspace,-OidCode,-Code,?BodyFrontList,-Status)
@@ -8923,7 +8990,8 @@ compile_body_termlit(Funct,N,Args,WS,OidCode,Code,BodyFrontList,CompileStatus) :
 	!,
 	(WSStatus==NO_ERRORS -> append(SymbolStatus,PathexpStatus,CompileStatus)
 	; CompileStatus = WSStatus
-	).
+	),
+       true.
 
 compile_body_transactional_termlit(Funct,N,Args,WS,OidCode,Code,BodyFrontList,CompileStatus) :-
 	verify_symbol_context(Funct,N,WS,PREDICATE_SYMBOL,
@@ -9187,19 +9255,19 @@ compile_body_specbody(Object,SpecTerm,WS,OidCode,Code,BodyFrontList,Status) :-
 	%% no quantified don't care vars (?,?_) 
 	(memberchk(FL_ANON_VAR,QuantVarNames) ->
 	    compiling_error(Idx,NO_QUANTIFIED_ANONVARS,Err1),
-	    S1 = [Err1]
-	; S1 = NO_ERRORS
+	    Stat1 = [Err1]
+	; Stat1 = NO_ERRORS
 	),
 
 	compile_body_specbody(Object,Formula,WS,OidCode,FormCode,BodyFrontList,S2),
         !,
-	(S1==NO_ERRORS -> S3=Stat2
-	; S3 = [Err1|S2]
+	(Stat1==NO_ERRORS -> Stat3=Stat2
+	; Stat3 = [Err1|Stat2]
 	),
 	%% We use prvars so that newly introduced vars will be accounted for
 	collect_prvars([Object,OidCode,FormCode],AllVarList),
 	vars_to_var_names(AllVarList,AllVarList_names),
-	(no_errors_found(S3) ->
+	(no_errors_found(Stat3) ->
 	    %% quantified vars must occur in Formula
 	    (subset(QuantVarNames,AllVarList_names) -> Stat4 = NO_ERRORS
 	    ; compiling_error(Idx,QUANT_VARS_NOT_SUBSET,Err4),
@@ -9218,7 +9286,7 @@ compile_body_specbody(Object,SpecTerm,WS,OidCode,Code,BodyFrontList,Status) :-
 			       (RenamedPRVarsCode,RenamedFormCode),
                                RenamedQuantVars),
             append(StatVarsCode,Stat4,Status)
-	; Status = S3
+	; Status = Stat3
 	),
 	!,
 	( no_errors_found(Status) -> 
@@ -10333,12 +10401,13 @@ compile_head_pathexp(ParserTerm,_WS,Object,NULL,H2BCodeFront,NULL,Status) :-
 	is_reifyop(ParserTerm,Formula),
 	!,
 	%% Code: code to get Object
-	/* We push fllibmodobj, creating a reified statement,
-        to the body. This allows us to have reified statements with
-        var module in the head. For instance,
-        p(${a(?X)@?M}) :- a(?X,?M).
-a(1,mmm).
-?- p(${a(?X)@mmm}).
+	/*
+            We push fllibmodobj, creating a reified statement,
+            to the body. This allows us to have reified statements with
+            var module in the head. For instance,
+            p(${a(?X)@?M}) :- a(?X,?M).
+            a(1,mmm).
+        ?- p(${a(?X)@mmm}).
 	*/
 	%% If H2BCodeFront != NULL, it means that head-reification could
 	%% not be fully computed due to a var in the module or literal
@@ -10999,28 +11068,8 @@ compile_insert_litlist([HWS|T],Code,Status) :-
 
 	    ; %%%% Fact must be converted to rule
                 %% arrange for dynrule variables
-               %%%% writeln(2,oldhead=H),
-                flvar_list_to_PRNamedVarPairs(HeadCode1,HVL),
-               %%%% writeln(2,newhead=H+HVL),
-                /*
-                new_prvariable(NO_INDEX,HVL),
-                collect_name_var_pairs(H,HeadVars),
-                list_struct(HeadVars,[],HVLValue),
-                (HeadVars==[] -> true
-                ; report_dynrule_varlist(HVL,HVLValue)
-                ),
-                */
-               %%%% writeln(2,newbody=[]),
-                flvar_list_to_PRNamedVarPairs([],BVL),
-               %%%% writeln(2,newbody=[]+BVL),
-                /*
-                new_prvariable(NO_INDEX,BVL),
-                collect_name_var_pairs([],BodyVars),
-                list_struct(BodyVars,[],BVLValue),
-                (BodyVars==[] -> true
-                ; report_dynrule_varlist(BVL,BVLValue)
-                ),
-                */
+                flvar_list_to_PRNamedVarPairs(H,HVL,false),
+                flvar_list_to_PRNamedVarPairs([],BVL,false),
 		%% Head literal contains a path expr, so it becomes a rule.
 		%% Treat it as a dynamically inserted rule.
 
@@ -11048,19 +11097,14 @@ compile_insert_litlist([HWS|T],Code,Status) :-
 		list_struct([H2BCodeFront],[],H2BCodeFrontList),
 		list_struct([H2BCodeBack],[],H2BCodeBackList),
 		list_struct([PostBody],[],PostBodyList),
-               %%%% writeln(2,descrvarsterm=DescrVarsTerm),
-                get_descr_flvar_weeded(DescrVarsTerm,DescrFLVars),
-               %%%% writeln(2,descrvarstermOUT=DescrFLVars),
-                /*
-                collect_name_var_pairs(DescrFLVars,NamedDescrVarsList),
-                list_struct(NamedDescrVarsList,[],NamedDescrVarsListCode),
-                */
-                flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL),
+                get_descr_flvar_purified(DescrVarsTerm,DescrFLVars),
+                %% Arg 3 is true only for queriess
+                flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL,false),
                 %% for compile_insert_litlist
 		florasyslib_struct(FLSYSRULEUPDATE,15,
 				   [DescrIdCode,
                                     FileName,
-                                    %%DescrVarsTerm,
+                                    %% Was: DescrVarsTerm,
                                     DescrVL,
 				    StmtNum,MetaFactCode,
 				    HeadCodeList,
@@ -11236,25 +11280,18 @@ compile_delete_litlist([HWS|T],CodeList,Status) :-
                 ),
 		list_struct([NULL],[],H2BCodeBackList),
 
-		%%list_struct([],[],EmptyListCode), %% empty list
-		%%HVL = EmptyListCode,
-		%%BVL = EmptyListCode,
-                flvar_list_to_PRNamedVarPairs(H1,HVL),
-                flvar_list_to_PRNamedVarPairs([],BVL),
-                get_descr_flvar_weeded(DescrVarsTerm,DescrFLVars),
-                /*
-                %% NamedDescrVarsList is supposed to be [] here
-                collect_name_var_pairs(DescrFLVars,NamedDescrVarsList),
-                list_struct(NamedDescrVarsList,[],NamedDescrVarsListCode),
-                */
-           %%%% writeln(2,aaa999=DescrFLVars),
-                flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL),
-           %%%% writeln(2,bbb=DescrVL),
+		list_struct([],[],EmptyListCode), %% empty list
+		HVL = EmptyListCode,
+		BVL = EmptyListCode,
+                %%flvar_list_to_PRNamedVarPairs(H1,HVL,false), or maybe true?
+                %%flvar_list_to_PRNamedVarPairs([],BVL,false), or maybe true?
+                get_descr_flvar_purified(DescrVarsTerm,DescrFLVars),
+                flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL,false),
                 %% for compile_delete_litlist
 		florasyslib_struct(FLSYSRULEUPDATE,15,
 				   [DescrIdCode,
                                     FileName,
-                                    %%DescrVarsTerm,
+                                    %% Was: DescrVarsTerm,
                                     DescrVL,
 				    StmtNum,
 				    MetaFactCode,
@@ -11346,12 +11383,12 @@ compile_updaterule(Op,List,Code,Status) :-
 %% compile_dynrule_list(+Op,+RuleList,-RuleListCode,-Status)
 compile_dynrule_list(_Op,[],[],NO_ERRORS) :- !.
 compile_dynrule_list(Op,[H|L],[HCode|LCode],Status) :-
-	compile_dynrule(Op,H,HCode,S),
+	compile_dynrule(Op,H,HCode,Stat1),
 	!,
-	( no_errors_found(S) -> 
-	    compile_dynrule_list(Op,L,LCode,S1),
-	    append(S,S1,Status)
-	; S = Status
+	( no_errors_found(Stat1) -> 
+	    compile_dynrule_list(Op,L,LCode,Stat2),
+	    append(Stat1,Stat2,Status)
+	; Stat1 = Status
 	).
 
 %% compile single dynamic rule
@@ -11374,8 +11411,6 @@ compile_dynrule(_Op,R,RCode,Status) :-
 %%       are not allowed to be dynamic in FLORA-2.
 compile_dynrule(Op,R,RCode,Status) :-
 	is_fldynrule(R,Head,Body,DescriptorList),
-       %%%% writeln(2,1111=Head),
-       %%%% writeln(2,aa11=DescriptorList),
 	approx_flindex(R,RuleIdx),
 	%% If delete op: default rule id descriptor should be Var
 	%% and shouldn't generate the rule enabling metafact.
@@ -11419,15 +11454,12 @@ compile_dyn_latent_query(Op,DescrIdCode,MetaFactDiffList,Body,LatentQuerySigCode
             collect_flvars(Body,BodyVars),
             subtract_vars(BodyVars,DescrFLVars,BodyOnlyVars),
             
-            flvar_list_to_PRNamedVarPairs(BodyOnlyVars,BVL),
-            /*
-	    new_prvariable(NO_INDEX,BVL), %% attr var for body var list
-	    collect_name_var_pairs(BodyOnlyVars,BodyVarPairs),
-	    list_struct(BodyVarPairs,[],BVLValue),
-	    (BodyVarPairs==[] -> true
-	    ; report_dynrule_varlist(BVL,BVLValue)
-	    ),
-            */
+            %% Eliminate duplicates in queries, so arg3 is true
+            %% Note: BVL is used 18 lines later in this rule 
+            %% TODO:
+            %% In FLSYSINSQUERYSIG, add:
+            %% HVL = Emptylist there and we need to pass DescrVarsTerm and create DesrrVars
+            flvar_list_to_PRNamedVarPairs(BodyOnlyVars,BVL,false),
 
 	    %% code to bind the CallerMod variable to the calling module
 	    caller_module_binding_code(ThisMod,CallerBindingCode),
@@ -11441,10 +11473,25 @@ compile_dyn_latent_query(Op,DescrIdCode,MetaFactDiffList,Body,LatentQuerySigCode
 	    MetaFactDiffList = MetaFactList - [],
 	    list_struct(MetaFactList,[],MetaFactCode),
 	    (is_fldeleteruleop(Op) ->
-		florasyslib_struct(FLSYSDELQUERYSIG,5,[DescrIdCode,File,ThisMod,MetaFactCode,LatentQueryBodyCode],LatentQuerySigCode)
-            %% This is done only for latent queries
-            %% Will be FLSYSINSQUERYSIG,9,[...]
-	    ; florasyslib_struct(FLSYSINSQUERYSIG,8,[DescrIdCode,File,ThisMod,StmtNum,MetaFactCode,PreLatentQueryCode,LatentQueryBodyCode,BVL],LatentQuerySigCode)
+		florasyslib_struct(FLSYSDELQUERYSIG,5,
+                                   [DescrIdCode,File,ThisMod,
+                                    MetaFactCode,
+                                    LatentQueryBodyCode],
+                                   LatentQuerySigCode)
+	    ; 
+                %% The following is done only for latent queries
+                %% the BVL argument here is used in flrdynrule.P to check for singletons in
+                %% the latent query body
+                %%% TODO: pass HVL as [] and DescrVL since latent vars have descriptors
+                florasyslib_struct(FLSYSINSQUERYSIG, 8,
+                                   [DescrIdCode,File,ThisMod,
+                                    StmtNum, MetaFactCode,
+                                    PreLatentQueryCode,
+                                    LatentQueryBodyCode,
+                                    BVL
+                                   ],
+                                   LatentQuerySigCode
+                                  )
 	    )
 	;
             true
@@ -11461,7 +11508,6 @@ compile_dyn_latent_query(Op,DescrIdCode,MetaFactDiffList,Body,LatentQuerySigCode
 compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,RuleCode,Status) :-
         set_context(CONTEXT_COMPILER_WITH_VAR_MODULE),
 	set_context(CONTEXT_COMPILER_DYNRULE(DescrIdCode+Op)),
-   %%%% writeln(2,4444=DescrVarsTerm),
 	compile_head_top(Head,HeadNF,rule,HeadCode,H2BCodeFront,H2BCodeBack,HeadStatusPre),
 	%% no :- prolog predicates in dynamic rule heads
 	(has_prologlit(HeadCode,IdxH)
@@ -11474,29 +11520,14 @@ compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,Rul
 	( no_errors_found(HeadStatus) -> 
 	    compile_body_top(Body,BodyCode,BodyStatus),
 	    ( no_errors_found(BodyStatus) -> 
-		( is_fldeleteruleop(Op) ->  true
+		( is_fldeleteruleop(Op) ->   %% true
+                    %% Important that HVL/BVL are passed as prvars, not Prolog vars
+                    new_prvariable(NO_INDEX,HVL), % attr var for head var list
+                    new_prvariable(NO_INDEX,BVL) % attr var for body var list
 		;
                     %% Head is a parser term (flvar etc).
-                    flvar_list_to_PRNamedVarPairs(Head,HVL),
-                    /*
-                    new_prvariable(NO_INDEX,HVL), %% attr var for head var list %
-                    %% HeadVars is a list at the PR-level
-                    collect_name_var_pairs(Head,HeadVars),
-                    list_struct(HeadVars,[],HVLValue),
-                    (HeadVars==[] -> true
-                    ; report_dynrule_varlist(HVL,HVLValue)
-                    ),
-                    */
-                
-                    flvar_list_to_PRNamedVarPairs(Body,BVL)
-                    /*
-                    new_prvariable(NO_INDEX,BVL), %% attr var for body var list % %
-                    collect_name_var_pairs(Body,BodyVars),
-                    list_struct(BodyVars,[],BVLValue),
-                    (BodyVars==[] -> true
-                    ; report_dynrule_varlist(BVL,BVLValue)
-                    )
-                    */
+                    flvar_list_to_PRNamedVarPairs(Head,HVL,false),
+                    flvar_list_to_PRNamedVarPairs(Body,BVL,false)
                 ),
                 make_datatype_vars_code(HeadCode,HeadDTvarscode),
                 make_datatype_vars_code(BodyCode,BodyDTvarscode),
@@ -11506,7 +11537,6 @@ compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,Rul
                 list_struct(H2BCodeFront,[],H2BCodeFrontList),
                 list_struct(H2BCodeBack,[],H2BCodeBackList),
         	construct_defeasible_condition_for_signature_or_dynrule(HeadCode,DescrIdCode,DescrVarsTerm,DefeatCondCode),
-   %%%% writeln(2,55555=DefeatCondCode),
                 %% Note: Head cannot contain sensors, so no need to check
                 %% multi-headed rules if sensors mix with non-sensors
                 (has_context(CONTEXT_COMPILER_UDF_DEFINITION) ->
@@ -11535,19 +11565,10 @@ compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,Rul
                 MetaFactDiffList = MetaFactList - [],
                 list_struct(MetaFactList,[],MetaFactCode),
 
-               %%%% writeln(2,66222=DescrVarsTerm),
                 %% Make attr var infrastructure for Descriptor
-                get_descr_flvar_weeded(DescrVarsTerm,DescrFLVars),
-                /*
-                new_prvariable(NO_INDEX,DescrVL), %% attr var for descriptor var list
-                collect_name_var_pairs(DescrFLVars,DescrPairs),
-                list_struct(DescrPairs,[],DescrPairsValue),
-                (DescrPairs==[] ->  true
-                ; report_dynrule_varlist(DescrVL,DescrPairsValue)
-                ),
-                */
-                flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL),
-            %%%% writeln(2,666666=DescrVL),
+                get_descr_flvar_purified(DescrVarsTerm,DescrFLVars),
+                %% Not a query, so do not remove duplicates in DescrVL
+                flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL,false),
                 %% for compile_dynrule_main
                 florasyslib_struct(FLSYSRULEUPDATE,15,
                                    [DescrIdCode,FileName,
@@ -11574,7 +11595,6 @@ compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,Rul
                                     PostBodyList,
                                     DefeatCondCode],
                                    RuleCode),
-               %%%% writeln(2,66666=HeadStatus+BodyStatus),
                 flatten([HeadStatus,BodyStatus],Status)
             ;
                 flatten([HeadStatus,BodyStatus],Status)
@@ -11760,8 +11780,8 @@ compile_exec_directive(DirectList,WS,Code,Status) :-
 compile_execdirect_list([],_,[],NO_ERRORS) :- !.
 
 compile_execdirect_list([D|L],WS,[DCode|LCode],Status) :-
-	compile_execdirect(D,WS,DCode,S1),
-	( no_errors_found(S1) -> 
+	compile_execdirect(D,WS,DCode,Stat1),
+	( no_errors_found(Stat1) -> 
 	    compile_execdirect_list(L,WS,LCode,Status)
 	; Status = S1
 	).
@@ -12890,7 +12910,8 @@ compile_rule_struct_exec_direct(Module,Flag,Code,Status) :-
 
 printable_flvar(FLVar,['?',Name]) :- 
        nonvar(FLVar),
-       is_flvariable(FLVar,Name,_).
+       is_flvariable(FLVar,Name,_),
+       !.
 printable_flvar(FLVar,_) :-
         abort(['[Compiler] bug: ', FLVar, ' - non-flvar element in printable_flvar/2.']).
 

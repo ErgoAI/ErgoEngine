@@ -1,17 +1,11 @@
 #include "standard.h"
 
 %pretest :-
-        (flora_running_as(ergo)@\plg(flrporting) -->> set_omniform_mode(on)@\plg(flrcompiler) ; \true),
 	flora_read_then_parse_file('tnf_data.flr',?_Parselist)@\plg(flrutils),
 	flwritelinelist(?_Parselist)@\plg(flrparser).
 
 
 %test :-
-	(File[exists(tnf_old)]@\io -->> File[unlink(tnf_old)]@\io; \true),
-	(flora_running_as(flora2)@\plg(flrporting) -->>
-	    File[link(tnf_flora_old,tnf_old)]@\io
-	;  File[link(tnf_ergo_old,tnf_old)]@\io
-        ),
 	file_reopen(temp1,w,STDERR,?_)@\plg(file_io),
 	file_reopen(temp2,w,STDWARN,?_)@\plg(file_io),
 	tell(temp)@\plg(),

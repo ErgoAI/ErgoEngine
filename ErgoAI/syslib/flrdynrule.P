@@ -299,7 +299,7 @@ flora_insert_rules(_InsOp,[H|_Tail]) :-
 flora_insert_rules(InsOp,[FLSYSRULEUPDATE(RuleId,FileName,DescrVL,RuleNum,DescrMetaFacts,HeadList,Body,HVL,BVL,DTvars,H2BFList,H2BBList,PreBody,PostBodyList,DefeatCond)|L]) :-
 	!,
 	inst_body(Body,InstBody),
-	%% flrunify_handlers.P defines the unify handler for FLDYNRULEVARCHECK
+        %% flrunify_handlers.P defines the unify handler for FLDYNRULEVARCHECK
         (get_attr(HVL,FLDYNRULEVARCHECK,NamedHVars) -> true
 	; NamedHVars = []
 	),
@@ -327,9 +327,9 @@ flora_insert_rules(InsOp,[FLSYSRULEUPDATE(RuleId,FileName,DescrVL,RuleNum,DescrM
         ; true
         ),
 
-        %% This is called from within construct_singleton_and_unsafe_warnings, no need to cal it
-        %% beforehand
-	(NamedHVars == [], NamedBVars == [] -> true
+        %% This is called from within construct_singleton_and_unsafe_warnings,
+        %% no need to cal it beforehand
+        (NamedHVars == [], NamedBVars == [] -> true
 	; 
 	    get_full_filename(FileName,ModName,FullFile),
 	    construct_singleton_and_unsafe_warnings(RuleId,FullFile,DescrVarsNamed,NamedHVars,NamedBVars,Warns),
@@ -337,7 +337,7 @@ flora_insert_rules(InsOp,[FLSYSRULEUPDATE(RuleId,FileName,DescrVL,RuleNum,DescrM
 	    flora_show_warnings(SortedWarns),
             ergo_issue_errorsIfAny(RuleId,FullFile,DescrVarsNamed,NamedBVars)
 	),
-	flora_insert_rules(InsOp,L).
+        flora_insert_rules(InsOp,L).
 
 flora_insert_rules(InsOp,[FLSYSINSQUERYSIG(RuleId,FileName,Module,RuleNum,DescrMetaFacts,PreBody,Body,BVL)|L]) :-
 	!,
@@ -348,9 +348,8 @@ flora_insert_rules(InsOp,[FLSYSINSQUERYSIG(RuleId,FileName,Module,RuleNum,DescrM
 	get_full_filename(FileName,Module,FullFile),
         %% descriptor vars here, for insert rule check for unsafe descriptor vars
         %% HeadList argument is NULL here.
-        %% DescrVarsNamed is not passed here as 
-        %% regular queries have no descriptors,
-        %% So we use [] for descr vars.
+        %% DescrVarsNamed is not passed here but should, since latent queries have them. 
+        %% TODO: So we use [] for descr vars here, but really ned to pass descr vars.
 	construct_singleton_and_unsafe_warnings(RuleId,
                                                 FullFile,
                                                 [],
@@ -740,7 +739,7 @@ new_dynruleid(NewRuleId) :-
 
 
 /***********************************************************************
- construct_singleton_and_unsafe_warnings(+RuleId,+FileName,+DescrVarsNamed,,+NamedHeadVars,+NamedBodyVars,-Warnings)
+ construct_singleton_and_unsafe_warnings(+RuleId,+FileName,+DescrVarsNamed,+NamedHeadVars,+NamedBodyVars,-Warnings)
 
  In case of a descriptor var unsafety, actually aborts with an error.
 ************************************************************************/ 
@@ -751,8 +750,17 @@ construct_singleton_and_unsafe_warnings(RuleId,FileName,DescrVarsNamed,NamedHVar
         flrterm_vars(DescrVarsNamed,DVars,0),
         append(HVars,BVars,HBVars),
         append(HBVars,DVars,AllVars),
-        singleton_vars(AllVars,AllVars,SingletonVars),
-        singleton_warning(RuleId,FileName,SingletonVars,DescrVarsNamed,NamedHVars,NamedBVars,SWarnings),
+        sort(AllVars,AllVarsSorted),
+        machine:parsort(AllVars,asc,0,AllVarsParsorted),
+        singleton_vars(AllVarsParsorted,AllVarsSorted,SingletonVars),
+        %% varlistToVarnames(SingletonVars,NamedHVars,SingletonHVarNames),
+        %% varlistToVarnames(SingletonVars,NamedBVars,SingletonBVarNames),
+        %% writeln(singletonvars=SingletonBVarNames+SingletonVars),
+        %% writeln(aaaaaaaaa=AllVars+ SingletonVars),
+        %% writeln(aaaaaaaaa=AllVarsParsorted+ SingletonVars),
+        %% writeln(aaaaaaaaa=AllVarsSorted+ SingletonVars),
+        %% writeln(bbbbbbbb=SingletonHVarNames+ SingletonBVarNames),
+        singleton_warning(RuleId,FileName,SingletonVars, DescrVarsNamed,NamedHVars,NamedBVars,SWarnings),
         subtract_vars(HVars,BVars,UnsafeHVars),
         unsafevar_warning(RuleId,FileName,UnsafeHVars,DescrVarsNamed,NamedHVars,UWarnings),
         append(SWarnings,UWarnings,Warnings),
@@ -769,6 +777,9 @@ ergo_issue_errorsIfAny(RuleId,FileName,DescrVarsNamed,NamedBVars) :-
         ).
 
 singleton_vars(_AllVars,[],[]) :- !.
+%% TODO: AllVars is unsorted and arg2 is sorted without duplicates.
+%% We could parsort AllVars and then merge it with arg2. The cost is Nlog(N).
+%% The below algorithm is quadratic. TODO
 singleton_vars(AllVars,[H|L], [H|SL]) :-
         is_singleton(AllVars,H,0),
         !,
@@ -788,6 +799,7 @@ is_singleton([H|L],V,Cnt) :-
             is_singleton(L,V,Cnt)
         ).
 
+%% Note: this skips invented varnames like ?_anonvar123 because get_var_name fails on them.
 singleton_warning(_RuleId,_File,[],_NamedDescrVars,_NamedHVars,_NamedBVars,[]) :- !.
 singleton_warning(RuleId,File,[H|L],NamedDescrVars,NamedHVars,NamedBVars,Warns) :-
 	extract_stmt_fileinfo_from_filespec(File,PrintableFile,_,_),
@@ -856,15 +868,20 @@ unsafevar_error(RuleId,File,ListOfNamedVars,UnsafeVars) :-
         varlistToVarnames(UnsafeVars,ListOfNamedVars,UnsafeVarNames),
 
         fmt_write_string(ErrorStr,
-                         'unsafe variables %S found in the descriptor of a dynamically inserted rule on line %S in file %S. The use of such variables is a logical mistake',
+                         'unsafe variables %S found in the descriptor of a dynamically inserted rule on line %S in file %S.\n\t\tThe use of such variables is a logical fallacy',
                          args(UnsafeVarNames,Line,PrintableLocal)),
         flora_abort(ErrorStr,FLORA_ABORT_NOTRACE).
 
 
+/*
+  Takes: a list of vars [Var, Var,...],
+  a list of named vars (of the form [Name=Var, Name=Var,...])
+  and returns a list of var naames [Name, Name, ...]
+*/
 varlistToVarnames([],_,[]) :- !.
 varlistToVarnames([Var|VarList],NamedVarPairs,[Name|VarNames]) :-
         (get_var_name(Var,NamedVarPairs,Name) -> true
-        ; gensym('_anonvar',Name)
+        ; gensym('?_anonvar',Name)
         ),
         varlistToVarnames(VarList,NamedVarPairs,VarNames).
 
