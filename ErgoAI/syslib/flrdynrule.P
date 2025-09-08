@@ -113,15 +113,15 @@
 :- import
         conjunct_to_list/2,
         flora_bind_libmodobj/2,
-        matching_rule_signature/7,
+        matching_rule_signature/6,
         get_canonical_form/2,
 	convert_to_body_literal/2,
 	convert_to_head_literal/2,
 	bind_head_in_defeat_condition/2,
-        flora_record_rule_signature/13,
+        flora_record_rule_signature/12,
 	flora_record_query_signature/6,
 	flora_delete_query_signature/4,
-        flora_retract_signatures/8,
+        flora_retract_signatures/7,
 	rule_signature_member/3
    from flrcanon.
 
@@ -165,7 +165,7 @@
 	conjunct_code/2
    from flrauxil.
 
-:- import show_rule_signature/13 from flrcanon.
+:- import show_rule_signature/12 from flrcanon.
 :- import flora_decode_rulehead_or_udf_head_as_atom/3 from flrdecode.
 
 
@@ -254,7 +254,13 @@ FLLIBINSERTRULE_Z(_ThisModuleName,RuleList) :-
 	flora_insert_rules_top(FLLIBINSERTRULE_Z,NewRuleList).
 
 /******************************************************************************
+     FLLIBINSQUERYSIG/7
+
      FLLIBINSQUERYSIG(+RuleId,+File,+Module,+RuleNum,+MetaFacts,+PreLatentQuery,+LatentQuery)
+     %% Note: we do not add delay-checker code, FLORA_DELAY_CHECKER, to queries,
+     && latent or not, because here we have no head to defeat
+
+     FLLIBDELQUERYSIG/5
      FLLIBDELQUERYSIG(+RuleId,+File,+Module,+MetaFacts,+LatentQuery)
      Insert/delete signature for latent queries
      PreLatentQuery is the stuff that compiler inserts before the LatentQuery body.
@@ -306,8 +312,8 @@ flora_insert_rules(InsOp,[FLSYSRULEUPDATE(RuleId,FileName,DescrVL,RuleNum,DescrM
 	(get_attr(BVL,FLDYNRULEVARCHECK,NamedBVars) -> true
 	; NamedBVars = []
 	),
-	(get_attr(DescrVL,FLDYNRULEVARCHECK,DescrVarsNamed) -> true
-	; DescrVarsNamed = []
+	(get_attr(DescrVL,FLDYNRULEVARCHECK,NamedDescrVars) -> true
+	; NamedDescrVars = []
 	),
 	del_attr(HVL,FLDYNRULEVARCHECK),
 	del_attr(BVL,FLDYNRULEVARCHECK),
@@ -319,7 +325,7 @@ flora_insert_rules(InsOp,[FLSYSRULEUPDATE(RuleId,FileName,DescrVL,RuleNum,DescrM
 	%% flora_insert_multiheaded_rule/14 MUST come first because it binds
 	%% ModName for flora_assert_metafact_list/3
         %% and insert_rule_info_into_structdb/7
-	flora_insert_multiheaded_rule(HeadList,InsOp,RuleId,FileName,DescrVarsNamed,RuleNum,InstBody,DTvars,H2BFList,H2BBList,PreBody,PostBodyList,DefeatCond,ModName),
+	flora_insert_multiheaded_rule(HeadList,InsOp,RuleId,FileName,NamedDescrVars,RuleNum,InstBody,DTvars,H2BFList,H2BBList,PreBody,PostBodyList,DefeatCond,ModName),
 	flora_assert_metafact_list(DescrMetaFacts,FileName,ModName),
 
         (using_rule_structural_db(ModName) ->
@@ -332,28 +338,32 @@ flora_insert_rules(InsOp,[FLSYSRULEUPDATE(RuleId,FileName,DescrVL,RuleNum,DescrM
         (NamedHVars == [], NamedBVars == [] -> true
 	; 
 	    get_full_filename(FileName,ModName,FullFile),
-	    construct_singleton_and_unsafe_warnings(RuleId,FullFile,DescrVarsNamed,NamedHVars,NamedBVars,Warns),
+	    construct_singleton_and_unsafe_warnings(RuleId,FullFile,NamedDescrVars,NamedHVars,NamedBVars,Warns),
 	    sort(Warns,SortedWarns),
 	    flora_show_warnings(SortedWarns),
-            ergo_issue_errorsIfAny(RuleId,FullFile,DescrVarsNamed,NamedBVars)
+            ergo_issue_errorsIfAny(RuleId,FullFile,NamedDescrVars,NamedBVars)
 	),
         flora_insert_rules(InsOp,L).
 
-flora_insert_rules(InsOp,[FLSYSINSQUERYSIG(RuleId,FileName,Module,RuleNum,DescrMetaFacts,PreBody,Body,BVL)|L]) :-
+flora_insert_rules(InsOp,[FLSYSQUERYSIGNATURE(RuleId,FileName,Module,RuleNum,DescrMetaFacts,DescrVL,PreBody,Body,BVL)|L]) :-
 	!,
 	FLLIBINSQUERYSIG(RuleId,FileName,Module,RuleNum,DescrMetaFacts,PreBody,Body),
 	(get_attr(BVL,FLDYNRULEVARCHECK,NamedBVars) -> true
 	; NamedBVars = []
 	),
+	(get_attr(DescrVL,FLDYNRULEVARCHECK,NamedDescrVars) -> true
+	; NamedDescrVars = []
+	),
 	get_full_filename(FileName,Module,FullFile),
         %% descriptor vars here, for insert rule check for unsafe descriptor vars
         %% HeadList argument is NULL here.
-        %% DescrVarsNamed is not passed here but should, since latent queries have them. 
+        %% NamedDescrVars is not passed here but should, since latent queries have them. 
         %% TODO: So we use [] for descr vars here, but really ned to pass descr vars.
 	construct_singleton_and_unsafe_warnings(RuleId,
                                                 FullFile,
-                                                [],
-                                                [],NamedBVars,Warns),
+                                                NamedDescrVars,
+                                                [],     %% NamedHVars
+                                                NamedBVars,Warns),
 	sort(Warns,SortedWarns),
 	flora_show_warnings(SortedWarns),
 	flora_insert_rules(InsOp,L).
@@ -371,20 +381,20 @@ flora_insert_rules(_InsOp,[H|_Tail]) :-
 
 
 /*******************************************************************************
- flora_insert_multiheaded_rule(+HeadList,+Op,+Id,+FileName,+DescrVarsNamed,+RuleNum,+Body,+DTvars,+H2BFront,+H2BBody,+PreBody,+PostBodyList,+DefeatCond,-ModName)
+ flora_insert_multiheaded_rule(+HeadList,+Op,+Id,+FileName,+NamedDescrVars,+RuleNum,+Body,+DTvars,+H2BFront,+H2BBody,+PreBody,+PostBodyList,+DefeatCond,-ModName)
 
  For each element H in the HeadList, call
-     flora_insert_oneheaded_rule(Head,Op,Id,FileName,DescrVarsNamed,RuleNum,Body,DTvars,H2BF,H2B,PreBody,PostBody,DefeatCond,Module)
+     flora_insert_oneheaded_rule(Head,Op,Id,FileName,NamedDescrVars,RuleNum,Body,DTvars,H2BF,H2B,PreBody,PostBody,DefeatCond,Module)
 
  Body - the body of the multiheaded rule
 *******************************************************************************/
-flora_insert_multiheaded_rule([],_InsOp,_Id,_FileName,_DescrVarsNamed,_RuleNum,_Body,_DTvars,_H2BFront,_H2BBack,_PreBody,_PostBodyList,_DefeatCond,_ModName) :- !.
-flora_insert_multiheaded_rule([H|L],InsOp,Id,FileName,DescrVarsNamed,RuleNum,Body,DTvars,[H2BF|H2BFront],[H2BB|H2BBody],PreBody,[PostBody|PostBodyList],DefeatCond,ModName) :-
-	flora_insert_oneheaded_rule(H,InsOp,Id,FileName,DescrVarsNamed,RuleNum,Body,DTvars,H2BF,H2BB,PreBody,PostBody,DefeatCond,ModName),
-	flora_insert_multiheaded_rule(L,InsOp,Id,FileName,DescrVarsNamed,RuleNum,Body,DTvars,H2BFront,H2BBody,PreBody,PostBodyList,DefeatCond,ModName).
+flora_insert_multiheaded_rule([],_InsOp,_Id,_FileName,_NamedDescrVars,_RuleNum,_Body,_DTvars,_H2BFront,_H2BBack,_PreBody,_PostBodyList,_DefeatCond,_ModName) :- !.
+flora_insert_multiheaded_rule([H|L],InsOp,Id,FileName,NamedDescrVars,RuleNum,Body,DTvars,[H2BF|H2BFront],[H2BB|H2BBody],PreBody,[PostBody|PostBodyList],DefeatCond,ModName) :-
+	flora_insert_oneheaded_rule(H,InsOp,Id,FileName,NamedDescrVars,RuleNum,Body,DTvars,H2BF,H2BB,PreBody,PostBody,DefeatCond,ModName),
+	flora_insert_multiheaded_rule(L,InsOp,Id,FileName,NamedDescrVars,RuleNum,Body,DTvars,H2BFront,H2BBody,PreBody,PostBodyList,DefeatCond,ModName).
 
 /***********************************************************************
- flora_insert_oneheaded_rule(+Head,+InsOp,+RuleId,+FileName,+DescrVarsNamed,+RuleNum,+Body,+DTvars,+H2BF,+H2B,+PreBody,+PostBody,+DefeatCond,-ModName)
+ flora_insert_oneheaded_rule(+Head,+InsOp,+RuleId,+FileName,+NamedDescrVars,+RuleNum,+Body,+DTvars,+H2BF,+H2B,+PreBody,+PostBody,+DefeatCond,-ModName)
 
  Assert a rule with the given Head and Body, refresh tables, and define
  the head for undefinedness checking.
@@ -395,21 +405,21 @@ flora_insert_multiheaded_rule([H|L],InsOp,Id,FileName,DescrVarsNamed,RuleNum,Bod
 
  The rule signature and the rule itseld is inserted.
 ************************************************************************/ 
-flora_insert_oneheaded_rule(H,_InsOp,_Id,_FileName,_DescrVarsNamed,_RuleNum,Body,_DTvars,_H2BF,_H2BB,_Pre,_Post,_DefeatCond,_MName) :-
+flora_insert_oneheaded_rule(H,_InsOp,_Id,_FileName,_NamedDescrVars,_RuleNum,Body,_DTvars,_H2BF,_H2BB,_Pre,_Post,_DefeatCond,_MName) :-
         var(H),
         !,
 	flora_decode_goal_as_atom((H:-Body),RuleAtm),
 	flora_abort([VARHEAD_IN_DYNRULE,RuleAtm],FLORA_ABORT_NOTRACE).
 
 %% when head is a conjunction
-flora_insert_oneheaded_rule((H1,H2),InsOp,Id,FileName,DescrVarsNamed,RuleNum,Body,DTvars,H2BF,H2BB,PreBody,PostBody,DefeatCond,Module) :-
+flora_insert_oneheaded_rule((H1,H2),InsOp,Id,FileName,NamedDescrVars,RuleNum,Body,DTvars,H2BF,H2BB,PreBody,PostBody,DefeatCond,Module) :-
 	!,
-	flora_insert_oneheaded_rule(H1,InsOp,Id,FileName,DescrVarsNamed,RuleNum,Body,DTvars,H2BF,H2BB,PreBody,PostBody,DefeatCond,Module),
-	flora_insert_oneheaded_rule(H2,InsOp,Id,FileName,DescrVarsNamed,RuleNum,Body,DTvars,H2BF,H2BB,PreBody,PostBody,DefeatCond,Module).
+	flora_insert_oneheaded_rule(H1,InsOp,Id,FileName,NamedDescrVars,RuleNum,Body,DTvars,H2BF,H2BB,PreBody,PostBody,DefeatCond,Module),
+	flora_insert_oneheaded_rule(H2,InsOp,Id,FileName,NamedDescrVars,RuleNum,Body,DTvars,H2BF,H2BB,PreBody,PostBody,DefeatCond,Module).
 
 %% prolog rule inserted as a hack (eg, if head was defined via a hacker command
 %% flora_define_permanent_prolog(something,arity)@\plg(flrprolog).
-flora_insert_oneheaded_rule(Head,_InsOp,_Id,_FileName,_DescrVarsNamed,_RuleNum,Body,DTvars,H2BF,H2BB,PreBody,PostBody,_DefeatCond,_Module) :-
+flora_insert_oneheaded_rule(Head,_InsOp,_Id,_FileName,_NamedDescrVars,_RuleNum,Body,DTvars,H2BF,H2BB,PreBody,PostBody,_DefeatCond,_Module) :-
         functor(Head,Fun,Arity),
         flrprolog:flora_prlgdef(Fun,Arity),
         !,
@@ -417,7 +427,7 @@ flora_insert_oneheaded_rule(Head,_InsOp,_Id,_FileName,_DescrVarsNamed,_RuleNum,B
         NewRule = (Head :- FullBody),
 	flora_assert_one_rule(NewRule).
 
-flora_insert_oneheaded_rule(Head,InsOp,Id,FileName,DescrVarsNamed,RuleNum,Body,DTvars,H2BF,H2BB,PreBody,PostBody,DefeatCond,Module) :-
+flora_insert_oneheaded_rule(Head,InsOp,Id,FileName,NamedDescrVars,RuleNum,Body,DTvars,H2BF,H2BB,PreBody,PostBody,DefeatCond,Module) :-
         machine:is_acyclic(Head), %% remove when copy_term is fixed
         machine:is_acyclic(Body),
         ( Head=FLLIBMODLIT(_F,_A1,PossibleMName,_Context) ->
@@ -476,8 +486,8 @@ flora_insert_oneheaded_rule(Head,InsOp,Id,FileName,DescrVarsNamed,RuleNum,Body,D
 	flora_module_predicate(Wrapper,Args,Module,RealDynHead),
 	%% check if a module name is valid during the update
 	flora_storage_check_module_name(Module),
-	copy_term(rule(RealDynHead,GenericHead,PreBody,DTvars,H2BF,Body,H2BB,DefeatCond,PostBody,DescrVarsNamed),
-		  rule(RealDynHead1,GenericHead1,PreBody1,DTvars1,H2BF1,Body1,H2BB1,DefeatCond1,PostBody1,DescrVarsNamed1)),
+	copy_term(rule(RealDynHead,GenericHead,PreBody,DTvars,H2BF,Body,H2BB,DefeatCond,PostBody,NamedDescrVars),
+		  rule(RealDynHead1,GenericHead1,PreBody1,DTvars1,H2BF1,Body1,H2BB1,DefeatCond1,PostBody1,NamedDescrVars)),
 	%% flora_record_rule_signature will bind DefeatCond, if it isn't NULL
 	bind_head_in_defeat_condition(RealDynHead1,DefeatCond1),
 	%% wrap variable-Body1 with call() because conjunct_code/2 ignores vars
@@ -493,7 +503,7 @@ flora_insert_oneheaded_rule(Head,InsOp,Id,FileName,DescrVarsNamed,RuleNum,Body,D
 	; HeadPrefix = FL_DYNZPREFIX
 	),
 	conjunct_code([H2BF1,H2BB1],H2BSig1),
-	flora_record_rule_signature(Id,FileName,DescrVarsNamed1,HeadPrefix,Module,RuleNum,GenericHeadBodified,Body1,H2BSig1,PreBody1,PostBody1,DefeatCond1,NewRule),
+	flora_record_rule_signature(Id,FileName,HeadPrefix,Module,RuleNum,GenericHeadBodified,Body1,H2BSig1,PreBody1,PostBody1,DefeatCond1,NewRule),
 
 	flora_assert_one_rule(NewRule),
 	(flora_module_registry(Module,FL_CHANGED) -> true
@@ -558,7 +568,7 @@ flora_refresh_rulehead(Head) :-
  check if the rule exists and return matching rule signatures
 ************************************************************************/ 
 flora_select_rules_for_deletion(_DelOp,_Mod,[],[],[]) :- !.
-flora_select_rules_for_deletion(DelOp,CallerMod,[FLSYSRULEUPDATE(Id,FileName,_DescrVarsNamed,_RuleNum,DescrMetaFacts,HeadList,Body,_HVL,_BVL,_DTvars,_H2BF,_H2BB,_PreBody,_PostBody,_DefeatCond)|L],SigList,HL) :-
+flora_select_rules_for_deletion(DelOp,CallerMod,[FLSYSRULEUPDATE(Id,FileName,_NamedDescrVars,_RuleNum,DescrMetaFacts,HeadList,Body,_HVL,_BVL,_DTvars,_H2BF,_H2BB,_PreBody,_PostBody,_DefeatCond)|L],SigList,HL) :-
 	!,
 	flora_check_multiheaded_rule_in_registry(DelOp,Id,FileName,RuleMod,HeadList,Body,HSigList,HHL),
 	(var(RuleMod) -> RuleMod = CallerMod ; true),
@@ -624,10 +634,10 @@ flora_check_rule_in_registry(DelOp,Id,FileName,RuleMod,Head,Body,RuleSig,BoundHe
         get_canonical_form(Head,FLCANON(_,_,_,HT,_)),
 	convert_to_body_literal(HT,BHead),
         ( DelOp == FLLIBDELETERULE_A ->
-            matching_rule_signature(Id,FileName,_DescrVarsNamed,FL_DYNAPREFIX,BHead,Body,RuleSig)
+            matching_rule_signature(Id,FileName,FL_DYNAPREFIX,BHead,Body,RuleSig)
         ; DelOp == FLLIBDELETERULE_Z ->
-            matching_rule_signature(Id,FileName,_DescrVarsNamed,FL_DYNZPREFIX,BHead,Body,RuleSig)
-        ; matching_rule_signature(Id,FileName,_DescrVarsNamed,_,BHead,Body,RuleSig)
+            matching_rule_signature(Id,FileName,FL_DYNZPREFIX,BHead,Body,RuleSig)
+        ; matching_rule_signature(Id,FileName,_,BHead,Body,RuleSig)
         ),
 	rule_signature_member(module,RuleSig,RuleMod),
         get_canonical_form(BHead,FLCANON(_,_,_,BoundHead,_)).
@@ -647,9 +657,9 @@ flora_delete_rule_by_signature((Sig1,Sig2)) :-
 	!,
 	flora_delete_rule_by_signature(Sig1),
 	flora_delete_rule_by_signature(Sig2).
-flora_delete_rule_by_signature(FLRULESIG(Id,FileName,DescrVarsNamed,DynPrefix,Module,_RuleNum,Head,Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,Rule)) :-
+flora_delete_rule_by_signature(FLRULESIG(Id,FileName,DynPrefix,Module,_RuleNum,Head,Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,Rule)) :-
 	flora_retract_one_rule(Rule),
-        flora_retract_signatures(Id,FileName,DescrVarsNamed,DynPrefix,Module,Head,Body,Rule),
+        flora_retract_signatures(Id,FileName,DynPrefix,Module,Head,Body,Rule),
 	%% Delete metafacts associated with the rule
 	flora_clear_all_metafacts_by_ruleid(Id,FileName,Module),
 	(flora_module_registry(Module,FL_CHANGED) -> true
@@ -739,15 +749,15 @@ new_dynruleid(NewRuleId) :-
 
 
 /***********************************************************************
- construct_singleton_and_unsafe_warnings(+RuleId,+FileName,+DescrVarsNamed,+NamedHeadVars,+NamedBodyVars,-Warnings)
+ construct_singleton_and_unsafe_warnings(+RuleId,+FileName,+NamedDescrVars,+NamedHeadVars,+NamedBodyVars,-Warnings)
 
  In case of a descriptor var unsafety, actually aborts with an error.
 ************************************************************************/ 
-construct_singleton_and_unsafe_warnings(RuleId,FileName,DescrVarsNamed,NamedHVars,NamedBVars,Warnings) :-
+construct_singleton_and_unsafe_warnings(RuleId,FileName,NamedDescrVars,NamedHVars,NamedBVars,Warnings) :-
 	%% include descriptor vars among the head vars
         flrterm_vars(NamedHVars,HVars,0), %% 0: collect all vars
         flrterm_vars(NamedBVars,BVars,0),
-        flrterm_vars(DescrVarsNamed,DVars,0),
+        flrterm_vars(NamedDescrVars,DVars,0),
         append(HVars,BVars,HBVars),
         append(HBVars,DVars,AllVars),
         sort(AllVars,AllVarsSorted),
@@ -760,20 +770,20 @@ construct_singleton_and_unsafe_warnings(RuleId,FileName,DescrVarsNamed,NamedHVar
         %% writeln(aaaaaaaaa=AllVarsParsorted+ SingletonVars),
         %% writeln(aaaaaaaaa=AllVarsSorted+ SingletonVars),
         %% writeln(bbbbbbbb=SingletonHVarNames+ SingletonBVarNames),
-        singleton_warning(RuleId,FileName,SingletonVars, DescrVarsNamed,NamedHVars,NamedBVars,SWarnings),
+        singleton_warning(RuleId,FileName,SingletonVars, NamedDescrVars,NamedHVars,NamedBVars,SWarnings),
         subtract_vars(HVars,BVars,UnsafeHVars),
-        unsafevar_warning(RuleId,FileName,UnsafeHVars,DescrVarsNamed,NamedHVars,UWarnings),
+        unsafevar_warning(RuleId,FileName,UnsafeHVars,NamedDescrVars,NamedHVars,UWarnings),
         append(SWarnings,UWarnings,Warnings),
         !.
-ergo_issue_errorsIfAny(RuleId,FileName,DescrVarsNamed,NamedBVars) :-
+ergo_issue_errorsIfAny(RuleId,FileName,NamedDescrVars,NamedBVars) :-
         %% check for runtime errors: unsafe vars in the Descriptor
         %% Issue just one, if any since errors are runtime events.
         flrterm_vars(NamedBVars,BVars,0),
-        flrterm_vars(DescrVarsNamed,DVars,0),
+        flrterm_vars(NamedDescrVars,DVars,0),
         subtract_vars(DVars,BVars,UnsafeDescrVars),
         (UnsafeDescrVars == [] -> true
         ;
-            unsafevar_error(RuleId,FileName,DescrVarsNamed,UnsafeDescrVars)
+            unsafevar_error(RuleId,FileName,NamedDescrVars,UnsafeDescrVars)
         ).
 
 singleton_vars(_AllVars,[],[]) :- !.
@@ -922,13 +932,13 @@ flora_assert_metafact_list([H|T],FileName,Module) :-
 	%% bind the module and filename in metafacts
 	(var(FileName) -> FileName = FL_DYNRULE_FICTITIOUS_FILENAME ; true),
         flora_strip_module(H,HH),
-	(HH = FL_TAG_DESCRIPTOR_META_PREDICATE(_,FN,Module,_,_),
+	(HH = FL_TAG_DESCRIPTOR_META_PREDICATE(_,FN,Module,_),
             memberchk(FileName,[FN,FL_DYNRULE_FICTITIOUS_FILENAME(FN)])
         -> true
-	; HH = FL_BOOL_DESCRIPTOR_META_PREDICATE(_,FN,Module,_,_),
+	; HH = FL_BOOL_DESCRIPTOR_META_PREDICATE(_,FN,Module,_),
             memberchk(FileName,[FN,FL_DYNRULE_FICTITIOUS_FILENAME(FN)])
         -> true
-	; HH = FL_PROP_DESCRIPTOR_META_PREDICATE(_,FN,Module,_,_,_),
+	; HH = FL_PROP_DESCRIPTOR_META_PREDICATE(_,FN,Module,_,_),
             memberchk(FileName,[FN,FL_DYNRULE_FICTITIOUS_FILENAME(FN)])
         -> true
 	; HH = FL_RULE_ENABLER(_,FN,Module),
@@ -946,7 +956,7 @@ flora_assert_metafact_list([H|T],FileName,Module) :-
             ; PrevFilenameMsg = '', LikelyPrevFile = ''
             ),
             flora_decode_oid_as_atom(RuleId,RuleIdAtm),
-            show_rule_signature(RuleId,RFN,_,_,Module,_,HeadR,_Bdy,_,_,_,_,_),
+            show_rule_signature(RuleId,RFN,_,Module,_,HeadR,_Bdy,_,_,_,_,_),
             flora_decode_rulehead_or_udf_head_as_atom(HeadR,AtomHR,HeadR_type),
             (HeadR_type==udf -> Preamble = 'a UDF '
             ; Preamble = 'a rule '

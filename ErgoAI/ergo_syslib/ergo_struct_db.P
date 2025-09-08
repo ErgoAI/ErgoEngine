@@ -141,9 +141,11 @@
 ergo_structdb_write_canonical([]) :- !.
 ergo_structdb_write_canonical(RuleSignature) :-
         is_prquery(RuleSignature,Syslib),
-        is_florasyslib(Syslib,FLLIBINSRULESIG,11,RuleInfo,_Idx),
-        RuleInfo = [RuleId,FileN,_DescrVars,Module,_StmtNum,Head,Body,
+        %% ------- If changing is_florasyslib, make sure RuleInfo matches
+        is_florasyslib(Syslib,FLLIBINSRULESIG,10,RuleInfo,_Idx),
+        RuleInfo = [RuleId,FileN,Module,_StmtNum,Head,Body,
                     H2BSig,_PreBody,_PostBody,_DefeatCond],
+        %% -------
 	flora_zap_attrvars(Head),
 	flora_zap_attrvars(Body),
         write_structdb_facts(RuleId,FileN,Module,Head,Body,H2BSig).

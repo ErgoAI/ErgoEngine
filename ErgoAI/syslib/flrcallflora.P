@@ -73,13 +73,12 @@
    from flrcompiler.
 
 :- import
-        %%get_prop_descriptor_info/6,
-        get_tag_descriptor_info_with_rulehead/6
+        get_tag_descriptor_info_with_rulehead/5
    from flrdescriptor_support.
 
 :- import flora_handle_notrace/0 from flrdebugger.
 :- import flora_call/3 from usermod(flranswer).
-:- import FLLIBCLAUSE/6 from usermod(flrclause).
+:- import FLLIBCLAUSE/5 from usermod(flrclause).
 
 :- import is_charlist/1 from machine.
 
@@ -364,7 +363,8 @@ get_goal_called_or_calling_rule_id(Mode,Goal,RuleId) :-
         (Mode==calledRule, FWContext = FL_CONTEXT(_Module,RuleId,_) -> true
         ; Mode==callingRule, FWContext = FL_CONTEXT(_Module,_,RuleId) -> true
         ; true
-        ).
+        ),
+        true.
 
 %% +Goal,-CalledRuleId,-CalledFile,-Module,-RuleHead
 %% If Goal has tracing info, get the rule Id of the rule that was called
@@ -381,6 +381,7 @@ get_calling_rule_info(Goal,CallingRuleId,CalledFile,Module,RuleHead) :-
 
 %% Mode: calledRule/callingRule
 %% RuleId may return unbound, if not found!
+%%  tracing_info_from_call(+Mode,+Goal,-RuleId,-RuleFile,-Module,-RuleHead) :-
 tracing_info_from_call(Mode,Goal,RuleId,RuleFile,Module,RuleHead) :-
         (nonvar(Module) -> true  %% module may be bound
         ; flora_decode_module_name(Goal,Module) -> true
@@ -394,13 +395,13 @@ tracing_info_from_call(Mode,Goal,RuleId,RuleFile,Module,RuleHead) :-
             RuleHead = _
         ),
         %% the next 2 statements ensure that rule file name and module are found
-        VarTerm = usermod:FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,RuleFile,Module,type,_,_),
-        (nonvar(RuleHead), FLLIBCLAUSE(RuleId,_,VarTerm,null,[RuleHead],_),
+        TypeMetaFact = usermod:FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,RuleFile,Module,type,_),
+        (nonvar(RuleHead), FLLIBCLAUSE(RuleId,TypeMetaFact,null,[RuleHead],_),
             Module \= NULL, nonvar(RuleId),
-            get_tag_descriptor_info_with_rulehead(RuleId,RuleFile,Module,_,RuleHead,_)
+            get_tag_descriptor_info_with_rulehead(RuleId,RuleFile,Module,_,RuleHead)
         -> true
         ;  Module \= NULL, nonvar(RuleId),
-            get_tag_descriptor_info_with_rulehead(RuleId,RuleFile,Module,_,RuleHead,_)
+            get_tag_descriptor_info_with_rulehead(RuleId,RuleFile,Module,_,RuleHead)
         -> true
         ; RuleFile = NULL
         ).

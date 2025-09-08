@@ -226,10 +226,10 @@ fllibuniveqform_inner(FLSYSRULEUPDATE(Id,_FileName,_DescrVarTerm,_RuleNum,_Descr
 	fllibuniveqform_inner(B1,B2).
 
 %% We ignore pre-and-post body and info in such unification
-fllibuniveqform_inner(FLSYSINSQUERYSIG(Id,_FileName,_Mod,_,_DescrMetaFacts,_,B1,_BV1),
-		FLSYSINSQUERYSIG(Id,_FileName2,_Mod2,_,_DescrMetaFacts2,_,B2,_BV2)) :-
+fllibuniveqform_inner(FLSYSQUERYSIGNATURE(Id,_FileName,_Mod,_RulNum,_DescrMetaFacts,_DescrVL,_LatentQueeryPre,_LatentQueeryMain,_HVL,_BVL),
+                      FLSYSQUERYSIGNATURE(Id,_FileName2,_Mod2,_RulNum2,_DescrMetaFacts2,_DescrVL2,_LatentQueeryPre2,_LatentQueeryMain2,_HVL2,_BVL2)) :-
 	!,
-	fllibuniveqform_inner(B1,B2).
+	fllibuniveqform_inner(_LatentQueeryMain,_LatentQueeryMain2).
 fllibuniveqform_inner(FLSYSDELQUERYSIG(Id,_FileName,_Mod,_DescrMetaFacts,B1),
 		FLSYSDELQUERYSIG(Id,_FileName2,_Mod2,_DescrMetaFacts2,B2)) :-
 	!,
@@ -666,7 +666,7 @@ FLLIBMETAUNIV(X,Y) :-
                 %% Always check when changing FLSYSRULEUPDATE!!!
                 Args = [Id,FileName,_DescrVarTerm,_RuleNum,DescrMetaFacts,RuleHd,RuleBody,_HV,_BV,__DTvars,_H2BF,_H2BB,_PreBody,_PostBody,_DefeatCond],
                 Y = [WRAP_HILOG(WrapName,Id,FileName),DescrMetaFacts,RuleHd,RuleBody]
-            ; %% FLSYSINSQUERYSIG(....) - a reified latent query
+            ; %% FLSYSQUERYSIGNATURE(....) - a reified latent query
                 latent_query_wrapper(FullWrapper,WrapName) ->
                 Args = [Id,FileName,Mod,_RuleNum,DescrMetaFacts,IC_Body],
                 Y = [WRAP_HILOG(WrapName,Id,FileName,Mod),DescrMetaFacts,IC_Body]
@@ -892,7 +892,7 @@ newoid_wrapper(FLLIBNEWOID,newoid).
 
 rule_wrapper(FLSYSRULEUPDATE,rule).
 
-latent_query_wrapper(FLSYSINSQUERYSIG,WRAP_HILOG(latentquery,insert)).
+latent_query_wrapper(FLSYSQUERYSIGNATURE,WRAP_HILOG(latentquery,insert)).
 latent_query_wrapper(FLSYSDELQUERYSIG,WRAP_HILOG(latentquery,delete)).
 
 

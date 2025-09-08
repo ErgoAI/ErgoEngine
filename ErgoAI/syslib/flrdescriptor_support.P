@@ -32,23 +32,23 @@
 #include "flora_exceptions.flh"
 
 :- table
-	%% tabling get_tag_descriptor_info_with_rulehead/6 helps about 10%
-	get_tag_descriptor_info_with_rulehead/6,
+	%% tabling get_tag_descriptor_info_with_rulehead/5 helps about 10%
+	get_tag_descriptor_info_with_rulehead/5,
 	is_defeasible_rule/3,
 	is_strict_rule/3
    as AUXILIARY_TABLING_TYPE.
 /*
 %% this tabling does not help
 :- table
-	get_bool_descriptor_info_with_rulehead/6,
+	get_bool_descriptor_info_with_rulehead/5,
 	get_ruleid_by_tag_or_head/5
    as AUXILIARY_TABLING_TYPE.
 */
 
 :- import
-	FL_TAG_DESCRIPTOR_META_PREDICATE/5,
-	FL_BOOL_DESCRIPTOR_META_PREDICATE/5,
-	FL_PROP_DESCRIPTOR_META_PREDICATE/6,
+	FL_TAG_DESCRIPTOR_META_PREDICATE/4,
+	FL_BOOL_DESCRIPTOR_META_PREDICATE/4,
+	FL_PROP_DESCRIPTOR_META_PREDICATE/5,
 	FL_FORCED_DEFEASIBILITY_UNION/4,
 	FL_RULE_ENABLER/3
    from usermod.
@@ -66,7 +66,7 @@
 	convert_to_head_literal/2,
         matching_query_signature/4,
 	query_signature_member/3,
-        show_rule_signature/13
+        show_rule_signature/12
    from flrcanon.
 	
 :- import
@@ -84,12 +84,12 @@
    from flrregistry.
 
 :- export
-	get_tag_descriptor_info/5,
-	get_bool_descriptor_info/5,
-	get_prop_descriptor_info/6,
+	get_tag_descriptor_info/4,
+	get_bool_descriptor_info/4,
+	get_prop_descriptor_info/5,
 
-	get_tag_descriptor_info_with_rulehead/6,
-	get_bool_descriptor_info_with_rulehead/6,
+	get_tag_descriptor_info_with_rulehead/5,
+	get_bool_descriptor_info_with_rulehead/5,
 
 	get_ruleid_by_tag_or_head/5,
 
@@ -128,16 +128,16 @@
         extract_data_from_meta_call/2.
 
 
-get_tag_descriptor_info(RuleId,FileName,Module,Tag,VarTerm) :-
-	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,Tag,VarTerm).
-get_bool_descriptor_info(RuleId,FileName,Module,BoolProp,VarTerm) :-
-	FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,BoolProp,VarTerm).
-get_prop_descriptor_info(RuleId,FileName,Module,PropName,PropValue,VarTerm) :-
-	FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,PropName,PropValue,VarTerm).
+get_tag_descriptor_info(RuleId,FileName,Module,Tag) :-
+	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,Tag).
+get_bool_descriptor_info(RuleId,FileName,Module,BoolProp) :-
+	FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,BoolProp).
+get_prop_descriptor_info(RuleId,FileName,Module,PropName,PropValue) :-
+	FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,PropName,PropValue).
 
 
 %% if Tag and Id are vars, try to index on Head
-get_tag_descriptor_info_with_rulehead(RuleId,FileName,Module,Tag,Head,VarTerm) :-
+get_tag_descriptor_info_with_rulehead(RuleId,FileName,Module,Tag,Head) :-
 	var(RuleId),
 	var(Tag),
 	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
@@ -146,19 +146,19 @@ get_tag_descriptor_info_with_rulehead(RuleId,FileName,Module,Tag,Head,VarTerm) :
 	    RealMod = Module
 	),
 	!,
-	show_rule_signature(RuleId,FileName,VarTerm,_Prefix,RealMod,_RuleNum,
+	show_rule_signature(RuleId,FileName,_Prefix,RealMod,_RuleNum,
 			    Head,
 			    _Body,_H2BSig,_PreBody,_PostBody,
 			    _DefeatCond,_RuleList),
-	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag,VarTerm).
-get_tag_descriptor_info_with_rulehead(RuleId,FileName,Module,Tag,Head,VarTerm) :-
+            FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag).
+get_tag_descriptor_info_with_rulehead(RuleId,FileName,Module,Tag,Head) :-
 	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
 	-> RealMod = HeadMod
 	;
 	    RealMod = Module
 	),
-	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag,VarTerm),
-	show_rule_signature(RuleId,FileName,VarTerm,_Prefix,RealMod,_RuleNum,
+	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag),
+	show_rule_signature(RuleId,FileName,_Prefix,RealMod,_RuleNum,
 			    Head,
 			    _Body,_H2BSig,_PreBody,_PostBody,
 			    _DefeatCond,_RuleList).
@@ -171,8 +171,8 @@ get_ruleid_by_tag_or_head(Tag,Head,Module,RuleId,FileName) :-
 	    RealMod = Module
 	),
 	!,
-	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag,VarTerm),
-	show_rule_signature(RuleId,FileName,VarTerm,_Prefix,RealMod,_RuleNum,
+	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag),
+	show_rule_signature(RuleId,FileName,_Prefix,RealMod,_RuleNum,
 			    Head,
 			    _Body,_H2BSig,_PreBody,_PostBody,
 			    _DefeatCond,_RuleList).
@@ -183,13 +183,13 @@ get_ruleid_by_tag_or_head(Tag,Head,Module,RuleId,FileName) :-
 	;
 	    RealMod = Module
 	),
-	show_rule_signature(RuleId,FileName,VarTerm,_Prefix,RealMod,_RuleNum,
+	show_rule_signature(RuleId,FileName,_Prefix,RealMod,_RuleNum,
 			    Head,
 			    _Body,_H2BSig,_PreBody,_PostBody,
 			    _DefeatCond,_RuleList),
-	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag,VarTerm).
+	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag).
 
-get_bool_descriptor_info_with_rulehead(RuleId,FileName,Module,BoolProp,Head,VarTerm) :-
+get_bool_descriptor_info_with_rulehead(RuleId,FileName,Module,BoolProp,Head) :-
 	nonvar(RuleId),
 	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
 	-> RealMod = HeadMod
@@ -197,23 +197,23 @@ get_bool_descriptor_info_with_rulehead(RuleId,FileName,Module,BoolProp,Head,VarT
 	    RealMod = Module
 	),
 	!,
-	FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,BoolProp,VarTerm),
-	show_rule_signature(RuleId,FileName,VarTerm,_Prefix,RealMod,_RuleNum,
+	FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,BoolProp),
+	show_rule_signature(RuleId,FileName,_Prefix,RealMod,_RuleNum,
 			    Head,
 			    _Body,_H2BSig,_PreBody,_PostBody,
 			    _DefeatCond,_RuleList).
 %% if Id is a var, try to index on Head
-get_bool_descriptor_info_with_rulehead(RuleId,FileName,Module,BoolProp,Head,VarTerm) :-
+get_bool_descriptor_info_with_rulehead(RuleId,FileName,Module,BoolProp,Head) :-
 	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
 	-> RealMod = HeadMod
 	;
 	    RealMod = Module
 	),
-	show_rule_signature(RuleId,FileName,VarTerm,_Prefix,RealMod,_RuleNum,
+	show_rule_signature(RuleId,FileName,_Prefix,RealMod,_RuleNum,
 			    Head,
 			    _Body,_H2BSig,_PreBody,_PostBody,
 			    _DefeatCond,_RuleList),
-	FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,BoolProp,VarTerm).
+	FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,BoolProp).
 
 %% synonymous_tag/3 used only in genincludes/flrdefeasible.fli
 %% usually synonymous_tag_with_head/4 is used
@@ -221,19 +221,19 @@ get_bool_descriptor_info_with_rulehead(RuleId,FileName,Module,BoolProp,Head,VarT
 synonymous_tag(Tag1,Mod,Tag2) :-
 	nonvar(Tag1),
 	!,
-	get_tag_descriptor_info(Id,FileName,Mod,Tag1,Vars),
-	get_tag_descriptor_info(Id,FileName,Mod,Tag2,Vars).
+	get_tag_descriptor_info(Id,FileName,Mod,Tag1),
+	get_tag_descriptor_info(Id,FileName,Mod,Tag2).
 synonymous_tag(Tag1,Mod,Tag2) :-
-	get_tag_descriptor_info(Id,FileName,Mod,Tag2,Vars),
-	get_tag_descriptor_info(Id,FileName,Mod,Tag1,Vars).
+	get_tag_descriptor_info(Id,FileName,Mod,Tag2),
+	get_tag_descriptor_info(Id,FileName,Mod,Tag1).
 
 synonymous_tag_with_head(Tag,_Mod,Tag,Head) :-
 	var(Tag),
 	var(Head),
 	!.
 synonymous_tag_with_head(Tag1,Mod,Tag2,Head) :-
-	get_tag_descriptor_info_with_rulehead(Id,FileName,Mod,Tag1,Head,Vars),
-	get_tag_descriptor_info_with_rulehead(Id,FileName,Mod,Tag2,Head,Vars).
+	get_tag_descriptor_info_with_rulehead(Id,FileName,Mod,Tag1,Head),
+	get_tag_descriptor_info_with_rulehead(Id,FileName,Mod,Tag2,Head).
 
 %% The predicate of forced defeasibility FL_FORCED_DEFEASIBILITY_UNION
 %% overrides whatever the descriptor says about defeasibility
@@ -244,23 +244,23 @@ is_defeasible_rule(Id,FileName,Mod) :-
 	!.
 is_defeasible_rule(Id,FileName,Mod) :-
 	\+ FL_FORCED_DEFEASIBILITY_UNION(Id,FileName,Mod,FL_STRICT),
-	get_bool_descriptor_info(Id,FileName,Mod,FL_DEFEASIBLE,_).
+	get_bool_descriptor_info(Id,FileName,Mod,FL_DEFEASIBLE).
 %% is_strict_rule(+Id,+FileName,+Mod)
 is_strict_rule(Id,FileName,Mod) :-
 	FL_FORCED_DEFEASIBILITY_UNION(Id,FileName,Mod,FL_STRICT),
 	!.
 is_strict_rule(Id,FileName,Mod) :-
 	\+ FL_FORCED_DEFEASIBILITY_UNION(Id,FileName,Mod,FL_DEFEASIBLE),
-	get_bool_descriptor_info(Id,FileName,Mod,FL_STRICT,_).
+	get_bool_descriptor_info(Id,FileName,Mod,FL_STRICT).
 
 is_defeasible_tag(Tag,FileName,Mod) :-
 	nonvar(Tag),
 	!,
-	get_tag_descriptor_info(Id,FileName,Mod,Tag,_VarTerm),
+	get_tag_descriptor_info(Id,FileName,Mod,Tag),
 	is_defeasible_rule(Id,FileName,Mod).
 is_defeasible_tag(Tag,FileName,Mod) :-
 	is_defeasible_rule(Id,FileName,Mod),
-	get_tag_descriptor_info(Id,FileName,Mod,Tag,_VarTerm).
+	get_tag_descriptor_info(Id,FileName,Mod,Tag).
 
 
 :- import flora_abolish_table_predicate/1 from flrtables.
@@ -304,7 +304,7 @@ enable_rule_by_id(Id,FileName,Mod) :-
 %% GotEnabled = false, if it was enabled before, so enable{...} was a noop.
 enable_rule_by_id(Id,FileName,Mod,GotEnabled) :-
 	findall(Head,
-		show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+		show_rule_signature(Id,FileName,_Prefix,Mod,_RuleNum,
 				    Head,
 				    _Body,_H2BSig,_PreBody,_PostBody,
 				    _DefeatCond,_RuleList),
@@ -326,7 +326,7 @@ disable_rule_by_id(Id,FileName,Mod) :-
 %% GotDisabled = false, if it was disabled before, so disable{...} was a noop.
 disable_rule_by_id(Id,FileName,Mod,GotDisabled) :-
 	findall(Head,
-	        show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+	        show_rule_signature(Id,FileName,_Prefix,Mod,_RuleNum,
 				    Head,
 				    _Body,_H2BSig,_PreBody,_PostBody,
 				    _DefeatCond,_RuleList),
@@ -342,7 +342,7 @@ disable_rule_by_id(Id,FileName,Mod,GotDisabled) :-
 %% Delete the rule enabler fact only if there are no rules with this id
 %% left in the system. This is used for rule/latent query deletion.
 clear_rule_enabler_carefully(Id,FileName,Mod) :-
-	(show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+	(show_rule_signature(Id,FileName,_Prefix,Mod,_RuleNum,
 			     _Head,
 			     _Body,_H2BSig,_PreBody,_PostBody,
 			     _DefeatCond,_RuleList)
@@ -383,7 +383,7 @@ refresh_head_list([H|Rest]) :-
 is_enabled_rule(Id,FileName,Mod) :-
 	var(Mod),
 	!,
-	show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+	show_rule_signature(Id,FileName,_Prefix,Mod,_RuleNum,
 			    _Head,
 			    _Body,_H2BSig,_PreBody,_PostBody,
 			    _DefeatCond,_RuleList),
@@ -392,7 +392,7 @@ is_enabled_rule(Id,FileName,Mod) :-
 	).
 is_enabled_rule(Id,FileName,Mod) :-
 	EnablerPred = FL_RULE_ENABLER(Id,FileName,Mod),
-	show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+	show_rule_signature(Id,FileName,_Prefix,Mod,_RuleNum,
 			    _Head,
 			    _Body,_H2BSig,_PreBody,_PostBody,
 			    _DefeatCond,_RuleList),
@@ -403,7 +403,7 @@ is_enabled_rule(Id,FileName,Mod) :-
 is_disabled_rule(Id,FileName,Mod) :-
 	var(Mod),
 	!,
-	show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+	show_rule_signature(Id,FileName,_Prefix,Mod,_RuleNum,
 			    _Head,
 			    _Body,_H2BSig,_PreBody,_PostBody,
 			    _DefeatCond,_RuleList),
@@ -412,7 +412,7 @@ is_disabled_rule(Id,FileName,Mod) :-
 	).
 is_disabled_rule(Id,FileName,Mod) :-
 	EnablerPred = FL_RULE_ENABLER(Id,FileName,Mod),
-	show_rule_signature(Id,FileName,_DescrVarTerm,_Prefix,Mod,_RuleNum,
+	show_rule_signature(Id,FileName,_Prefix,Mod,_RuleNum,
 			    _Head,
 			    _Body,_H2BSig,_PreBody,_PostBody,
 			    _DefeatCond,_RuleList),
@@ -426,9 +426,9 @@ is_disabled_rule(Id,FileName,Mod) :-
    retracts all content from meta predicates for module
 *************************************************************************/
 flora_reset_descriptor_meta_predicates(Mod) :-
-	retractall(FL_TAG_DESCRIPTOR_META_PREDICATE(_,_,Mod,_,_)),
-	retractall(FL_BOOL_DESCRIPTOR_META_PREDICATE(_,_,Mod,_,_)),
-	retractall(FL_PROP_DESCRIPTOR_META_PREDICATE(_,_,Mod,_,_,_)),
+	retractall(FL_TAG_DESCRIPTOR_META_PREDICATE(_,_,Mod,_)),
+	retractall(FL_BOOL_DESCRIPTOR_META_PREDICATE(_,_,Mod,_)),
+	retractall(FL_PROP_DESCRIPTOR_META_PREDICATE(_,_,Mod,_,_)),
 	retractall(FL_RULE_ENABLER(_,_,Mod)).
 
 /**************************************************************************
@@ -446,20 +446,20 @@ flora_reset_descriptor_meta_predicates(Mod) :-
   yet, since the remainder, ?X[moo->?Y] :- body still needs them.
 **************************************************************************/
 clear_bool_metafacts_by_ruleid(RuleId,FileName,Mod) :-
-	(\+show_rule_signature(RuleId,FileName,_,_,Mod,_,_,_,_,_,_,_,_)
-	-> retractall(FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Mod,_,_))
+	(\+show_rule_signature(RuleId,FileName,_,_,Mod,_,_,_,_,_,_,_)
+	-> retractall(FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Mod,_))
 	; true
 	).
 
 clear_tag_metafacts_by_ruleid(RuleId,FileName,Mod) :-
-	(\+show_rule_signature(RuleId,FileName,_,_,Mod,_,_,_,_,_,_,_,_)
-	-> retractall(FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Mod,_,_))
+	(\+show_rule_signature(RuleId,FileName,_,_,Mod,_,_,_,_,_,_,_)
+	-> retractall(FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Mod,_))
 	; true
 	).
 
 clear_prop_metafacts_by_ruleid(RuleId,FileName,Mod) :-
-	(\+show_rule_signature(RuleId,FileName,_,_,Mod,_,_,_,_,_,_,_,_)
-	-> retractall(FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Mod,_,_,_))
+	(\+show_rule_signature(RuleId,FileName,_,_,Mod,_,_,_,_,_,_,_)
+	-> retractall(FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Mod,_,_))
 	; true
 	).
 
@@ -513,7 +513,7 @@ test_latent_query(Id,File,Mod) :-
 	call((PreBody,LQBody)).
 
 call_metafacts(MetaFacts) :-
-	call_metafacts(MetaFacts,FL_TAG_DESCRIPTOR_META_PREDICATE(_,_,_,_,_)).
+	call_metafacts(MetaFacts,FL_TAG_DESCRIPTOR_META_PREDICATE(_,_,_,_)).
 
 call_metafacts((MetaFact,Rest),TagPred) :-
 	!,
@@ -524,12 +524,11 @@ call_metafacts(MetaFact,TagPred) :-
 	filter_tag_metafact(MetaFact,TagPred).
 
 %% Here we are matching all tag-metafacts on the key: Id, File, Module
-%% (and VarTerm - arg5, for good measure). This ensures that all tag
-%% queries refer to the same rule.
+%% This ensures that all tag queries refer to the same rule.
 filter_tag_metafact(MetaFact,TagPred) :-
-	(functor(MetaFact,FL_TAG_DESCRIPTOR_META_PREDICATE,5)
-	-> TagPred = FL_TAG_DESCRIPTOR_META_PREDICATE(Id,File,Mod,_,Vars),
-	    MetaFact = FL_TAG_DESCRIPTOR_META_PREDICATE(Id,File,Mod,_,Vars),
+	(functor(MetaFact,FL_TAG_DESCRIPTOR_META_PREDICATE,4)
+	-> TagPred = FL_TAG_DESCRIPTOR_META_PREDICATE(Id,File,Mod,_),
+	    MetaFact = FL_TAG_DESCRIPTOR_META_PREDICATE(Id,File,Mod,_),
 	    call(MetaFact)
 	; call(MetaFact)
 	).
@@ -565,6 +564,8 @@ extract_stmt_fileinfo_from_filespec(FileSpec,PrintableFile,LocalFileName,LocalFi
         ; PrintableFile = PrintableFile_pre
         ).
 
+%% strips Module: from prolog calls
+%% we need meta predicates in generic form
 strip_module_from_call(Call,Stripped) :-
         (Call = _Mod:Stripped -> true
         ; Stripped = Call
@@ -575,11 +576,11 @@ extract_data_from_meta_call(Meta,NULL) :-
         !.
 extract_data_from_meta_call(Meta,Data) :-
         strip_module_from_call(Meta,StrippedMeta),
-        (StrippedMeta = FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,Tag,VarTerm) ->
+        (StrippedMeta = FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,Tag) ->
             Data = (prop,RuleId,tag,Tag)
-        ; StrippedMeta = FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,PropName,PropValue,VarTerm) ->
+        ; StrippedMeta = FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,PropName,PropValue) ->
             Data = (prop,RuleId,PropName,PropValue)
-        ; StrippedMeta = FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,BoolProp,VarTerm) ->
+        ; StrippedMeta = FL_BOOL_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,BoolProp) ->
             Data = (bool,RuleId,BoolProp)
         %% the rule_enabled metafact is ignored; descr_vars also
         ; Data = NULL

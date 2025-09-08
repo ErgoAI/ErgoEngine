@@ -1990,8 +1990,8 @@ generate_Pfile_add(PFileName,FileOptionList,TrailerOptions,RuleList,FactList,Que
                 */
                 insert_code_for_loaddyn_data(FLDFile),
                 insert_code_for_loaddyn_data(FLSFile),
-                flora_current_out_line('\n%%%%%%%%%%%%%%%%%%%%%%%%%%% Rule insertion statements %%%%%%%%%%%%%%%%%%%%%%%%%%'),
-                flora_current_out_line('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'),
+                flora_current_out_line('\n/**************************** Rule insertion statements **************************
+*******************************************************************************/\n'),
                 flora_extern_code(RuleList,CoderStatus1),
                 util_save_latent_query_signatures(LQList,LQStatus),
                 util_save_query_code(QueryList,QueryStatus),
@@ -2162,10 +2162,10 @@ generate_code(CompiledRuleList,CompiledSigList,CompiledFactList,CompiledQueryLis
         ((memberchk(ERGO_STRUCTURE_DB_OPTION,FileOptionList)
          ; flora_runtime_switch_registry(ERGO_STRUCTURE_DB_OPTION(on),_Mod)
          )
-        -> util_save_structural_db(CompiledSigList,InputFile)
+        ->
+           util_save_structural_db(CompiledSigList,InputFile)
         ; true
         ),
-
         util_save_include_file_info(InputFile),
         sort(FileOptionList,FileOptions),
         flora_measure_time(
@@ -2289,11 +2289,11 @@ generate_Pfile(PFileName,FileOptionList,TrailerOptions,RuleList,SigList,FactList
                 ),
                 insert_code_for_loaddyn_data(FLDFile),
                 insert_code_for_loaddyn_data(FLSFile),
-                flora_current_out_line('\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rules %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'),
-                flora_current_out_line('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'),
+                flora_current_out_line('\n/******************************** Static rules ********************************
+******************************************************************************/\n'),
                 flora_extern_code(RuleList,CoderStatus2),
-                flora_current_out_line('\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rule signatures %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%'),
-                flora_current_out_line('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'),
+                flora_current_out_line('\n/******************** Rule signatures for STATIC rules ************************
+****************************************************************************/\n'),
                 flora_extern_code(SigList,CoderStatus1),
                 util_save_latent_query_signatures(LQList,LQStatus),
                 util_save_query_code(QueryList,QueryStatus),
@@ -2892,7 +2892,7 @@ get_then_write_facts(_StorageName).
 get_then_write_rules(Module) :-
         
         %% need to take head-to-body into account!
-        matching_rule_signature(Id,_FileName,_DescrVarTerm,_Prefix,Head,Body,Signature),
+        matching_rule_signature(Id,_FileName,_Prefix,Head,Body,Signature),
         rule_signature_member(module,Signature,SigModule),
 	rule_signature_member(h2bsig,Signature,H2B),
         %% these two are not in the user surface syntax, so not written out.
@@ -5517,9 +5517,9 @@ abolish_modular_prolog_predicates(Module) :-
 
 flora_cleanup_rule_metadata(Module) :-
         retractall(FL_RULE_ENABLER(_,_,Module)),
-        retractall(FL_TAG_DESCRIPTOR_META_PREDICATE(_,_,Module,_,_)),
-        retractall(FL_BOOL_DESCRIPTOR_META_PREDICATE(_,_,Module,_,_)),
-        retractall(FL_PROP_DESCRIPTOR_META_PREDICATE(_,_,Module,_,_,_)).
+        retractall(FL_TAG_DESCRIPTOR_META_PREDICATE(_,_,Module,_)),
+        retractall(FL_BOOL_DESCRIPTOR_META_PREDICATE(_,_,Module,_)),
+        retractall(FL_PROP_DESCRIPTOR_META_PREDICATE(_,_,Module,_,_)).
 
 non_udf_user_modular_prlgdefs(ModularPlgPredLst) :-
         findall(P/A,
@@ -5710,14 +5710,16 @@ load_include_dependencies(FlrFile) :-
         load_dyn(FPJFile).
 
 util_save_query_code(QueryList,Status) :-
-        flora_current_out_line('\n\n%%%%%%%%%%%%%%%%%%%%%%% Queries found in the source file %%%%%%%%%%%%%%%%%%%%%%%'),
-        flora_current_out_line('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'),
+        flora_current_out_line('\n\n/********************** Regular queries found in the source file ***********************
+***************************************************************************/\n'),
         flora_extern_code(QueryList,Status),
         nl.
 
 util_save_latent_query_signatures(LatentQueryList,Status) :-
-        flora_current_out_line('\n\n%%%%%%%%%%%%%%%%%%%%%%%%% Signatures for latent queries %%%%%%%%%%%%%%%%%%%%%%%%'),
-        flora_current_out_line('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n'),
+        flora_current_out_line('\n\n/***************** Signatures for STATIC (compiled) LATENT queries *****************
+** For regular queries, signatures are inserted via FLLIBINSQUERYSIG/7 defined in
+** syslib/flrdynrule.P.
+*****************************************************************************/\n'),
         flora_extern_code(LatentQueryList,Status),
         nl.
 
@@ -5762,13 +5764,13 @@ flora_get_textual_info(RuleId,StmtFileSpec,Info) :-
         call(Info).
 
 get_rule_or_query_number(RuleId,ShortStmtFileSpec,StmtNum) :-
-        matching_rule_signature(RuleId,ShortStmtFileSpec,_DescrVarTerm,_Prefix,_Head,_Body,Signature),
+        matching_rule_signature(RuleId,ShortStmtFileSpec,_Prefix,_Head,_Body,Signature),
         rule_signature_member(rulenumber,Signature,StmtNum),
         !.
 %% NOTE: RuleId to StatementNumber rel is encoded in rule signatures
 get_rule_or_query_number(RuleId,ShortStmtFileSpec,StmtNum) :-
         %% dynamic rule
-        matching_rule_signature(RuleId,FL_DYNRULE_FICTITIOUS_FILENAME(ShortStmtFileSpec),_DescrVarTerm,_Prefix,_Head,_Body,Signature),
+        matching_rule_signature(RuleId,FL_DYNRULE_FICTITIOUS_FILENAME(ShortStmtFileSpec),_Prefix,_Head,_Body,Signature),
         rule_signature_member(rulenumber,Signature,StmtNum),
         !.
 get_rule_or_query_number(RuleId,ShortStmtFileSpec,StmtNum) :-
