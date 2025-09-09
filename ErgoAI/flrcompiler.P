@@ -2719,6 +2719,7 @@ collect_flvar_names(ParserTerm,VarNameList) :-
 	collect_flvars(ParserTerm,VarList),
 	vars_to_var_names(VarList,VarNameList).
 
+
 delete_silent_var_names([],[]) :- !.
 delete_silent_var_names([Name|List],Result) :-
         (is_silent_var_name(Name) -> delete_silent_var_names(List,Result)
@@ -11096,7 +11097,10 @@ compile_insert_litlist([HWS|T],Code,Status) :-
 	    ; %%%% Fact must be converted to rule
                 %% arrange for dynrule variables
                 flvar_list_to_PRNamedVarPairs(H,HVL,false),
-                flvar_list_to_PRNamedVarPairs([],BVL,false),
+
+                get_user_flvars_from_prcode((H2BCodeFront,H2BCodeBack),H2BFLVars),
+
+                flvar_list_to_PRNamedVarPairs(H2BFLVars,BVL,false),
 		%% Head literal contains a path expr, so it becomes a rule.
 		%% Treat it as a dynamically inserted rule.
 
@@ -11558,7 +11562,9 @@ compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,Rul
 		;
                     %% Head is a parser term (flvar etc).
                     flvar_list_to_PRNamedVarPairs(Head,HVL,false),
-                    flvar_list_to_PRNamedVarPairs(Body,BVL,false)
+
+                    get_user_flvars_from_prcode((H2BCodeFront,H2BCodeBack),H2BFLVars),
+                    flvar_list_to_PRNamedVarPairs([Body|H2BFLVars],BVL,false)
                 ),
                 make_datatype_vars_code(HeadCode,HeadDTvarscode),
                 make_datatype_vars_code(BodyCode,BodyDTvarscode),

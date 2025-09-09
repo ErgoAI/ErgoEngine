@@ -335,14 +335,17 @@ flora_insert_rules(InsOp,[FLSYSRULEUPDATE(RuleId,FileName,DescrVL,RuleNum,DescrM
 
         %% This is called from within construct_singleton_and_unsafe_warnings,
         %% no need to cal it beforehand
-        (NamedHVars == [], NamedBVars == [] -> true
-	; 
+        %% The case of body/head vars being [] is disabled because we
+        %% also want warnings where NamedHVars/NamedBVars are [] but
+        %% NamedDescrVars is not nil.
+       %%(NamedHVars == [], NamedBVars == [] -> true
+	%%; 
 	    get_full_filename(FileName,ModName,FullFile),
 	    construct_singleton_and_unsafe_warnings(RuleId,FullFile,NamedDescrVars,NamedHVars,NamedBVars,Warns),
 	    sort(Warns,SortedWarns),
 	    flora_show_warnings(SortedWarns),
-            ergo_issue_errorsIfAny(RuleId,FullFile,NamedDescrVars,NamedBVars)
-	),
+            ergo_issue_errorsIfAny(RuleId,FullFile,NamedDescrVars,NamedBVars) ,
+	%%),
         flora_insert_rules(InsOp,L).
 
 flora_insert_rules(InsOp,[FLSYSQUERYSIGNATURE(RuleId,FileName,Module,RuleNum,DescrMetaFacts,DescrVL,PreBody,Body,BVL)|L]) :-
