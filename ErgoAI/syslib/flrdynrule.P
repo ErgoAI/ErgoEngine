@@ -348,9 +348,12 @@ flora_insert_rules(InsOp,[FLSYSRULEUPDATE(RuleId,FileName,DescrVL,RuleNum,DescrM
 	%%),
         flora_insert_rules(InsOp,L).
 
-flora_insert_rules(InsOp,[FLSYSQUERYSIGNATURE(RuleId,FileName,Module,RuleNum,DescrMetaFacts,DescrVL,PreBody,Body,BVL)|L]) :-
+flora_insert_rules(InsOp,[FLSYSQUERYSIGNATURE(RuleId,FileName,Module,RuleNum,DescrMetaFacts,DescrVL,PreBody,Body,HVL,BVL)|L]) :-
 	!,
 	FLLIBINSQUERYSIG(RuleId,FileName,Module,RuleNum,DescrMetaFacts,PreBody,Body),
+        (get_attr(HVL,FLDYNRULEVARCHECK,NamedHVars) -> true
+	; NamedHVars = []
+	),
 	(get_attr(BVL,FLDYNRULEVARCHECK,NamedBVars) -> true
 	; NamedBVars = []
 	),
@@ -358,14 +361,10 @@ flora_insert_rules(InsOp,[FLSYSQUERYSIGNATURE(RuleId,FileName,Module,RuleNum,Des
 	; NamedDescrVars = []
 	),
 	get_full_filename(FileName,Module,FullFile),
-        %% descriptor vars here, for insert rule check for unsafe descriptor vars
-        %% HeadList argument is NULL here.
-        %% NamedDescrVars is not passed here but should, since latent queries have them. 
-        %% TODO: So we use [] for descr vars here, but really ned to pass descr vars.
 	construct_singleton_and_unsafe_warnings(RuleId,
                                                 FullFile,
                                                 NamedDescrVars,
-                                                [],     %% NamedHVars
+                                                NamedHVars,
                                                 NamedBVars,Warns),
 	sort(Warns,SortedWarns),
 	flora_show_warnings(SortedWarns),

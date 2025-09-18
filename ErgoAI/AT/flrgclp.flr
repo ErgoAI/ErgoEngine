@@ -72,6 +72,7 @@
 	  conflicts(?,?,?,?),
 	  compromised(?,?),
 	  canceled(?,?),
+          overriden_cancellation(?,?),
 	  candidate(?,?),
 	  strict_candidate(?,?),
 	  defeated(?,?)}.
@@ -96,7 +97,7 @@ FL_UNDEFEATED(?Id,?FileName,?H,?Mod) :-
 	//flora_replace_last(?H,FL_CONTEXT(?Mod,?,?)@\plg,?GH)@\prolog(flrtrim),
 	\naf FL_DEFEATED_ID(?Id,?FileName,?H,?Mod).
 
-//FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod) :-
+//FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod) 
 FL_DEFEATED_ID(?Id,?FileName,?H,?Mod) :-
         // Acesses the meta info about the TAGs, i.e., about the rule
         // descriptors of the form  @Term. Fetches  this metainfo from
@@ -157,7 +158,12 @@ compromised(?T,?H) :-
 canceled(?T,?H) :-
         caller{?Mod},
         FL_CANCEL_AUX(?Mod,?T,?H),
-        \+ FL_OVERRIDEN_CANCELLATION(?T,?H,?Mod).
+        writeln(aaaaaaaaaa=?Mod+?T+?H)@\plg,
+        \naf FL_OVERRIDEN_CANCELLATION(?T,?H,?Mod).
+
+overriden_cancellation(?T,?H) :-
+        caller{?Mod},
+        FL_OVERRIDEN_CANCELLATION(?T,?H,?Mod).
 
 // Axioms for Courteous LP
 
@@ -208,7 +214,7 @@ FL_DISQUALIFIED(?T,?H,?Mod) :-
         \naf FL_REBUTTED(?T,?H,?Mod).
 FL_DISQUALIFIED(?T,?H,?Mod) :- beaten_by_strict_rule(?T,?H,?Mod).
 FL_DISQUALIFIED(?T,?H,?Mod) :- FL_CANCEL_AUX(?Mod,?T,?H).
-// FL_OVERRIDEN_CANCELLATION expresses interaction  of defeat and cancellation:
+// FL_OVERRIDEN_CANCELLATION expresses this interaction  of defeat and cancellation:
 // Cancellation rule is disqualified if the rule being canceled has higher
 // priority than the cancellation rule itself
 // FL_OVERRIDEN_CANCELLATION/3 is defined in genincludes/flrdefeasible.fli
@@ -361,7 +367,7 @@ FL_CANDIDATE(?T,?Head,?Mod) :-
 // Find out if two rules (Tag,Head) are in conflict
 // One of the tags might be a variable
 FL_CONFLICTS(?T1,?H1,?T2,?H2,?Mod) :-
-	// FL_OPPOSES_AUX(?Mod,?T1,?H1,?T2,?H2) should be at the beginning,
+	// FL_OPPOSES_AUX(?Mod,?T1,?H1,?T2,?H2) should come first
 	// since this is a cheap predicate compared to checking candidacy.
 	// FL_OPPOSES_AUX/5 is made symmetric in T1,?H1, ?T2,?H2 by an axiom
 	// in genincludes/flrdefeasible.fli

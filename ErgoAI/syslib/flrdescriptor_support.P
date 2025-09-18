@@ -7,7 +7,7 @@
 ** Copyright (C) by
 **      The Research Foundation of the State University of New York, 2012-2018;
 **      and Vulcan, Inc., 2012-2013.
-**      Coherent Knowledge Systems, LLC, 2015-2018.
+**      Coherent Knowledge Systems, LLC, 2015-2025.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@
 #include "flora_terms.flh"
 #include "flora_tabling_methods.flh"
 #include "flora_exceptions.flh"
+#include "flora_errors.flh"
 
 :- table
 	%% tabling get_tag_descriptor_info_with_rulehead/5 helps about 10%
@@ -60,6 +61,9 @@
 	flora_modularize_atom/3
    from flrwrapper.
 :- import
+        flora_decode_goal_as_mainless_atom_substitute_vars/2
+   from flrdecode.
+:- import
 	flora_refresh_tables/1
    from flrtables.
 :- import
@@ -68,6 +72,8 @@
 	query_signature_member/3,
         show_rule_signature/12
    from flrcanon.
+
+%%:- import flora_generalize_last/3 from flrtrim.
 	
 :- import
 	flora_adaptive_assert/1,
@@ -77,11 +83,21 @@
 :- import
         flora_match_substring/5,
 	flora_abort/2,
+        flora_concat_items/2,
 	flora_file_op/3
    from flrporting.
 :- import
         flora_load_registry/7
    from flrregistry.
+:- import
+        flora_warning_line/1,
+        flora_stdmsg_nl/0,
+        flora_stdmsg_string/1,
+        flora_message_line_noheader/1
+   from flrprint.
+
+:- ensure_loaded(flrdynrule). %% for  get_line_num/3
+:- import get_line_num/3 from usermod(flrdynrule).
 
 :- export
 	get_tag_descriptor_info/4,
@@ -124,6 +140,8 @@
 	flora_reset_descriptor_meta_predicates/1.
 
 :- export
+        rule_defeasibility_essentials/5,
+        verify_tag_descriptor_info/2,
         strip_module_from_call/2,
         extract_data_from_meta_call/2.
 
@@ -150,18 +168,82 @@ get_tag_descriptor_info_with_rulehead(RuleId,FileName,Module,Tag,Head) :-
 			    Head,
 			    _Body,_H2BSig,_PreBody,_PostBody,
 			    _DefeatCond,_RuleList),
-            FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag).
+        FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag).
+
 get_tag_descriptor_info_with_rulehead(RuleId,FileName,Module,Tag,Head) :-
 	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
 	-> RealMod = HeadMod
 	;
 	    RealMod = Module
 	),
+        rule_defeasibility_essentials(RuleId,Tag,RealMod,Head,FileName).
+/*
 	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag),
 	show_rule_signature(RuleId,FileName,_Prefix,RealMod,_RuleNum,
 			    Head,
 			    _Body,_H2BSig,_PreBody,_PostBody,
 			    _DefeatCond,_RuleList).
+*/
+
+%% THe following is used mostly for debugging.
+%% The Flag says if we sshould abort, not just fail, when
+%% the Tag info is incomplete, which is likely a bug
+%% If Flag == abort: abort after finding the first faulty record.
+%% So, usually this will be used as verify_tag_descriptor_info(_,_),
+%% or verify_tag_descriptor_info(_,verb) or verify_tag_descriptor_info(abort,verb), etc.
+%% abort/_ or do not if it finds a rule with a faulty Tag info 
+%% verify_tag_descriptor_info(abort).
+%% verb (or verbose) or don't -- print every rule record found.
+verify_tag_descriptor_info(AbortFlag,VerboseFlag) :- 
+        ( check_one_rule_descriptor_info(AbortFlag,VerboseFlag), fail
+        ; true
+        ).
+check_one_rule_descriptor_info(AbortFlag,VerboseFlag) :- 
+        rule_defeasibility_essentials(RuleId,Tag,RealMod,Head,FileName),
+        get_line_num(RuleId,FileName,Line),
+        ProblemList0 = [],
+        (var(RuleId) -> PL1 = ['RuleId'|ProblemList0]
+        ; PL1 = ProblemList0
+        ),
+        (var(FileName) -> PL2 = ['FileName'|PL1]
+        ; PL2 = PL1
+        ),
+        (var(RealMod) -> PL3 = ['Module'|PL2]
+        ; PL3 = PL2
+        ),
+        (var(Tag) -> PL4 = ['RuleTag'|PL3]
+        ; PL4 = PL3
+        ),
+        (var(Head) -> ProblemList = ['RuleHead'|PL3]
+        ; ProblemList = PL4
+        ),
+        (is_defeasible_rule(RuleId,FileName,RealMod) -> Defeasible = defeasible
+        ; Defeasible = strict
+        ),
+        ((VerboseFlag == verb ; VerboseFlag == verbose) ->
+            InfoPlg = [rid=RuleId,fn=FileName,mod=RealMod,tg=Tag,hd=Head, Defeasible],
+            flora_decode_goal_as_mainless_atom_substitute_vars(
+                      InfoPlg,
+                      InfoErgoFmt),
+            flora_stdmsg_string('*'),
+            flora_message_line_noheader(InfoErgoFmt),
+            flora_stdmsg_string('*'),
+            flora_message_line_noheader(InfoPlg),
+            flora_stdmsg_nl
+        ; true
+        ),
+        (ProblemList == [] -> true
+        ; flora_concat_items(['The rule in file ', FileName,
+                                ' on line ', Line, 
+                                ' has faulty signature. The following items are missing: ', ProblemList],
+                               Message),
+            (AbortFlag \== abort ->
+                flora_warning_line(Message)
+            ; flora_abort('[BUG:] Rules with incomplete signatures found',
+                          FLORA_ABORT_NOTRACE)
+            )
+        ).
+
 
 get_ruleid_by_tag_or_head(Tag,Head,Module,RuleId,FileName) :-
 	nonvar(Tag),
@@ -585,3 +667,14 @@ extract_data_from_meta_call(Meta,Data) :-
         %% the rule_enabled metafact is ignored; descr_vars also
         ; Data = NULL
         ).
+
+%% This predicqte can be queried with any bindings or no
+%% bindings at all.
+%% Similar to get_tag_descriptor_info_with_rulehead/4 but
+%% the latter tries to consider different cases of arg bindings.
+rule_defeasibility_essentials(RuleId,Tag,RealMod,Head,FileName) :-
+	FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,RealMod,Tag),
+	show_rule_signature(RuleId,FileName,_Prefix,RealMod,_RuleNum,
+			    Head,
+			    _Body,_H2BSig,_PreBody,_PostBody,
+			    _DefeatCond,_RuleList).

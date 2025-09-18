@@ -447,8 +447,9 @@ adjust_for_modular_prolog(WrapOrPred,InArg,Module,OutArg) :-
 
 /****************************************************************************
 **       convert_to_signature(+Molecule,+InheritanceMode,-Signature)
-** Converts Flora literals to signature frames
-** if already a signature then leaves intact.
+** Converts Flora literals to signature frames (not to be
+** confused with rule signatures used here also.
+** If already a signature then leaves intact.
 ** Caches its result for faster processing
 ** If a literal doesn't have a signature then simply fails
 ** InheritanceMode: if inheritable, then converts to inheritable signature;
@@ -640,7 +641,7 @@ flora_record_rule_signature(RuleId,FileName,HPrefix,Module,RuleNum,Head,Body,H2B
 			   CONSERVE_REGISTERS,
 			   INDEXED_ARG),
 	      _,
-	      (flora_decode_goal_as_atom(Head,HeadAtm),flora_warning_line('~nThe body of the rule with the head ~w is too large. This rule will be neither accessible with clause{...} nor used for defeasible reasoning. Try to split this rule into smaller pieces.~n',[HeadAtm]))
+	      (flora_decode_goal_as_atom(Head,HeadAtm),flora_warning_line('~nThe body of the rule with the head ~w is probably too large. This rule will be neither accessible with clause{...} nor used for defeasible reasoning. Try to split this rule into smaller pieces.~n',[HeadAtm]))
 	     ).
 
 

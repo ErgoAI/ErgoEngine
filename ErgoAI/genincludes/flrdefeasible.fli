@@ -35,6 +35,7 @@
 
 :- import flora_predicate_is_defined_lowlevel/1 from flrporting.
 
+
 /*
   The following rules connect Prolog predicates
   FL_OPPOSES_AUX/5 and FL_OVERRIDES_AUX/5,
@@ -86,49 +87,20 @@
 %% Interaction of defeat with cancellation:
 %% Cancellation rule is disqualified if the rule being canceled has higher
 %% priority than the cancellation rule itself
+FL_OVERRIDEN_CANCELLATION(Tag1,FL_CANCEL(Tag2,_), 'FLORA_THIS_MODULE_NAME') :-
+        FL_OVERRIDES_AUX('FLORA_THIS_MODULE_NAME',
+                         Tag3,_,
+                         Tag1,FL_CANCEL(Tag3,_)),
+        flrdescriptor_support:synonymous_tag(Tag3,'FLORA_THIS_MODULE_NAME',Tag2).
 
-/*
-Speaking precisely:
-  Find  all rules matching (@Tag \cancel(Tag2, AnotherHead))
-  where the rule being canceled, i.e., (Tag2, AnotherHead) has higher priority than
-  the rule with (@Tag2 \cancel(Tag2,AnotherHead))
-  In this case, we say that the cancellation rule  (@Tag \cancel(Tag2, AnotherHead))
-*/
-FL_OVERRIDEN_CANCELLATION(Tag1,CancelHead, Module) :-
-        compound(CancelHead),
-        %%Module = 'FLORA_THIS_MODULE_NAME',
-        ( CancelHead = FL_CANCEL(Tag2,_),
-            (nonvar(Tag1) ; nonvar(Tag2)) ->
-            %% the case of \cancel/1.
-            FL_OVERRIDEN_CANCELLATION_INTERNAL1(Tag1,CancelHead, Module)
-        %% the case of \cancel/2.
-        ; CancelHead = FL_CANCEL(Tag2,H,_),
-            (nonvar(Tag1) ; nonvar(Tag2); nonvar(H))
-        ->
-            FL_OVERRIDEN_CANCELLATION_INTERNAL2(Tag1,CancelHead, Module)
-        %% this just makes the default explicit
-        ; fail
-        )
-        %% This is never reached, ie no overridden cancelation takes place
-        ,writeln(2,ccccc=Tag1+ CancelHead)
-        .
+FL_OVERRIDEN_CANCELLATION(Tag1,FL_CANCEL(Tag2,H,_), 'FLORA_THIS_MODULE_NAME') :-
 
-FL_OVERRIDEN_CANCELLATION_INTERNAL1(Tag1,FL_CANCEL(Tag2,_), Module) :-
-    	            FL_OVERRIDES_AUX(Module,
-	                             Tag3, _,
-			             Tag1,FL_CANCEL(Tag3,_)),
-                    %% synonymous_tag/3 used only here
-                    %% In other places, use
-                    %% synonymous_tag_with_head/4 
-                    %% Tabling synonymous_tag*/* slows things down
-		    flrdescriptor_support:synonymous_tag(Tag3,Module,Tag2).
-
-%% the case of \cancel/2.
-FL_OVERRIDEN_CANCELLATION_INTERNAL2(Tag1,FL_CANCEL(Tag2,H,_), Module) :-
-    	            FL_OVERRIDES_AUX(Module,
-	                             Tag3,H,
-			             Tag1,FL_CANCEL(Tag3,H,_)),
-		    flrdescriptor_support:synonymous_tag_with_head(Tag3,Module,Tag2,H).
+        flrtrim:flora_generalize_last(H,HH),
+        FL_OVERRIDES_AUX('FLORA_THIS_MODULE_NAME',
+                         Tag3,HH,
+                         Tag1,FL_CANCEL(Tag3,HH,_)),
+        flrtrim:flora_generalize_last(HH,HHH),
+        flrdescriptor_support:synonymous_tag_with_head(Tag3,'FLORA_THIS_MODULE_NAME',Tag2,HHH).
 
 
 %% Connect FL_OPPOSES_AUX, FL_OVERRIDES_AUX, and FL_CANCEL_AUX with
@@ -178,16 +150,11 @@ WRAP_TABLED_HILOG(FL_OPPOSES,Tag1,H1,Tag2,H2,_) :-
 	    flrtrim:flora_generalize_last(H2,HH2),
             (
 	       flora_predicate_is_defined_lowlevel('FLORA_THIS_WORKSPACE(FL_OVERRIDES_UNQUOTED)'(_,_,_)),
-              %%writeln(2,wwww= 'overrides/2 is defined'),
 	       'FLORA_THIS_WORKSPACE(FL_OVERRIDES_UNQUOTED)'(Tag1,Tag2,_FWContext)
-              ,writeln(2,zzzz= 'overrides/2 fired')
 	    ;
 	       flora_predicate_is_defined_lowlevel('FLORA_THIS_WORKSPACE(FL_OVERRIDES_UNQUOTED)'(_,_,_,_,_)),
-              %%writeln(2,wwww= 'overrides/4 is defined'),
 	       'FLORA_THIS_WORKSPACE(FL_OVERRIDES_UNQUOTED)'(Tag1,HH1,Tag2,HH2,_FWContext)
-              ,writeln(2,zzzz= 'overrides/4 fired')
 	    ),
-            writeln(2,iiii=Tag1+Tag2+HH1+HH2),
 	    flrcanon:show_rule_by_tag(Tag1,'FLORA_THIS_MODULE_NAME',HH1,_),
 	    flrcanon:show_rule_by_tag(Tag2,'FLORA_THIS_MODULE_NAME',HH2,_)
 	 )).
@@ -195,15 +162,26 @@ WRAP_TABLED_HILOG(FL_OPPOSES,Tag1,H1,Tag2,H2,_) :-
 
 ?- \+clause(FL_CANCEL_AUX('FLORA_THIS_MODULE_NAME',_,_),_),
     assert((FL_CANCEL_AUX('FLORA_THIS_MODULE_NAME',Tag,H) :-
-	    flrtrim:flora_generalize_last(H,HH),
+            writeln(2,entering_cancel=Tag+H),
+           
+           flrdescriptor_support:rule_defeasibility_essentials(_RId,Tag,'FLORA_THIS_MODULE_NAME',H,_FileN),
+            writeln(2,checking_head=Tag+H),
+           
+           flrtrim:flora_generalize_last(H,HH),
+            writeln(2,checking_generalized_head=Tag+HH),
             (
 	       flora_predicate_is_defined_lowlevel('FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(_,_)),
+            writeln(2,aaaa1=Tag+HH),
 	       'FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(Tag,_FWContext)
+            ,writeln(2,aaaa2=Tag+HH)
 	    ;
 	       flora_predicate_is_defined_lowlevel('FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(_,_,_)),
+            writeln(2,bbbbb1=Tag+HH+_FWContext),
+              writeq(xxxx= ('FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(Tag,HH,_FWContext))),
 	       'FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(Tag,HH,_FWContext)
+            ,writeln(2,bbbb2=Tag+HH)
 	    ),
-	    flrcanon:show_rule_by_tag(Tag,'FLORA_THIS_MODULE_NAME',HH,_)
+	    flrcanon:show_rule_by_tag(Tag,'FLORA_THIS_MODULE_NAME',_HHH,_)
            )).
 
 
