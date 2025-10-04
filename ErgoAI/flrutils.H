@@ -247,6 +247,7 @@
 	flora_modular_prolog_registry/3,
 	flora_defeasible_module_registry/2,
 	flora_load_registry/7,
+        %%flora_user_module_registry/1,
 	flora_module_import_closure/2,
 	flora_load_deps_closure/2,
 	flora_imported_module_registry/2,

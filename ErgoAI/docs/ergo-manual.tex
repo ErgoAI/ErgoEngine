@@ -1066,8 +1066,18 @@ represented as ``{\tt ?\_}'' or \anon, and named {\em don't care
 variables}, which are
 preceded with the underscore, {\it e.g.}, {\tt ?\_abc}.
 
-By default, \FLSYSTEM prints out all answers (if their number is finite). If only one at a time is
-desired, type in the following command: {\tt \bs{}one}. You can revert back to
+By default, \FLSYSTEM prints out all answers (if their number is
+finite). If only one answer at a time is
+desired, then type the following command: {\tt \bs{}one}.
+In this case, \FLSYSTEM returns the first answer and then waits for user
+input. To get the
+next answer, type ``\texttt{;}'' immediately followed by \texttt{<ENTER>}. 
+The user can continue typing \texttt{;<ENTER>} as long as more answers are
+needed or until no more answers are left. If the query has additional
+answers, but the user does not need to see them then he can just hit
+\texttt{<ENTER>} and the interactive display of the answers will stop and
+one will see the \FLSYSTEM prompt.  
+One can revert back to
 the all-answers mode by typing {\tt \bs{}all}. Note: {\tt \bs{}one} and {\tt \bs{}all}
 affect only the \emph{subsequent} queries. That is, in
 %%
@@ -1872,7 +1882,7 @@ p(?X), \neg ?Y[foo->bar(?X)] :-
   The term \emph{goal} will usually refer to a rule body or a parenthesized
   rule body.
   The term \emph{subgoal} will usually refer to a sub-formula of a goal,
-  such as a base sub-formula.
+  e.g.,  a base sub-formula.
 
   \index{unitary goal}
   \index{goal!unitary}
@@ -9088,10 +9098,11 @@ HiLog predicates or frames (other than transactional methods) are used,
 the knowledge engineer must have some understanding of the way XSB evaluates tabled
 predicates.
 
-Unlike Prolog, which computes answers one-at-a-time, \FLSYSTEM computes
-answers to the entire clique of inter-dependent
-predicates before the computation proceeds to the next subgoal
-in a rule body. The following little example illustrates the difference:
+Unlike Prolog, which always returns the answers in the one-at-a-time
+fashion, \FLSYSTEM computes the
+answers for the entire clique of inter-dependent
+subgoals before letting the computation to proceed to the next subgoal
+in the rule body. The following small example illustrates the difference:
 %%
 \begin{verbatim}
 a:b.
@@ -10856,7 +10867,7 @@ Note that \texttt{<>} and \texttt{$\sin$<>} can apply to a group of
 subgoals, if they are enclosed in parentheses.  If the expression does not
 change the underlying state of the knowledge base then
 \texttt{\query <>} $expression$ and \query\texttt{$\sim$<>}\,$expression$ reduce to
-$\query expression$ and $\query \RULELOGNAF\,expression$, respectively.
+$\query expression$ and $\query \RULELOGNAF\,expression$, respectively. 
 Examples:
 %% 
 \begin{verbatim}
@@ -10961,9 +10972,9 @@ is \texttt{erasemodule} with the following syntax:
 erasemodule\{\emph{modulename}\}
 \end{quote}
 }
-The primitive \texttt{erasemodule} empties module out but does not delete
+The primitive \texttt{erasemodule} empties the named module out but does not delete
 it from the registry of modules, so new facts and rules can be inserted
-into that module again without the need to recreate that module with
+into that module again \emph{without the need to recreate} the module with
 another \texttt{newmodule} command. 
 
 
@@ -11439,6 +11450,7 @@ Here are a few typical uses of aggregation:
 minsalary(?Year,?Z) :- ?Z = min{?S|John[salary(?Year)->?S]}.
 ?- ?Z = setof{?Pair|John[salary(?Year)->?S], ?Pair=pair(?Year,?S)}.
 ?- ?Z = setof{?Pair([asc(2)])|John[salary(?Year)->?S], ?Pair=pair(?Year,?S)}.
+\end{verbatim}
 
 %% 
 The first example binds \texttt{?Z} to the smallest salary that John has
@@ -18461,14 +18473,12 @@ specifications must have one of the following forms:
     (make the current goal fail); or
   \item A Prolog predicate defined in some Prolog module; or
   \item A predicate declared using \FLSYSTEM's \texttt{:- prolog\{...\}} directive.
-  \item A predefined error handler \texttt{pause}, which is available only
-    \textbf{in} \ERGO. In that case, the execution pauses and the user is
-    given the
+  \item A predefined error handler \texttt{pause}, 
+    in which case, the execution pauses and the user is
+    given an
     opportunity to inspect the state of the system and then either continue
-    or abort the computation.\footnote{The ability to pause a computation exists
-    only in \ERGO and this is why the pause interrupt handler is available
-    only there.}
-  The \texttt{pause} interrupt handler is perhaps the most useful when the
+    or abort the computation.
+  The \texttt{pause} interrupt handler is  most useful when the
   system runs in interactive mode. 
   For instance,
   %% 
@@ -19900,7 +19910,7 @@ This module also provides the following amenities:
   form {\tt (?M1, ?M2, ..., ?Mn)}. In this case, all the component strings are
   concatenated before printing them out.
 
-  User aborts can be caught as follows:
+  User-initiated aborts can be caught as follows:
   %%
   \begin{alltt}
    ?- catch\{?Goal, \FLABORT(\FLUSERABORT(?Message),?), ?Handler\}
@@ -19954,7 +19964,8 @@ Sometimes it may be necessary for an application to read and compile \FLSYSTEM
 statements from an input source. To this end, the {\tt \bs{}parse} 
 system library provides the following predicates and methods.
 %% 
-\paragraph{$\bullet$~~~ \tt  read(?Code,?Stat)@\bs{}parse.} ~~\\
+\noindent
+\textbf{$\bullet$~~~ \tt  read(?Code,?Stat)@\bs{}parse.} ~~\\
 {$\bullet$~~~ \tt  read(?Module)(?Code,?Stat)@\bs{}parse.} ~~\\
 Read the next term from the standard input and compile it. The resulting
 term is bound to the variable {\tt ?Code}.  The term can also be a reified
@@ -19988,8 +19999,8 @@ and has the form [\emph{OutcomeFlag}, \emph{EOF\_flag}|\emph{ErrorList}], where:
                   \emph{Message} is an error message. Error messages are displayed.}
 \end{alltt}
 %%
-  Example:
-  %% 
+Example:
+%% 
 \begin{verbatim}
      ?- read(?Code,?Stat)@\parse.
      f(a).   <-----user input
@@ -20003,59 +20014,64 @@ and has the form [\emph{OutcomeFlag}, \emph{EOF\_flag}|\emph{ErrorList}], where:
      ?Code = ${a[b -> c]@foo}
      ?Stat = [ok, not_eof]
 \end{verbatim}
-  %% 
+%% 
 
-  \noindent
-  Note that \texttt{read@\bs{}parse} reads just one term from the input and
-  succeeds. If called repeatedly, it will read the second, third, etc.,
-  term from the input stream. On reaching the end of file,
+\noindent
+Note that \texttt{read@\bs{}parse} reads just one term from the input and
+succeeds. If called repeatedly, it will read the second, third, etc.,
+  term from the input stream. On reaching the end of the file,
   \texttt{?Stat} will be bound to \texttt{[null,eof]}.  
+%% 
+\textbf{$\bullet$~~~ \tt  ?Stream[read(?Code,?Stat)]@\bs{}parse.} ~~\\
+{$\bullet$~~~ \tt  ?Stream[read(?Module)(?Code,?Stat)]@\bs{}parse.} 
 
-  %% 
-  \paragraph{$\bullet$~~~ \tt  ?Stream[read(?Code,?Stat)]@\bs{}parse.} ~~\\
-  {$\bullet$~~~ \tt  ?Stream[read(?Module)(?Code,?Stat)]@\bs{}parse.} ~~\\
-  These versions of \texttt{read@\bs{}parse} are similar to the above
+\noindent
+These versions of \texttt{read@\bs{}parse} are similar to the above
   except that the input comes from an input stream \texttt{?Stream}, which
   must be open previously, and not from the standard input.
 
-  \noindent
-  The second form of this API call supplies a module for reified terms, as
-explained above.
-  %% 
-  \paragraph{$\bullet$~~~ \tt  readOneByOne(?Code,?Stat)@\bs{}parse.} ~~\\
+\noindent
+The second form of this API call supplies a module for reified terms, as explained above.
+
+%% 
+\noindent
+\textbf{$\bullet$~~~ \tt  readOneByOne(?Code,?Stat)@\bs{}parse.} ~~\\
 {$\bullet$~~~ \tt  readOneByOne(?Module)(?Code,?Stat)@\bs{}parse.} ~~\\
 Used for reading terms one-by-one and returning answers interactively.
-The meaning of the arguments is the same.  Under one-at-a-time solution
-({\tt \bs{}one}), will wait for input, return compiled code, then wait for
-input again, if the user types ";". If the user types {\tt RET} then this
-predicate succeeds and exits.  Under all-solutions semantics ({\tt
-  \bs{}all}), will wait for inputs and process them, but will not return
+The meaning of the arguments is the same.  In the one-at-a-time mode,
+the {\tt \bs{}one}command, will wait for the input, return the compiled code, then wait for
+more input, if the user types ";". If the user types {\tt RET} then this
+predicate succeeds and exits. If the user types \texttt{;<RETURN>}, the next answer is printed and the system will wait for more input again.
+   In the all-solutions mode ({\tt
+  \bs{}all}), will wait for more input to process, but will not return
 answers unless the file is closed (e.g., Ctl-D at standard input).
 
 \noindent
-The second form of this API call supplies a module for reified terms, as
-explained above.
+The second form of this API call supplies a module for reified terms, as explained above.
 
-\paragraph{$\bullet$~~~\tt  ?Stream[readOneByOne(?Code,?Stat)]@\bs{}parse.} ~~\\
-{$\bullet$~~~\tt  ?Stream[readOneByOne(?Module)(?Code,?Stat)]@\bs{}parse.} ~~\\
+\noindent
+\textbf{$\bullet$~~~\tt  ?Stream[readOneByOne(?Code,?Stat)]@\bs{}parse.} ~~\\
+{$\bullet$~~~\tt  ?Stream[readOneByOne(?Module)(?Code,?Stat)]@\bs{}parse.}
+%%
+
+\noindent
 Like \texttt{readOneByOne(?Code,?Stat)@\bs{}parse}  but the input comes from
 the input stream \texttt{?Stream}, which must be open in advance.
 After finishing working with the stream, it should be closed. 
 
 \noindent
-The second form of this API call provides a module for reified terms, as
-above.
+The second form of this API call provides a module for reified terms, as above.
 
 \noindent
 Note: there is a simpler version of this method in the system module
 \texttt{\bs{}io}. It is called
 \texttt{ergo\_read}
 (and
-\texttt{ergo\_read(?Module)},
+\texttt{ergo\_read(?Module)}),
 and is described in Section~\ref{sec-io-mod}.
 
-
-\paragraph{$\bullet$~~~\tt  ?Source[readAll(?CodeList)]@\bs{}parse.}~~\\
+\noindent
+\textbf{$\bullet$~~~\tt  ?Source[readAll(?CodeList)]@\bs{}parse.}~~\\
 {$\bullet$~~~\tt ?Source[readAll(?Module)(?CodeList)]@\bs{}parse.}~~\\
 This collects all answers from a source, which can be either a file or a
 string. If the source is a string, it should be

@@ -423,13 +423,11 @@ flora_print_one(Gs,NVs) :-
 	throw(FLRANSWER_ENDBALL).
 
 flora_print_one(Gs,NVs) :-
-	( flora_call(Gs,NVs,XWamState),
+        ( flora_call(Gs,NVs,XWamState),
 	    flora_display_mode(DisplMode),
             (memberchk(DisplMode,[stickydefault,deepanswer]) -> true
             ; flora_set_display_mode(answer)
             ),
-
-	    flora_write_pairs(NVs,XWamState),
 
 	    flora_display_schema(DisplSchema),
             (DisplSchema == tmpraw, flora_running_as(ergo) ->
@@ -438,7 +436,12 @@ flora_print_one(Gs,NVs) :-
             ; true
             ),
 	    flora_set_display_mode(DisplMode),
-	    flora_fail_unless_return
+
+	    flora_write_pairs(NVs,XWamState),
+            flora_stdfdbk_string('~n~nMore answers? Type ; or y and press Enter. To quit press Enter : '),
+
+	    flora_fail_unless_return,
+            flora_stdfdbk_nl
 	;
 	    flora_write_No
 	),
@@ -461,9 +464,11 @@ flora_if_then_else(_Condition,_Then,Else) :-
 %% If the user types RETURN, then succeed. Otherwise, assume the user wants
 %% more answers, so fail in order to provide another answer.
 flora_fail_unless_return :- 
-	get_code(C),
-	(C =:= CH_NEWLINE; C =:= CH_EOF_P), !,
-	flora_write_Yes.
+        %% everything but just the` <Enter> fails the Char test
+        %% If C = EOF or NEWLINE, then flora_fail_unless_return is called recursively
+        get_code(C),
+        (C =:= CH_NEWLINE; C =:= CH_EOF_P), !,
+        true.
 flora_fail_unless_return :- flora_fail_unless_return, fail.
 
 
