@@ -170,7 +170,7 @@ assigned the tuples $\tt(11,33)$ and $\tt(fff(22),33)$. Then:
         print("result: ",row[0],row[1],row[2],row[3].value)
 \end{verbatim}
 %% 
-will print (except the top line, which is added for readability):
+will output the following (sans the top line, which is added by us for readability):
 %% 
 \begin{verbatim}
    # Result                   Compile Status      Truth Value    Exception
@@ -246,10 +246,14 @@ Some of the components may be missing in specific cases (e.g.,
 \section{Talking to XSB}\label{sec-pyxsb-query}
 
 This part of the 
-API is \textbf{for expert users only} whose applications require talking to
-the underlying XSB engine directly. It
-consists of the commands  \texttt{pyxsb\_command()} and
-\texttt{pyxsb\_query()}.
+API is \textbf{for expert users only} whose \textbf{applications require
+  talking}    to
+the underlying \textbf{XSB engine directly}.   
+Skip this section if you are not yet comfortable with the higher-level
+\FLSYSTEM interface.
+
+To access XSB from Python, use the
+the commands  \texttt{pyxsb\_command()} and \texttt{pyxsb\_query()}.
 The first is like
 \texttt{pyergo\_command()} except that Prolog syntax is used for the
 query.  The second, \texttt{pyxsb\_query()}, differs more.  Like
@@ -349,7 +353,7 @@ classes to represent them, so we discuss these issues separately.
 \item  \texttt{ERGOVariable(name=}\emph{string}\texttt{)}: this type of
   objects may be returned if query results contain unbound variables.
   Note that the actual names of these variables are immaterial and they are
-  almost always different from what was in the query. The only thing that
+  almost always different from what was in the user's  query. The only thing that
   matters is the equality among these names. For instance, if a tuple of
   bindings like \texttt{(ERGOVariable(name='\_Var123'), ERGOSymbol(value='abc'),
     ERGOVariable(name='\_Var123'))} is returned, it means that the first and the
@@ -363,7 +367,7 @@ classes to represent them, so we discuss these issues separately.
   Prolog and HiLog terms, respectively.
 \end{itemize}
 %% 
-Typically, unpacking of an answer takes the form or testing what kind of
+Typically, unpacking of an answer takes the form of testing what kind of
 object it is (e.g., \texttt{isinstance(obj,ERGOVariable)},
 \texttt{isinstance(obj,ERGOString)},
 \texttt{isinstance(obj,ERGOIRI)},
