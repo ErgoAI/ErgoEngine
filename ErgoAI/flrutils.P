@@ -2892,7 +2892,7 @@ get_then_write_facts(_StorageName).
 get_then_write_rules(Module) :-
         
         %% need to take head-to-body into account!
-        matching_rule_signature(Id,_FileName,_Prefix,Head,Body,Signature),
+        matching_rule_signature(Id,_FileName,_DescrVarsTerm,_Prefix,Head,Body,Signature),
         rule_signature_member(module,Signature,SigModule),
 	rule_signature_member(h2bsig,Signature,H2B),
         %% these two are not in the user surface syntax, so not written out.
@@ -5517,9 +5517,9 @@ abolish_modular_prolog_predicates(Module) :-
 
 flora_cleanup_rule_metadata(Module) :-
         retractall(FL_RULE_ENABLER(_,_,Module)),
-        retractall(FL_TAG_DESCRIPTOR_META_PREDICATE(_,_,Module,_)),
-        retractall(FL_BOOL_DESCRIPTOR_META_PREDICATE(_,_,Module,_)),
-        retractall(FL_PROP_DESCRIPTOR_META_PREDICATE(_,_,Module,_,_)).
+        retractall(FL_TAG_DESCRIPTOR_META_PREDICATE(_,_,Module,_,_)),
+        retractall(FL_BOOL_DESCRIPTOR_META_PREDICATE(_,_,Module,_,_)),
+        retractall(FL_PROP_DESCRIPTOR_META_PREDICATE(_,_,Module,_,_,_)).
 
 non_udf_user_modular_prlgdefs(ModularPlgPredLst) :-
         findall(P/A,
@@ -5764,13 +5764,13 @@ flora_get_textual_info(RuleId,StmtFileSpec,Info) :-
         call(Info).
 
 get_rule_or_query_number(RuleId,ShortStmtFileSpec,StmtNum) :-
-        matching_rule_signature(RuleId,ShortStmtFileSpec,_Prefix,_Head,_Body,Signature),
+        matching_rule_signature(RuleId,ShortStmtFileSpec,_DescrVarsTerm,_Prefix,_Head,_Body,Signature),
         rule_signature_member(rulenumber,Signature,StmtNum),
         !.
 %% NOTE: RuleId to StatementNumber rel is encoded in rule signatures
 get_rule_or_query_number(RuleId,ShortStmtFileSpec,StmtNum) :-
         %% dynamic rule
-        matching_rule_signature(RuleId,FL_DYNRULE_FICTITIOUS_FILENAME(ShortStmtFileSpec),_Prefix,_Head,_Body,Signature),
+        matching_rule_signature(RuleId,FL_DYNRULE_FICTITIOUS_FILENAME(ShortStmtFileSpec),_DescrVarsTerm,_Prefix,_Head,_Body,Signature),
         rule_signature_member(rulenumber,Signature,StmtNum),
         !.
 get_rule_or_query_number(RuleId,ShortStmtFileSpec,StmtNum) :-

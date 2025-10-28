@@ -1102,15 +1102,17 @@ decode_update_literals([FLSYSDBUPDATE(Lit,_Storage,_Module)|T],[LitCode,Comma|TC
 	decode_literal_internal(Lit,LitCode,0,0),
 	(T == [] -> Comma = '' ; Comma = ', '),
 	decode_update_literals(T,TCode).
-decode_update_literals([FLSYSRULEUPDATE(Id,_,_DescrVarTerm,_,DescrMetaFacts,Head,Body,_,_,_DTvars,H2BF,_H2BB,_PreBody,_PostBody,_DefeatCond)|T],
+decode_update_literals([FLSYSRULEUPDATE(Id,_,_DescrVarTerm,_DescrVL,_,DescrMetaFacts,Head,Body,_,_,_DTvars,H2BF,_H2BB,_PreBody,_PostBody,_DefeatCond)|T],
 		       [[ModuleStart,DescrMetaFactsCode, HeadCode,' :- ', AllBodyCode,ModuleEnd],Comma|TCode])
       :-
 	!,
-        list2commalist(DescrMetaFacts,DescrMetaFactsCommalist),
-        (DescrMetaFactsCommalist = (_Type,_Tag,RestMeta) -> true
-        ; RestMeta = _
+        DescrMetaFacts = [_Type,_Tag|RestMeta],
+        (RestMeta == [] -> RestMetaCommalist = _
+        ; 
+            list2commalist(RestMeta,RestMetaCommalist)
         ),
-        decode_metafacts(Id,RestMeta,DescrMetaFactsCode),
+
+        decode_metafacts(Id,RestMetaCommalist,DescrMetaFactsCode),
 	decode_head(Head,HeadCode,0),
         rulebody_code(Body,H2BF,AllBodyCode),
 	(current_head_module(Module), atom(Module) ->
@@ -2227,12 +2229,14 @@ decode_literal_internal(FLLIBHYPOTHETICAL(Op,Call),[ReifyStart,Op,'(',CallCode,'
 	flora_decode_goal(Call,CallCode,Depth1).
 
 
-decode_literal_internal(FLLIBCLAUSE(Id,Meta,_,Head,Body),[ReifyStart,'clause{',MetaCode,HeadCode,', ',BodyCode,'}'],Level,Depth) :-
+decode_literal_internal(FLLIBCLAUSE(Id,_DescrVars,Meta,_,Head,Body),[ReifyStart,'clause{',MetaCode,HeadCode,', ',BodyCode,'}'],Level,Depth) :-
 	!,
 	(Level==0 -> ReifyStart='',ReifyEnd=''; ReifyStart='${',ReifyEnd='}'),
 	%%ReifyStart='', ReifyEnd='',
 	Depth1 is Depth+1,
+
         (Meta = (_Type,_Tag,RestMeta) ; Meta = (_Type, RestMeta)),
+
         decode_metafacts(Id,RestMeta,MetaCode),
 	decode_head(Head,HeadCode,Depth1),
 	flora_decode_goal(Body,BodyCode,Depth1).
@@ -2244,13 +2248,17 @@ decode_literal_internal(call(Subcall),[ReifyStart,'call(',SubcallCode,')',ReifyE
 	Depth1 is Depth+1,
 	flora_decode_goal(Subcall,SubcallCode,Depth1).
 
-decode_literal_internal(FLSYSRULEUPDATE(Id,_,_DescrVarTerm,_,DescrMetaFacts,Head,Body,_,_,_DTvars,H2BF,_H2BB,_PreBody,_PostBody,_DefeatCond),
+decode_literal_internal(FLSYSRULEUPDATE(Id,_,_DescrVarTerm,_DescrVL,_,DescrMetaFacts,Head,Body,_,_,_DTvars,H2BF,_H2BB,_PreBody,_PostBody,_DefeatCond),
 			[ReifyStart,ModuleStart,DescrMetaFactsCode,HeadCode, ' :- ', AllBodyCode,ModuleEnd,ReifyEnd],
 			Level, Depth) :-
 	!,
-        list2commalist(DescrMetaFacts,DescrMetaFactsCommalist),
-        DescrMetaFactsCommalist = (_Type,_Tag,RestMeta),
-        decode_metafacts(Id,RestMeta,DescrMetaFactsCode),
+        DescrMetaFacts = [_Type,_Tag|RestMeta],
+        (RestMeta == [] -> RestMetaCommalist = _
+        ; 
+            list2commalist(RestMeta,RestMetaCommalist)
+        ),
+
+        decode_metafacts(Id,RestMetaCommalist,DescrMetaFactsCode),
 	(Level==0 -> ReifyStart='',ReifyEnd='' ; ReifyStart='${',ReifyEnd='}'),
 	Depth1 is Depth+1,
 	decode_head(Head,HeadCode,Depth1),
@@ -2267,9 +2275,10 @@ decode_literal_internal(FLLIBINSQUERYSIG(Id,_,_,_,DescrMetaFacts,_,Body),
 			[ReifyStart,DescrMetaFactsCode, ' !- ', BodyCode, ReifyEnd],
 			Level, Depth) :-
 	!,
-        list2commalist(DescrMetaFacts,DescrMetaFactsCommalist),
-        DescrMetaFactsCommalist = (_Type,_Tag,RestMeta),
-        decode_metafacts(Id,RestMeta,DescrMetaFactsCode),
+        DescrMetaFacts = [_Type,_Tag|RestMeta],
+        list2commalist(RestMeta,RestMetaFactsCommalist),
+
+        decode_metafacts(Id,RestMetaFactsCommalist,DescrMetaFactsCode),
 	(Level==0 -> ReifyStart='',ReifyEnd='' ; ReifyStart='${',ReifyEnd='}'),
 	Depth1 is Depth+1,
 	flora_decode_goal(Body,BodyCode,Depth1).
@@ -2278,9 +2287,13 @@ decode_literal_internal(FLSYSQUERYSIGNATURE(Id,_,_,_,DescrMetaFacts,_,_,Body,_,_
 			[ReifyStart,DescrMetaFactsCode, ' !- ', BodyCode, ReifyEnd],
 			Level, Depth) :-
 	!,
-        list2commalist(DescrMetaFacts,DescrMetaFactsCommalist),
-        DescrMetaFactsCommalist = (_Type,_Tag,RestMeta),
-        decode_metafacts(Id,RestMeta,DescrMetaFactsCode),
+        DescrMetaFacts = [_Type,_Tag|RestMeta],
+        (RestMeta == [] -> RestMetaCommalist = _
+        ; 
+            list2commalist(RestMeta,RestMetaCommalist)
+        ),
+
+        decode_metafacts(Id,RestMetaCommalist,DescrMetaFactsCode),
 	(Level==0 -> ReifyStart='',ReifyEnd='' ; ReifyStart='${',ReifyEnd='}'),
 	Depth1 is Depth+1,
 	flora_decode_goal(Body,BodyCode,Depth1).
@@ -2290,6 +2303,7 @@ decode_literal_internal(FLSYSDELQUERYSIG(Id,_,_,DescrMetaFacts,Body),
 			Level, Depth) :-
 	!,
         list2commalist(DescrMetaFacts,DescrMetaFactsCommalist),
+
         decode_metafacts(Id,DescrMetaFactsCommalist,DescrMetaFactsCode),
 	(Level==0 -> ReifyStart='',ReifyEnd='' ; ReifyStart='${',ReifyEnd='}'),
 	Depth1 is Depth+1,

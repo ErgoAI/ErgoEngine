@@ -73,12 +73,12 @@
    from flrcompiler.
 
 :- import
-        get_tag_descriptor_info_with_rulehead/5
+        get_tag_descriptor_info_with_rulehead/6
    from flrdescriptor_support.
 
 :- import flora_handle_notrace/0 from flrdebugger.
 :- import flora_call/3 from usermod(flranswer).
-:- import FLLIBCLAUSE/5 from usermod(flrclause).
+:- import FLLIBCLAUSE/6 from usermod(flrclause).
 
 :- import is_charlist/1 from machine.
 
@@ -395,13 +395,13 @@ tracing_info_from_call(Mode,Goal,RuleId,RuleFile,Module,RuleHead) :-
             RuleHead = _
         ),
         %% the next 2 statements ensure that rule file name and module are found
-        TypeMetaFact = usermod:FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,RuleFile,Module,type,_),
-        (nonvar(RuleHead), FLLIBCLAUSE(RuleId,TypeMetaFact,null,[RuleHead],_),
+        TypeMetaFact = usermod:FL_PROP_DESCRIPTOR_META_PREDICATE(RuleId,RuleFile,Module,type,_,_),
+        (nonvar(RuleHead), FLLIBCLAUSE(RuleId,_DescrVarsTerm,TypeMetaFact,null,[RuleHead],_),
             Module \= NULL, nonvar(RuleId),
-            get_tag_descriptor_info_with_rulehead(RuleId,RuleFile,Module,_,RuleHead)
+            get_tag_descriptor_info_with_rulehead(RuleId,RuleFile,Module,_,RuleHead,_DescrVarsTerm)
         -> true
         ;  Module \= NULL, nonvar(RuleId),
-            get_tag_descriptor_info_with_rulehead(RuleId,RuleFile,Module,_,RuleHead)
+            get_tag_descriptor_info_with_rulehead(RuleId,RuleFile,Module,_,RuleHead,_DescrVarsTermd)
         -> true
         ; RuleFile = NULL
         ).

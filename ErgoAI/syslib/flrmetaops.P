@@ -217,8 +217,8 @@ fllibuniveqform_inner(X,Y) :-
         X = Y.
 
 %% We ignore pre-and-post body and meta info in such unification
-fllibuniveqform_inner(FLSYSRULEUPDATE(Id,_FileName,_DescrVL,_RuleNum,_DescrMetaFacts,H1,B1,HV,BV,_DTvars,_H2BF,_H2BB,_PreBody,_PostBody,_DefeatCond),
-		FLSYSRULEUPDATE(Id,_FileName2,_DescrVL2,_RuleNum,_DescrMetaFacts2,H2,B2,HV,BV,_DTvars2,_H2BF2,_H2BB2,_PreBody2,_PostBody2,_DefeatCond)) :-
+fllibuniveqform_inner(FLSYSRULEUPDATE(Id,_FileName,_DescrVarTerm,_DescrVL,_RuleNum,_DescrMetaFacts,H1,B1,HV,BV,_DTvars,_H2BF,_H2BB,_PreBody,_PostBody,_DefeatCond),
+		FLSYSRULEUPDATE(Id,_FileName2,_DescrVarTerm,_DescrVL2,_RuleNum2,_DescrMetaFacts2,H2,B2,HV,BV,_DTvars2,_H2BF2,_H2BB2,_PreBody2,_PostBody2,_DefeatCond)) :-
 	!,
 	flora_list2conjunct(H1,H1C),
 	flora_list2conjunct(H2,H2C),
@@ -226,10 +226,10 @@ fllibuniveqform_inner(FLSYSRULEUPDATE(Id,_FileName,_DescrVL,_RuleNum,_DescrMetaF
 	fllibuniveqform_inner(B1,B2).
 
 %% We ignore pre-and-post body and info in such unification
-fllibuniveqform_inner(FLSYSQUERYSIGNATURE(Id,_FileName,_Mod,_RulNum,_DescrMetaFacts,_DescrVL,_LatentQueeryPre,_LatentQueeryMain,_HVL,_BVL),
-                      FLSYSQUERYSIGNATURE(Id,_FileName2,_Mod2,_RulNum2,_DescrMetaFacts2,_DescrVL2,_LatentQueeryPre2,_LatentQueeryMain2,_HVL2,_BVL2)) :-
+fllibuniveqform_inner(FLSYSQUERYSIGNATURE(Id,_FileName,_Mod,_RulNum,_DescrMetaFacts,_DescrVL,_LatentQueryPre,LatentQueeryMain,_HVL,_BVL),
+                      FLSYSQUERYSIGNATURE(Id,_FileName2,_Mod2,_RulNum2,_DescrMetaFacts2,_DescrVL2,_LatentQueryPre2,LatentQueeryMain2,_HVL2,_BVL2)) :-
 	!,
-	fllibuniveqform_inner(_LatentQueeryMain,_LatentQueeryMain2).
+	fllibuniveqform_inner(LatentQueeryMain,LatentQueeryMain2).
 fllibuniveqform_inner(FLSYSDELQUERYSIG(Id,_FileName,_Mod,_DescrMetaFacts,B1),
 		FLSYSDELQUERYSIG(Id,_FileName2,_Mod2,_DescrMetaFacts2,B2)) :-
 	!,
@@ -664,7 +664,7 @@ FLLIBMETAUNIV(X,Y) :-
                 rule_wrapper(FullWrapper,WrapName) ->
                 %% The arguments must match FLSYSRULEUPDATE(...).
                 %% Always check when changing FLSYSRULEUPDATE!!!
-                Args = [Id,FileName,_DescrVL,_RuleNum,DescrMetaFacts,RuleHd,RuleBody,_HV,_BV,__DTvars,_H2BF,_H2BB,_PreBody,_PostBody,_DefeatCond],
+                Args = [Id,FileName,_DescrVarTerm,_DescrVL,_RuleNum,DescrMetaFacts,RuleHd,RuleBody,_HV,_BV,__DTvars,_H2BF,_H2BB,_PreBody,_PostBody,_DefeatCond],
                 Y = [WRAP_HILOG(WrapName,Id,FileName),DescrMetaFacts,RuleHd,RuleBody]
             ; %% FLSYSQUERYSIGNATURE(....) - a reified latent query
                 latent_query_wrapper(FullWrapper,WrapName) ->
@@ -977,7 +977,7 @@ strip_operator_encoding_args([Term|Rest],[Stripped|StrippedRest]) :-
 %% and the left side is a variable
 wrap_update_list(_,[],[]) :- !.
 wrap_update_list(Module,[H|UpdateList],[WH|UpdateListWrapped]) :-
-		(H = FLSYSRULEUPDATE(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> WH = H
+		(H = FLSYSRULEUPDATE(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> WH = H
 		; H = FLSYSDBUPDATE(_,_,_) -> WH = H
 		; 
 		    flora_fdb_storage_name(Module,StorageName),
@@ -993,10 +993,11 @@ strip_dbupdate([H|T],[StrippedH|StrippedT]) :-
         !,
         strip_dbupdate(T,StrippedT).
 strip_dbupdate([H|T],[StrpH|StrippedT]) :-
-        H = FLSYSRULEUPDATE(A1,A2,A3,A4,_A5,A6,A7,A8,A9,A10,A11,A12,A13,_,A15),
+        H = FLSYSRULEUPDATE(A1,A2,A3,A4,_,_,A7,A8,A9,A10,A11,A12,A13,_,A15,_),
         %% get rid of delay checker and metafacts
-        StrpH=FLSYSRULEUPDATE(A1,A2,A3,A4,_,A6,A7,A8,A9,A10,A11,A12,A13,_,A15),
+        StrpH=FLSYSRULEUPDATE(A1,A2,A3,A4,_,_,A7,A8,A9,A10,A11,A12,A13,_,A15,_),
         strip_dbupdate(T,StrippedT).
+
 strip_dbupdate([H|T],[H|StrippedT]) :-
         strip_dbupdate(T,StrippedT).
 

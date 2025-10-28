@@ -10,7 +10,7 @@
   Author(s): Michael Kifer
 
   Copyright (C) by
-       The Research Foundation of the State University of New York, 2008-2018;
+       The Research Foundation of the State University of New York, 2008-2025;
        and Vulcan, Inc., 2008-2023.
 
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -77,16 +77,17 @@
 
 %% Commutativity of FL_OPPOSES
 ?- \+clause(FL_OPPOSES_AUX(Mod,_,_,_,_),_),
-        %% connector to the base opposition data (the builtin negation axioms)
-   assert((FL_OPPOSES_AUX(Mod,T2,H2,T1,H1,2) :- FL_OPPOSES_AUX(Mod,T1,H1,T2,H2,0))),
+        %% connector to the base opposition data (the builtin negation axioms. See flropposes_data.fli )
+        assert((FL_OPPOSES_AUX(Mod,T2,H2,T1,H1,2) :- FL_OPPOSES_AUX(Mod,T1,H1,T2,H2,0))),
         %% connector to user-supplied opposes data
-   assert((FL_OPPOSES_AUX(Mod,T2,H2,T1,H1,2) :- FL_OPPOSES_AUX(Mod,T1,H1,T2,H2,1))),
-   %%  define FL_OPPOSES_AUX/5 based on FL_OPPOSES_AUX/6
-   assert((FL_OPPOSES_AUX(Mod,T1,H1,T2,H2) :- FL_OPPOSES_AUX(Mod,T1,H1,T2,H2,_))).
+        assert((FL_OPPOSES_AUX(Mod,T2,H2,T1,H1,2) :- FL_OPPOSES_AUX(Mod,T1,H1,T2,H2,1))),
+        %%  define FL_OPPOSES_AUX/5 based on FL_OPPOSES_AUX/6
+        assert((FL_OPPOSES_AUX(Mod,T1,H1,T2,H2) :- FL_OPPOSES_AUX(Mod,T1,H1,T2,H2,_))).
 
 %% Interaction of defeat with cancellation:
 %% Cancellation rule is disqualified if the rule being canceled has higher
 %% priority than the cancellation rule itself
+%%FL_OVERRIDEN_CANCELLATION(Tag1,FL_CANCEL(Tag2,_), 'FLORA_THIS_MODULE_NAME') :-
 FL_OVERRIDEN_CANCELLATION(Tag1,FL_CANCEL(Tag2,_), 'FLORA_THIS_MODULE_NAME') :-
         FL_OVERRIDES_AUX('FLORA_THIS_MODULE_NAME',
                          Tag3,_,
@@ -99,8 +100,7 @@ FL_OVERRIDEN_CANCELLATION(Tag1,FL_CANCEL(Tag2,H,_), 'FLORA_THIS_MODULE_NAME') :-
         FL_OVERRIDES_AUX('FLORA_THIS_MODULE_NAME',
                          Tag3,HH,
                          Tag1,FL_CANCEL(Tag3,HH,_)),
-        flrtrim:flora_generalize_last(HH,HHH),
-        flrdescriptor_support:synonymous_tag_with_head(Tag3,'FLORA_THIS_MODULE_NAME',Tag2,HHH).
+        flrdescriptor_support:synonymous_tag_with_head(Tag3,'FLORA_THIS_MODULE_NAME',Tag2,H).
 
 
 %% Connect FL_OPPOSES_AUX, FL_OVERRIDES_AUX, and FL_CANCEL_AUX with
@@ -162,26 +162,18 @@ WRAP_TABLED_HILOG(FL_OPPOSES,Tag1,H1,Tag2,H2,_) :-
 
 ?- \+clause(FL_CANCEL_AUX('FLORA_THIS_MODULE_NAME',_,_),_),
     assert((FL_CANCEL_AUX('FLORA_THIS_MODULE_NAME',Tag,H) :-
-            writeln(2,entering_cancel=Tag+H),
-           
-           flrdescriptor_support:rule_defeasibility_essentials(_RId,Tag,'FLORA_THIS_MODULE_NAME',H,_FileN),
-            writeln(2,checking_head=Tag+H),
+           %%!!!!! flrdescriptor_support:rule_defeasibility_essentials(_RId,Tag,'FLORA_THIS_MODULE_NAME',H,_FileN),
            
            flrtrim:flora_generalize_last(H,HH),
-            writeln(2,checking_generalized_head=Tag+HH),
-            (
+           (
 	       flora_predicate_is_defined_lowlevel('FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(_,_)),
-            writeln(2,aaaa1=Tag+HH),
 	       'FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(Tag,_FWContext)
-            ,writeln(2,aaaa2=Tag+HH)
 	    ;
 	       flora_predicate_is_defined_lowlevel('FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(_,_,_)),
-            writeln(2,bbbbb1=Tag+HH+_FWContext),
-              writeq(xxxx= ('FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(Tag,HH,_FWContext))),
 	       'FLORA_THIS_WORKSPACE(FL_CANCEL_UNQUOTED)'(Tag,HH,_FWContext)
-            ,writeln(2,bbbb2=Tag+HH)
 	    ),
-	    flrcanon:show_rule_by_tag(Tag,'FLORA_THIS_MODULE_NAME',_HHH,_)
+	    flrcanon:show_rule_by_tag(Tag,'FLORA_THIS_MODULE_NAME',HHH,_)
+           ,HHH = HH
            )).
 
 

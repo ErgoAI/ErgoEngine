@@ -1289,6 +1289,7 @@ plgatomobj_struct(FLBUILTIN_IDENTIFIER(Atm,I),Module,PRATOM(AtmReplacement,Modul
 	flora_prlgdef_repl(Atm,0,AtmReplacement,usermod),
 	!.
 plgatomobj_struct(FLBUILTIN_IDENTIFIER(Atm,I),Module,PRATOM(Atm,Module,I)) :- !.
+%%plgatomobj_struct(Atm,Module,I,PRATOM(Atm,Module,NO_INDEX)) :- atomic(Atm).
 
 %% A prolog atom that has FLORA-2 prefix and workspace in it.
 %% This one is for THIS_WORKSPACE
@@ -1393,10 +1394,35 @@ transactionalnumobj_struct(FLTRANSACTIONALNUMBER(Number,I),PRTRANSACTIONALNUMBER
 %% decompile prvar to flvar
 prvar_to_flvar_struct(PRVARIABLE(Name,Index),FLVAR(Name,Index)).
 %% decompile prvar list  to flvar list 
+prvar_to_flvar_struct_list1([], []) :- !.
+prvar_to_flvar_struct_list1([Var|Rest], FlOut) :-
+        (is_prvariable(Var) -> 
+            prvar_to_flvar_struct(Var,FLVar),
+            prvar_to_flvar_struct_list1(Rest,FlRest),
+            FlOut = [FLVar|FlRest] 
+        ;
+            prvar_to_flvar_struct_list1(Rest,FlRest),
+            FlOut = FlRest
+        ).
+
+prvar_to_flvar_struct_list(InPR,OutFL) :-
+        prvar_to_flvar_struct_list1(InPR,OutFL).
+
+/*
 prvar_to_flvar_struct_list([], []) :- !.
-prvar_to_flvar_struct_list([Var|Rest], [FLVar|FlRest]) :-
-	prvar_to_flvar_struct(Var,FLVar),
+prvar_to_flvar_struct_list([Var|Rest], [FlVar|FlRest]) :-
+	prvar_to_flvar_struct(Var,FlVar),
 	prvar_to_flvar_struct_list(Rest,FlRest).
+prvar_to_flvar_struct_list([Item|Rest], FlRest) :-
+	is_prologterm(Item,_,_),
+	prvar_to_flvar_struct_list(Rest,FlRest).
+prvar_to_flvar_struct_list([Item|Rest], FlRest) :-
+	is_prologliblit(Item,_),
+	prvar_to_flvar_struct_list(Rest,FlRest).
+prvar_to_flvar_struct_list([Item|Rest], FlRest) :-
+	is_pratom(Item,_,_),
+	prvar_to_flvar_struct_list(Rest,FlRest).
+*/
 
 flvar_struct_change_index(FLVAR(Name,_Index),FlIndex,FLVAR(Name,FlIndex)).
 
@@ -2050,9 +2076,9 @@ delete_struct(Op,List,Code) :-
 table_refresh_struct(List,Code) :-
 	florasyslib_struct(FLLIBREFRESH,1,[List],Code).
 
-clause_struct(Id,DescrVarTerm,MetaFacts,Mode,HeadList,Body,Code) :-
+clause_struct(Id,DescrVarsTerm,MetaFacts,Mode,HeadList,Body,Code) :-
 	report_option(FLSYSLIB(FLLIBUNIVEQFORM),NO_INDEX),
-	florasyslib_struct(FLLIBCLAUSE,5,[Id,MetaFacts,Mode,HeadList,Body],Code).
+	florasyslib_struct(FLLIBCLAUSE,6,[Id,DescrVarsTerm,MetaFacts,Mode,HeadList,Body],Code).
 
 insert_rulesig_struct(HeadList,Body,H2BSig,PreBody,PostBody,DescrIdCode,DescrVarsTerm,DefeatCond,Code) :-
 	thismodule_struct(WS),
@@ -2061,7 +2087,7 @@ insert_rulesig_struct(HeadList,Body,H2BSig,PreBody,PostBody,DescrIdCode,DescrVar
 	; approx_prindex(HeadList,Idx)
 	),
 	flora_token_rulenum(Idx,StmtNum), %% rulenum within file
-	florasyslib_struct(FLLIBINSRULESIG,10,[DescrIdCode,File,WS,StmtNum,HeadList,Body,H2BSig,PreBody,PostBody,DefeatCond],Code).
+	florasyslib_struct(FLLIBINSRULESIG,11,[DescrIdCode,File,DescrVarsTerm,WS,StmtNum,HeadList,Body,H2BSig,PreBody,PostBody,DefeatCond],Code).
 
 insert_syslib(FL_INSERT,FLLIBINSERT) :- !.
 insert_syslib(FL_INSERTALL,FLLIBINSERTALL) :- !.
@@ -2549,13 +2575,12 @@ increment_rule_number :- flora_increment_counter(RULE_NUM,1,_,_).
   collect_prvars(+CompilerTerm,-Vars)
   collect_prvars(+CompilerTerm,-Vars,-TailVars)
   collects all variables in a *compiled* term (or a list of terms).
-  Returns a list Vars.
-
+  Returns a list of Vars.
 ****************************************************************************/
 collect_prvars(Term,Vars) :-
 	collect_prvars(Term,Vs,[]),
-	%%sort(Vs,Vars).
-	Vs=Vars. %% sorting does nothing here
+	%%sort(Vs,Vars),    %% sorting does nothing here
+        Vs=Vars.
 
 collect_prvars(Term,Vars,Vars) :-
 	(var(Term); atomic(Term)),
@@ -2574,6 +2599,9 @@ collect_prvars(Term,[Head|Vars],Vars) :-
 	!,
         is_prvariable(Head,Name,Index).
 
+collect_prvars(Term,Vars,Vars) :-
+	(is_pratom(Term,_) ; is_pratom(Term,_,_)),
+	!.
 collect_prvars(Term,Vars,Vars) :-
 	is_pratomnumberstringbuiltin(Term,_),
 	!.
@@ -2673,6 +2701,9 @@ collect_flvars(ParserTerm,Vars,Vars,ProtVars,ProtVars) :-
 collect_flvars(ParserTerm,Vars,Vars,ProtVars,ProtVars) :-
 	is_fltoken(ParserTerm),
 	!.
+collect_flvars(ParserTerm,Vars,Vars,ProtVars,ProtVars) :-
+	is_flatom(ParserTerm,_),
+	!.
 
 collect_flvars(ParserTerm,NewVars,Vars,ProtVars,ProtVarsTail) :-
 	is_fldatatype(ParserTerm,_Sort,Lit,_Index),
@@ -2718,7 +2749,6 @@ collect_flvars(ParserTerm,Vars,TVars,ProfVars,TailProtVars) :-
 collect_flvar_names(ParserTerm,VarNameList) :-
 	collect_flvars(ParserTerm,VarList),
 	vars_to_var_names(VarList,VarNameList).
-
 
 delete_silent_var_names([],[]) :- !.
 delete_silent_var_names([Name|List],Result) :-
@@ -2998,7 +3028,7 @@ collect_name_var_pairs(ParserTerm,QueryVars,RemoveDuplicates) :-
 
 
 %% Output, in Arg2: a list of vars of the form [Idx-Name,Idx-Name,...], *sorted*  on Name,
-%%        but the Name can be repeated (with diffeerent indexes).
+%%        but the Name can be repeated (with different indexes).
 %% Input, in Arg1: the input list, has the same form as the input, and is sorted,
 %% but duplication with respect to  Names is eliminated, i.e., in [12-XYZ, 17-XYZ, ...],
 %% the member 12-XYZ (and possibly more) would be eliminated.
@@ -3012,7 +3042,7 @@ indexvars([T|L],Vars, RemoveDuplicates) :-
 	( is_silent_var_name(Name) -> indexvars(L,Vars,RemoveDuplicates)
 	;
             Vars=[I-Name|Vs],
-            (RemoveDuplicates== true ->
+            (RemoveDuplicates == true ->
                 remove_named_flvar_from_list_prefix(L,Name,VL)
             ;
                VL = L
@@ -3935,7 +3965,8 @@ compile_list_internal([ParserTerm|ParserTermList],RuleDiffList-RuleTail,SigDiffL
 		     ?MetaFactDiffList,-UDFPreds,-Status)
      This does the main work
      DescriptorIdCode is either a code for an explicit Id or NULL
-     DescrVarsTerm = code for vars(Variables of the descriptor list)
+     DescrVarsTerm = code for [codeForDescrVarsWrapper] -
+                        Variables of the descriptor list)
      MetaFactDiffList is bound if compile_internal/11 is called from within
             compile_annotated_construct/9 (in this case MetaFactDiffList=[]-[]).
             Otherwise MetaFactDiffList is unbound.
@@ -4960,9 +4991,9 @@ make_dynrule_from_fact(H,DescrIdCode,DescrVarsTerm,H2BF,H2BB,[Code|RT]-RT,Metafa
         get_descr_flvar_purified(DescrVarsTerm,DescrFLVars),
         flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL,false),
         %% for  make_dynrule_from_fact
-	florasyslib_struct(FLSYSRULEUPDATE,15,
+	florasyslib_struct(FLSYSRULEUPDATE,16,
 			   [DescrIdCode,FileName,
-                            %%DescrVarsTerm,
+                            DescrVarsTerm,
                             DescrVL,
 			    StmtNum,
 			    MetaFactCode, %% Meta facts
@@ -5137,7 +5168,7 @@ get_descr_flvars(DescrVarsPRTerm, DescrFLVars) :-
         get_descr_prvarlist(DescrVarsPRTerm,DescrPRVars),
 	prvar_to_flvar_struct_list(DescrPRVars,DescrFLVars).
 %% purified means sorted varlist, minus anon and don't care vars
-purified(DescrFLVars,LoudSortedDescrFLVars) :-
+purify_varlist_internal(DescrFLVars,LoudSortedDescrFLVars) :-
         machine:parsort(DescrFLVars,asc,0,SortedDescrFLVars),
         %% Too early to remove duplicates `here -- otherwiswe'll
         %% be getting 'singleton' designation for every variable,
@@ -5148,16 +5179,25 @@ purified(DescrFLVars,LoudSortedDescrFLVars) :-
 get_descr_flvar_purified(DescrVarsPRTerm,[]) :- is_prvariable(DescrVarsPRTerm,_,_), !.
 get_descr_flvar_purified(DescrVarsPRTerm,LoudSortedDescrFLVars) :-
         get_descr_flvars(DescrVarsPRTerm, DescrFLVars),
-        purified(DescrFLVars,LoudSortedDescrFLVars).
+        purify_varlist_internal(DescrFLVars,LoudSortedDescrFLVars).
 
+/*
 %% Normally, the first arg is bound.
 %% If not, assume DescrVarsList is [].
+*/
+
 get_descr_prvarlist(InputVar,[]) :- var(InputVar), !.
 get_descr_prvarlist(InputVar,[]) :- is_prvariable(InputVar,_,_), !.
-get_descr_prvarlist(PRATOM(FL_DESCRIPTOR_VARS_WRAPPER,_),[]) :- !.
-get_descr_prvarlist(DescrVarTerm,DescrVarsList) :-
-        is_prologterm(DescrVarTerm,DescrVarTermFunctor,_idx,DescrVarsList),
-        is_pratom(DescrVarTermFunctor,FL_DESCRIPTOR_VARS_WRAPPER).
+get_descr_prvarlist(Input,PRVars) :-
+        %% check that Input is prlist([atomobj|prvars],_,_,_) and atomobj
+        %% is  PRATOM(FL_DESCRIPTOR_VARS_WRAPPER,NO_INDEX).
+        atomobj_struct(FL_DESCRIPTOR_VARS_WRAPPER,DescrVarsWrapObj),
+        is_prlist(Input,[DescrVarsWrapObj|PRVars],_,_),
+        !.
+get_descr_prvarlist(Input,_PRVars) :-
+        flora_abort(['Compiler bug!!! get_descr_prvarlist: Input must be a prlist of the form [atomobj|prvars], got this: ', Input], FLORA_ABORT_NOTRACE).
+
+
 
 /****************************************************************************
 compile_annotated_construct(+DescriptorList,+MainPartOfRule,-RuleDiffList,-SigDiffList,-FactDiffList,-QueryList,-LatentQueryList,-MetaFactDiffList,-Status)
@@ -5197,7 +5237,8 @@ Mode - FL_DESCRMODE_RULE/FL_DESCRMODE_PLAIN_QUERY/FL_DESCRMODE_DYNRULE.
 The FL_DESCRMODE_PLAIN_QUERY mode is used for the @!{...} queries.
 The FL_DESCRMODE_CLAUSE mode is used for the clause{...} construct.
 FL_DESCRMODE_DYNRULE is for dynamic rules.
-DescrVarsTermOut normally is output as vars(VariablesInDescriptorList)
+DescrVarsTermOut normally is output as
+   PRLIST([PRATOM(FL_DESCRIPTOR_VARS_WRAPPER,NO_INDEX) | DescrVarList], _,_,_)
 If DescrVarsTermOut is bound then we assume that we are compiling
 for the clause{....} statement and so we pass a new unbound variable to
 compile_descriptor_list1, so MetaFacts will have unbound variable as arg 2.
@@ -5241,12 +5282,18 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
             %% misunification between _$_$_ergo'descr_vars and
             %% usermod:_$_$_ergo'descr_vars
 	    %%generate_prolog_liblit(FL_DESCRIPTOR_VARS_WRAPPER,VarListLen,DescrVarsCode,DescrVarsTermOut)
+            atomobj_struct(FL_DESCRIPTOR_VARS_WRAPPER,DescrVarsWrapObj),
             (VarListLen==0 -> 
-                %% For arity=0, use atomobj, which generates just an atom.
+                %% For arity=0, use plgatomobj, which generates just an atom as usermod:atom.
                 %% generate_prolog_term(_,0,_,_) makes atom(), which crashes XSB
-                atomobj_struct(FL_DESCRIPTOR_VARS_WRAPPER,DescrVarsTermOut)
-            ; integer(VarListLen) ->
-                generate_prolog_term(FL_DESCRIPTOR_VARS_WRAPPER,VarListLen,DescrVarsCode,DescrVarsTermOut)
+
+              %%plgatomobj_struct(FL_DESCRIPTOR_VARS_WRAPPER,usermod,NO_INDEX,DescrVarsTermOut)
+              %%generate_prolog_liblit(FL_DESCRIPTOR_VARS_WRAPPER,1,[PRATOM(NULL,0)],usermod,DescrVarsTermOut)
+                list_struct([DescrVarsWrapObj],[],DescrVarsTermOut)
+            ; integer(VarListLen), VarListLen>0 ->
+                %%generate_prolog_term(FL_DESCRIPTOR_VARS_WRAPPER,VarListLen,DescrVarsCode,DescrVarsTermOut)
+                %%generate_prolog_liblit(FL_DESCRIPTOR_VARS_WRAPPER,VarListLen,DescrVarsCode,usermod,DescrVarsTermOut)
+                list_struct([DescrVarsWrapObj|DescrVarsCode],[],DescrVarsTermOut)
             )
 	%% we are compiling clause{...} or a query
         %% (Mode FL_DESCRMODE_CLAUSE or FL_DESCRMODE_PLAIN_QUERY?)
@@ -5267,7 +5314,7 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
 		construct_rule_enabling_fact(DescrIdCode,CurrFileName,Mode,RuleEnablerFact),
 		%% make the rule id into its tag as well, if no explicit tag
 		(memberchk(FLTAG_FEATURE,DescrFeatures) -> TagIdMetaFact = NULL
-		; construct_tag_descriptor_fact_from_id(DescrIdCode,CurrFileName,DescrModule,Mode,TagIdMetaFact)
+		; construct_tag_descriptor_fact_from_id(DescrIdCode,CurrFileName,DescrModule,Mode,DescrVarsTermOut,TagIdMetaFact)
 		),
 		%% mandatory facts that are always there
 		construct_type_descriptor_fact(DescrIdCode,CurrFileName,DescrModule,Mode,DescrVarsTermOut,TypeMetaFact),
@@ -5332,12 +5379,12 @@ determine_defeasibility(DescrFeatures,Mode,DescrIdCode,FileName,Module,DescrVars
             %% rule is defeasible
             flatom_struct(FL_DEFEASIBLE,NO_INDEX,DefeasibleDescr),
             construct_bool_descriptor_facts(DescrIdCode,FileName,Module,Mode,
-                                            DefeasibleDescr,
+                                            DescrVarsTerm, DefeasibleDescr,
                                             [DefeatMetaFact|Tail]-Tail,StatDsc),
             append(StatWarn,StatDsc,Status)
 	; %% otherwise, assume strict rule
 	    flatom_struct(FL_STRICT,NO_INDEX,StrictDescr),
-	    construct_bool_descriptor_facts(DescrIdCode,FileName,Module,Mode,StrictDescr,[DefeatMetaFact|Tail]-Tail,Status)
+	    construct_bool_descriptor_facts(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,StrictDescr,[DefeatMetaFact|Tail]-Tail,Status)
 	).
 
 
@@ -5429,10 +5476,10 @@ compile_descriptor(Descriptor,Mode,DescrIdCode,FileName,Module,RuleidFrameCode,D
 	(Type == FLTAG
 	-> construct_tag_descriptor_facts(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,DescrContents,MetaFactDiffList,Status)
 	; Type == FLBOOLDESCRIPTOR
-	-> construct_bool_descriptor_facts(DescrIdCode,FileName,Module,Mode,DescrContents,MetaFactDiffList,Status)
+	-> construct_bool_descriptor_facts(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,DescrContents,MetaFactDiffList,Status)
 	; Type == FLRULEID 
 	-> 
-	    construct_prop_descriptor_facts(DescrIdCode,FileName,Module,Mode,RuleidFrameCode,MetaFactDiffList,Status)
+	    construct_prop_descriptor_facts(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,RuleidFrameCode,MetaFactDiffList,Status)
 	),
 	!.
 %% already compiled
@@ -5498,20 +5545,20 @@ construct_default_ruleid_descriptor(FL_DESCRMODE_PLAIN_QUERY,Idx,RuleIdCode) :-
 	new_prvariable(Idx,RuleIdCode).
 
 %% construct_tag_descriptor_facts(+DescrIdCode,+FileName,+Module,+Mode,+DescrVarsTerm,+DescrContent,-MetaFactDiffList,-Stat)
-%% construct_bool_descriptor_facts(+DescrIdCode,+File,+Module,+Mode,+DescrContent,-MetaFactDiffList,-Stat)
+%% construct_bool_descriptor_facts(+DescrIdCode,+File,+Module,+Mode,+DescrVarsTerm,+DescrContent,-MetaFactDiffList,-Stat)
 %% construct_tag_descriptor_facts/8
 construct_tag_descriptor_facts(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,DescrContents,[TagIdMetaFact|Tail]-Tail,Status) :-
 	compile_simple_descriptor(DescrContents,DescrContentsCode,Status),
-	construct_tag_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrContentsCode,TagIdMetaFact).
+	construct_tag_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,DescrContentsCode,TagIdMetaFact).
 
 %% construct_tag_descriptor_fact1/7
 %% Like construct_tag_descriptor_facts/7, but uses DescrContentsCode (pr-obj)
 %% instead of %% DescrContents (fl-obj)
 %% Also takes ExplicitModule
 %% construct_tag_descriptor_fact1/7
-construct_tag_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrContentsCode,TagIdMetaFact) :-
+construct_tag_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,DescrContentsCode,TagIdMetaFact) :-
 	PredCode = FL_TAG_DESCRIPTOR_META_PREDICATE,
-	generate_prolog_liblit(PredCode,4,[DescrIdCode,FileName,Module,DescrContentsCode], TagIdMetaTerm),
+	generate_prolog_liblit(PredCode,5,[DescrIdCode,FileName,Module,DescrContentsCode,DescrVarsTerm], TagIdMetaTerm),
 	(memberchk(Mode,[FL_DESCRMODE_RULE,FL_DESCRMODE_LATENT_QUERY]) ->
             fact_struct(TagIdMetaTerm,TagIdMetaFact)
         ; Mode == FL_DESCRMODE_UDFRULE, \+ has_context(CONTEXT_COMPILER_FOR_ADDITION) ->
@@ -5521,31 +5568,31 @@ construct_tag_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrContentsCod
 	).
 
 %% construct_file_descriptor_query/5
-construct_file_descriptor_query(DescrIdCode,Module,FileVal,MetaTerm,NO_ERRORS) :-
+construct_file_descriptor_query(DescrIdCode,Module,DescrVarsTerm,FileVal,MetaTerm,NO_ERRORS) :-
 	has_context(CONTEXT_COMPILER_BODY(_)),
 	!,
 	PredCode = FL_TAG_DESCRIPTOR_META_PREDICATE,
 	new_dontcare_prvariable(NO_INDEX,SomeTagVar),
-	generate_prolog_liblit(PredCode,4,[DescrIdCode,FileVal,Module,SomeTagVar], MetaTerm).
-construct_file_descriptor_query(DescrIdCode,_,_,_,[Err]) :-
+	generate_prolog_liblit(PredCode,5,[DescrIdCode,FileVal,Module,SomeTagVar,DescrVarsTerm], MetaTerm).
+construct_file_descriptor_query(DescrIdCode,_,_,_,_,[Err]) :-
 	approx_prindex(DescrIdCode,Idx),
 	compiling_error(Idx,INVALID_FILE_DESCRIPTOR_PROP,Err).
 
-construct_module_descriptor_query(DescrIdCode,FileName,ModuleVal,MetaTerm,NO_ERRORS) :-
+construct_module_descriptor_query(DescrIdCode,FileName,DescrVarsTerm,ModuleVal,MetaTerm,NO_ERRORS) :-
 	has_context(CONTEXT_COMPILER_BODY(_)),
 	!,
 	PredCode = FL_TAG_DESCRIPTOR_META_PREDICATE,
 	new_dontcare_prvariable(NO_INDEX,SomeTagVar),
-	generate_prolog_liblit(PredCode,4,[DescrIdCode,FileName,ModuleVal,SomeTagVar], MetaTerm).
-construct_module_descriptor_query(DescrIdCode,_,_,_,[Err]) :-
+	generate_prolog_liblit(PredCode,5,[DescrIdCode,FileName,ModuleVal,SomeTagVar,DescrVarsTerm], MetaTerm).
+construct_module_descriptor_query(DescrIdCode,_,_,_,_,[Err]) :-
 	approx_prindex(DescrIdCode,Idx),
 	compiling_error(Idx,INVALID_MODULE_DESCRIPTOR_PROP,Err).
 
-construct_type_descriptor_query(DescrIdCode,FileName,Module,Mode,Prop,Val,MetaFact,NO_ERRORS) :-
+construct_type_descriptor_query(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,Prop,Val,MetaFact,NO_ERRORS) :-
 	has_context(CONTEXT_COMPILER_BODY(_)),
 	!,
-	construct_prop_descriptor_fact1(DescrIdCode,FileName,Module,Mode,Prop,Val,MetaFact).
-construct_type_descriptor_query(DescrIdCode,_,_,_,_,_,_,[Err]) :-
+	construct_prop_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,Prop,Val,MetaFact).
+construct_type_descriptor_query(DescrIdCode,_,_,_,_,_,_,_,[Err]) :-
 	approx_prindex(DescrIdCode,Idx),
 	compiling_error(Idx,INVALID_TYPE_DESCRIPTOR_PROP,Err).
 
@@ -5564,7 +5611,7 @@ construct_type_descriptor_fact(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,Me
 	%% Mode = FL_DESCRMODE_PLAIN_QUERY/FL_DESCRMODE_CLAUSE
 	; new_prvariable(NO_INDEX,Val)
 	),
-	construct_prop_descriptor_fact1(DescrIdCode,FileName,Module,Mode,Prop,Val,MetaFact).
+	construct_prop_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,Prop,Val,MetaFact).
 construct_type_descriptor_fact(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,MetaFact) :-
 	atomobj_struct(FL_TYPE_PROPERTY,Prop),
 	(memberchk(Mode,[FL_DESCRMODE_LATENT_ADDQUERY,FL_DESCRMODE_LATENT_DYNQUERY,FL_DESCRMODE_LATENT_QUERY]) -> atomobj_struct(FL_DESCRTYPE_QUERY,Val)
@@ -5574,19 +5621,19 @@ construct_type_descriptor_fact(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,Me
 	; %% this should be unreachable
 	    flora_abort(['Compiler bug!!! construct_type_descriptor_fact: unreachable statement'], FLORA_ABORT_NOTRACE)
 	),
-	construct_prop_descriptor_fact1(DescrIdCode,FileName,Module,Mode,Prop,Val,MetaFact).
+	construct_prop_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,Prop,Val,MetaFact).
 
 
-construct_bool_descriptor_facts(DescrIdCode,FileName,Module,Mode,DescrContents,[BoolIdMetaFact|Tail]-Tail,Status) :-
+construct_bool_descriptor_facts(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,DescrContents,[BoolIdMetaFact|Tail]-Tail,Status) :-
 	compile_simple_descriptor(DescrContents,DescrContentsCode,Status),
-	construct_bool_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrContentsCode,BoolIdMetaFact).
+	construct_bool_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,DescrContentsCode,BoolIdMetaFact).
 %% Like construct_tag_descriptor_facts, but uses DescrContentsCode (pr-obj)
 %% instead of DescrContents (fl-obj)
 %% Boolean descriptors are things like @!{abc[BoolDescr]}, where BoolDescr is
 %% a Boolean property of the descriptor's frame.
-construct_bool_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrContentsCode,BoolIdMetaFact) :-
+construct_bool_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,DescrContentsCode,BoolIdMetaFact) :-
 	PredCode = FL_BOOL_DESCRIPTOR_META_PREDICATE,
-	generate_prolog_liblit(PredCode,4,[DescrIdCode,FileName,Module,DescrContentsCode], BoolIdMetaTerm),
+	generate_prolog_liblit(PredCode,5,[DescrIdCode,FileName,Module,DescrContentsCode,DescrVarsTerm], BoolIdMetaTerm),
 	(memberchk(Mode,[FL_DESCRMODE_RULE,FL_DESCRMODE_LATENT_QUERY]) ->
             fact_struct(BoolIdMetaTerm,BoolIdMetaFact)
         ; Mode == FL_DESCRMODE_UDFRULE, \+ has_context(CONTEXT_COMPILER_FOR_ADDITION) ->
@@ -5595,76 +5642,75 @@ construct_bool_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrContentsCo
 	    BoolIdMetaTerm = BoolIdMetaFact
 	).
 
-%% construct_prop_descriptor_facts/7
-construct_prop_descriptor_facts(_,_,_,_,NULL,Meta-Meta,NO_ERRORS) :- !.
-construct_prop_descriptor_facts(_,_,_,_,FL_TRUE,Meta-Meta,NO_ERRORS) :- !.
+%% construct_prop_descriptor_facts/8
+construct_prop_descriptor_facts(_,_,_,_,_,NULL,Meta-Meta,NO_ERRORS) :- !.
+construct_prop_descriptor_facts(_,_,_,_,_,FL_TRUE,Meta-Meta,NO_ERRORS) :- !.
 
-construct_prop_descriptor_facts(DescrIdCode,File,Module,Mode,RuleidFrameCode,LeftMeta-RightTail,Status) :-
+construct_prop_descriptor_facts(DescrIdCode,File,Module,Mode,DescrVarsTerm,RuleidFrameCode,LeftMeta-RightTail,Status) :-
 	is_prconjunct(RuleidFrameCode,Left,Right),
 	!,
-	construct_prop_descriptor_facts(DescrIdCode,File,Module,Mode,Left,LeftMeta-LeftTail,Stat1),
+	construct_prop_descriptor_facts(DescrIdCode,File,Module,Mode,DescrVarsTerm,Left,LeftMeta-LeftTail,Stat1),
 	(Stat1 == NO_ERRORS ->
-	    construct_prop_descriptor_facts(DescrIdCode,File,Module,Mode,Right,LeftTail-RightTail,Status)
+	    construct_prop_descriptor_facts(DescrIdCode,File,Module,Mode,DescrVarsTerm,Right,LeftTail-RightTail,Status)
 	; Status =Stat1
 	).
 %% this should be unreachable due to the parser, but just in case
-construct_prop_descriptor_facts(_,_,_,Mode,RuleidFrameCode,_,[Err]) :-
+construct_prop_descriptor_facts(_,_,_,Mode,_,RuleidFrameCode,_,[Err]) :-
 	is_prdisjunct(RuleidFrameCode,_,_),
 	memberchk(Mode,[FL_DESCRMODE_RULE,FL_DESCRMODE_DYNRULE,FL_DESCRMODE_ADDRULE,FL_DESCRMODE_LATENT_QUERY,FL_DESCRMODE_LATENT_DYNQUERY,FL_DESCRMODE_LATENT_ADDQUERY,FL_DESCRMODE_UDFRULE]),
 	!,
 	approx_prindex(RuleidFrameCode,Idx),
 	compiling_error(Idx,NO_DISJUNCTS_DESCRIPTOR_FRAME,Err).
 
-construct_prop_descriptor_facts(DescrIdCode,FileName,Module,Mode,RuleidFrameCode,Metafacts,Status) :-
+construct_prop_descriptor_facts(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,RuleidFrameCode,Metafacts,Status) :-
 	(is_prworkspace(RuleidFrameCode,RealCode,ExplicitModule) -> true
         ; %% in case explicit module is a variable: query: @!{?Id[..]@?Mod}
             is_florasyslib_struct(RuleidFrameCode,_,FLLIBMODLIT,_, [RealCode,ExplicitModule,_]) -> true
 	; RealCode = RuleidFrameCode, ExplicitModule = Module
 	),
 	%% change module to ExplicitModule
-        %% construct_attrval_descriptor_facts/7
-	construct_attrval_descriptor_facts(DescrIdCode,FileName,ExplicitModule,Mode,RealCode,Metafacts,Status).
+	construct_attrval_descriptor_facts(DescrIdCode,FileName,ExplicitModule,Mode,DescrVarsTerm,RealCode,Metafacts,Status).
 
 
-%% construct_attrval_descriptor_facts/7 for attr-val pairs
-construct_attrval_descriptor_facts(DescrIdCode,FileName,Module,Mode,PRMVD(DescrIdCode,Prop,Val,_),[MetaFact|Tail]-Tail,Status) :-
+%% construct_attrval_descriptor_facts/8 for attr-val pairs
+construct_attrval_descriptor_facts(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,PRMVD(DescrIdCode,Prop,Val,_),[MetaFact|Tail]-Tail,Status) :-
 	!,
 	%% if property=tag: construct a tag metafact; else - property metafact
 	(is_pratom(Prop,FL_TAG_PROPERTY) -> 
-	    construct_tag_descriptor_fact1(DescrIdCode,FileName,Module,Mode,Val,MetaFact),
+	    construct_tag_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,Val,MetaFact),
 	    Status = NO_ERRORS
 	; is_pratom(Prop,FL_FILE_PROPERTY) ->
             %% this is used only in rule/query bodies
-	    construct_file_descriptor_query(DescrIdCode,Module,Val,MetaFact,Status)
+	    construct_file_descriptor_query(DescrIdCode,Module,DescrVarsTerm,Val,MetaFact,Status)
 	; is_pratom(Prop,FL_MODULE_PROPERTY) ->
             %% this is used only in rule/query bodies
-	    construct_module_descriptor_query(DescrIdCode,FileName,Val,MetaFact,Status)
+	    construct_module_descriptor_query(DescrIdCode,FileName,DescrVarsTerm,Val,MetaFact,Status)
 	; is_pratom(Prop,FL_TYPE_PROPERTY) ->
             %% this is used only in rule/query bodies
-	    construct_type_descriptor_query(DescrIdCode,FileName,Module,Mode,Prop,Val,MetaFact,Status)
+	    construct_type_descriptor_query(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,Prop,Val,MetaFact,Status)
 	;
-	    construct_prop_descriptor_fact1(DescrIdCode,FileName,Module,Mode,Prop,Val,MetaFact),
+	    construct_prop_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,Prop,Val,MetaFact),
 	    Status = NO_ERRORS
 	).
 
-%% construct_attrval_descriptor_facts/7 for Boolean properties
-construct_attrval_descriptor_facts(DescrIdCode,FileName,Module,Mode,PRMETH(DescrIdCode,Val,_),[MetaFact|Tail]-Tail,NO_ERRORS) :-
+%% construct_attrval_descriptor_facts/8 for Boolean properties
+construct_attrval_descriptor_facts(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,PRMETH(DescrIdCode,Val,_),[MetaFact|Tail]-Tail,NO_ERRORS) :-
 	!,
-	construct_bool_descriptor_fact1(DescrIdCode,FileName,Module,Mode,Val,MetaFact).
+	construct_bool_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,Val,MetaFact).
 
-%% construct_attrval_descriptor_facts/7 for empty frames: empty metafacts
-construct_attrval_descriptor_facts(DescrIdCode,_,_,_,PREXISTS(DescrIdCode,_),Meta-Meta,NO_ERRORS) :-
+%% construct_attrval_descriptor_facts/8 for empty frames: empty metafacts
+construct_attrval_descriptor_facts(DescrIdCode,_,_,_,_,PREXISTS(DescrIdCode,_),Meta-Meta,NO_ERRORS) :-
 	!.
 
-%% construct_attrval_descriptor_facts/7
-construct_attrval_descriptor_facts(_DescrIdCode,_FileName,_Module,_Mode,RuleidFrameCode,_DiffList,[Err]) :-
+%% construct_attrval_descriptor_facts/8
+construct_attrval_descriptor_facts(_DescrIdCode,_FileName,_Module,_Mode,_DescrVarsTerm,RuleidFrameCode,_DiffList,[Err]) :-
 	approx_prindex(RuleidFrameCode,Idx),
 	compiling_error(Idx,NO_NESTED_DESCRIPTOR_FRAME,Err).
 
 %% constructs meta facts for 1 attr-value pair
-construct_prop_descriptor_fact1(DescrIdCode,FileName,Module,Mode,Prop,Val,MetaFact) :-
+construct_prop_descriptor_fact1(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,Prop,Val,MetaFact) :-
 	PredCode = FL_PROP_DESCRIPTOR_META_PREDICATE,
-	generate_prolog_liblit(PredCode,5,[DescrIdCode,FileName,Module,Prop,Val], MetaTerm),
+	generate_prolog_liblit(PredCode,6,[DescrIdCode,FileName,Module,Prop,Val,DescrVarsTerm], MetaTerm),
 	(memberchk(Mode,[FL_DESCRMODE_RULE,FL_DESCRMODE_LATENT_QUERY]) ->
             fact_struct(MetaTerm,MetaFact)
         ; Mode == FL_DESCRMODE_UDFRULE, \+ has_context(CONTEXT_COMPILER_FOR_ADDITION) ->
@@ -5769,7 +5815,7 @@ construct_rule_enabling_test(DescrIdCode,Mode,RuleEnablerMetaTerm,FileName) :-
 	get_current_compile_file_for_descriptor(FileName,Mode),
 	construct_rule_enabling_query(DescrIdCode,FileName,Mode,RuleEnablerMetaTerm).
 
-construct_tag_descriptor_fact_from_id(DescrIdCode,FileName,Module,Mode,TagIdMetaFact) :-
+construct_tag_descriptor_fact_from_id(DescrIdCode,FileName,Module,Mode,DescrVarsTerm,TagIdMetaFact) :-
 	PredCode = FL_TAG_DESCRIPTOR_META_PREDICATE,
 	(Mode == FL_DESCRMODE_DYNRULE -> Tag = DescrIdCode
 	; Mode == FL_DESCRMODE_CLAUSE -> new_prvariable(NO_INDEX,Tag)
@@ -5779,7 +5825,7 @@ construct_tag_descriptor_fact_from_id(DescrIdCode,FileName,Module,Mode,TagIdMeta
 	;
 	    Tag = DescrIdCode
 	),
-	generate_prolog_liblit(PredCode,4,[DescrIdCode,FileName,Module,Tag],TagIdMetaTerm),
+	generate_prolog_liblit(PredCode,5,[DescrIdCode,FileName,Module,Tag,DescrVarsTerm],TagIdMetaTerm),
 	(memberchk(Mode,[FL_DESCRMODE_RULE,FL_DESCRMODE_LATENT_QUERY]) ->
             fact_struct(TagIdMetaTerm,TagIdMetaFact)
         ; Mode == FL_DESCRMODE_UDFRULE, \+ has_context(CONTEXT_COMPILER_FOR_ADDITION) ->
@@ -6272,7 +6318,7 @@ make_one_rule_and_signature(H,H2BF,H2BB,BodyCode,PreBody,PostBody,BodyDTvarscode
 make_one_rule_and_signature(H,H2BF,H2BB,BodyCode,PreBody,PostBody,BodyDTvarscode,DescriptorIdCode,DescrVarsTerm,[Rule|RTail]-RTail,[Sig|STail]-STail) :-
 	make_datatype_vars_code(H,HeadDTvarscode),
 	conjunct_struct(HeadDTvarscode,BodyDTvarscode,DTvarscode),
-	construct_static_defeasible_condition(H,DescriptorIdCode,DefeatCond),
+	construct_static_defeasible_condition(H,DescriptorIdCode,DescrVarsTerm,DefeatCond),
 	conjunct_code([DTvarscode,BodyCode],BodyForSig),
 	conjunct_code([PreBody,DTvarscode,H2BF,BodyCode,H2BB,DefeatCond,PostBody],FullBody),
 	%% H2BSig goes into the rule signature
@@ -6298,7 +6344,7 @@ make_insert_rulesig_code(_HeadCode,_Body,_,_PreBody,_PostBody,_,_,NULL) :-
 	has_permaoption(FLSUPPRESS_RULESIGNS_OPTION),
 	!.
 make_insert_rulesig_code(HeadCode,Body,H2BSig,PreBody,PostBody,DescrIdCode,DescrVarsTerm,Code) :-
-	construct_defeasible_condition_for_signature_or_dynrule(HeadCode,DescrIdCode,DefeatCond),
+	construct_defeasible_condition_for_signature_or_dynrule(HeadCode,DescrIdCode,DescrVarsTerm,DefeatCond),
         insert_rulesig_struct(HeadCode,Body,H2BSig,PreBody,PostBody,DescrIdCode,DescrVarsTerm,DefeatCond,CCode),
         query_struct(CCode,Code).
 
@@ -6310,7 +6356,7 @@ make_datatype_vars_code(PRCode,Code) :-
 %% FL_UNDEFEATED is a modularized Prolog predicate
 %% NewVar is used because this type of defeasible condition is used in rule
 %% signatures and dynamic rules; NewVar is bound to the head at run time.
-construct_defeasible_condition_for_signature_or_dynrule(HeadCode,DescrIdCode,DelayedDefeatCondCode) :-
+construct_defeasible_condition_for_signature_or_dynrule(HeadCode,DescrIdCode,DescrVarsTerm,DelayedDefeatCondCode) :-
 	(has_permaoption(FLDEFEASIBLE(LibModule)),
 	    \+ has_context(CONTEXT_COMPILER_UDF_DEFINITION) ->
 	    %% DummyVarObj4Head is unified with Head in
@@ -6320,15 +6366,17 @@ construct_defeasible_condition_for_signature_or_dynrule(HeadCode,DescrIdCode,Del
 	    %% So, we cannot determine the rule head statically here.
 	    new_prvariable(NO_INDEX,DummyVarObj4Head),
 	    thismodule_struct(ThisModule),
-	    %% create FL_UNDEFEATED(DescrIdCode,FileName,NewVar,ThisModule)
+	    %% create FL_UNDEFEATED(DescrIdCode,FileName,DescrVarsTerm,NewVar,ThisModule)
 	    %% this code makes FL_UNDEFEATED into a modularized Prolog predicate
 	    %% It is faster, saves table space
 	    modularized_pratom_struct(FL_UNDEFEATED,LibModule,NO_INDEX,UnDefeatFunCode),
 	    var_context_info_structure(ThisModule,FWContext),
 	    get_current_compile_file_for_descriptor(FileName,FL_DESCRMODE_DYNRULE),
-	    prologterm_struct(UnDefeatFunCode,5,
-			      [DescrIdCode,FileName,
-			       DummyVarObj4Head,ThisModule,FWContext],
+	    prologterm_struct(UnDefeatFunCode,6,
+			      [DescrIdCode,FileName,DescrVarsTerm,
+			       DummyVarObj4Head,ThisModule,
+                               %% FWContext is invisible to Ergo
+                               FWContext],
 			      DefeatCondCode),
 	    %% wrap up for delaying the defeasible condition
 	    list_struct([],[],EmptyListObj), %% empty list
@@ -6344,23 +6392,23 @@ construct_defeasible_condition_for_signature_or_dynrule(HeadCode,DescrIdCode,Del
 	),
 	!.
 
-%% DefeatCondCode = FL_UNDEFEATED(DescrIdCode,FileName,HeadCode,ThisModule)
+%% DefeatCondCode = FL_UNDEFEATED(DescrIdCode,FileName,DescrVarsTerm,HeadCode,ThisModule)
 %%                  or true.
 %% FL_UNDEFEATED is a modularized Prolog predicate
 %% The difference is that instead of NewVar we insert head code at compile time.
-construct_static_defeasible_condition(HeadCode,DescrIdCode,DelayedDefeatCondCode) :-
+construct_static_defeasible_condition(HeadCode,DescrIdCode,DescrVarsTerm,DelayedDefeatCondCode) :-
 	(has_permaoption(FLDEFEASIBLE(LibModule)),
 	    \+ has_context(CONTEXT_COMPILER_UDF_DEFINITION) ->
 	    %% create FL_UNDEFEATED(DescrIdCode,NewVar,ThisModule)
 	    thismodule_struct(ThisModule),
-	    %% create FL_UNDEFEATED(DescrIdCode,FileName,NewVar,ThisModule)
+	    %% create FL_UNDEFEATED(DescrIdCode,FileName,DescrVarsTerm,NewVar,ThisModule)
 	    %% this code makes FL_UNDEFEATED into a modularized Prolog predicate
 	    %% It is faster, saves table space
 	    modularized_pratom_struct(FL_UNDEFEATED,LibModule,NO_INDEX,UnDefeatFunCode),
 	    var_context_info_structure(ThisModule,FWContext),
 	    get_current_compile_file(FileName),
-	    prologterm_struct(UnDefeatFunCode,5,
-			      [DescrIdCode,FileName,
+	    prologterm_struct(UnDefeatFunCode,6,
+			      [DescrIdCode,FileName,DescrVarsTerm,
 			       HeadCode,ThisModule,FWContext],
 			      DefeatCondCode),
 	    %% wrap up for delaying the defeasible condition
@@ -6422,7 +6470,7 @@ compile_head_top(ParserTerm,ParsedHeadList,Context,Code,H2BCodeFront,H2BCodeBack
 	    %% TODO: pass FLVars to compile_head as a parameter
 	    %% and also to compile_body_top, compile_body,
 	    %%       compile_stop_delay
-	    set_context(compiling_head(FLVars))
+	    set_context(CONTEXT_COMPILER_HEAD(FLVars))
 	),
 	%% cranial returns diff lists, so terminate them with the []
 	to_Cranial_list(ParserTerm,ParsedHeadList-[],ParsedCranialBodyL-[],Stat0),
@@ -6438,7 +6486,7 @@ compile_head_top(ParserTerm,ParsedHeadList,Context,Code,H2BCodeFront,H2BCodeBack
 	; Status = Stat0
 	),
 	(Context==fact -> true
-	; clear_context(compiling_head(FLVars))
+	; clear_context(CONTEXT_COMPILER_HEAD(FLVars))
 	),
 	!.
 
@@ -6612,6 +6660,7 @@ compile_body(ParserTerm,Code,Status) :-
                 compile_datatype_objects(VarsCode,PRVarsCode,StatVarsCode),
                 rename_prvariables(QuantVarNames,NEWQUANTIFIEDVAR,
                                    (PRVarsCode,FreeVarListObj,FormCode),
+                                   %% RenamedFreeVarListObj - unused! Undetected singleton var (by XSB!) check
                                    (RenamedPRVarsCode,RenamedFreeVarListObj,RenamedFormCode),
                                    RenamedQuantVars),
                 append(StatVarsCode,Stat4,Status)
@@ -7645,7 +7694,9 @@ Or it is a more complex sort spec used by setof and bagof
 ****************************************************************************/
 compile_aggregate(Op,AggVar,GVars,SortSpec,BodyTerm,Object,Code,Status) :-
 	compile_body(BodyTerm,BodyPureCode,S),
-	delay_literals_checking_code([],BodyTerm,[],[],FL_DESCRIPTOR_VARS_WRAPPER,DelayCheckCode),
+        atomobj_struct(FL_DESCRIPTOR_VARS_WRAPPER,DescrVarsWrapObj),
+        list_struct([DescrVarsWrapObj],[],DescrVarsTerm),
+	delay_literals_checking_code([],BodyTerm,[],[],DescrVarsTerm,DelayCheckCode),
 	PostBody = DelayCheckCode,
 	(is_prvariable(PostBody) -> BCode = BodyPureCode
 	; conjunct_struct(BodyPureCode,PostBody,BCode)
@@ -9648,7 +9699,10 @@ compile_reifyop(Formula,Object,OidCode,Status) :-
 	).
 */
 compile_reifyop(Formula,Object,OidCode,Status) :-
-	compute_reification_expr(Formula,Object,OidCode,Status).
+	compute_reification_expr(Formula,Object,OidCode,Status),
+        %%writeln(aaaaa=Formula),
+        %%writeln(bbbbb=Object+OidCode+Status),
+        true.
 
 compute_reification_expr(Formula,Object,OidCode,Status) :-
 	Formula = [Rule|_],
@@ -11131,9 +11185,10 @@ compile_insert_litlist([HWS|T],Code,Status) :-
                 %% Arg 3 is true only for queriess
                 flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL,false),
                 %% for compile_insert_litlist
-		florasyslib_struct(FLSYSRULEUPDATE,15,
+		florasyslib_struct(FLSYSRULEUPDATE,16,
 				   [DescrIdCode,
                                     FileName,
+                                    DescrVarsTerm,
                                     %% Was: DescrVarsTerm,
                                     DescrVL,
 				    StmtNum,MetaFactCode,
@@ -11318,9 +11373,10 @@ compile_delete_litlist([HWS|T],CodeList,Status) :-
                 get_descr_flvar_purified(DescrVarsTerm,DescrFLVars),
                 flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL,false),
                 %% for compile_delete_litlist
-		florasyslib_struct(FLSYSRULEUPDATE,15,
+		florasyslib_struct(FLSYSRULEUPDATE,16,
 				   [DescrIdCode,
                                     FileName,
+                                    DescrVarsTerm,
                                     %% Was: DescrVarsTerm,
                                     DescrVL,
 				    StmtNum,
@@ -11456,7 +11512,8 @@ compile_dynrule(Op,R,RCode,Status) :-
 	( no_errors_found(DescriptorStatus) -> 
 	    (is_fllatent_query(Body,RealBody) ->
 		compile_dyn_latent_query(Op,DescrIdCode,MetaFactDiffList,RealBody,RCode,Status)
-	    ; compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,RCode,Status)
+	    ; 
+                compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,RCode,Status)
 	    )
 	;
 	    Status = DescriptorStatus
@@ -11572,9 +11629,9 @@ compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,Rul
                 list_struct(HeadCode,[],HeadCodeList),
                 list_struct(H2BCodeFront,[],H2BCodeFrontList),
                 list_struct(H2BCodeBack,[],H2BCodeBackList),
-                %% DefeatCondition has the form
-                %% FL_UNDEFEATED(Id,FileName,Head,Module,FWContext)
-        	construct_defeasible_condition_for_signature_or_dynrule(HeadCode,DescrIdCode,DefeatCondCode),
+                %% DefeatCondition has this Prolog form
+                %% FL_UNDEFEATED(Id,FileName,DescrVarsCode,Head,Module,FWContext)
+        	construct_defeasible_condition_for_signature_or_dynrule(HeadCode,DescrIdCode,DescrVarsTerm,DefeatCondCode),
                 %% Note: Head cannot contain sensors, so no need to check
                 %% multi-headed rules if sensors mix with non-sensors
                 (has_context(CONTEXT_COMPILER_UDF_DEFINITION) ->
@@ -11605,11 +11662,12 @@ compile_dynrule_main(Op,Head,Body,DescrIdCode,DescrVarsTerm,MetaFactDiffList,Rul
 
                 %% Make attr var infrastructure for Descriptor
                 get_descr_flvar_purified(DescrVarsTerm,DescrFLVars),
-                %% Not a query-don't remove duplicates in DescrVL
+                %% Not a query, so-don't remove duplicates in DescrVL
                 flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL,false),
                 %% for compile_dynrule_main
-                florasyslib_struct(FLSYSRULEUPDATE,15,
+                florasyslib_struct(FLSYSRULEUPDATE,16,
                                    [DescrIdCode,FileName,
+                                    DescrVarsTerm,
                                     %%DescrVarsTerm,
                                     %% DescrVL is an attriuted
                                     %% var through  which we pass
@@ -11708,7 +11766,7 @@ compile_refresh(List,Code,Status) :-
 compile_clause(Descriptor,Mode,HeadList,Body,Code,BodyFrontList,Status) :-
         approx_flindex(HeadList,ClauseIdx),
         compile_descriptor_list(Descriptor-ClauseIdx,FL_DESCRMODE_CLAUSE,DescrIdCode,
-                                DescrVarTerm,
+                                DescrVarsTerm,
                                 MetaFactDiffList,Descr_Status),
         !,
         ( no_errors_found(Descr_Status) -> 
@@ -11736,7 +11794,7 @@ compile_clause(Descriptor,Mode,HeadList,Body,Code,BodyFrontList,Status) :-
                 ( no_errors_found(Status) -> 
                     MetaFactDiffList = MetaFactList - [],
                     conjunct_code(MetaFactList,MetaFactsCode),
-                    clause_struct(DescrIdCode,DescrVarTerm,MetaFactsCode,
+                    clause_struct(DescrIdCode,DescrVarsTerm,MetaFactsCode,
                                   ModeCode,HeadListCode,BodyCode,Code),
                     append(HeadOidCode,HeadLitFrontListCode,BodyFrontList)
                 ;
@@ -12142,8 +12200,9 @@ delay_literals_checking_code(Head,_Body,_H2BCodeFront,_H2BCodeBack,_DescrVarsTer
 delay_literals_checking_code(Head,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,Code) :-
 	collect_flvars(Head,HeadVars1),
 	collect_flvars(Body,BodyVars1),
-	%% DescrVarsTerm is a pr-object, so use collect_prvars
-	collect_prvars(DescrVarsTerm,DescrPRVars),
+	%% DescrVarsTerm is a pr-list of this form
+        %%  PRLIST([PRATOM(FL_DESCRIPTOR_VARS_WRAPPER,NO_INDEX)|DescrPRVar],....)
+        get_descr_prvarlist(DescrVarsTerm, DescrPRVars),
         %%  TODO: come back here for unsafe descriptor vars warning?
 	prvar_to_flvar_struct_list(DescrPRVars,DescrFLVars),
 	%% BodyVars2 now contains descriptor vars

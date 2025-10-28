@@ -190,9 +190,9 @@
 
 :- import
         FL_RULE_ENABLER/3,
-        FL_TAG_DESCRIPTOR_META_PREDICATE/4,
-        FL_BOOL_DESCRIPTOR_META_PREDICATE/4,
-        FL_PROP_DESCRIPTOR_META_PREDICATE/5
+        FL_TAG_DESCRIPTOR_META_PREDICATE/5,
+        FL_BOOL_DESCRIPTOR_META_PREDICATE/5,
+        FL_PROP_DESCRIPTOR_META_PREDICATE/6
    from usermod.
 
 :- import
@@ -354,7 +354,7 @@
 	query_signature_member/3,
 	matching_query_signature/4,
 	rule_signature_member/3,
-        matching_rule_signature/6
+        matching_rule_signature/7
    from flrcanon.
 
 :- import

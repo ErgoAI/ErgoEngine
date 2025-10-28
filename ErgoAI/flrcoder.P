@@ -116,14 +116,19 @@ is_prworkspaceterm(PRWORKSPACETERM(WSTerm),WSTerm).
 is_pratom(PRATOM(Atom,_I),Atom).
 %% DON't use is_pratom/3 in optstructure due to cuts
 is_pratom(PRATOM(Atom,I),Atom,I) :- !.
+/*
+%% DON't use is_pratom/4 in optstructure due to cuts
+is_pratom(PRATOM(Atom,Module,I),Atom,Module,I) :- !.
+*/
 is_pratom(Atom,Atom,NO_INDEX) :- atom(Atom), Atom \= [].
 %% like is_pratom, but takes only PRATOM-encoded values
 is_strict_pratom(PRATOM(Atom,I),Atom,I).
 
 %% regular prolog atom with a module
-is_prplgatom(PRATOM(Atom,Module,I),Atom,Module,I).
+is_prplgatom(PRATOM(Atom,Module,I),Atom,Module,I) :- atom(Atom), !.
 %% A prolog atom that has FLORA-2 prefix and workspace in it.
 is_prmodularized_atom(PRMODULARIZEDATOM(Atom,I),Atom,I).
+is_pratom(Atom,Atom,NO_INDEX) :- atom(Atom), Atom \= [].
 is_prmodularized_atom(PRMODULARIZEDATOM(Atom,Mod,I),Atom,Mod,I).
 is_prdynmod_atom(PRDYNMODATOM(Atom),Atom).
 is_prnumber(PRNUMBER(_Number,_I)).
@@ -1112,7 +1117,7 @@ flora_write_struct(Term,Context,Status) :-
 	coder_write_syslib(F,N,Args,Context,Status).
 
 %% reified rule
-%% At present we do not support reified rules with annotations
+%% At present we do not support reified rules with descriptors
 %% (and thus also with implicit defeat conditions).
 flora_write_struct(Term,_Context,Status) :-
 	is_florasyslib(Term,FLSYSRULEUPDATE,_,_,_),

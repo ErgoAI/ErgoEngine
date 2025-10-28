@@ -55,10 +55,10 @@
 :- prolog{FL_DEFEATS/5}.
 :- prolog{FL_REFUTED/3, FL_REBUTTED/3}.
 :- prolog{FL_DISQUALIFIED/3}.
-:- prolog{FL_DEFEATED_ID/4}.
+:- prolog{FL_DEFEATED_ID/5}.
 :- prolog{FL_COMPROMISED/3}.
 //:- table{FL_UNDEFEATED/5}.  // DO NOT TABLE - useless
-:- prolog{FL_UNDEFEATED/4}.
+:- prolog{FL_UNDEFEATED/5}.
 :- prolog{beaten_by_strict_rule/3, beaten_by_strict_rule/5}.
 
 // All the FL_* names are defined in flora_terms.flh to make it easier to change
@@ -80,7 +80,7 @@
 :- ignore_depchk{abort(?)@\system}.
 
 /*
-  Note 1: FL_UNDEFEATED/4 will be called with the hidden  5th argument bound to
+  Note 1: FL_UNDEFEATED/5 must be called with the 5th argument bound to
           the user module name in which defeasible theory is invoked.
           This is done by the compiler.
   Note 2: ?R and ?Mod must be ground. Otherwise FL_UNDEFEATED is delayed.
@@ -88,24 +88,22 @@
           If ?R is non-ground, the result is incorrect: false{defeated} ==
           naf Exists defeated, while we need Exists not defeated.
 */
-//FL_UNDEFEATED(?Id,?FileName,?H,?Mod) :-
-FL_UNDEFEATED(?Id,?FileName,?H,?Mod) :-
+FL_UNDEFEATED(?Id,?FileName,?Vars,?H,?Mod) :-
         // Vars is a term containing all descriptor variables.
 	// Here we are generalizing the trace argument to avoid
 	// creation of multiple tables for different rule Ids
-	// for \naf FL_DEFEATED_ID(?Id,?FileName,?GH,?Mod).
-	//flora_replace_last(?H,FL_CONTEXT(?Mod,?,?)@\plg,?GH)@\prolog(flrtrim),
-	\naf FL_DEFEATED_ID(?Id,?FileName,?H,?Mod).
+	// for \naf FL_DEFEATED_ID(?Id,?FileName,?Vars,?GH,?Mod).
+	flora_replace_last(?H,FL_CONTEXT(?Mod,?,?)@\plg,?GH)@\prolog(flrtrim),
+	\naf FL_DEFEATED_ID(?Id,?FileName,?Vars,?GH,?Mod),
+        \true.
 
-//FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod) 
-FL_DEFEATED_ID(?Id,?FileName,?H,?Mod) :-
+FL_DEFEATED_ID(?Id,?FileName,?Vars,?H,?Mod) :-
         // Acesses the meta info about the TAGs, i.e., about the rule
         // descriptors of the form  @Term. Fetches  this metainfo from
-        // FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,Tag).
+        // FL_TAG_DESCRIPTOR_META_PREDICATE(RuleId,FileName,Module,Tag,VarTerm).
         // This info is created by the compiler from the rule descriptors
         // in the file that's beeing compilied.
-	//get_tag_descriptor_info(?Id,?FileName,?Mod,?T,?Vars)@\prolog(flrdescriptor_support),
-	get_tag_descriptor_info(?Id,?FileName,?Mod,?T)@\prolog(flrdescriptor_support),
+	get_tag_descriptor_info(?Id,?FileName,?Mod,?T,?Vars)@\prolog(flrdescriptor_support),
 	FL_DEFEATED(?T,?H,?Mod).
 
 #include "change_module.flh"
@@ -158,7 +156,6 @@ compromised(?T,?H) :-
 canceled(?T,?H) :-
         caller{?Mod},
         FL_CANCEL_AUX(?Mod,?T,?H),
-        writeln(aaaaaaaaaa=?Mod+?T+?H)@\plg,
         \naf FL_OVERRIDEN_CANCELLATION(?T,?H,?Mod).
 
 overriden_cancellation(?T,?H) :-
@@ -214,7 +211,7 @@ FL_DISQUALIFIED(?T,?H,?Mod) :-
         \naf FL_REBUTTED(?T,?H,?Mod).
 FL_DISQUALIFIED(?T,?H,?Mod) :- beaten_by_strict_rule(?T,?H,?Mod).
 FL_DISQUALIFIED(?T,?H,?Mod) :- FL_CANCEL_AUX(?Mod,?T,?H).
-// FL_OVERRIDEN_CANCELLATION expresses this interaction  of defeat and cancellation:
+// FL_OVERRIDEN_CANCELLATION expresses interaction  of defeat and cancellation:
 // Cancellation rule is disqualified if the rule being canceled has higher
 // priority than the cancellation rule itself
 // FL_OVERRIDEN_CANCELLATION/3 is defined in genincludes/flrdefeasible.fli

@@ -31,7 +31,7 @@
 #include "flora_terms.flh"
 #include "flora_exceptions.flh"
 
-:- index(FLLIBINSRULESIG/10,6).
+:- index(FLLIBINSRULESIG/11,6).
 
 :- import
 	reverse/2,
@@ -40,11 +40,11 @@
    from basics.
 
 :- import
-        matching_rule_signature/6,
+        matching_rule_signature/7,
 	matching_query_signature/4,
 	rule_signature_member/3,
 	query_signature_member/3,
-	flora_record_rule_signature/12,
+	flora_record_rule_signature/13,
         flora_build_pred_signature/2,
         flora_preprocess_headlist/2
    from flrcanon.
@@ -84,13 +84,14 @@ flora_clause_prefix(DYNAMIC_CLAUSE,FL_NEGDYNZPREFIX).
 
 
 /***********************************************************************
- FLLIBCLAUSE(+RuleId,+MetaFacts,+Mode,+HeadList,?RuleBody)
+FLLIBCLAUSE/6
+ FLLIBCLAUSE(+RuleId, +DescrVarTerm,+MetaFacts,+Mode,+HeadList,?RuleBody)
  Mode: STATIC_CLAUSE, DYNA_CLAUSE, DYNZ_CLAUSE, DYNAMIC_CLAUSE
 ************************************************************************/ 
-FLLIBCLAUSE(RuleId,MetaFacts,Mode,HeadList,Body) :-
-        fllibclause_exec(RuleId,MetaFacts,Mode,HeadList,Body).
+FLLIBCLAUSE(RuleId,DescrVarTerm,MetaFacts,Mode,HeadList,Body) :-
+        fllibclause_exec(RuleId,DescrVarTerm,MetaFacts,Mode,HeadList,Body).
 
-fllibclause_exec(RuleId,MetaFacts,Mode,[Head],RealBody) :-
+fllibclause_exec(RuleId,DescrVarTerm,MetaFacts,Mode,[Head],RealBody) :-
         !,
         flora_clause_prefix(Mode,Prefix),
         %% If Head = FL_UDFEQ(_,_), it means this is a UDF head.
@@ -101,13 +102,13 @@ fllibclause_exec(RuleId,MetaFacts,Mode,[Head],RealBody) :-
         %% use meta-unification, and '_$flr_rule_or_query_signature'/7
         %% does this for us.
         (nonvar(Head), Head = FL_UDFEQ(UDF,Result),
-                '_$flr_rule_or_query_signature'(RuleId,FileName,Prefix,HeadSig,Body,RuleSig),
+            '_$flr_rule_or_query_signature'(RuleId,FileName,DescrVarTerm,Prefix,HeadSig,Body,RuleSig),
             HeadSig =.. [Funct,Result,UDF,_Context],
             flora_match_substring(NEWUDFPREDICATENAME,Funct,_)
         %% DON't cut here: a UDF may be defined by multiple clauses.
         %%-> true
         ; (var(Head) ; Head \= FL_UDFEQ(UDF,Result)),
-            '_$flr_rule_or_query_signature'(RuleId,FileName,Prefix,Head,Body,RuleSig)
+            '_$flr_rule_or_query_signature'(RuleId,FileName,DescrVarTerm,Prefix,Head,Body,RuleSig)
         ),
 	%% Call metafacts later, since usually one gives the head or
 	%% the body or the rule id
@@ -127,9 +128,9 @@ fllibclause_exec(RuleId,MetaFacts,Mode,[Head],RealBody) :-
 	; FLLIBUNIVEQFORM(RealBody,RealBody1)
 	).
 
-fllibclause_exec(RuleId,MetaFacts,Mode,[H|L],RealBody) :-
+fllibclause_exec(RuleId,DescrVarTerm,MetaFacts,Mode,[H|L],RealBody) :-
         flora_clause_prefix(Mode,Prefix),
-        '_$flr_rule_or_query_signature'(RuleId,FileName,Prefix,H,Body,RuleSig),
+        '_$flr_rule_or_query_signature'(RuleId,FileName,DescrVarTerm,Prefix,H,Body,RuleSig),
 	call_metafacts(MetaFacts),
 	get_module_from_metafacts(MetaFacts,Module),
 	get_file_from_metafacts(MetaFacts,FileName),
@@ -140,21 +141,20 @@ fllibclause_exec(RuleId,MetaFacts,Mode,[H|L],RealBody) :-
 	(var(RealBody) -> RealBody = RealBody1
 	; FLLIBUNIVEQFORM(RealBody,RealBody1)
 	),
-        flora_clause_list(RuleId,Prefix,Module,L,Body). 
+        flora_clause_list(RuleId,DescrVarTerm,Prefix,Module,L,Body). 
 
 
-flora_clause_list(_RuleId,__Prefix,_Mod,[],_Body) :- 
+flora_clause_list(_RuleId,_DescrVarTerm,_Prefix,_Mod,[],_Body) :- 
         !.
-flora_clause_list(RuleId,Prefix,Mod,[H|L],Body) :-
-        '_$flr_rule_or_query_signature'(RuleId,_FileName,Prefix,H,Body,RuleSig),
+flora_clause_list(RuleId,DescrVarTerm,Prefix,Mod,[H|L],Body) :-
+        '_$flr_rule_or_query_signature'(RuleId,_FileName,DescrVarTerm,Prefix,H,Body,RuleSig),
 	'_$flr_signature_member'(module,RuleSig,Mod),
-        flora_clause_list(RuleId,Prefix,Mod,L,Body). 
+        flora_clause_list(RuleId,DescrVarTerm,Prefix,Mod,L,Body). 
 
 
-'_$flr_rule_or_query_signature'(RuleId,FileName,Prefix,H,Body,Sig) :-
-        %% matching_rule_signature/6
-	matching_rule_signature(RuleId,FileName,Prefix,H,Body,Sig).
-'_$flr_rule_or_query_signature'(RuleId,FileName,_Prefix,_H,Body,Sig) :-
+'_$flr_rule_or_query_signature'(RuleId,FileName,DescrVarTerm,Prefix,H,Body,Sig) :-
+	matching_rule_signature(RuleId,FileName,DescrVarTerm,Prefix,H,Body,Sig).
+'_$flr_rule_or_query_signature'(RuleId,FileName,_DescrVarTerm,_Prefix,_H,Body,Sig) :-
         %% matching_query_signature/4
 	matching_query_signature(RuleId,FileName,_Module,Sig),
 	query_signature_member(query,Sig,Body).
@@ -166,8 +166,8 @@ flora_clause_list(RuleId,Prefix,Mod,[H|L],Body) :-
 
         
 /***********************************************************************
-FLLIBINSRULESIG/10
- FLLIBINSRULESIG(+RuleId,+FileName,+WS,+RuleNum,+HeadList,+RuleBody,+H2BSig,+PreBody,+PostBody,+DefeatCond)
+FLLIBINSRULESIG/11
+ FLLIBINSRULESIG(+RuleId,+FileName,+DescrVarsTerm,+WS,+RuleNum,+HeadList,+RuleBody,+H2BSig,+PreBody,+PostBody,+DefeatCond)
 
    RuleNum is the rule number within the file. Generated by the tokenizer.
            Used (together with FileName) to relate textual information
@@ -177,27 +177,27 @@ FLLIBINSRULESIG/10
         Signatures for dynamic (including added) rules are inserted by
 	FLLIBINSERTRULE_A/2 or FLLIBINSERTRULE_Z/2
 ************************************************************************/ 
-FLLIBINSRULESIG(RuleId,FileName,WS,RuleNum,[H|Rest],Body,H2BSig,PreBody,PostBody,DefeatCond) :-
+FLLIBINSRULESIG(RuleId,FileName,DescrVarsTerm,WS,RuleNum,[H|Rest],Body,H2BSig,PreBody,PostBody,DefeatCond) :-
         %% multiple atoms appear in the rule head
         !,
-        flora_insert_rulesig_list(RuleId,FileName,WS,RuleNum,[H|Rest],Body,H2BSig,PreBody,PostBody,DefeatCond).
+        flora_insert_rulesig_list(RuleId,FileName,DescrVarsTerm,WS,RuleNum,[H|Rest],Body,H2BSig,PreBody,PostBody,DefeatCond).
 
-FLLIBINSRULESIG(RuleId,FileName,WS,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond) :-
+FLLIBINSRULESIG(RuleId,FileName,DescrVarsTerm,WS,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond) :-
         %% only a single atom appears in the rule head
-	flora_insert_one_rulesig(RuleId,FileName,WS,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond).
+	flora_insert_one_rulesig(RuleId,FileName,DescrVarsTerm,WS,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond).
         
 
 /****************************************************************************
-flora_insert_rulesig_list/10
-    flora_insert_rulesig_list(+RuleId,+FileName,+WS,+RuleNum,+HeadList,+Body,+PreBody,+PostBody,+DefeatCond)
+flora_insert_rulesig_list/11
+    flora_insert_rulesig_list(+RuleId,+FileName,+DescrVarsTerm,+WS,+RuleNum,+HeadList,+Body,+PreBody,+PostBody,+DefeatCond)
 ****************************************************************************/
-flora_insert_rulesig_list(_RuleId,_FileName,_WS,_RuleNum,[],_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond) :- !.
-flora_insert_rulesig_list(RuleId,FileName,WS,RuleNum,[Head|RestH],Body,H2BSig,PreBody,PostBody,DefeatCond) :- 
-	flora_insert_one_rulesig(RuleId,FileName,WS,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond),
-        flora_insert_rulesig_list(RuleId,FileName,WS,RuleNum,RestH,Body,H2BSig,PreBody,PostBody,DefeatCond).
+flora_insert_rulesig_list(_RuleId,_FileName,_DescrVarsTerm,_WS,_RuleNum,[],_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond) :- !.
+flora_insert_rulesig_list(RuleId,FileName,DescrVarsTerm,WS,RuleNum,[Head|RestH],Body,H2BSig,PreBody,PostBody,DefeatCond) :- 
+	flora_insert_one_rulesig(RuleId,FileName,DescrVarsTerm,WS,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond),
+        flora_insert_rulesig_list(RuleId,FileName,DescrVarsTerm,WS,RuleNum,RestH,Body,H2BSig,PreBody,PostBody,DefeatCond).
 
 
-flora_insert_one_rulesig(RuleId,FileName,WS,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond) :-
+flora_insert_one_rulesig(RuleId,FileName,DescrVarsTerm,WS,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond) :-
 	flora_decode_predicate(Head,Type,_,_,_,_),
 	((Type == (hilog) ; Type == (flogic)) -> HeadPrefix = FL_HEADPREFIX
 	; Type == (flora) -> HeadPrefix = FL_EMPTYPREFIX
@@ -211,4 +211,4 @@ flora_insert_one_rulesig(RuleId,FileName,WS,RuleNum,Head,Body,H2BSig,PreBody,Pos
 	%% would be different from the variables in the head/bridge rules.
 	copy_term(HeadRule,HeadRule1),
 	copy_term(DefeatCond,DefeatCond1),
-        flora_record_rule_signature(RuleId,FileName,HeadPrefix,WS,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond1,[HeadRule1]).
+        flora_record_rule_signature(RuleId,FileName,DescrVarsTerm,HeadPrefix,WS,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond1,[HeadRule1]).

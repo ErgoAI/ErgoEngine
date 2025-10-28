@@ -118,6 +118,7 @@
         is_prmodularized_atom/4,
 	is_pratom/2,
 	is_pratom/3,
+	is_pratom/4,
 	is_strict_pratom/3,
 	is_prplgatom/4,
 	is_prnumber/1,

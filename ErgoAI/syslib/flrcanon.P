@@ -28,6 +28,7 @@
 
 
 :- compiler_options([xpp_on]).
+%%:- compiler_options([xpp_dump]).
 #mode standard Prolog
 
 #include "flora_terms.flh"
@@ -41,16 +42,16 @@
 #define INDEXED_ARG                 1
 
 :- dynamic 
-        flora_rule_signature(_,_,_,_,_,_,_,_,_,_,_,_),    %% flora_rule_signature/12
-	flora_query_signature(_,_,_,_,_,_)               %% flora_query_signature/6
+        flora_rule_signature(_,_,_,_,_,_,_,_,_,_,_,_,_),    %% flora_rule_signature/13
+	flora_query_signature(_,_,_,_,_,_)                  %% flora_query_signature/6
    as FLORA_DYNAMICS_TYPE.
 
 %% Indexing is arranged so that first indexing is done on rule id,
 %% then rule head. Indexing on module does not seem to help much.
 %% Indexing on Head (arg 5) helps ~20%, but star-indexing on Head
 %% slows things down.
-:- index(flora_rule_signature/12,[1,2,4,6]).
-:- index(flora_query_signature/6,[1,2,3,6]).
+:- index(flora_rule_signature/13,[1,2,5,7]).
+:- index(flora_query_signature/6,[1,2,3]).
 
 :- dynamic
 	flora_body_to_head_conversion_cache(_,_),
@@ -76,7 +77,7 @@
 
 :- import flora_warning_line/2 from flrprint.
 
-:- import get_tag_descriptor_info_with_rulehead/5 from flrdescriptor_support.
+:- import get_tag_descriptor_info_with_rulehead/6 from flrdescriptor_support.
 
 :- import
 	memberchk/2,
@@ -103,7 +104,7 @@
 :- import strip_delay_checker/2 from flrdelaysupport.
 
 :- import
-	FLSYSRULEUPDATE/12,
+	FLSYSRULEUPDATE/16,
 	FLLIBMODOBJ/6,
 	FLLIBMODLIT/4,
 	FLLIBUNIVEQFORM/2
@@ -120,10 +121,10 @@
 :- export
         conjunct_to_list/2,
         flora_bind_libmodobj/2,
-        matching_rule_signature/6,
+        matching_rule_signature/7,
 	show_rule_by_id/5,  % fast version of clause{...}
 	show_rule_by_tag/4, % same, but by tag
-        show_rule_signature/12,
+        show_rule_signature/13,
 	matching_query_signature/4,
 	rule_signature_member/3,
 	query_signature_member/3,
@@ -132,10 +133,10 @@
 	convert_to_head_literal/2,
 	convert_to_signature/3,
 	convert_to_value_atom/3,
-        flora_record_rule_signature/12,
+        flora_record_rule_signature/13,
 	flora_record_query_signature/6,
 	flora_delete_query_signature/4,
-        flora_retract_signatures/7,
+        flora_retract_signatures/8,
         flora_build_pred_signature/2,
         flora_preprocess_headlist/2,
         flora_reset_rule_signature/1,
@@ -607,7 +608,7 @@ flora_preprocess_headlist([H|L],[H|LList]) :-
         
 
 /***********************************************************************
- flora_record_rule_signature(+RuleId,+FileName,
+ flora_record_rule_signature(+RuleId,+FileName,+DescrVarsTerm,
                              +HeadPredPrefix,+Module,+RuleNum,+Head,+Body,
 			     +H2BSig,
 			     +PreBody,+PostBody,
@@ -620,11 +621,11 @@ flora_preprocess_headlist([H|L],[H|LList]) :-
  we would need to convert the head into the ErgoAI head format.
 ***********************************************************************/
 %% prolog rules' signatures are not recorded
-flora_record_rule_signature(_,_,_,_,_,Head,_,_,_,_,_,_) :-
+flora_record_rule_signature(_,_,_,_,_,_,Head,_,_,_,_,_,_) :-
 	flora_decode_predicate(Head,Type,_,_,_,_,_),
 	Type == (prolog),
 	!.
-flora_record_rule_signature(RuleId,FileName,HPrefix,Module,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond,Rule) :-
+flora_record_rule_signature(RuleId,FileName,DescrVarsTerm,HPrefix,Module,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond,Rule) :-
 	%% Head is stored in the body form so that it could be queried
 	%% via reification
 	convert_to_body_literal(Head,BHead),
@@ -633,6 +634,7 @@ flora_record_rule_signature(RuleId,FileName,HPrefix,Module,RuleNum,Head,Body,H2B
 	%% make sure rule id of the rule is showing in the head in signature
 	LastArg = FL_CONTEXT(_,RuleId,_),
 	catch(flora_assert(flora_rule_signature(RuleId,FileName,
+						DescrVarsTerm,
 						HPrefix,Module,RuleNum,
 						GenBHead,Body,
 						H2BSig,
@@ -681,20 +683,20 @@ query_signature_member(query,Sig,Val) :- Sig = FLQUERYSIG(_,_,_,_,_,Val).
 	
 
 /***********************************************************************
-flora_retract_signatures/7
- flora_retract_signatures(+RuleId,+FileName,
+ flora_retract_signatures/8
+ flora_retract_signatures(+RuleId,+FileName,+DescrVarsTerm,
                           +HeadPredPrefix,+Module,+Head,+Body,
                           +Rule)
  retract matching signatures
 ***********************************************************************/
-flora_retract_signatures(Id,FileName,HPrefix,Mod,[H|HL],Body,(RL1,RL2)) :-
+flora_retract_signatures(Id,FileName,DescrVarsTerm,HPrefix,Mod,[H|HL],Body,(RL1,RL2)) :-
 	!,
-        flora_retract_signatures(Id,FileName,HPrefix,Mod,H,Body,RL1),
-        flora_retract_signatures(Id,FileName,HPrefix,Mod,HL,Body,RL2).
+        flora_retract_signatures(Id,FileName,DescrVarsTerm,HPrefix,Mod,H,Body,RL1),
+        flora_retract_signatures(Id,FileName,DescrVarsTerm,HPrefix,Mod,HL,Body,RL2).
 
-flora_retract_signatures(Id,FileName,HPrefix,Mod,Hd,Body,Rule) :-
+flora_retract_signatures(Id,FileName,DescrVarsTerm,HPrefix,Mod,Hd,Body,Rule) :-
 	convert_to_body_literal(Hd,BHd),
-        retract(flora_rule_signature(Id,FileName,HPrefix,Mod,_RN,BHd,Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,Rule)).
+        retract(flora_rule_signature(Id,FileName,DescrVarsTerm,HPrefix,Mod,_RN,BHd,Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,Rule)).
 
 /*******************************************************************************
  flora_reset_rule_signature(+Module)
@@ -702,7 +704,7 @@ flora_retract_signatures(Id,FileName,HPrefix,Mod,Hd,Body,Rule) :-
  retract all rule signatures for the Module
 *******************************************************************************/
 flora_reset_rule_signature(Module) :-
-        retractall(flora_rule_signature(_RId,_FN,_WPrefix,Module,_RN,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rule)).
+        retractall(flora_rule_signature(_RId,_FN,_VarsTerm,_WPrefix,Module,_RN,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rule)).
 
 flora_reset_query_signature(Module) :-
         retractall(flora_query_signature(_RId,_FN,Module,_,_,_Query)).
@@ -723,7 +725,8 @@ flora_bind_libmodobj([H|_Tail],_NewList) :-
         !,
         flora_abort('uninstantiated element in the rule list of insertrule{...}',
 		    FLORA_ABORT_NOTRACE).
-flora_bind_libmodobj([FLSYSRULEUPDATE(Id,FileN,DescrAttrVar,StmtNum,DescrMetaFacts,HeadList,Body,HVars,BVars,PreBody,PostBody,DefeatCond)|L],[FLSYSRULEUPDATE(Id,FileN,DescrAttrVar,StmtNum,DescrMetaFacts,NewHeadList,Body,HVars,BVars,PreBody,PostBody,DefeatCond)|NL]) :-
+%% Uses FLSYSRULEUPDATE/16
+flora_bind_libmodobj([FLSYSRULEUPDATE(Id,FileN,DescrVarTerm,DescrVL,StmtNum,DescrMetaFacts,HeadList,Body,HVars,BVars,DTVars,H2BFList,H2BBList,PreBody,PostBody,DefeatCond)|L],[FLSYSRULEUPDATE(Id,FileN,DescrVarTerm,DescrVL,StmtNum,DescrMetaFacts,NewHeadList,Body,HVars,BVars,DTVars,H2BFList,H2BBList,PreBody,PostBody,DefeatCond)|NL]) :-
         !,
         flora_bind_libmodobj(HeadList,NewHeadList),
         flora_bind_libmodobj(L,NL).
@@ -757,7 +760,7 @@ flora_bind_libmodobj([H|L], [H|NL]) :- flora_bind_libmodobj(L,NL).
     The _with_copy form first creates a copy of Head.
 
     Note that DefeatCond has the form:
-    FL_UNDEFEATED(IdCode,FileName,HeadCode,ThisModule,FWContext)
+    FL_UNDEFEATED(IdCode,VarsCode,HeadCode,ThisModule,FWContext)
 ***********************************************************************/
 bind_head_in_defeat_condition(Head,DefeatCond) :-
 	(DefeatCond == true, !
@@ -779,15 +782,14 @@ bind_head_in_defeat_condition_with_copy(Head,DefeatCond) :-
 
 
 %% This case is used if we wrap DefeatCond in the delay wrapper
-%% FL_UNDEFEATED/5 (4 regular args + _$cntx(...); the fifth 
-%% comes from the :- prolog decaration, which adds a hidden
-%% last argument.
 extract_head_from_defeat_condition(DelayLiteral,Head) :-
 	!,
+        %% DelayedDefeatLiteral has the form 
+        %% FLLIBDEFEATDELAY(FileName,Line,DefeatCond,Head,VarNameValPairs)
 	arg(3,DelayLiteral,DefeatCondSansDelay),
         %% DefeatCondSansDelay has the form
-	%% FL_UNDEFEATED(Id,FileName,Head,Module,FWContext)
-	arg(3,DefeatCondSansDelay,Head).
+	%% FL_UNDEFEATED(Id,FileName,Vars,Head,Module,FWContext)
+	arg(4,DefeatCondSansDelay,Head).
 
 
 /***********************************************************************
@@ -800,49 +802,49 @@ conjunct_to_list(A, [A]).
 
 
 /******************************************************************************
-show_rule_signature/12
-  show_rule_signature(?Id,?FileN,?Prefix,?Module,-RuleNum,-Head,-Body,-H2BSig,-PreBody,-PostBody,-DefeatCond,-Rule)
+show_rule_signature/13
+  show_rule_signature(?Id,?FileN,?VarsTerm,?Prefix,?Module,-RuleNum,-Head,-Body,-H2BSig,-PreBody,-PostBody,-DefeatCond,-Rule)
 
   show_rule_signature does not do head/body conversion,
   so Head/Body can really be only output vars
 ******************************************************************************/
-show_rule_signature(Id,FileName,Prefix,Module,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond,Rule) :-
+show_rule_signature(Id,FileName,VarsTerm,Prefix,Module,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCond,Rule) :-
 	flora_generalize_last(Head,GHead),
-	flora_rule_signature(Id,FileName,Prefix,Module,RuleNum,GHead,Body,H2BSig,PreBody,PostBody,DefeatCond,Rule).
+	flora_rule_signature(Id,FileName,VarsTerm,Prefix,Module,RuleNum,GHead,Body,H2BSig,PreBody,PostBody,DefeatCond,Rule),
+        true.
 
 
 /* Some operations on Rule signatures */
 rule_signature_member(id,Sig,Id) :-
-	Sig = FLRULESIG(Id,_,_,_Module,_,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+	Sig = FLRULESIG(Id,_,_,_,_Module,_,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
 rule_signature_member(file,Sig,FileName) :-
-	Sig = FLRULESIG(_Id,FileName,_,_Module,_,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+	Sig = FLRULESIG(_Id,FileName,_,_,_Module,_,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
 rule_signature_member(module,Sig,Module) :-
-	Sig = FLRULESIG(_Id,_,_,Module,_,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+	Sig = FLRULESIG(_Id,_,_,_,Module,_,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
 rule_signature_member(rulenumber,Sig,RuleNum) :-
-	Sig = FLRULESIG(_Id,_,_,_Module,RuleNum,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+	Sig = FLRULESIG(_Id,_,_,_,_Module,RuleNum,_Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
 rule_signature_member(head,Sig,Head) :-
-	Sig = FLRULESIG(_Id,_,_,_Module,_,Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+	Sig = FLRULESIG(_Id,_,_,_,_Module,_,Head,_Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
 rule_signature_member(body,Sig,Body) :-
-	Sig = FLRULESIG(_Id,_,_,_Module,_,_Head,Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+	Sig = FLRULESIG(_Id,_,_,_,_Module,_,_Head,Body,_H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
 rule_signature_member(h2bsig,Sig,H2BSig) :-
-	Sig = FLRULESIG(_Id,_,_,_Module,_,_Head,_Body,H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
+	Sig = FLRULESIG(_Id,_,_,_,_Module,_,_Head,_Body,H2BSig,_PreBody,_PostBody,_DefeatCond,_Rules).
 rule_signature_member(prebody,Sig,PreBody) :-
-	Sig = FLRULESIG(_Id,_,_,_Module,_,_Head,_Body,_H2BSig,PreBody,_PostBody,_DefeatCond,_Rules).
+	Sig = FLRULESIG(_Id,_,_,_,_Module,_,_Head,_Body,_H2BSig,PreBody,_PostBody,_DefeatCond,_Rules).
 rule_signature_member(postbody,Sig,PostBody) :-
-	Sig = FLRULESIG(_Id,_,_,_Module,_,_Head,_Body,_H2BSig,_PreBody,PostBody,_DefeatCond,_Rules).
+	Sig = FLRULESIG(_Id,_,_,_,_Module,_,_Head,_Body,_H2BSig,_PreBody,PostBody,_DefeatCond,_Rules).
 rule_signature_member(defeatcondition,Sig,DefeatCond) :-
-	Sig = FLRULESIG(_Id,_,_,_Module,_,_Head,_Body,_H2BSig,_PreBody,_PostBody,DefeatCond,_Rules).
-
+	Sig = FLRULESIG(_Id,_,_,_,_Module,_,_Head,_Body,_H2BSig,_PreBody,_PostBody,DefeatCond,_Rules).
 
 /***********************************************************************
   show_rule_by_id(+Id,+FileName,+Mod,?Head,?Body)
   show_rule_by_tag(+Tag,+Mod,?Head,?Body)
-  matching_rule_signature/6
-  matching_rule_signature(?Id,?FileName,?Prefix,?Head,?Body,-RuleSignature)
+  matching_rule_signature/7
+  matching_rule_signature(?Id,?FileName,?DescrVarsTerm,?Prefix,?Head,?Body,-RuleSignature)
 
   RuleSignature:
-     FLRULESIG/12
-     FLRULESIG(Id,FileName,Prefix,Module,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCondition,Rule)
+     FLRULESIG/13
+     FLRULESIG(Id,FileName,VarsTerm,Prefix,Module,RuleNum,Head,Body,H2BSig,PreBody,PostBody,DefeatCondition,Rule)
 
   Rule:
       This contains the 1-headed part of the split multiheaded rule.
@@ -850,7 +852,7 @@ rule_signature_member(defeatcondition,Sig,DefeatCond) :-
 ************************************************************************/
 show_rule_by_id(Id,FileName,Mod,Head,FullBody) :-
         flora_generalize_last(Head,GHead),
-	matching_rule_signature(Id,FileName,_,GHead,Body,Signature),
+	matching_rule_signature(Id,FileName,_,_,GHead,Body,Signature),
 	(nonvar(Head), flora_decode_module_name(Head,HeadMod)
 	-> RealMod = HeadMod
 	;
@@ -870,37 +872,37 @@ show_rule_by_tag(Tag,Mod,Head,Body) :-
 	;
 	    RealMod = Mod
 	),
-	get_tag_descriptor_info_with_rulehead(Id,FileName,RealMod,Tag,Head),
-	show_rule_by_id(Id,FileName,RealMod,Head,Body).
+	get_tag_descriptor_info_with_rulehead(Id,FileName,RealMod,Tag,Head,_),
+	show_rule_by_id(Id,FileName,RealMod,Head,Body),
+        true.
 
 %% tabling this does not help much: < 10%
-%%:- table matching_rule_signature/6 as AUXILIARY_TABLING_TYPE.
-%%   FLRULESIG/12
-matching_rule_signature(Id,FileName,Prefix,Head,Body,FLRULESIG(Id,FileName,Prefix,Mod,RuleNum,Head,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule)) :-
+%%:- table matching_rule_signature/7 as AUXILIARY_TABLING_TYPE.
+matching_rule_signature(Id,FileName,VarsTerm,Prefix,Head,Body,FLRULESIG(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,Head,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule)) :-
         var(Head),
         !,
-        flora_rule_signature(Id,FileName,Prefix,Mod,RuleNum,Head,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule),
+        flora_rule_signature(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,Head,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule),
 	FLLIBUNIVEQFORM(NewBody,Body).
 
-matching_rule_signature(Id,FileName,Prefix,FLLIBMODLIT(A1,A2,A3,A4),Body,FLRULESIG(Id,FileName,Prefix,Mod,RuleNum,NewHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule)) :-
+matching_rule_signature(Id,FileName,VarsTerm,Prefix,FLLIBMODLIT(A1,A2,A3,A4),Body,FLRULESIG(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,NewHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule)) :-
         !,
-        flora_rule_signature(Id,FileName,Prefix,Mod,RuleNum,NewHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule),
+        flora_rule_signature(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,NewHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule),
         FLLIBUNIVEQFORM(NewHead,FLLIBMODLIT(A1,A2,A3,A4)),
 	FLLIBUNIVEQFORM(NewBody,Body).
 
-matching_rule_signature(Id,FileName,Prefix,[H|HL],Body,FLRULESIG(Id,FileName,Prefix,Mod,RuleNum,NewHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule)) :-
-	%% these two are here instead of in the rule head because FLRULESIG/12
+matching_rule_signature(Id,FileName,VarsTerm,Prefix,[H|HL],Body,FLRULESIG(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,NewHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule)) :-
+	%% these two are here instead of in the rule head because FLRULESIG/13
 	%% is a gpp macro, and gpp seems to not understand [...] and (...) as
 	%% macro arguments
 	NewHead = [NewH,NewHL],
 	Rule = (RL1,RL2),
         !,
-        matching_rule_signature(Id,FileName,Prefix,H,Body,FLRULESIG(Id,FileName,Prefix,Mod,RuleNum,NewH,NewBody,H2BSig,PreBody,PostBody,DefeatCond,RL1)),
-        matching_rule_signature(Id,FileName,Prefix,HL,Body,FLRULESIG(Id,FileName,Prefix,Mod,RuleNum,NewHL,NewBody,H2BSig,PreBody,PostBody,DefeatCond,RL2)).
+        matching_rule_signature(Id,FileName,VarsTerm,Prefix,H,Body,FLRULESIG(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,NewH,NewBody,H2BSig,PreBody,PostBody,DefeatCond,RL1)),
+        matching_rule_signature(Id,FileName,VarsTerm,Prefix,HL,Body,FLRULESIG(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,NewHL,NewBody,H2BSig,PreBody,PostBody,DefeatCond,RL2)).
 
-matching_rule_signature(Id,FileName,Prefix,Head,Body,FLRULESIG(Id,FileName,Prefix,Mod,RuleNum,GHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule)) :-
+matching_rule_signature(Id,FileName,VarsTerm,Prefix,Head,Body,FLRULESIG(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,GHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule)) :-
         convert_to_body_literal(Head,BHead),
-        flora_rule_signature(Id,FileName,Prefix,Mod,RuleNum,BHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule),
+        flora_rule_signature(Id,FileName,VarsTerm,Prefix,Mod,RuleNum,BHead,NewBody,H2BSig,PreBody,PostBody,DefeatCond,Rule),
         flora_generalize_last(BHead,GHead),
 	FLLIBUNIVEQFORM(NewBody,Body).
 
