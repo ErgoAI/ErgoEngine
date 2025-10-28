@@ -1,0 +1,44 @@
+
+
+example.ergo
+
+// the query  to be timed
+MyQuery(....) :- ...
+
+TheTimedQuery (?Params) :-
+    setruntime{timeout(max(100,notifyPython(?_Culprit)))},
+    MyQuery(?Params),
+    setruntime{timeout(0)}.
+
+// This is a timer interrupt HANDLER. It gets the interrupted subgoal as a
+// param when a timer interrupt happens.
+// You can be as detailed here as needed, but remember that you will have
+// to unpack this exception on the Python side.
+// By the way, I do not believe it is possible to resume the interrupted subgoal in
+// case of the max timer, but it is possible to resume in case of the periodic timer.
+
+// The timer interrupt handler  is usually a Prolog predicate.
+:- prolog{notifyPython/1}.
+notifyPython(?Culprit)) :-
+    ?Culprit[toSymbol -> ?CulpritAtm]@\btp,
+    throw{exceptionFromMyTimer(?CulpritAtm)}.
+
+// Note, thrown exceptions must be caught on the Python side.
+
+
+Python:
+Should have NO concurrent calls to Ergo or else everything is guaranteed to
+crash.
+
+....
+
+pyergo_query('theTimedQuery(?Params)')
+
+Recall that exceptions thrown on the Ergo side appear as the 4th component
+in the answers that Python gets.
+So, probably no need to use 'catch' on the python side.
+
+There is a lot of variation in how you arrange thugs at both ends,
+but the above seems reasonable.
+Here the exception was handled completely on the ergo side, which simpler.
+
