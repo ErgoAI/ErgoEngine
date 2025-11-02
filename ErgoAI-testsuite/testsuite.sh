@@ -263,7 +263,8 @@ fi
 $GREP "fault" $LOG_FILE | $GREP -v "segfault_handler" | $GREP -v "default" | $GREP -v "pagefault"  >> $RES_FILE
 # core dumped
 $GREP "dumped" $LOG_FILE >> $RES_FILE
-$GREP "Error\[" $LOG_FILE >> $RES_FILE
+$GREP "Error\[" $LOG_FILE | grep -v "<Compiler> near line(" >> $RES_FILE
+$GREP "Error\[" $LOG_FILE | grep -v "<Loader> near line(" >> $RES_FILE
 # when no output file is generated
 $GREP "no match" $LOG_FILE >> $RES_FILE
 # for bus error

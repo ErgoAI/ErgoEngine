@@ -391,9 +391,15 @@ flora_insert_rules(_InsOp,[H|_Tail]) :-
  Body - the body of the multiheaded rule
 *******************************************************************************/
 flora_insert_multiheaded_rule([],_InsOp,_Id,_FileName,_DescrVarsTerm,_NamedDescrVars,_RuleNum,_Body,_DTvars,_H2BFront,_H2BBack,_PreBody,_PostBodyList,_DefeatCond,_ModName) :- !.
-flora_insert_multiheaded_rule([H|L],InsOp,Id,FileName,DescrVarsTerm,NamedDescrVars,RuleNum,Body,DTvars,[H2BF|H2BFront],[H2BB|H2BBody],PreBody,[PostBody|PostBodyList],DefeatCond,ModName) :-
+
+%%flora_insert_multiheaded_rule([H|L],InsOp,Id,FileName,DescrVarsTerm,NamedDescrVars,RuleNum,Body,DTvars,[H2BF|H2BFront],[H2BB|H2BBody],PreBody,[PostBody|PostBodyList],DefeatCond,ModName) :-
+flora_insert_multiheaded_rule([H|L],InsOp,Id,FileName,DescrVarsTerm,NamedDescrVars,RuleNum,Body,DTvars,H2BFrontList,H2BBackList,PreBody,PostBodyList,DefeatCond,ModName) :-
+        (H2BFrontList = [] ; H2BFrontList = [H2BF|H2BFront]),
+        (H2BBackList == [] ; H2BBackList = [H2BB|H2BBody]),
+        (PostBodyList == [] ; PostBodyList = [PostBody|PostBodyRest]),
+        !,
 	flora_insert_oneheaded_rule(H,InsOp,Id,FileName,DescrVarsTerm,NamedDescrVars,RuleNum,Body,DTvars,H2BF,H2BB,PreBody,PostBody,DefeatCond,ModName),
-	flora_insert_multiheaded_rule(L,InsOp,Id,FileName,DescrVarsTerm,NamedDescrVars,RuleNum,Body,DTvars,H2BFront,H2BBody,PreBody,PostBodyList,DefeatCond,ModName).
+	flora_insert_multiheaded_rule(L,InsOp,Id,FileName,DescrVarsTerm,NamedDescrVars,RuleNum,Body,DTvars,H2BFront,H2BBody,PreBody,PostBodyRest,DefeatCond,ModName).
 
 /***********************************************************************
  flora_insert_oneheaded_rule(+Head,+InsOp,+RuleId,+FileName,+DescrVarsTerm,+NamedDescrVars,+RuleNum,+Body,+DTvars,+H2BF,+H2B,+PreBody,+PostBody,+DefeatCond,-ModName)

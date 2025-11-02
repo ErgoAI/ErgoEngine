@@ -60,8 +60,8 @@
 #mode standard Prolog
 
 
-%%#define SHOW_COMPILE_INPUT
-%%#define SHOW_COMPILE_OUTPUT
+%#define SHOW_COMPILE_INPUT
+%#define SHOW_COMPILE_OUTPUT
 %%#define SHOW_COMPILE_ADD_INPUT
 %%#define SHOW_COMPILE_ADD_OUTPUT
 
@@ -874,7 +874,7 @@ naf_struct_flora(Goal,FreeVars,Code) :-
 	),
 	delay_checking_code_for_rulelog_naf(Goal,DelayCheckCode),
 	conjunct_struct(GoalCode,DelayCheckCode,FullGoal),
-        %%writeln(2,'9999freevars_in_naf_struct_flora' = FreeVars),
+        %%writeln('9999freevars_in_naf_struct_flora' = FreeVars),
 	pure_naf_struct_flora(FullGoal,FreeVars,PureNAFcode),
 	%% delay default negation
 	delay_naf_struct(PureNAFcode,DelayCode),
@@ -5129,8 +5129,8 @@ compile_latent_query(DescrIdCode,MetaFactDiffList,DescrVarsTerm,Body,Mode,Latent
 
             %% Creattes code for .ergo_aux_files/myorog.pl that loads signatures
             %% that belong to ccompiiled (static) LATENT rules.
-            %% Dynamic rules code carries the rule signature in itself and'
-            %% those rules are inserted by calling FLLIBINSQUERYSIG/7 defined in
+            %% Dynamic rules code carries the rule signature in itself and
+            %% those rules are inserted by FLLIBINSQUERYSIG/7 in
             %% syslib/flrdynrule.P.
 	    %% Note: we do not add delay-checker code
             %% FLORA_DELAY_CHECKER in queries`,
@@ -5276,6 +5276,7 @@ compile_descriptor_list(DescriptorList-RuleIdx,Mode,DescrIdCode,DescrVarsTermOut
 	    collect_flvars(FlatDescrList,DescrVars),
 	    compile_var_list(DescrVars,DescrVarsCode),
 	    length(DescrVarsCode,VarListLen),
+
 	    %% construct the term containing all the vars in the descriptor
             %% Do not use prolog liblit here - use prolog term.
             %% Liblits may get usermod: attached to the literals, which may cause
@@ -7656,8 +7657,11 @@ get_udf_hilog_predicate_prfunct(Funct):-
 compile_delayquant(+Quant,+Condition,+Goal,+Index,-SpecCode,-BodyFrontList,-Status)
 ****************************************************************************/
 compile_delayquant(Quant,ConditionWS,Goal,Index,SpecCode,BodyFrontList,Status):-
+        writeln(qqqq00=Quant),
 	collect_flvar_names(ConditionWS,CondVarNames),
 	collect_flvar_names(Goal,GoalVarNames),
+        writeln(qqqq=Goal+GoalVarNames),
+        writeln(qqqw=ConditionWS+CondVarNames),
 	detach_flworkspace(ConditionWS,Condition,WS),
 	compile_body_literal_top(Condition,WS,OidCode,WSCode,BodyFrontList,S1),
 	%% generaly we should use strong conjunction for OidCode+WSCode
@@ -7666,6 +7670,7 @@ compile_delayquant(Quant,ConditionWS,Goal,Index,SpecCode,BodyFrontList,Status):-
 	%% Here using strong_conjunct_struct/2 for delay conditions is probably
 	%% an overkill, but there is no performance penalty.
 	strong_conjunct_struct(OidCode,WSCode,ConditionCode),
+        writeln(aaaa=CondVarNames+GoalVarNames),
 	(subset(CondVarNames,GoalVarNames) ->
 	    ( no_errors_found(S1) ->
 		compile_body(Goal,GoalCode,Stat2),
@@ -11507,7 +11512,6 @@ compile_dynrule(Op,R,RCode,Status) :-
 	; DescrMode = FL_DESCRMODE_DYNRULE
 	),
 	compile_descriptor_list(DescriptorList-RuleIdx,DescrMode,DescrIdCode,DescrVarsTerm,MetaFactDiffList,DescriptorStatus),
-        %%writeln(2,wwww=DescrVarsTerm+DescrIdCode+DescriptorStatus),
         !,
 	( no_errors_found(DescriptorStatus) -> 
 	    (is_fllatent_query(Body,RealBody) ->
@@ -11568,6 +11572,7 @@ compile_dyn_latent_query(Op,DescrIdCode,MetaFactDiffList,Body,LatentQuerySigCode
                                    LatentQuerySigCode)
 	    ; 
                 %% The following is done only for latent queries
+		list_struct([],[],EmptyListCode), %% empty list
                 HVL = EmptyListCode,
 
                 %% DYNAMIC LATENT query signture; use
