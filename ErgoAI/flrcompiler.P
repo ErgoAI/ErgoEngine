@@ -3359,6 +3359,7 @@ check_udf_vars_for_safety(Function,Predicate,ReturnValue,Status) :-
         singleton_flvars(SortedVars,SingletonVars),
         SingletonWarnHead = Status,
         singleton_warning(SingletonVars,SingletonWarnHead,SingletonWarnTail),
+        subtract_vars(FuncVars,PredVars,UnsafeVars),
         %% Don't issue the unsafe var warning for facts
         %% Ie, in that case we just skip the unsafety check
 	%% (facts can be defined using function definition)
@@ -5123,9 +5124,10 @@ compile_latent_query(DescrIdCode,MetaFactDiffList,DescrVarsTerm,Body,Mode,Latent
 
             %% Make attr var infrastructure for Descriptor
             get_descr_flvar_purified(DescrVarsTerm,DescrFLVars),
-            flvar_list_to_PRNamedVarPairs(DescrFLVars,DescrVL,true),
+            %%  _DescrVL, _HVL not used currently
+            flvar_list_to_PRNamedVarPairs(DescrFLVars,_DescrVL,true),
             list_struct([],[],EmptyListCode), %% empty list
-            HVL = EmptyListCode,
+            _HVL = EmptyListCode,
 
             %% Creattes code for .ergo_aux_files/myorog.pl that loads signatures
             %% that belong to ccompiiled (static) LATENT rules.
@@ -6523,7 +6525,7 @@ compile_head([ParserTerm|ParserTermList],Code,H2BCodeFront,H2BCodeBack,Status) :
 		H2BCodeBack = [PH2BCodeBack|PLH2BCodeBack],
 		append(S,S2,Status)
             ;
-		Status=Stat2
+		Status=S2
 	    )
 	;
             Status=S
@@ -6559,7 +6561,7 @@ compile_body(ParserTerm,Code,Status) :-
 	    ( no_errors_found(S2) ->
 		conjunct_struct(LCode,RCode,Code),
 		append(S,S2,Status)
-	    ; Status=Stat2
+	    ; Status=S2
 	    )
 	;
             Status=S
@@ -6574,7 +6576,7 @@ compile_body(ParserTerm,Code,Status) :-
 	    ( no_errors_found(S2) ->
 		disjunct_struct(LCode,RCode,Code),
 		append(S,S2,Status)
-	    ; Status=Stat2)
+	    ; Status=S2)
 	;
             Status=S
         ).
@@ -6662,7 +6664,7 @@ compile_body(ParserTerm,Code,Status) :-
                 rename_prvariables(QuantVarNames,NEWQUANTIFIEDVAR,
                                    (PRVarsCode,FreeVarListObj,FormCode),
                                    %% RenamedFreeVarListObj - unused! Undetected singleton var (by XSB!) check
-                                   (RenamedPRVarsCode,RenamedFreeVarListObj,RenamedFormCode),
+                                   (RenamedPRVarsCode,_RenamedFreeVarListObj,RenamedFormCode),
                                    RenamedQuantVars),
                 append(StatVarsCode,Stat4,Status)
 	    )
@@ -6670,7 +6672,7 @@ compile_body(ParserTerm,Code,Status) :-
 	),
         list_struct(FreeVarObjs,[],FreeVarListObj),
         %%writeln(2,'999quantnames_freevarlistobj1'=QuantVarNames+FreeVarListObj),
-        %%writeln(2,'999renamed_quantnames_freevarlistobj1'=RenamedQuantVars+RenamedFreeVarListObj),
+        %%writeln(2,'999renamed_quantnames_freevarlistobj1'=RenamedQuantVars+_RenamedFreeVarListObj),
 	!,
 	( no_errors_found(Status) ->
 	    %% Create code for compiled quantification.
@@ -6792,7 +6794,7 @@ compile_ifthen(Cond,Then,Code,Status) :-
 		true
 	    )
 	;
-            Status=Stat1
+            Status=S1
 	).
 
 /****************************************************************************
@@ -6814,7 +6816,7 @@ compile_univeqform(Left,Right,Code,Status) :-
 		true
 	    )
 	;
-            Status=Stat1
+            Status=S1
 	),
         clear_context(CONTEXT_COMPILER_UNIVEQFORM),
         pop_context(CONTEXT_COMPILER_GOAL_REIFICATION).
@@ -6855,7 +6857,7 @@ compile_metauniv(Left,Right,OidCode,Code,Status) :-
 	    ; true
 	    )
 	;
-	    Status=Stat1
+	    Status=S1
 	),
         clear_context(CONTEXT_COMPILING_METAUNIV).
 
@@ -6883,7 +6885,7 @@ compile_prologifthen(Left,Right,Code,Status) :-
                 true
             )
         ;
-            Status=Stat1
+            Status=S1
         ),
         %%pop_context(CONTEXT_COMPILER_GOAL_REIFICATION),
         true.
@@ -7657,11 +7659,8 @@ get_udf_hilog_predicate_prfunct(Funct):-
 compile_delayquant(+Quant,+Condition,+Goal,+Index,-SpecCode,-BodyFrontList,-Status)
 ****************************************************************************/
 compile_delayquant(Quant,ConditionWS,Goal,Index,SpecCode,BodyFrontList,Status):-
-        writeln(qqqq00=Quant),
 	collect_flvar_names(ConditionWS,CondVarNames),
 	collect_flvar_names(Goal,GoalVarNames),
-        writeln(qqqq=Goal+GoalVarNames),
-        writeln(qqqw=ConditionWS+CondVarNames),
 	detach_flworkspace(ConditionWS,Condition,WS),
 	compile_body_literal_top(Condition,WS,OidCode,WSCode,BodyFrontList,S1),
 	%% generaly we should use strong conjunction for OidCode+WSCode
@@ -7670,7 +7669,6 @@ compile_delayquant(Quant,ConditionWS,Goal,Index,SpecCode,BodyFrontList,Status):-
 	%% Here using strong_conjunct_struct/2 for delay conditions is probably
 	%% an overkill, but there is no performance penalty.
 	strong_conjunct_struct(OidCode,WSCode,ConditionCode),
-        writeln(aaaa=CondVarNames+GoalVarNames),
 	(subset(CondVarNames,GoalVarNames) ->
 	    ( no_errors_found(S1) ->
 		compile_body(Goal,GoalCode,Stat2),
@@ -7968,8 +7966,7 @@ compile_floraliblit(ParserTerm,WS,OidCode,Code,BodyFrontList,Status) :-
 	report_option(FLSYSMOD(WSName),Index),
 	atomobj_struct(WSName,Index,WSNameCode),
 	floralib_struct(WSNameCode,WSCode),
-	compile_body_literal_top(ParserTerm,WSCode,OidCode,Code,
-				 BodyFrontList,Status).
+	compile_body_literal_top(ParserTerm,WSCode,OidCode,Code, BodyFrontList,Status).
 
 
 /****************************************************************************
@@ -9342,7 +9339,7 @@ compile_body_specbody(Object,SpecTerm,WS,OidCode,Code,BodyFrontList,Status) :-
 	; Stat1 = NO_ERRORS
 	),
 
-	compile_body_specbody(Object,Formula,WS,OidCode,FormCode,BodyFrontList,S2),
+	compile_body_specbody(Object,Formula,WS,OidCode,FormCode,BodyFrontList,Stat2),
         !,
 	(Stat1==NO_ERRORS -> Stat3=Stat2
 	; Stat3 = [Err1|Stat2]
@@ -10332,7 +10329,7 @@ compile_head_pathexplist([T|L],WS,[TObj|LObj],Code,H2BCodeFront,H2BCodeBack,Stat
 		conjunct_struct(TH2BCodeBack,LH2BCodeBack,H2BCodeBack),
 		append(S,S2,Status)
 	    ;
-		Status=Stat2
+		Status=S2
 	    )
 	;
             Status=S
@@ -11407,7 +11404,7 @@ compile_delete_litlist([HWS|T],CodeList,Status) :-
 		; CodeList = [HWSCode|TCodeList]
 		),
 		append(S,S2,Status)
-	    ; Status=Stat2
+	    ; Status=S2
 	    )
 	;
             Status=S
@@ -11884,7 +11881,7 @@ compile_execdirect_list([D|L],WS,[DCode|LCode],Status) :-
 	compile_execdirect(D,WS,DCode,Stat1),
 	( no_errors_found(Stat1) -> 
 	    compile_execdirect_list(L,WS,LCode,Status)
-	; Status = S1
+	; Status = Stat1
 	).
 
 
@@ -12085,7 +12082,7 @@ compile_datatype_list([H|Tail],[HCode|TailCode],Status) :-
 	( no_errors_found(S1) -> 
 	   compile_datatype_list(Tail,TailCode,Status)
 	;
-	    Status=Stat1
+	    Status=S1
 	),
 	!.
 
@@ -12202,7 +12199,7 @@ delay_literals_checking_code(Head,_Body,_H2BCodeFront,_H2BCodeBack,_DescrVarsTer
 	%% should not add delay-checker to sensor rules
 	is_defined_as_sensor(Head),
 	!.
-delay_literals_checking_code(Head,Body,H2BCodeFront,H2BCodeBack,DescrVarsTerm,Code) :-
+delay_literals_checking_code(Head,Body,_H2BCodeFront,_H2BCodeBack,DescrVarsTerm,Code) :-
 	collect_flvars(Head,HeadVars1),
 	collect_flvars(Body,BodyVars1),
 	%% DescrVarsTerm is a pr-list of this form
