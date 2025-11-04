@@ -2445,17 +2445,29 @@ decode_meta_commalist((H,T),Code) :-
         !,
         flrdescriptor_support:extract_data_from_meta_call(H,Data),
         decode_meta_commalist(T,TailCode),
+        %% Deal with
+        %%   FL_PROP_DESCRIPTOR_META_PREDICATE(6,
+        %%   [DescrIdCode,FileName,Module,Prop,Val,DescrVarsTerm])
         (Data = (prop,_,Prop,Val) ->
             decode_literal_internal(Val,ValCode,0,1),
             (TailCode == [] -> Code = [Prop,'->',ValCode]
             ; Code = [Prop,'->',ValCode,','|TailCode]
             )
+         %% Deal with
+         %% FL_BOOL_DESCRIPTOR_META_PREDICATE(5,
+         %%    [DescrIdCode,FileName,Module,DescrContentsCode,DescrVarsTerm])
         ; Data = (bool,_,BoolProp) ->
             decode_literal_internal(BoolProp,BoolCode,0,1),
             (TailCode == [] -> Code = [BoolCode]
             ; Code = [BoolProp,','|TailCode]
             )
+        ; Data = (tag,_,TagProp) ->
+            decode_literal_internal(TagProp,TagCode,0,1),
+            (TailCode == [] -> Code = [TagCode]
+            ; Code = [TagProp,','|TailCode]
+            )
         ; Data = NULL -> Code = TailCode
+        %%; Code = TailCode
         ).
 decode_meta_commalist(H,Code) :-
         flrdescriptor_support:extract_data_from_meta_call(H,Data),
@@ -2465,6 +2477,9 @@ decode_meta_commalist(H,Code) :-
         ; Data = (bool,_,BoolProp) ->
             decode_literal_internal(BoolProp,BoolCode,0,1),
             Code = [BoolCode]
+        ; Data = (tag,_,TagProp) ->
+            decode_literal_internal(TagProp,TagCode,0,1),
+            Code = [TagCode]
         ; Data = NULL -> Code = []
         ).
 
