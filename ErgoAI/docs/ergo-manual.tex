@@ -20557,7 +20557,6 @@ Also note that the explicit compiler directives
 placed at the top of a file override any prior
 \texttt{production\{on\}/production\{off\}} commands. 
  
-
 \section{Useful XSB Predicates Without a Counterpart in \FLSYSTEM}
 \label{sec-useful-XSB-preds}
 
@@ -20884,45 +20883,65 @@ The following syntactic constructs are available only in the expert mode:
 \end{itemize}
 %% 
 
-\section{Disabling Advanced Features}\label{sec=disablefeature}
+\section{Enabling and Disabling of  Advanced Features}\label{sec=disablefeature}
 
-In some cases, the advanced features related to evaluation delay of
-subgoals or to user-defined equality may need to be disabled.
-The features that can be controlled are
+In other sections  of this manual we described the various advanced
+features of \ERGO, which make Ergo more logical and 
+useful. At the same time, the added usability may affect the performance
+and one may prefer to turn some or all of these features off.
+These features are:
 %% 
 \begin{itemize}
 \item \texttt{naf\_delay} --  disabling this makes \texttt{\RULELOGNAF}
   execute immediately, without delaying --- even for nonground subgoals. 
+  This makes \texttt{\RULELOGNAF} faster, but less logical.
 \item \texttt{defeat\_delay} -- disabling this makes testing for whether
   rules are  defeated immediate, even for non-ground such tests.
-\item \texttt{subgoal\_delay} -- disabling this makes all delayable
-  builtins execute immediately. Also ignores delay quantifiers.
+  This makes defeasible reasoning faster, but ``less correct''
+  in some edge cases.
+\item \texttt{subgoal\_delay}: support for the delay quantifiers
+  \texttt{must} and \texttt{wish} as well as the delayable builtins like
+  \texttt{isinteger/2}, \texttt{isvar/2}, and \texttt{!=}.
+\item \texttt{attr\_vars} (attributed variables): enables the use of
+  \emph{attributed  variables}  to delay computation. Disabling this also
+  disables the above three features and some others, like CLPR-style
+  constraint solving introduced in Section~\ref{sec-clp}.
 \end{itemize}
-%% 
-The following calls disable these features
+%%
+All these features are enabled by default.
+Disabling \texttt{attr\_vars} also automatically disables 
+\texttt{naf\_delay}, \texttt{defeat\_delay}, and \texttt{subgoal\_delay}.
+Moreover, if one needs to enable any  of the above three ``delay'' features,
+\texttt{attr\_vars} must be enabled first.
+The primitives for turning the above features on or off are:
 %% 
 \begin{itemize}
-\item  \texttt{disablefeature\{attr\_vars\}}  
-\item  \texttt{disablefeature\{naf\_delay\}}  
-\item  \texttt{disablefeature\{defeat\_delay\}}  
+\item  \texttt{enablefeature\{} \emph{feature} \texttt{\}}   
+\item  \texttt{disablefeature\{} \emph{feature} \texttt{\}}   
+\item \texttt{featureenabled\{}  \emph{feature-or-var} \texttt{\}}  
 \end{itemize}
 %% 
-and the following re-enable them:
+Where \emph{feature}   is one of the above listed terms.
 %% 
-\begin{itemize}
-\item  \texttt{enablefeature\{attr\_vars\}}  
-\item  \texttt{enablefeature\{naf\_delay\}}  
-\item  \texttt{enablefeature\{defeat\_delay\}}  
-\end{itemize}
-%% 
-All these features are enabled by default. For example,
-%% 
+For example,
+%%
 \begin{verbatim}
  ....  :-  ....,                       // \naf is delayed here
            disablefeature{naf_delay},
            ....                        // \naf is not delayed here
            enablefeature{naf_delay},
            .....                      // here \naf is delayed again
+
+?- featureenabled{?X}.
+
+?X = attr_vars
+?X = defeat_delay
+?X = naf_delay
+?X = subgoal_delay
+
+?- featureenabled{naf_delay}.
+
+Yes
 \end{verbatim}
 %% 
 

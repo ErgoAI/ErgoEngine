@@ -5565,40 +5565,63 @@ flora_retractall_substitute(X) :- (retract(X), fail ; true).
 
 ergo_feature_enabled(attr_vars) :- \+flora_attributed_vars_disabled.
 ergo_feature_enabled(naf_delay) :-
+        ergo_feature_enabled(attr_vars),
         flrdelaysupport:feature_enabled(naf_delay).
 ergo_feature_enabled(defeat_delay) :-
+        ergo_feature_enabled(attr_vars),
         flrdelaysupport:feature_enabled(defeat_delay).
+ergo_feature_enabled(subgoal_delay) :-
+        ergo_feature_enabled(attr_vars),
+        flrdelaysupport:feature_enabled(subgoal_delay).
 ergo_feature_enabled(java) :- \+JAVA_IS_DISABLED.
 
+check_enablable_feature(Feature) :-
+        (member(Feature, [naf_delay,defeat_delay,subgoal_delay])
+        ->
+            (ergo_feature_enabled(attr_vars) -> true
+            ;
+                flora_abort(['cannot enable the feature ',
+                             Feature,
+                             '. You must enable attr_vars first' ],
+                            FLORA_ABORT_NOTRACE)
+            )
+        ; flora_warning_line([Feature,': invalid feature code. Must be defeat_delay, naf_delay, or subgoal_delay'])
+        ).
 
 ergo_enable_feature(E) :-
         abolish_all_tables,
         \+ground(E),
-        flora_warning_line('must specify the feature to enable (attr_vars, defeat_delay, naf_delay, java)'),
+        flora_warning_line('must specify the feature to enable (attr_vars, defeat_delay, naf_delay, subgoal_delay, or java)'),
         !.
 ergo_disable_feature(E) :-
         abolish_all_tables,
         \+ground(E),
-        flora_warning_line('must specify an experiment to disable (attr_vars, defeat_delay, naf_delay, java)'),
+        flora_warning_line('must specify a feature to disable (attr_vars, defeat_delay, naf_delay, subgoal_delay, or java)'),
         !.
 
 ergo_enable_feature(naf_delay) :-
+        check_enablable_feature(naf_delay),
         flrdelaysupport:enable_feature(naf_delay).
 ergo_disable_feature(naf_delay) :-
         flrdelaysupport:disable_feature(naf_delay).
 ergo_enable_feature(defeat_delay) :-
+        check_enablable_feature(defeat_delay),
         flrdelaysupport:enable_feature(defeat_delay).
 ergo_disable_feature(defeat_delay) :-
         flrdelaysupport:disable_feature(defeat_delay).
 ergo_enable_feature(subgoal_delay) :-
+        check_enablable_feature(subgoal_delay),
         flrdelaysupport:enable_feature(subgoal_delay).
 ergo_disable_feature(subgoal_delay) :-
         flrdelaysupport:disable_feature(subgoal_delay).
 %% the below are not announced in the manual for now (security by obscurity)
 ergo_enable_feature(java) :- assert(JAVA_IS_DISABLED).
 ergo_disable_feature(java) :- retractall(JAVA_IS_DISABLED).
-ergo_enable_feature(attr_vars)  :- flrwhen:flora_enable_attributed_variables.
-ergo_disable_feature(attr_vars) :- flrwhen:flora_disable_attributed_variables.
+ergo_enable_feature(attr_vars)  :-
+        flrwhen:flora_enable_attributed_variables.
+ergo_disable_feature(attr_vars) :-
+        flora_message_line('note: naf_delay, subgoal_delaya, and naf_delay are being disabled'),
+        flrwhen:flora_disable_attributed_variables.
 
 
 /*********************************************************************

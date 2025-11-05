@@ -293,7 +293,7 @@
         %%flora_stdmsg_flush/0,
 	
 	flora_send_abnormality_ctl_chars/1,
-	%%flora_message_line/1,
+	flora_message_line/1,
 	%%flora_message_line_noheader/1,
 	%%flora_message_line_noheader/2,
         flora_stdfdbk_nl/0,
