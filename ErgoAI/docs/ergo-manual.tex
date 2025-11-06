@@ -13517,7 +13517,7 @@ at compile or load time.
 \emph{Latent queries} are a cross between queries and rules. From queries  
 they borrow the main purpose: to query the knowledge base. From rules
 they borrow the ability to use descriptors (so, latent queries have Ids and,
-possibly, other meta-data) and the fact that such queries are not
+possibly, other meta-data) and the property that such queries are not
 executed immediately. Instead, they are saved to be called on-demand some
 other time. Like rules, latent queries can also be inserted, deleted,
 enabled, disabled, and queries.
@@ -13541,13 +13541,17 @@ A latent query has the following form:
    \textnormal{\em descriptor}  !- \textnormal{\emph{query-body}}.
 \end{alltt}
 %% 
-The descriptor part is mandatory and has the same form as the rule descriptors
-introduced in Section~\ref{sec-rule-id}.
-The \emph{query-body} part is the same as the body of a query. Thus, from
-regular queries the latent queries differ in that they have descriptors and
-they use \texttt{!-} instead of \texttt{?-}. From rules, this new type of
-queries differs in that they have no heads and use \texttt{!-} instead of
-\texttt{:-}.
+The descriptor part is mandatory and has the same form as the rule
+descriptors introduced in Section~\ref{sec-rule-id}.  The \emph{query-body}
+part is the same as the body of a query. Thus, from regular queries the
+latent queries differ in that they have descriptors and they use
+\texttt{!-} instead of \texttt{?-}. From rules, this new type of queries
+differs in that they have no heads and use \texttt{!-} instead of
+\texttt{:-}.  So, even though latent queries have rule descriptors, the
+absence of the rule heads makes the concept of defeasibility inapplicable
+and likely even meaningless for such queries.\footnote{ However, as
+  mentioned, latent queries can be disabled and then re-enabled.}
+Defeasibility is discussed in Section~\ref{sec-defeasible}.
 
 \index{query\{...\} primitive}
 \index{primitive!query\{...\}}
@@ -13585,8 +13589,10 @@ The following two forms are equivalent:
 %% 
 However, the above will work only if \texttt{query\{...\}} is invoked from
 the same file as the one where the corresponding latent query is defined
-because \texttt{\bs{}@F} is specific to a file and \texttt{\bs{}@} is
-specific to a module.
+because the interpretation of \texttt{\bs{}@F} depends on the file name where
+this quasi-constants appears and \texttt{\bs{}@} is
+interpreted with respect to the module in which that quasi-constants
+eventually gets loaded.
 If the latent query is called from
 \emph{another} file or from \FLSYSTEM shell (command line) then \texttt{\bs{}@F}
 cannot be used (and thus the 1-argument version of \texttt{query\{...\}}
