@@ -1751,7 +1751,10 @@ ignore_workspace_literal(Lit) :-
         ).
 
 is_term_struct(CANOTERM(Funct,N,FL_PARENTHESIS,Args,_If,_Ip),Funct,N,Args) :-
-        flobject_struct(Funct,_).
+        nonvar(Funct),
+        (flobject_struct(Funct,_) -> true
+        ; is_term_struct(Funct,_,_,_)
+        ).
 
 flifthenelse_struct(Cond,Then,Else,FLIFTHENELSE(Cond,Then,Else)).
 flifthen_struct(Cond,Then,FLIFTHEN(Cond,Then)).
