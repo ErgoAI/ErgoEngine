@@ -3017,7 +3017,7 @@ remove_nonuser_flvars([H|T],[H|Out]) :-
 collect_name_var_pairs(ParserTerm,QueryVars,RemoveDuplicates) :-
 	collect_flvars(ParserTerm,NameVs),
         %% Sorting is not good here, since at this point it'll cause each variable
-        %% look like a singleton.
+        %% looks like a singleton.
         %% Parsort keeps the duplicates.
 	machine:parsort(NameVs,asc,0,SortedNameVs),
 	%% sort(NameVs,SortedNameVs),
@@ -3118,6 +3118,7 @@ flvar_list_to_PRNamedVarPairs(FLVars,TransporterVar,RemoveDuplicates) :-
 ****************************************************************************/
 singleton_flvars([],[]) :- !.
 
+%% annon vars _ ae considered all different vars, ie, singletons
 singleton_flvars([V|L],[V|Vs]) :-
 	is_any_flvar(V,FL_ANON_VAR,_I),
 	!,
@@ -3231,6 +3232,7 @@ check_rule_vars_for_safety(DescrVarsTerm,HeadTermList,BodyTerm,Status) :-
 	collect_flvars(BodyTerm,BodyVars,ProtectedVars),
 	append(HeadVars,BodyVars,HBVars),
         get_descr_flvar_purified(DescrVarsTerm,DescrFLVars),
+        append(DescrFLVars,HBVars,DescrHBVars),
 
 	%% singleton_flvars relies on sorting to eliminate duplicates
 	%% Using parsort/4 does NOT eliminate duplicates so that singletons
@@ -3241,6 +3243,7 @@ check_rule_vars_for_safety(DescrVarsTerm,HeadTermList,BodyTerm,Status) :-
 	%% problem with sort/2 is that it would erroneously report singletons
 	%% in a template like this:  \(if ?X is a boy then ?X plays ball\).
 	machine:parsort(HBVars,asc,0,SortedHBVars),
+	machine:parsort(DescrHBVars,asc,0,SortedDescrHBVars),
         %% grouping vars in rule head are ok
         Status = ProtectedVarWarnHead,
 	protected_vars_warning(BodyVars,ProtectedVars,
@@ -3249,7 +3252,7 @@ check_rule_vars_for_safety(DescrVarsTerm,HeadTermList,BodyTerm,Status) :-
 
         SingletonVarWarnHead = ProtectedVarWarnTail,
         %% Note: singleton_flvars needsarg1 to be sorted
-        singleton_flvars(SortedHBVars,SingletonVars),
+        singleton_flvars(SortedDescrHBVars,SingletonVars),
         (SingletonVars  \= [] ->
             singleton_warning(SingletonVars,SingletonVarWarnHead,SingletonVarWarnTail)
         ; SingletonVarWarnTail = SingletonVarWarnHead
@@ -3328,7 +3331,7 @@ protected_vars_warning(Vars,ProtectedVars,WarnHead,WarnTail) :-
 	WarnHead = [Warn|WarnTail].
 protected_vars_warning(_,_,WarnList,WarnList).
 
-%% used in the Ergo parser
+%% used in the ErgoText parser
 flora_singleton_warnings(Formula,Warnings) :-
 	collect_flvars(Formula,Varlist),
 	sort(Varlist,SortedVars),
