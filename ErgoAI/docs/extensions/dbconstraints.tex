@@ -12,15 +12,16 @@ knowledge base. We have seen two examples of integrity constraints in
 \FLSYSTEM: type constraints and cardinality constraints. These particular
 constraints are dealt with in greater detail in
 Sections~\ref{sec-typechecking} and \ref{sec-cardinality}, but those
-sections deal with
+sections concern themselves with
 \emph{type-checking}, i.e., with verifying that the knowledge base
-satisfies  typing and cardinality constraints and with finding out what violates
-them. The primitives described in those sections must be invoked by
+satisfies  typing and cardinality constraints and with finding out what
+causes their violation.
+The primitives described in those sections must be invoked by
 the user \emph{explicitly} each time a type-check is desired and then the
 knowledge base must be repaired manually.
 In this section, however, we are concerned with \emph{automatic} maintenance of
-constraints: timely warning the user when a violation occurs in the cause of an
-update transaction and, if possible, rolling back the violating
+constraints: i.e., generating timely warnings for the user when a violation occurs in the cause of an
+update transaction and, if possible, rolling back the changes made by the violating
 transaction. The primitives introduced in this section can be used in
 tandem with Sections~\ref{sec-typechecking} and \ref{sec-cardinality}
 to enable automatic maintenance of typing and cardinality constraints.
@@ -36,7 +37,8 @@ integrity violation.
 (Yes, normally people think of constraints as something that \emph{must}
 always be true, not as something that must always be false, but
 constraints-as-false-statements---i.e., requiring that something must \emph{not}
-happen---are more useful, since this produces the culprits
+happen---are more useful, since such queries allow us to find the
+``culprits''
 responsible for constraint violation.)
 
 To define an integrity constraint, one must first define a suitable 
@@ -65,20 +67,20 @@ If automatic maintenance of this constraint is what we want, the second step
 is to tell \ERGO about this want by executing this command:
 %% 
 \begin{verbatim}
-   ?-  +constraint{COI(?,?)}.  // activate constraint
+   ?-  +constraint{COI(?,?)}.  // activate the COI constraint
 \end{verbatim}
 %% 
-The plus sign says that we want to \emph{activate} the aforesaid query as an
+The plus sign says that we would like to \emph{activate} the aforesaid query as an
 integrity constraint; the minus sign is used when we want to
 \emph{deactivate}  a constraint:
 \index{constraint\{...\}!deleting}
 %% 
 \begin{verbatim}
-   ?-  -constraint{COI(?,?)}.  // deactivate constraint
+   ?-  -constraint{COI(?,?)}.  // deactivate the COI constraint
 \end{verbatim}
 %% 
 The first argument of \texttt{constraint\{...\}} must be a HiLog predicate
-or a frame. It can also be \texttt{\bs{}neg} of a predicate or a frame, but
+or a frame. It can also be a \texttt{\bs{}neg} of a predicate or a frame, but
 it cannot be a \texttt{\bs{}naf}, conjunction, disjunction, or any kind of
 more complex subgoals.
 
@@ -102,12 +104,13 @@ In this case, the violation existed prior to the moment the constraint was
 activated, so there is little one can do automatically. Although a number of
 theoretical
 approaches to resolving such situations exist, their practical value is
-questionable.  The practical approach offered by \ERGO is to use Studio and
+often questionable.  The practical approach offered by \ERGO is to use a separate
+Studio environment endowed with support for explanations and then 
 ask for an explanation for each of the instances of the query that
 indicates a violation. Then one can decide what to do (perhaps the
-fact that John consults for Acme was supposed to be, but was not,
-deleted once he was hired by Acme as an employee).
-If, on the other hand, it is \emph{known} how to resolve
+fact that John consults for Acme was supposed to be
+deleted right after he was hired by Acme as an employee).
+If, on the other hand, it is \emph{known} how to resolve the violation of
 a particular constraint automatically then constraints with callbacks
 (described later) might be the way to go.
 Another way to resolve constraints automatically is to \emph{always} use
@@ -124,13 +127,14 @@ but not any fact of the form \texttt{salary(Bob,GroupLTD,...)}, i.e.,
    ?-  +constraint{COI(?,?)}.
 \end{verbatim}
 %% 
-Suppose that next we execute the transaction
+Suppose that next we execute the transaction that uses onlly backtrackable
+inserts and deletes:
 %% 
 \begin{verbatim}
    ?- tinsert{salary(Bob,GroupLTD,200000)}.
 \end{verbatim}
 %% 
-If this insertion is to be performed, the knowledge base would get a
+If this insertion is performed, the knowledge base would get a
 constraint violation
 and so the following warning is going to be issued:
 %% 
@@ -152,8 +156,8 @@ This magic happened because we used \emph{transactional} insertion,
 Section~\ref{sec-trans-updates} for the details.
 If we used  a \emph{non}-transactional insertion, such as 
 \texttt{insert\{salary(Bob,GroupLTD,100000)\}}, then the above warning would
-also appear, but the insertion would stick and the user would
-have to resolve the issue manually afterwards.
+also appear, but the insertion would remain in the database  and the user would
+need to remove the leftover garbage manually afterwards.
 
 If a constraint is no longer needed, it can be deactivated:
 %% 

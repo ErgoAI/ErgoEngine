@@ -9337,7 +9337,7 @@ The following simple example defines \texttt{father/1} as a function.
     father(john,sam).
 \end{alltt}
 %%
-
+\noindent
 So, instead of writing \texttt{father(John,?y)}  and then using \texttt{?y}
 one can simply write \texttt{father(?John)}:  
 %%
@@ -9371,7 +9371,7 @@ will output
 \paragraph{Mutual recursion in UDF definitions.}
 It was mentioned that any UDF that occur in a definition of another UDF
 must be defined previously. However, this does not mean that mutually
-recursive UDFs cannot be defined: one should just exercise care.
+recursive UDFs cannot be defined---one should just exercise some care.
 
 First, we should make it clear that recursive UDFs by themselves do not
 pose problems and can be used freely.  For example, in
@@ -9415,12 +9415,25 @@ able to handle \texttt{foo} correctly in the second clause despite the fact
 that \texttt{foo} has not been fully defined yet at that point. 
 
 \paragraph{UDFs and modules.}
-A UDF definition is a purely compile-time directive. It has an effect from
+Like many things in \ERGO, the scope of any  UDF definition is limited to
+the module into which the file containing that definition gets loaded or
+added. However, because UDFs are implemented as program transformations
+done at compile time, that scope further depends on when any particular UDF
+gets compiled, which happens when the corresponding file gets loaded or
+added to the module for the \emph{first} time. 
+Therefore, a UDF  has an effect from
 the moment the function is defined till the end of the file (which extends to
 all the files included using the \texttt{\#include} preprocessor
-directive). This implies that UDFs that occur inside calls to other \FLSYSTEM
-modules are subject to the directives of the module where the functions
-occur, not in the module that is being called. For instance, consider
+directive).
+This scope can be extended to the files added to the module in question 
+later provided those files have the appropriate \texttt{useudf} directives
+(Section \ref{sec-udf-multifile}). 
+
+The definition of a UDF may include references to other modules, which, in
+turn, may have their own UDF definitions, possibly even with the same names.
+It should be clear that the uses of the UDFs in those called modules are subject to the UDF
+definitions that occur in the called modules, not in the caller modules.
+For instance, consider
 %%
 \begin{alltt}
     \bs{}udf func1(?x) := ?y \bs{}if pred1(?x,?y).
@@ -9430,31 +9443,29 @@ occur, not in the module that is being called. For instance, consider
 %%
 Here \texttt{func1} will be compiled according to the function definition
 shown above. If the module \texttt{bar} has another definition for
-\texttt{func1}, that definition has no effect on the above occurrence of
-\texttt{func1(?x)}.   Thus, the query
+\texttt{func1}, that  other definition has no effect on the above occurrence of
+\texttt{func1(?x)} in the above snippet.   Thus, the query
 %%
 \begin{alltt}
 ?- p(c).
 \end{alltt}
 %%
 results in a call to \texttt{q(func1(c))@bar}, and since \texttt{func1(c)} is
-defined to be \texttt{a} this is tantamount to executing the query  
+defined to be ``\texttt{a}'', this is tantamount to executing the query  
 %%
 \begin{alltt}
 ?- q(a).
 \end{alltt}
 %%
-Note that, since function definitions can contain anything that constitutes
-a rule body, calls to other modules are allowed. For instance, 
+A UDF definition can reference multiple other modules as well. For instance,
 %%
 \begin{alltt}
     \bs{}udf foo(?x):=?y \bs{}if pred(?x,?y)@bar, pred(?x,?y,?z)@moo, q(?z).
 \end{alltt}
 %%
-
-\paragraph{UDFs and updates.}
-At present, only non-transactional UDFs are supported. If a UDF definition
-contains an update then a runtime error will result. For instance, if a UDF
+At present, UDF definitions that involve update operations or predicates and methods
+that begin with a ``\%'' are not  supported. If a UDF definition
+depends on an update operation then a runtime error will result. For instance, if a UDF
 \texttt{foo(...)} has such a definition then the following error will
 likely occur at runtime: 
 %% 
@@ -9588,6 +9599,7 @@ by the first UDF definition, so the query becomes
 Finally, the query rewrites to \texttt{q(d)}, by the third UDF, and succeeds. 
 
 \subsection{User-defined Functions and Multifile Modules}
+\label{sec-udf-multifile}
 
 Recall from Section~\ref{sec-loading-mods} that sets of rules can be added to 
 an already loaded module using the \texttt{add}\{\emph{file}\}
@@ -14202,8 +14214,8 @@ changing the treatment of the untagged rules to the desired default.
 \index{tag\{...\} primitive}
 \index{primitive!tag\{...\}}
 %%
-Sometimes it is useful to be able to query the rule base based on rule
-tags and heads. Such queries can be issued
+Sometimes it is useful to be able to query rulebases using the rule
+tags and rule heads as search keys. Such queries can be issued
 using the {\tt clause\{...\}} primitive. However, 
 if you do not need to query the rule bodies, a faster way is to use the
 {\tt tag\{{\it?Tag},{\it ?RulHead}\}}  primitive. For instance, if we have
@@ -17734,7 +17746,7 @@ reification \$\{...\}).  The method type of the signature can be only
 {\tt =>}, but the frames can have the \texttt{...[...]}-style or
 \texttt{...[|...|]}-style. The former checks the cardinality
 constraints of object methods, while the latter checks
-cardinality constraints only for default values of the methods.
+cardinality constraints only for the default values of the methods.
 %% 
 \begin{itemize}
 \item
