@@ -46,10 +46,12 @@
 
 %% print Java time only if significant: > 2.
 %%#define TIME_MESSAGE(WT,T,JT) (JT<2.2 -> flora_stdfdbk_string('~nTimes (in seconds): elapsed = ~w; pure CPU = ~w~n', [WT,T]) ; flora_stdfdbk_string('~nTimes (in seconds): elapsed = ~w; pure CPU = ~w; Java time = ~w~n', [WT,T,JT]))
-#define TIME_MESSAGE(WT,T,JT)  FLORA_SYMBOL('time_message')(WT,T,JT)
+
+#define TIME_MESSAGE(WT,T,JT)     FLORA_SYMBOL('time_message')(WT,T,JT)
 
 %%#define SOLUTIONS_MESSAGE(NumOfSolutions,WT,T,JT) \
 %%        (JT<2.2 -> flora_stdfdbk_string('~n~w solution(s) in ~w seconds; elapsed time = ~w~n', [NumOfSolutions,T,WT]) ; flora_stdfdbk_string('~n~w solution(s) in ~w seconds; Java time = ~w~n', [NumOfSolutions,T,JT]))
+
 #define SOLUTIONS_MESSAGE(NumOfSolutions,WT,T,JT) \
                 FLORA_SYMBOL('solutions_message')(NumOfSolutions,WT,T,JT)
 
@@ -112,6 +114,7 @@
 :- import flora_call_hooks/6 from flrhooks.
 
 :- import
+        flora_feedback_control/1,
         flora_commit_storage/0,
         flora_reclaim_storage_space/0
    from flrutils.
@@ -282,7 +285,8 @@ flora_print_all(Gs,NVs) :-
               JT is JT1-JT0,
 	      ( flora_answer_switch(chatter),
 		  \+flora_banner_control(nofeedback),
-		  flora_get_counter(flora_feedback_control,0)
+		  flora_get_counter(flora_feedback_control,0),
+                  flora_feedback_control(elapsedtime=ET), ET == show
 	      ->
 		  TIME_MESSAGE(WT,T,JT)
 	      ; true
@@ -298,7 +302,8 @@ flora_print_all(Gs,NVs) :-
             JT is JT1-JT0,
 	    ( flora_answer_switch(chatter),
 		  \+flora_banner_control(nofeedback),
-		  flora_get_counter(flora_feedback_control,0)
+		  flora_get_counter(flora_feedback_control,0),
+                  flora_feedback_control(elapsedtime=ET), ET == show
 	      ->
 		TIME_MESSAGE(WT,T,JT)
 	    ; true
@@ -372,7 +377,8 @@ flora_print_all(Gs,NVs) :-
 	( L = [] ->
 	    ( flora_answer_switch(chatter),
 		  \+flora_banner_control(nofeedback),
-		  flora_get_counter(flora_feedback_control,0)
+		  flora_get_counter(flora_feedback_control,0),
+                  flora_feedback_control(elapsedtime=ET), ET == show
 	      ->
 		TIME_MESSAGE(WT,T,JT)
 	    ;
@@ -396,7 +402,8 @@ flora_print_all(Gs,NVs) :-
 	    flora_set_display_mode(DisplMode),
 	    ( flora_answer_switch(chatter),
 		  \+flora_banner_control(nofeedback),
-		  flora_get_counter(flora_feedback_control,0)
+		  flora_get_counter(flora_feedback_control,0),
+                  flora_feedback_control(elapsedtime=ET), ET == show
 	      ->
                 SOLUTIONS_MESSAGE(NumOfSolutions,WT,T,JT)
 	    ;

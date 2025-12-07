@@ -6019,11 +6019,42 @@ flora_set_warnings_control(X) :-
 flora_chatter_control(on) :- !, flora_set_switch(chatter).
 flora_chatter_control(off) :- !, flora_clear_switch(chatter).
 
+flora_feedback_control(Flag) :-
+        var(Flag),
+        !,
+        flora_abort(['Invalid feedback control flag: ', Flag, ' Fix it!'],
+                    FLORA_ABORT_NOTRACE).
 flora_feedback_control(off) :-
         !,
         flora_set_counter(flora_verbose_feedback,0),
         flora_set_banner_control(nofeedback,1),
+        flora_set_counter(flora_elapsed_time_feedback,0),
         flora_stdfdbk_nl.
+%% this blocks/unblocks elapsed time feedback in syslib/flranswer.P
+%% If Flag is bound to 'show', set flora_elapsed_time_feedback counter
+%% to 1. Otherwise (eg, if Flag is ;noshow') thens
+%% flora_elapsed_time_feedback is set to 0. If Flag is a var then the
+%% function returns the current ssytem setting to on/off depanding on
+%% the value of the counter flora_elapsed_time_feedback.
+
+%% In Ergo programs, suppress hhe timing messages using this:
+%%      flora_feedback_control(elapsedtime=noshow)@\plg(flrutils)
+%% This is usually needed in testsuite tests.
+flora_feedback_control(elapsedtime=Flag) :-
+        (var(Flag) ->
+            flora_get_counter(flora_elapsed_time_feedback,Flag1),
+            (Flag1==1 ->Flag=show
+            ; Flag = noshow
+            )
+        ; Flag == show ->
+            flora_set_counter(flora_elapsed_time_feedback,1)
+        ; Flag == noshow ->
+            flora_set_counter(flora_elapsed_time_feedback,0)
+        ; 
+            flora_abort(['Invalid felapsedtime control flag: ', Flag, ' Fix it'],
+                        FLORA_ABORT_NOTRACE)
+        ).
+
 %% this blocks feedback just for the current goal
 flora_feedback_control(tempoff) :-
         !,
@@ -6040,6 +6071,7 @@ flora_feedback_control(on) :-
         %% current command. Then flranswer sets it to 0 & feedback is enabled.
         flora_set_counter(flora_feedback_control,1),
         flora_set_counter(flora_verbose_feedback,0),
+        flora_set_counter(flora_elapsed_time_feedback,1),
         flora_set_banner_control(nofeedback,0),
         flora_stdfdbk_nl.
 flora_feedback_control(verbose) :-

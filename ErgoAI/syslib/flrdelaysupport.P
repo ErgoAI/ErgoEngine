@@ -769,6 +769,7 @@ flora_execute_delayed_calls(InstantiatedBodyVars,HeadVars) :-
 %% scan all vars repeatedly, eliminating attributed vars,
 %% until no more attributed vars left. Execute attached triggers on the way.
 %% We make this safe for cyclic terms to avoid user surprises
+%%=======================================================
 extract_triggers_and_execute_all(BodyVars,_HeadVars) :-
 	flrground_cyc(BodyVars),
 	!.
@@ -783,10 +784,11 @@ extract_triggers_and_execute_all_aux(BodyVars,HeadVars) :-
         %% arg4 = 0 - include vars in \naf'ed literals.
         %% Here we include such vars.
 	flrterm_vars_split(BodyVars, RegularBodyVars, AttrBodyVars,0),
-        %% arg3 = 0 - include vars in \naf'ed literals.
-	flrterm_vars(HeadVars, RealHeadVars, 0),
+        %% arg3 = 0 - means include vars in \naf'ed literals.
+	%%flrterm_vars(HeadVars, RealHeadVars, 0),
 	(AttrBodyVars == [] -> true
-	; extract_triggers_and_execute(AttrBodyVars,RealHeadVars),
+	%%`; extract_triggers_and_execute(AttrBodyVars,RealHeadVars),
+	; extract_triggers_and_execute(AttrBodyVars,HeadVars),
 	    %% Note: we do need to check non-attributed RegularBodyVars because
             %% after extract_triggers_and_execute/2 on AttrBodyVars some
             %% RegularBodyVars may become attributed!
@@ -794,8 +796,9 @@ extract_triggers_and_execute_all_aux(BodyVars,HeadVars) :-
             %%DBGOUT(10000=BodyVars),
             %%DBGOUT(11111=AttrBodyVars),
             %%DBGOUT(22222=RealHeadVars),
-	    extract_triggers_and_execute(RegularBodyVars,RealHeadVars)
+	    extract_triggers_and_execute_all_aux(RegularBodyVars,HeadVars)
 	).
+%%=======================================================
 
 extract_triggers_and_execute([],_HeadVars) :- !.
 extract_triggers_and_execute([Var|RestBodyVars],HeadVars) :-
