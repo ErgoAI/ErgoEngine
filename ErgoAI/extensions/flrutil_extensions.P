@@ -90,6 +90,14 @@ flora_load_ergotext_template(TemplateName,Module) :-
 %% input then just returns the compiled template file name. Otherwise,
 %% compiles the template first.
 flora_make_ergotext_template(InputFile,OutFile,StatusList) :-
+        (has_compiler_permaoption(FLDEFEASIBLE(ModName)) ->
+            make_ergotext_template(InputFile,OutFile,StatusList),
+            set_compiler_permaoption(FLDEFEASIBLE(ModName))
+        ;
+            make_ergotext_template(InputFile,OutFile,StatusList)
+        ).
+
+make_ergotext_template(InputFile,OutFile,StatusList) :-
 	flora_check_filename(InputFile,File1),
 	(flora_locate_file(File1,ERGO_NLTEMPLATE_EXT,ErgoTextFile) -> true
 	; flrfilename_error(File1,ERGO_NLTEMPLATE_EXT) -> fail
@@ -137,7 +145,7 @@ util_compile_ergotext_template(ErgoTextFile,ParserList,StatusList) :-
 	flora_set_parser_context(CONTEXT_PARSER_NL_TEMPLATES),
 	see(IOportFromProc),
 	util_read_then_parse_file(ParserList,StatusList),
-	flora_clear_compilation_permaoptions,
+        flora_clear_compilation_permaoptions,
 	!,
 	%% Wait so as to not leave zombies.
 	check_xpp_process_status(ErgoTextFile,XPP_process,close_on_error),
@@ -154,7 +162,7 @@ util_compile_ergotext_template_stdin(ParserList,StatusList) :-
 	flora_set_composer_context(CONTEXT_COMPOSER_OMITTING_INDEX),
 	flora_set_parser_context(CONTEXT_PARSER_NL_TEMPLATES),
 	util_read_then_parse_file(ParserList,StatusList1),
-	flora_clear_compilation_permaoptions,
+        flora_clear_compilation_permaoptions,
 	!,
 	flora_clear_parser_context(CONTEXT_PARSER_NL_TEMPLATES),
 	flora_clear_composer_context(CONTEXT_COMPOSER_OMITTING_INDEX),

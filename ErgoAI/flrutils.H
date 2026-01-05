@@ -206,6 +206,7 @@
 	flora_compile/10,
         flora_compile_add/8,
 	flora_get_compilation_liboptions/1,
+	set_compiler_permaoption/1,
 	has_compiler_permaoption/1,
 	has_compiler_persistentoption/1,
         flora_set_compilation_context/1,

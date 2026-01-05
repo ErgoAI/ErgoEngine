@@ -784,19 +784,25 @@ extract_triggers_and_execute_all_aux(BodyVars,HeadVars) :-
         %% arg4 = 0 - include vars in \naf'ed literals.
         %% Here we include such vars.
 	flrterm_vars_split(BodyVars, RegularBodyVars, AttrBodyVars,0),
+        %% Some vars may have become nonvars that contain other
+        %% vars, so we need to re-extract the vars.
         %% arg3 = 0 - means include vars in \naf'ed literals.
-	%%flrterm_vars(HeadVars, RealHeadVars, 0),
+	flrterm_vars(HeadVars, RemainingVars, 0),
 	(AttrBodyVars == [] -> true
-	%%`; extract_triggers_and_execute(AttrBodyVars,RealHeadVars),
-	; extract_triggers_and_execute(AttrBodyVars,HeadVars),
+	; extract_triggers_and_execute(AttrBodyVars,RemainingVars),
+        %% the below is wrong, since we have to use RemainingVars.
+        %% HeadVars is no good as, in HeadVars, some vars
+        %% may have became nonvars.
+	%%; extract_triggers_and_execute(AttrBodyVars,HeadVars),
 	    %% Note: we do need to check non-attributed RegularBodyVars because
             %% after extract_triggers_and_execute/2 on AttrBodyVars some
             %% RegularBodyVars may become attributed!
             %% E.g., test 11 in delaytests/test_delays.flr
             %%DBGOUT(10000=BodyVars),
             %%DBGOUT(11111=AttrBodyVars),
-            %%DBGOUT(22222=RealHeadVars),
-	    extract_triggers_and_execute_all_aux(RegularBodyVars,HeadVars)
+            %%DBGOUT(22222=RemainingVars),
+	    extract_triggers_and_execute(RegularBodyVars,HeadVars)
+	    %%%extract_triggers_and_execute_all_aux(RegularBodyVars,HeadVars)
 	).
 %%=======================================================
 

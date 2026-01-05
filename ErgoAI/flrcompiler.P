@@ -1472,7 +1472,11 @@ datatypeobj_struct(FLDATATYPE(Type,Lit,Idx),
 	  %% construct data type test: (NewVar,isa(NewVar,Class))
 	  new_dontcare_prvariable(NO_INDEX,TestArgVar),
 	  isaspec_struct(BODYLITERAL,TestArgVar,TypeCode,DTTesterCodePre),
+          %%writeln(2, testargvar=TestArgVar),
 	  conjunct_struct(TestArgVar,DTTesterCodePre,DTTesterCode),
+          %%writeln(2,dttestercodepre=DTTesterCodePre),
+          %%writeln(2,dttestercode=DTTesterCode),
+
 	  %% put isa(_,Class) as the attr val of FL_DT_VAR
 	  %% for the class variable
 	  new_dontcare_prvariable(VarIdx,NewAttrVar),
@@ -3419,9 +3423,14 @@ report_directive(Direct) :- assert(TMPDIRECT(Direct)).
 clear_compilation_liboptions :- retractall(LIBOPTION(_,_)).
 flora_get_compilation_liboptions(L) :- findall((O,Idx),LIBOPTION(O,Idx),L).
 report_option(Option,Idx) :- assert(LIBOPTION(Option,Idx)).
+report_compiler_option(Option,Idx) :- report_option(Option,Idx).
 
 %% Do not(!) check for \+ PERMAOPTION(X) here!
 %% So, do NOT use trie indexing!
+%% this is exported for others to use
+has_compiler_permaoption(X) :- has_permaoption(X).
+set_compiler_permaoption(X) :- set_permaoption(X).
+
 %% We rely on duplicates if multiple declarations of argumentation theories
 set_permaoption(X) :- asserta(PERMAOPTION(X)).
 set_permaoptions([]) :- !.
@@ -3430,9 +3439,7 @@ set_permaoptions([X|Rest]) :-
 	set_permaoptions(Rest).
 has_permaoption(X) :- PERMAOPTION(X).
 flora_clear_compilation_permaoptions :- retractall(PERMAOPTION(_)).
-clear_one_permaoption(X) :- (retract(PERMAOPTION(X)) ; true), !.
-%% this is exported for others to use
-has_compiler_permaoption(X) :- has_permaoption(X).
+clear_one_permaoption(X) :- (retract(PERMAOPTION(X))  ; true), !.
 
 %% Unlike permaoptions, persistent options don't get reset by flrutils
 %% when loading new files
