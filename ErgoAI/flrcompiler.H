@@ -231,6 +231,8 @@
 	flora_compile/10,
 	flora_clear_compilation_symbols/0,
 	has_compiler_permaoption/1,
+	set_compiler_permaoption/1,
+        report_compiler_option/2,
 	has_compiler_persistentoption/1,
 	compiling_flrshell_command/0,
 	symbol/8,
