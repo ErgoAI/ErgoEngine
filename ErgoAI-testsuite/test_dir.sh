@@ -158,8 +158,14 @@ rm -f $basedir/functions/*/.ergo_aux_files/*
 rm -f $basedir/general_tests/.ergo_aux_files/*
 rm -f $basedir/json/.ergo_aux_files/*
 rm -f $basedir/justifier/.ergo_aux_files/*
+rm -f $basedir/varcheck_tests/.ergo_aux_files/*
+rm -f $basedir/varcheck_tests/.flora_aux_files/*
+rm -f $basedir/varcheck_tests/*/.flora_aux_files/*
+rm -f $basedir/varcheck_tests/*/.ergo_aux_files/*
 rm -f $basedir/symbols/.ergo_aux_files/*
 rm -f $basedir/symbols/*/.ergo_aux_files/*
+rm -f $basedir/symbols/.flora_aux_files/*
+rm -f $basedir/symbols/*/.flora_aux_files/*
 
 
 exec 3> /dev/tty

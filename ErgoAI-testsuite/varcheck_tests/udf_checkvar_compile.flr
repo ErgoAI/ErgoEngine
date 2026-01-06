@@ -1,0 +1,33 @@
+
+%pretest :-
+        // Turn off the elapsed time messages
+        flora_feedback_control(elapsedtime=noshow)@\plg(flrutils),
+        writeln(2,'Safe ex:')@\plg,
+        [+ './progs/udf_checkvar_safe'],
+        writeln(2,'Unsafe ex:')@\plg,
+        ['progs/udf_checkvar_unsafe' >>boo].
+%pretest :- !.
+
+#include "standard.h"
+
+%test :-
+	file_reopen(temp1,w,STDERR,?_)@\plg(file_io),
+	file_reopen(temp,w,STDWARN,?_)@\plg(file_io),
+	file_reopen(temp2,w,STDFDBK,?_)@\plg(file_io),
+	%pretest,
+	file_close(STDWARN)@\plg(file_io),
+	file_close(STDERR)@\plg(file_io),
+	file_close(STDFDBK)@\plg(file_io),
+	open(file(temp1)@\plg,read,?Port1)@\plg,
+	open(file(temp)@\plg,append,?Port2)@\plg,
+	open(file(temp2)@\plg,read,?Port3)@\plg,
+	copyIOport(?Port1,?Port2)@\plg(file_io),
+	copyIOport(?Port3,?Port2)@\plg(file_io),
+	close(?Port1)@\plg,
+	close(?Port2)@\plg,
+	close(?Port3)@\plg,
+	flora_file_op(unlink,temp1)@\plg(flrporting),
+	flora_file_op(unlink,temp2)@\plg(flrporting).
+        /*
+        \true.
+        */
