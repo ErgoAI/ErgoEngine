@@ -34,10 +34,11 @@
 :- import is_naf_literal/2 from flrcanon.
 :- import flora_delayed_literal_wrapper/4 from flrdelaysupport.
 :- import
-        flora_builtin_class/1,
-        flora_datatype_name/2
+        flora_datatype_name/2,
+        flora_builtin_class/1
    from flrdatatype.
 :- import flora_get_DT_var_datatype/2 from usermod(flrunify_handlers).
+:- import flora_add_more_type_to_var/2 from usermod(flrunify_handlers).
 
 :- export
         flora_iscallable_any_type/1,
@@ -50,8 +51,10 @@ flora_ismodular(X) :-
         flora_delayed_literal_wrapper(FL_DELAYQUANT,NULL,NULL,
                                       [FL_WISH, nonvar(X),
                                        (var(X), flora_get_DT_var_datatype(X,FL_MODULAR_FORM) -> true
-                                       ; var(X) -> undefined
-                                       ; flora_ismodular(X)
+                                       %%; var(X) -> undefined
+                                       ; var(X)->
+                                           flora_add_more_type_to_var(X,FL_MODULAR_FORM)
+                                       %%; flora_ismodular(X)
                                        )
                                       ]
                                      ).
@@ -77,8 +80,10 @@ flora_iscallable_any_type(X) :-
         flora_delayed_literal_wrapper(FL_DELAYQUANT,NULL,NULL,
                                       [FL_WISH, nonvar(X),
                                        (var(X), flora_get_DT_var_datatype(X,FL_CALLABLE_FORM) -> true
-                                       ; var(X) -> undefined
-                                       ; flora_iscallable_any_type(X)
+                                       %%; var(X) -> undefined
+                                       ; var(X) ->
+                                           flora_add_more_type_to_var(X,FL_CALLABLE_FORM)
+                                       %%; flora_iscallable_any_type(X)
                                        )
                                       ]
                                      ).

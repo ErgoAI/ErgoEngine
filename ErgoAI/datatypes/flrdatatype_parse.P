@@ -254,14 +254,14 @@ flora_parse_datatype_internal(DATATYPE(FL_LISTTYPE,LitChars),Idx,ParsedDT,Status
 	    )
 	).
 
-flora_parse_datatype_internal(DATATYPE(FL_BOOL,LitChars),Idx,ParsedDT,Status) :-
+flora_parse_datatype_internal(DATATYPE(FL_BOOLEAN,LitChars),Idx,ParsedDT,Status) :-
 	!,
 	(LitChars=VARIABLE(VarName)
-	-> ParsedDT = FL_BOOL(FLVAR(VarName,Idx)), Status=[]
+	-> ParsedDT = FL_BOOLEAN(FLVAR(VarName,Idx)), Status=[]
 	;
 	    parse_bool(LitChars,Idx,Value,Status),
 	    (Status==[]
-	    -> make_datatype(FL_BOOL,(Value),ParsedDT)
+	    -> make_datatype(FL_BOOLEAN,(Value),ParsedDT)
 	    ;  true
 	    )
 	).
@@ -758,14 +758,14 @@ check_and_make_datatype(FL_CHARLIST,(Value),TypeObject,AbortFlag) :-
 	    abort_or_fail_on_invalid_argument(FL_CHARLIST,AbortFlag)
 	).
 
-check_and_make_datatype(FL_BOOL,(Value),TypeObject,AbortFlag) :-
+check_and_make_datatype(FL_BOOLEAN,(Value),TypeObject,AbortFlag) :-
 	!,
 	( memberchk(Value,[FL_TRUECONST,FL_TRUE]) ->
-	    make_datatype(FL_BOOL,(FL_TRUECONST),TypeObject)
+	    make_datatype(FL_BOOLEAN,(FL_TRUECONST),TypeObject)
 	; memberchk(Value,[FL_FALSECONST,FL_FALSE2,FL_FALSE]) ->
-	    make_datatype(FL_BOOL,(FL_FALSECONST),TypeObject)
+	    make_datatype(FL_BOOLEAN,(FL_FALSECONST),TypeObject)
 	;
-	    abort_or_fail_on_invalid_argument(FL_BOOL,AbortFlag)
+	    abort_or_fail_on_invalid_argument(FL_BOOLEAN,AbortFlag)
 	).
 
 check_and_make_datatype(FL_LISTTYPE,(Value),TypeObject,AbortFlag) :-
@@ -883,7 +883,7 @@ make_datatype(FL_DOUBLE,(Value),FL_DOUBLE(Value1)) :-
 	!.
 make_datatype(FL_STRING,(Value),FL_STRING(Value)) :- !.
 make_datatype(FL_CHARLIST,(Value),FL_CHARLIST(Value)) :- !.
-make_datatype(FL_BOOL,(Value),FL_BOOL(Value)) :- !.
+make_datatype(FL_BOOLEAN,(Value),FL_BOOLEAN(Value)) :- !.
 make_datatype(FL_LISTTYPE,(Value),FL_LISTTYPE(Value)) :- !.
 make_datatype(TypeName,(LitChars),FL_DATATYPE(TypeName,LitChars)) :- !.
 
@@ -891,7 +891,7 @@ decode_supported_types(FL_LONG(Value),_TypeName,Value) :- !.
 decode_supported_types(FL_DOUBLE(Value),_TypeName,Value) :- !.
 decode_supported_types(FL_STRING(Value),_TypeName,Value) :- !.
 decode_supported_types(FL_CHARLIST(Value),_TypeName,Value) :- !.
-decode_supported_types(FL_BOOL(Value),_TypeName,Value) :- !.
+decode_supported_types(FL_BOOLEAN(Value),_TypeName,Value) :- !.
 decode_supported_types(FL_LISTTYPE(Value),_TypeName,Value) :- !.
 decode_supported_types(Value,TypeName,FL_DATATYPE(Value,TypeName)).
 

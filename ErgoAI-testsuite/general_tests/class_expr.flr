@@ -1,0 +1,53 @@
+
+?- setsemantics{class_expressions=on}.
+
+D::DD.
+C::CC.
+{DD,CC}:: DDCC.
+subC::C.
+subD::D.
+
+{a,b,6,8, 7.4}:D.
+{b,c,d,8,9}:C.
+{e,f}:subC.
+f:subD.
+
+%tst1 :- (C-A)::C, (C,D)::D, (C,D)::C, (C-D)::(CC-subD), (C-D)::C,
+        writeln(test1=success)@\plg.
+
+%tst2 :- ?Int=setof{?R| ?R: (CC,DD), isatomic{?R}},
+         ?Subtr=setof{?R| ?R: (CC-DD), isatomic{?R}},
+        writeln(test2 = ?Int+?Subtr)@\plg.
+%tst3 :- write('test3: ')@\plg,
+        setsemantics{class_expressions=on},
+        // TODO: We'd like  ?Y^^usrType : InfStdType to work 
+        // exacty like ?Y^^InfStdType : usrType, but this is 
+        // not what is happening yet
+        //?Res1 = setof{?Y| ?Y^^D : \double},
+        //?Res2 = setof{?Y| ?Y^^D : \int},
+        ?Res3 = setof{?Y| ?Y^^\int : D},
+        ?Res4 = setof{?Y| ?Y^^\double : D},
+        //writeln(?Res1+?Res2+?Res3)@\io,
+        writeln(?Res3+?Res4)@\io.
+
+%tst4 :-  write('test4: ')@\plg,
+        ?X^^\integer = ?Y^^\float, ?Y:\double,
+        (?X+?Y)[show->?Atm]@\show,
+        writeln(?Atm)@\io.
+%tst5 :-  write('test5: ')@\plg,
+        ?X^^(\integer-DD) = ?Y^^\float, ?Y = ?^^(FF ; \double),
+        (?X+?Y)[show->?Atm]@\show,
+        writeln(?Atm)@\io.
+
+
+%pretest :- %tst1,  %tst2,  %tst3,  %tst4, %tst5, nl@\plg.
+
+%test :- 
+	tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	!,
+	Method[mustDefine(off)]@\sys,
+	Tables[abolish]@\sys,
+	%pretest,
+	told@\plg.

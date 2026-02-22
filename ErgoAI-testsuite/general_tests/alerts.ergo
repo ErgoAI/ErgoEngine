@@ -44,11 +44,11 @@ a[b->?X] :- q(?X).
           tinsert{q({55,56,57}),r({56,57,59})}.
 %tst9 :- nl(STDWARN)@\plg, p({56,57}), r({56,57,59}), writeln(STDWARN,test9=ok)@\plg.
 
-callback_p(?Alerts,?File, ?Mod) :-
-        fmt_write(STDWARN,'\nCallback: In file %s, module %s: ', arg(?File,?Mod))@\io,
+%callback_p(?Alerts,?File, ?Line, ?Mod) :-
+        fmt_write(STDWARN,'\nCallback p: In file %S, line %S, module %S: ', arg3(?File,?Line,?Mod))@\io,
         writeln(STDWARN,?Alerts)@\io.
-callback_frame(?Alerts,?File, ?Mod) :-
-        fmt_write(STDWARN,'\nTruth callback: In file %s, module %s: ', arg(?File,?Mod))@\io,
+%callback_frame(?Alerts,?File, ?Line) :-
+        fmt_write(STDWARN,'\nTruth callback: In file %S, Line %S: ', arg2(?File,?Line))@\io,
         writeln(STDWARN,?Alerts)@\io.
 
 ?- +alert{conflict,p(?)}, +alert{conflict,?[?->?]}.
@@ -60,9 +60,9 @@ callback_frame(?Alerts,?File, ?Mod) :-
 ?- +alert{conflict,pp(?)}.
 ?- +alert{truth,pp(?)}.
 ?- %tst5.
-?- +alert{conflict,p(?),callback_p(?,\@F, \@)},
+?- +alert{conflict,p(?),%callback_p(?,\@F, \@L, \@)},
         -alert{conflict,pp(?)}, -alert{conflict,?[?->?]},
-        +alert{truth,?[?->?],callback_frame(?,\@F, \@)}.
+        +alert{truth,?[?->?],%callback_frame(?,\@F, \@L)}.
 ?- %tst6.
 // retracting callback
 ?- -alert{conflict,p(?)}, +alert{conflict,pp(?)}.

@@ -2967,7 +2967,7 @@ instead of the much more tedious
 \index{typed variable}
 \index{variable!typed}
 Apart from the regular variables, \FLSYSTEM supports \emph{typed variables}.
-Typed variables are associated with classes, which restricts them so that
+Typed variables are associated with classes, which restricts such variables so that
 they become unifiable only with members of those classes. This
 includes both user-defined classes and the classes associated with all the primitive data types such as 
 \texttt{\bs{}integer}, \texttt{\bs{}real}, \texttt{\bs{}time},
@@ -2977,8 +2977,7 @@ The syntax is \texttt{?Var$\hat{~}\hat{~}$Class}. The class can be a class
 name (which may have variables) or a class expression. For instance,
 %% 
 \begin{verbatim}
-    father(?X^^\integer,?Y^^Person) :- parent(?X,?Y), male(?X).
-    grandfather(?X^^\integer,?Y^^Person) :- father(?X,?Z^^Person),parent(Z,Y).
+    likes(?X^^Person,?Y^^Book) :- hasRead(?X,?Y,?Times^^\long), ?Times>1.
     ?- foo(?Y^^(A,(B-C) ; \dateTime).
 \end{verbatim}
 %% 
@@ -2987,6 +2986,25 @@ and the body of a rule. The semantics is that once the variable is bound
 then the binding is checked for belonging to the specified
 class. It is important to keep in mind, however, that a construct like
 \verb|?X^^class| \textbf{does not bind} \texttt{?X} to anything by itself.   
+
+By default, \ERGO treats type expressions like
+\verb|^^(A,(B-C) ; \dateTime)| above as abstract symbolic expressions that
+have no relationship to the symbols used in these expressions.
+However, the  runtime directive 
+%% 
+\begin{verbatim}
+ ?- setsemantics{class_expressions=on}.
+\end{verbatim}
+%% 
+makes \ERGO to actually evaluate those expressions treating the operands
+as sets of objects of the named classes (like \texttt{A}, \texttt{B},
+\texttt{\bs{}dateTime}).   
+This option can also be turned off:
+%% 
+\begin{verbatim}
+ ?- setsemantics{class_expressions=off}.
+\end{verbatim}
+%% 
 
 Theoretically \verb|?X^^Cl| is equivalent to making a test like
 \texttt{?X:Cl} \emph{once} \texttt{?X} \emph{gets bound by another subgoal},
@@ -2997,7 +3015,7 @@ involves enumerating the entire class
 terminate, if the class is infinite (e.g., \texttt{?X:\bs{}integer}). 
 In contrast, \verb|?X^^Cl| does not involve any tests until \texttt{?X}
 gets bound. This is convenient because often the knowledge engineer does
-not know which subgoal will bind \texttt{?X} and so the guessing game
+not know which subgoal will eventually bind \texttt{?X} and so the guessing game
 of where to put the test \texttt{?X:Cl} is avoided.
 However, the knowledge engineer \emph{must be certain}    that \texttt{?X}
 \emph{will} get bound at some point or else no checks will be performed whatsoever
@@ -3010,20 +3028,23 @@ so it should be done only once per variable in the same rule.
 Multiple declarations are treated as intersections. For instance,
 %% 
 \begin{verbatim}
-    ?- setdisplayschema{tmpraw}, ?X^^foo=?, ?X^^moo=?.
+    ?- ?X^^foo=?, ?X^^moo=?.
 
-    ?X = ?_h6272 { \$typed variable : type = (moo  ','  foo) } 
+    ?X = ?_h12275^^(moo, foo)
 
-    ?- setdisplayschema{tmpraw}, ?X^^foo=?Y^^moo.
+    ?- ?X^^foo=?Y^^moo.
 
-    ?X = ?_h5593 { \$typed variable : type = (moo  ','  foo) } 
-    ?Y = ?_h5593 { \$typed variable : type = (moo  ','  foo) } 
+    ?X = ?_h10792^^(moo, foo)
+    ?Y = ?_h10792^^(moo, foo)
+
 \end{verbatim}
 %% 
 
 Here are some additional examples:
 %% 
 \begin{verbatim}
+    ?- setsemantics{class_expressions=on}.
+
     {1,2}:foo, {2,3}:moo.                       // facts
 
     ?- ?^^foo = 4.                              // false
@@ -3044,6 +3065,10 @@ Here are some additional examples:
           writeln(test6=ok)@\plg.
 \end{verbatim}
 %% 
+The \texttt{setsemantics} directive tells the system that 
+it should start treating expressions like \texttt{(A,B)}, \texttt{(A;B)}
+or \texttt{(A-B)} as operations on the sets of member-objects in the named
+classes (\texttt{A}, \texttt{B}, ...).   
 
 \index{typed variable!quantified}
 \index{variable!typed and quantified}

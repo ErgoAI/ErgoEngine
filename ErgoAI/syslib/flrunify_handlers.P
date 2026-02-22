@@ -28,35 +28,43 @@
 #mode standard Prolog
 
 #include "flora_terms.flh"
+#include "flora_exceptions.flh"
 
 :- import flora_load_library/1 from flrlibman.
 :- import
-	%%put_attr/3,
 	get_attr/3,
 	install_attribute_portray_hook/3,
 	install_verify_attribute_handler/5
    from machine.
-
+:- import flora_warning_line/2 from flrprint.
 :- import flora_put_attr/3 from flrwhen.
 
-:- import
-	append/3
-   from basics.
+:- import append/3 from basics.
 
 :- import
+	flora_decode_oid_as_atom/2,
 	flora_write_oid/1,
 	flora_write_goal/1
    from flrdecode.
 
-:- import flora_match_substring/3 from flrporting.
+:- import
+	flora_concat_items/2,
+        flora_match_substring/3
+   from flrporting.
 
 :- import
 	%%FL_IRI/1,
 	%%FL_STRING/1,
 	%%FL_SYMBOL/1,
-	%%FL_BOOL/1,
-	flora_datatype_name/2
+	%%FL_BOOLEAN/1,
+	%%flora_datatype_name/2,
+        flora_canonical_type_name/2
     from flrdatatype.
+:- import
+	flora_get_symbol_module/2,
+        flora_module_predicate/4
+   from flrwrapper.
+:- import convert_to_body_literal/2 from flrcanon.
 
 
 ?- flora_load_library(FLLIBMETAOPS).
@@ -129,47 +137,156 @@ flora_semantic_unification_handler(AttributeValue,VariableBinding) :-
 	FLLIBUNIVEQFORM(AttributeValue,VariableBinding).
 
 
+%% The case when both of the unifying terms are DT
+%% variables (both have the FL_DT_VAR attr).
+%% So VarBinding also has a FL_DT_VAR attr
 flora_DT_variable_handler(AttrValue,VarBinding) :-
-	get_attr(VarBinding,FL_DT_VAR,BindingAttr),
-	!,
+	get_attr(VarBinding,FL_DT_VAR,BindingAttrVal),
+	%%!,
+        %% BindingAttrVal is now something like (TestVar, isa(TestVar, Type))
+        %% We need to make (TestVar,isa(TestVar,TypeCanon))
+        BindingAttrVal = (TestVar, BindIsaTest),
+        BindIsaTest =.. [IsaFunctor,TestVar,BindType, _],
+        flora_canonical_type_name(BindType,BindTypeCanonical),
+        AttrValue = (TestVar,AttrIsaTest),
+        AttrIsaTest =.. [IsaFunctor,TestVar,AttrType, _],
+        flora_canonical_type_name(AttrType,AttrTypeCanonical),
+        
 	( %% vars of exactly the same type
-	  BindingAttr = AttrValue -> true
+	  BindTypeCanonical == AttrTypeCanonical -> true
 	; %% two typed vars of different types - take intersection of the types
-	    BindingAttr = (TestVar,BindingTest),
-	    AttrValue = (TestVar,AttrTest),
-	    flora_put_attr(VarBinding,FL_DT_VAR,(TestVar,(BindingTest,AttrTest)))
-	).
-flora_DT_variable_handler(AttrValue,VarBinding) :-
-	%% var of a user-defined DT bound to a constant of that type
-	flora_datatype_name(VarBinding,TypeName),
-	AttrValue = (_,AttrTest),
-	%% AttrTest is something like isa(_h12609,foo,_$ctxt(main,_h12606,4)))
-	arg(2,AttrTest,TypeName),
-	!.
-flora_DT_variable_handler(AttrValue,VarBinding) :-
-	%% AttrValue is something like is_list(_) or integer(_)
-	AttrValue = (VarBinding,AttrTest),
-	call(AttrTest).
+            arg(2,BindIsaTest,BindTypeCanonical),
+            arg(2,AttrIsaTest,AttrTypeCanonical),
+	    %%flora_put_attr(VarBinding,FL_DT_VAR,(TestVar,(BindIsaTest,AttrIsaTest)))
+            %%CombinedType = (BindTypeCanonical,AttrTypeCanonical),
+            combine_types(BindTypeCanonical,AttrTypeCanonical,CombinedType),
+            (flora_get_symbol_module(IsaFunctor,Module),
+                atom(Module) -> true
+            ; flora_warning_line('something wrong with the DT_variable_handler. IsaFunctor=~w',[IsaFunctor]),
+                Module=FLORA_DEFAULT_WORKSPACE
+            ),
+            flora_module_predicate(WRAP_ISA,[TestVar,CombinedType,_Context],Module,LitHead),
+            convert_to_body_literal(LitHead,LitBody),
+	    flora_put_attr(VarBinding,FL_DT_VAR,(TestVar,LitBody))
+	),
+        !.
 
-flrvar_dt_portray((_,AttrTest)) :-
+%% Var is typed by the FL_DT_VAR attribute and the
+%% other side of the unification is a non-var term.
+flora_DT_variable_handler(AttrValue,VarBinding) :-
+        nonvar(VarBinding),
+	%%flora_get_DT_var_datatype(VarBinding,TypeName),
+        %%nonvar(AttrValue),
+	AttrValue = (AttrTestVar,AttrTest),
+	%% AttrTest is something like isa(_h12609,foo,_ContextTerm)
+        AttrTestVar = VarBinding,
+        !,
+        call(AttrTest).
+
+%% the case when a FL_DT_VAR typed variable unifies 
+%% with a plain var. Here VarBinding  is a plain var.
+flora_DT_variable_handler(AttrValue,VarBinding) :-
+	%% AttrValue is something like (Var, isa(Var, datatype))
+	AttrValue = (TestVar,_AttrTest),
+	var(VarBinding),
+        \+ flora_get_DT_var_datatype(VarBinding,_),
+        VarBinding = TestVar,
+        !.
+
+%% sanity test: should be unreachable
+flora_DT_variable_handler(AttrValue,VarBinding) :-
+        flora_warning_line('unreachable clause in flora_DT_variable_handler: AttrValue=~w, VarBinding=~w', [AttrValue,VarBinding]),
+        true.
+
+flrvar_dt_portray((_Var,AttrTest)) :-
 	flr_dt_portray_printable(AttrTest,Printable),
 	PRINT(type=Printable).
 
-flr_dt_portray_printable((Test1,Test2),(Class1,Class2)) :-
+%%flr_dt_portray_printable((Test1,Test2),Printable) :-
+flr_dt_portray_printable((Test1,Test2),(Print1,Print2)) :-
 	!,
-	flr_dt_portray_printable(Test1,Class1),
-	flr_dt_portray_printable(Test2,Class2).
+	flr_dt_portray_printable(Test1,Print1),
+	flr_dt_portray_printable(Test2,Print2).
 
-flr_dt_portray_printable(IsaTest,Class) :-
+%%flr_dt_portray_printable(IsaTest,Class) :-
+flr_dt_portray_printable(IsaTest,Printable) :-
 	functor(IsaTest,Fun,3),
 	flora_match_substring(WRAP_ISA,Fun,_),
 	arg(2,IsaTest,Class),
+        Class = Printable,
 	!.
 
-%% this is the only one that gets used outside
+%% This one is just a sanity ccheck
+flr_dt_portray_printable(Class,Printable) :-
+        flora_warning_line('bad class isa-test in flr_dt_portray_printable. Should be isa(Var,Class), got: ~w', [Class]),
+        Printable= badClassTest(Class).
+
+%% this and the next one are the only predicates used outside
 flora_get_DT_var_datatype(Var,VarType) :-
         var(Var),
         %%get_attr(Var,FL_DT_VAR,(_,Attr)),
         %%arg(2,Attr,VarType).
-        get_attr(Var,FL_DT_VAR,(_,VarAttr)),
-        flr_dt_portray_printable(VarAttr,VarType).
+        get_attr(Var,FL_DT_VAR,(_,VarAttrTest)), %% now VarAttrTest ~ isa(TestVar,Type)
+        %% a sanity check
+        ((var(VarAttrTest); VarAttrTest = (_,_)) -> 
+            flora_abort(['invalid FL_DT_VAR attribute: ', (_,VarAttrTest), 'Should have the form (_, isa(_,class))'], FLORA_ABORT_NOTRACE)
+        ;
+            true
+        ),
+        arg(2,VarAttrTest,VarType).
+        %%flr_dt_portray_printable(VarAttr,VarType).
+
+%% Add Type to a var. If Var was plain  then it becomes typed
+%% by Type. If Var was typed then make its new type to be
+%% the interection (Type,OldType)
+flora_add_more_type_to_var(Var,Type) :-
+        var(Var),
+        flora_canonical_type_name(Type,TypeCanon),
+        (flora_get_DT_var_datatype(Var,OldVarType) ->
+            combine_types(OldVarType,TypeCanon,CombinedType)
+        /*
+            (TypeCanon=OldVarType ->  CombinedType = TypeCanon
+            ; OldVarType =  (TypeCanon,Rest) -> CombinedType = OldVarType
+            ; OldVarType =  (Rest,TypeCanon) -> CombinedType = OldVarType
+            ; OldVarType =  (Rest;TypeCanon) -> CombinedType = TypeCanon
+            ; OldVarType =  (TypeCanon;Rest) -> CombinedType = TypeCanon
+            ; TypeCanon =  (OldVarType,Rest) -> CombinedType = TypeCanon
+            ; TypeCanon =  (Rest,OldVarType) -> CombinedType = TypeCanon
+            ; TypeCanon =  (Rest;OldVarType) -> CombinedType = OldVarType
+            ; TypeCanon =  (OldVarType;Rest) -> CombinedType = OldVarType
+            ; 
+                CombinedType = (TypeCanon,OldVarType)
+            )
+        */
+        ; CombinedType = TypeCanon
+        ),
+        flora_module_predicate(WRAP_ISA,[TestVar,CombinedType,_Context],FLORA_DEFAULT_WORKSPACE,LitHead),
+        convert_to_body_literal(LitHead,LitBody),
+        NewAttr = (TestVar,LitBody),
+        flora_put_attr(Var,FL_DT_VAR, NewAttr),
+        !.
+                 
+/*
+    This is a primitive version of simplification of type expression, analogous
+    to simplification in CLP.
+    combine_types/2 constructs then tries to simplify the type expression
+    (OldVarType,AddlType), the intersection of the two types. This arrises 
+    when two typed vars unify or as a result of a subgoal ?X:Class when 
+    Class is known to be infinite.
+
+    The right thing here is to use dtype_sub(old, Additional), but
+    this might be too heavy.
+*/
+combine_types(OldVarType,AddlType,CombinedType) :-
+        (AddlType=OldVarType ->  CombinedType = AddlType
+        ; OldVarType =  (AddlType,Rest) -> CombinedType = OldVarType
+        ; OldVarType =  (Rest,AddlType) -> CombinedType = OldVarType
+        ; OldVarType =  (Rest;AddlType) -> CombinedType = AddlType
+        ; OldVarType =  (AddlType;Rest) -> CombinedType = AddlType
+        ; AddlType =  (OldVarType,Rest) -> CombinedType = AddlType
+        ; AddlType =  (Rest,OldVarType) -> CombinedType = AddlType
+        ; AddlType =  (Rest;OldVarType) -> CombinedType = OldVarType
+        ; AddlType =  (OldVarType;Rest) -> CombinedType = OldVarType
+        ; 
+            CombinedType = (AddlType,OldVarType)
+        ).

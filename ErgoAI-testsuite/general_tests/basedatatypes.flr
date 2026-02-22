@@ -7,15 +7,12 @@
         p/0
     }.
 
-%tst1 :- false{?X^^\integer = ?Y^^\float, ?Y:\double},
-         setsemantics{class_expressions=on},
+%tst1 :- ?X^^\integer = ?Y^^\float, ?Y:\double,
+         //setsemantics{class_expressions=on},
          true{?X^^\integer = ?Y^^\float, ?Y:\double},
          true{?X:\float, ?Y:\integer},
-         // the below does not work, as the type of Y becomes
-         // (\double,\long,\double,\long) and dtype_sub is too weak for that.
-         //true{?X^^\integer = ?Y^^\float, ?Y:\float, ?Y:\integer},
          writeln(test1=ok)@\plg.
-%tst2 :- 1:\integer, undefined{?:\float}, undefined{?:\long},
+%tst2 :- 1:\integer, true{?:\float}, true{?:\long},
          writeln(test2=ok)@\plg.
 %tst3 :- true{?X^^\integer:\decimal},
          true{?X^^\long:\integer},
@@ -23,11 +20,12 @@
          true{3:\decimal},
          false{3.0:\integer},
          writeln(test3=ok)@\plg.
-%tst4 :- false{?^^\integer:\double},
+%tst4 :- ?^^\integer:\double,
+         setsemantics{class_expressions=on},
          true{(\integer,\float) :: (\decimal;\double)},
          writeln(test4=ok)@\plg.
 %tst5 :- true{?X:\integer, ?X = 1},
-         undefined{?Y:\integer, ?Y = ?},
+         ?Y:\integer, ?Y = ?,
          false{?Z:\integer, ?Z = 1.1},
          writeln(test5=ok)@\plg.
 %tst6 :- false{p(?X):\modular},
@@ -45,8 +43,8 @@
          false{[]:\callable},
          false{[a]:\callable},
          writeln(test7=ok)@\plg.
-%tst8 :- undefined{?:\modular},
-         undefined{?:\callable},
+%tst8 :- true{?_w : \modular},
+         true{?:\callable},
          true{?^^\modular:\modular},
          true{?^^\callable:\callable},
          writeln(test8=ok)@\plg.

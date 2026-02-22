@@ -82,6 +82,7 @@
    from flrprefixdef.
 
 :- import
+        flora_canonical_type_name_printable/2,
 	flora_printable_type_representation/2,
 	flora_parsed_datatypelist/2
    from flrdatatype.
@@ -126,6 +127,9 @@
 :- import
 	flora_op_synonym/2
    from flrsynonym.
+:- import
+        flora_get_DT_var_datatype/2
+   from usermod(flrunify_handlers).
 
 :- export
 	decode_list_add_separator/4,
@@ -1544,8 +1548,11 @@ decode_literal_internal(Call,Code,Level,Depth) :-
 	; Call == [] ->  Code = ['[',']']
 	; nonvar(Call), standard_plain_prolog_functor(Call,0) -> Code = [Call]
 	; Level == 2 -> Code = [Call]
-        ; escape(Call,EscCall),
-	    Code = [EscCall]
+        ; flora_get_DT_var_datatype(Call,DType) ->
+            fmt_write_string(CallAtm,'%S', arg(Call)),
+            %%Code = [FL_VARSYM, CallAtm, FL_DATATYPE_CONNECTOR, DType]
+            Code = [FL_VARSYM, CallAtm, FL_DATATYPE_CONNECTOR, '(',DType, ')']
+        ; escape(Call,EscCall) ->  Code = [EscCall]
 	).
 
 decode_literal_internal('_$VAR'(VarName),[VarName],_Level,_Depth) :-
@@ -1577,6 +1584,9 @@ decode_literal_internal(FL_DATATYPE(Term,Type), Code, Level,Depth) :-
 		; TypeLitEsc = TypeLit
 		),
                 (flora_display_mode(explanation) -> Code = [TypeLitEsc]
+                ; var(TypeLitEsc) ->
+                    %%Code = [TypeLitEsc]
+                    Code = ['?',TypeLitEsc,FL_DATATYPE_CONNECTOR,DisplayTypename]
 		; Code = ['"',TypeLitEsc,'"',FL_DATATYPE_CONNECTOR,DisplayTypename]
                 )
 	    )
@@ -2743,13 +2753,16 @@ display_table(terminator,tmpraw,FL_RULE_DELIMITER).
 %%display_table(skolem,tmpraw,FL_NEWOID).
 %%display_table(cardinality,tmpraw,FL_RANGE).
 
+%% This does not seem to do anything at all
 flora_display_type_name(SymType,Typename) :-
 	flora_display_schema(Mode),
 	display_datatype_name(SymType,Mode,Typename).
 
 %% display_datatype_name(Type,Mode,CanonName)
 display_datatype_name(Type,flora,Type) :- !.
-display_datatype_name(Type,ergo,Type) :- !.
+display_datatype_name(Type,ergo,CanonName) :-
+        flora_canonical_type_name_printable(Type,CanonName),
+        !.
 
 flora_get_display_format(Arg) :-
         compound(Arg),
@@ -2805,13 +2818,21 @@ bind_vars_meaningfully([X|R],N) :-
 	!,
 	bind_vars_meaningfully(R,N).
 bind_vars_meaningfully([X|R],N) :-
+        (flora_get_DT_var_datatype(X,DType) -> true
+        ; DType=_
+        ),
 	delete_attributes(X),
 	Code is N mod 26 + 0'A,
         Discriminator is N div 26,
         (Discriminator > 0 -> number_codes(Discriminator,DiscriminatorCode)
         ; DiscriminatorCode = []
         ),
-	atom_codes(Xname,[0'?,Code|DiscriminatorCode]),
+	atom_codes(Xname0,[0'?,Code|DiscriminatorCode]),
+        (nonvar(DType) ->
+            flora_display_type_name(DType,DisplayTypename),
+            flora_concat_items([Xname0, FL_DATATYPE_CONNECTOR,DisplayTypename],Xname)
+        ; Xname=Xname0
+        ),
 	X = '_$VAR'(Xname),
 	N1 is N+1,
 	bind_vars_meaningfully(R,N1).

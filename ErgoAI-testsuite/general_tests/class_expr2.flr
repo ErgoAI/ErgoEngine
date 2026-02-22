@@ -1,0 +1,55 @@
+
+?- setsemantics{class_expressions=on}.
+
+
+p("aaff"^^EEE).
+
+"abc"^^EEE:  a_BN.
+
+p:EEE.
+"75"^^\int: EEE.
+
+
+
+
+%tst1 :- ?Res = setof{?XX|?XX^^EEE : EEE},
+        write(test1 = ?Res)@\plg,
+        writeln('... done')@\plg.
+%tst2 :- 
+        ?X^^\int = ?Y^^\float, ?Y:\double,
+        (?X+?Y)[show(oid) ->?Atm]@\show,
+        write(test2=?Atm)@\plg,
+        writeln('... done')@\plg.
+%tst3 :- p:?T,
+        flora_decode_oid_as_atom_substitute_vars(?T,?_Tatm)@\plg(flrdecode),
+        write(test3 = ?_Tatm)@\io,
+        writeln('... done')@\plg.
+
+%tst4 :- false{?X^^DDD = ?Y^^DDD, ?Y:DDD},
+        insert{333:DDD},  true{?X^^DDD = ?Y^^DDD, ?Y:DDD},
+        ?Res1 = setof{?X| ?X^^DDD = ?Y^^DDD, ?Y:DDD},
+        ?Res2 = setof{?X| ?X^^EEE = ?YY^^EEE, ?YY:EEE},
+        write(test4= ?Res1+?Res2)@\plg, 
+        writeln('... done')@\plg.
+%tst5 :- false{?X^^DDD = ?Y^^DDD, ?Y:CCC},
+        insert{333:{CCC,DDD}}, true{?X^^DDD = ?Y^^DDD,?Y:CCC},
+        ?Res1 = setof{?X| ?X^^DDD = ?_Y^^DDD, ?_Y:CCC},
+        insert{75:CCC},
+        ?Res2 = setof{?X| ?X^^EEE = ?_YY^^EEE, ?_YY:CCC},
+        write(test5=?Res1+?Res2)@\plg,
+        writeln('... done')@\plg.
+
+%restore :- delete{333 : {CCC,DDD} , 75:CCC}.
+
+%pretest :- %tst1,  %tst2,  %tst3,  %tst4, %tst5,  %restore.
+
+%test :- 
+	tell(temp)@\plg,
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	!,
+	Method[mustDefine(off)]@\sys,
+	Tables[abolish]@\sys,
+	%pretest,
+	told@\plg.
+

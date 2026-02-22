@@ -1,0 +1,23 @@
+
+?- setsemantics{class_expressions=on}.
+
+DryWhiteWine :: (DryWine \and WhiteWine).
+DryRedWine :: (DryWine \and RedWine).
+WhiteWine :: Wine.
+RedWine :: Wine.
+
+foo::foo2.
+
+
+%ax1 :- DryWhiteWine::DryWine, DryWhiteWine::DryWine, writeln(WhiteWine-ok)@\plg.
+%ax2 :- DryRedWine::DryWine, DryRedWine::DryWine, writeln(RedWine-ok)@\plg.
+%ax3 :- (foo \and bar) :: (bar \or foo2), writeln(foo2-ok)@\plg.
+%ax4 :- DryWhiteWine::Wine, DryWhiteWine::DryWine, writeln(WhiteWineIsWine-ok)@\plg.
+%ax5 :- DryRedWine::Wine, DryRedWine::DryWine, writeln(RedWineIsWine-ok)@\plg.
+
+%pretest :- %ax1, %ax2, %ax3, %ax4, %ax5.
+
+
+%test :- tell(temp)@\plg,
+	%pretest,
+	told@\plg.

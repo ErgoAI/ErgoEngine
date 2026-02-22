@@ -144,6 +144,8 @@
 	flora_get_break_level/1
    from flora2.
 
+:- import flora_get_DT_var_datatype/2 from usermod(flrunify_handlers).
+
 :- import
         FLLIBSETRUNTIME/1,
         enable_all_tripwires/0,
@@ -199,7 +201,7 @@ fllibprogramans(Gs,NVs) :-
 
 /*
 %% The business of getting just one answer from a program query 
-%% needs to be thought out.
+%% needs to be thought through better.
 fllibprogramans(Gs,NVs) :-
         set_variable_rename_index(0),
 	flora_answer_switch(all),
@@ -594,6 +596,13 @@ flora_write_pairs([N=V|NVs],XWamState) :-
 	flora_stdfdbk_nl,
 	flora_stdfdbk_string('~w = ',[N]),
 	flora_display_feedback(V),
+        /*
+        (flora_get_DT_var_datatype(V,Type) ->
+            flora_stdfdbk_string(FL_DATATYPE_CONNECTOR),
+            flora_display_feedback(Type)
+        ; true
+        ),
+        */
 	flora_write_if_undefined(XWamState),
 	flora_write_pairs(NVs,XWamState).
 

@@ -55,8 +55,9 @@ FLLIBTRUTHVALUE(FL_FALSE_PRIMITIVE,Mod,Goal) :-
 	;
             flora_apply_negation_wrapper(Goal1,Mod,Wrapped),
             truth_value(FLORA_NAF_PREDICATE(Wrapped),true)
-	).
-	%%FLORA_DELAY_CHECKER([Goal],[]).
+	),
+	%%FLORA_DELAY_CHECKER([Goal],[]),
+        true.
 
 FLLIBTRUTHVALUE(FL_TRUE_PRIMITIVE,_Mod,Goal) :-
         !,
@@ -65,8 +66,10 @@ FLLIBTRUTHVALUE(FL_TRUE_PRIMITIVE,_Mod,Goal) :-
 	(call(Goal1), fail
 	;
             truth_value(Goal1,true)
-	).
-        %%FLORA_DELAY_CHECKER([Goal],[]).
+	),
+        FLORA_DELAY_CHECKER([Goal],[]),
+        FL_TRUTHVALUE_TEST_PRED(FL_TRUECONST),
+        true.
 
 FLLIBTRUTHVALUE(FL_UNDEFINED_PRIMITIVE,_Mod,Goal) :-
         !,
@@ -76,8 +79,9 @@ FLLIBTRUTHVALUE(FL_UNDEFINED_PRIMITIVE,_Mod,Goal) :-
 	;
             truth_value(Goal1,undefined),
             \+ (flora_ground:flrground(Goal1), truth_value(Goal1,true))
-	).
-        %%FLORA_DELAY_CHECKER([Goal],[]).
+	),
+        %%FLORA_DELAY_CHECKER([Goal],[]),
+        true.
 
 
 %% UNUSED

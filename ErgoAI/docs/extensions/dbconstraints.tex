@@ -206,11 +206,11 @@ integrity constraints that must not be violated.
 \index{callback!in integrity constraint}
 \index{integrity constraint!with callback}
 \paragraph{Constraints with callbacks.}
-Sometimes, the knowledge engineer might need to take a programmatic action
+Sometimes, the knowledge engineer might need to take a programmable action
 in response to a constraint violation. In most of the
 previous examples, constraint
-violations were reported in print and manual intervention was needed
-to take a corrective action. To let the user specify programmatic
+violations were just reported to the user and manual intervention was needed
+to take a corrective action. To let the user specify programmable
 corrective actions, \ERGO provides a 2-argument version of
 the \texttt{+constraint\{...\}} primitive:
 %% 
@@ -218,15 +218,49 @@ the \texttt{+constraint\{...\}} primitive:
      +constraint\{\textnormal{\emph{ConstraintQuery},\emph{CallbackPredicate}}\}.
 \end{alltt}
 %% 
-The callback predicate must be a HiLog predicate with at least one
-argument; it can be also a \texttt{\bs{}neg} of such a predicate. 
+The callback predicate must be a HiLog predicate formula with one
+to four
+arguments; it can be also a \texttt{\bs{}neg} of such a predicate. 
+Since it is a HiLog predicate, it can actually be quite complex, e.g.,
+\texttt{mycallback(foo,?X)(?Y,?Z)(?Arg1,...,?Arg4)}.
+The callback must assume that it will be invoked  by \ERGO with
+the  first argument bound to a list of the violating instances of our
+constraint, so it should be an unbound variable in the call.
+The other three arguments are supposed to help the user find out where the
+violation took place. Specifically, the second argument to the callback is
+expected
+to be the file in which the constraint activation
+command lives, the third argument is assumed to be the line number of that
+command, and the fourth argument must be the module name where the file was
+loaded or added.
+These parameters can be easily obtained if we use the following
+quasi-constants provided by the \ERGO compiler: \verb|\@F|, for the file;
+\verb|\@L|, for the line; and \verb|\@| for the module.
+If some callback does not need some of these parameters,
+they can be omitted in certain cases. Concretely, the following
+combinations  are possible: 
+%% 
+\begin{verbatim}
+    mycallback(?ListOfViolatingInstances)
+    mycallback(?ListOfViolatingInstances, \@F)
+    mycallback(?ListOfViolatingInstances, \@F,\@L)
+    mycallback(?ListOfViolatingInstances, \@F,\@L,\@)
+\end{verbatim}
+%% 
+The arguments 2--4 can thus be used to help the user debug or verify the
+correctness of an application.
+Since \texttt{mycallback} can have a rather complex form itself (like
+\texttt{cb(foo,?X)(?Y,?Z)}), the call to a callback might have variables
+other than \texttt{?Arg},..., \texttt{?Arg4}  (like \texttt{?X},
+\texttt{?Y}, \texttt{?Z}, which can be used to pass additional information
+to and from the callback.    
 
 
 If a callback is provided, then constraint-violating alerts won't be
-printed and \textit{CallbackPredicate} is called instead. 
-If a violation is detected,
-that first argument will be bound to the list of
-violating instances of the constraint, so the callback could take a
+printed  by \ERGO. Instead, \textit{CallbackPredicate} is called when
+a violation is detected. The first argument in that call is
+bound to the list of
+violating instances of the constraint, and the callback could take a
 corrective action. For instance, for our conflict-of-interests constraint, we could
 define the following corrective action:
 %% 
@@ -234,8 +268,8 @@ define the following corrective action:
    resolve_COI(?Violators,?File,?Line) :-
        deleteall{?Y| COI(?Empl,?Comp) \in ?Violators, ?Y=consults(?Empl,?Comp)},
        (
-           write('Violation of constraint in file '), write(File),
-           write(' on line '), write(Line), write(' was detected: '),
+           write('Violation of constraint in file '), write(?File),
+           write(' on line '), write(?Line), write(' was detected: '),
            writeln(?Violators).
            write('Corrective action was deletion of '),
            write(consults(?Person,?Company)),

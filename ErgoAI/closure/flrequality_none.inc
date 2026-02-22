@@ -55,26 +55,23 @@ WRAP_OBJEQL(X,Y,_FWContext) :-
     or the same for Y.
 */
 WRAP_OBJEQL(X,Y,_FWContext) :- (number(X); number(Y)), X=Y, !.
-WRAP_OBJEQL(X,Y,_FWContext) :-
-        (flora_datatype_name(X,FL_INTEGER); flora_datatype_name(Y,FL_INTEGER)),
-	X=Y,
-        !.
+
+%% FL_INTEGER is mapped to FL_LONG
 WRAP_OBJEQL(X,Y,_FWContext) :-
         (flora_datatype_name(X,FL_LONG); flora_datatype_name(Y,FL_LONG)),
-	X=Y,
-        !.
-WRAP_OBJEQL(X,Y,_FWContext) :-
-        (flora_datatype_name(X,FL_STRING); flora_datatype_name(Y,FL_STRING)),
-	X=Y,
-        !.
-WRAP_OBJEQL(X,Y,_FWContext) :-
-        (flora_datatype_name(X,FL_IRI); flora_datatype_name(Y,FL_IRI)),
-	!,
 	X=Y.
 WRAP_OBJEQL(X,Y,_FWContext) :-
-        (flora_datatype_name(X,FL_BOOL); flora_datatype_name(Y,FL_BOOL)),
-	X=Y,
-        !.
+        (flora_datatype_name(X,FL_DOUBLE); flora_datatype_name(Y,FL_DOUBLE)),
+	X=Y.
+WRAP_OBJEQL(X,Y,_FWContext) :-
+        (flora_datatype_name(X,FL_STRING); flora_datatype_name(Y,FL_STRING)),
+	X=Y.
+WRAP_OBJEQL(X,Y,_FWContext) :-
+        (flora_datatype_name(X,FL_IRI); flora_datatype_name(Y,FL_IRI)),
+	X=Y.
+WRAP_OBJEQL(X,Y,_FWContext) :-
+        (flora_datatype_name(X,FL_BOOLEAN); flora_datatype_name(Y, FL_BOOLEAN)),
+	X=Y.
 
 %% The rest of the axioms: transitivity, reflexivity, symmetry
 WRAP_OBJEQL(X,Y,_FWContext) :- X=Y.

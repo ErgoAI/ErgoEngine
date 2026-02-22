@@ -28,10 +28,12 @@
 
 #include "flora_characters.flh"
 #include "flora_tabling_methods.flh"
+#include "flora_exceptions.flh"
 
 :- import length/2, reverse/2 from basics.
 :- import
 	flora_abort/1,
+	flora_abort/2,
 	flora_concat_strings/2
    from flrporting.
 
@@ -135,6 +137,14 @@ cut_off_leading_zeros(Rest,Rest).
 
 
 flora_toLower(Atom,Result) :-
+        (\+atom(Atom) -> 
+            flrdecode:flora_decode_oid_as_atom(Atom,AtomStr),
+            flora_abort(['flora_toLower: atom expected but got ', AtomStr],
+                        %%FLORA_ABORT)
+                        FLORA_ABORT_NOTRACE)
+        ; true
+        ),
+        atom(Atom),
 	atom_codes(Atom,ACodes),
 	flora_toLower_list(ACodes,ACodesResult),
 	atom_codes(Result,ACodesResult).
@@ -151,6 +161,14 @@ toLowerCode(C,C1) :-
 toLowerCode(C,C).
 
 flora_toUpper(Atom,Result) :-
+        (\+atom(Atom) -> 
+            flrdecode:flora_decode_oid_as_atom(Atom,AtomStr),
+            flora_abort(['flora_toUpper: atom expected but got ', AtomStr],
+                        %%FLORA_ABORT)
+                        FLORA_ABORT_NOTRACE)
+        ; true
+        ),
+        atom(Atom),
 	atom_codes(Atom,ACodes),
 	flora_toUpper_list(ACodes,ACodesResult),
 	atom_codes(Result,ACodesResult).

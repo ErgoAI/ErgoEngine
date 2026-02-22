@@ -38,7 +38,8 @@
 
 
 :- import
-        flora_abort/1,
+        flora_concat_items/2,
+        %%flora_abort/1,
         flora_abort/2
    from flrporting.
 :- import
@@ -48,7 +49,7 @@
 	length/2
    from basics.
 
-:- import flora_backtrace_enabled/0 from flrshell_loop_handler.
+%%:- import flora_backtrace_enabled/0 from flrshell_loop_handler.
 
 :- import flora_module_registry/1 from flrregistry.
 :- import flora_decode_goal_as_atom/2 from flrdecode.
@@ -78,7 +79,7 @@
 /****************************************************************************
 ** A regular before/after hook is a predicate that must have at
 ** least 3 arguments.
-** Arg1 - bound to Module in which the hook ** is being called
+** Arg1 - bound to Module in which the hook is being called
 ** Arg2 - is used to pass parameters into the hook.
 **        If the hook has no input parameters, leaves this argument unbound.
 ** Arg3 - output from the hooks
@@ -471,13 +472,10 @@ hook_error_handler(Exception,Action,HookType,Hook) :-
 	; xsb_error_get_message(Exception,Msg) -> true
         ; Msg = Exception
 	),
-        (flora_backtrace_enabled ->
-            flora_abort(['problem executing the `', Action, ''' ',
-                        HookType, '-hook\n\t\t', PrintableHook, ': ', Msg])
-	; flora_abort(['problem executing the `', Action, ''' ',
-                      HookType, '-hook\n\t\t', PrintableHook, ': ', Msg],
-                      FLORA_ABORT_NOTRACE)
-        ).
+        flora_concat_items(['++Error[Ergo] A violation, described below, has ocurred while executing the hook ', Action, ' of type  ', HookType, PrintableHook],
+                           Message),
+        ERROUTLN(Message),
+        throw(Exception).
 
 
 %% debugging

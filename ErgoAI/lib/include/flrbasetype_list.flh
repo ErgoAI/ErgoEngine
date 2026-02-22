@@ -26,6 +26,8 @@
 :- export{
            ?[startsWith(?)],
            ?[endsWith(?)],
+           ?[startsWith->?],
+           ?[endsWith->?],
            ?[contains(?)],
            ?[member(?)],
            ?[ith(?)->?],
@@ -39,8 +41,11 @@
            ?[sort->?],
            ?[subset(?)]}.
 
+:- symbol_context{startsWith/1, startsWith/0,endsWith/0, endsWith/1}.
 
 // startsWith
+?X[startsWith->?Y] :- ?X[startsWith(?Y)].
+?X^^\list[startsWith->?Y^^\list] :- ?X^^\list[startsWith(?Y^^\list)].
 ?X[startsWith(?Y)] :-
         islist{?X},
         (islist{?Y} ; isvar{?Y}),
@@ -52,19 +57,32 @@
         flora_startsWith_list(?X,?Y)@\prolog(flrdatatype_utils).
 
 // endsWith
+?X[endsWith->?Y] :- ?X[endsWith(?Y)].
+?X^^\list[endsWith->?Y^^\list] :- ?X^^\list[endsWith(?Y^^\list)].
 ?X[endsWith(?Y)] :-
-        islist{?X},
-        (islist{?Y}; isvar{?Y}),
+        islist{?X}, islist{?Y},
+        !,
+        reverse(?X,?RX)@\prolog(basics),
+        reverse(?Y,?RY)@\prolog(basics),
+        flora_startsWith_list(?RX,?RY)@\prolog(flrdatatype_utils).
+?X[endsWith(?Y)] :-
+        islist{?X}, isvar{?Y},
+        !,
+        reverse(?X,?RX)@\prolog(basics),
+        flora_startsWith_list(?RX,?RY)@\prolog(flrdatatype_utils),
+        reverse(?RY,?Y)@\prolog(basics).
+?X^^\list[endsWith(?Y^^\list)] :-
+        islist{?X}, islist{?Y},
         !,
         reverse(?X,?RX)@\prolog(basics),
         reverse(?Y,?RY)@\prolog(basics),
         flora_startsWith_list(?RX,?RY)@\prolog(flrdatatype_utils).
 ?X^^\list[endsWith(?Y^^\list)] :-
-        isnonvar{?X},
+        islist{?X}, isvar{?Y},
         !,
         reverse(?X,?RX)@\prolog(basics),
-        reverse(?Y,?RY)@\prolog(basics),
-        flora_startsWith_list(?RX,?RY)@\prolog(flrdatatype_utils).
+        flora_startsWith_list(?RX,?RY)@\prolog(flrdatatype_utils),
+        reverse(?RY,?Y)@\prolog(basics).
 
 // contains
 ?X[contains(?Y^^\list)] :-

@@ -66,10 +66,10 @@
 valid_alert_type(FL_CONFLICT_ALERT). %% more might be added
 valid_alert_type(FL_TRUE_ALERT). 
 
-ergo_alert(PlusMinus,AlertType,MonitoredPred,File,Module,Line) :-
-        ergo_alert(PlusMinus,AlertType,MonitoredPred,NULL,File,Module,Line).
+ergo_alert(PlusMinus,AlertType,MonitoredPred,File,Line,Module) :-
+        ergo_alert(PlusMinus,AlertType,MonitoredPred,NULL,File,Line,Module).
 
-ergo_alert(_PlusMinus,_AlertType,MonitoredPred,_CallBack,File,Module,Line) :-
+ergo_alert(_PlusMinus,_AlertType,MonitoredPred,_CallBack,File,Line,Module) :-
         compound(MonitoredPred),
         (is_flora_callable(MonitoredPred,Module) -> true
         ; %% not a callable, monitorable subgoal
@@ -82,8 +82,8 @@ ergo_alert(_PlusMinus,_AlertType,MonitoredPred,_CallBack,File,Module,Line) :-
                         FLORA_ABORT_NOTRACE)
         ),
         fail.
-ergo_alert(_PlusMinus,_AlertType,_MonitoredPred,NULL,_File,_Module,_Line) :- fail.
-ergo_alert(_PlusMinus,_AlertType,_MonitoredPred,CallBack,File,Module,Line) :-
+ergo_alert(_PlusMinus,_AlertType,_MonitoredPred,NULL,_File,_Line,_Module) :- fail.
+ergo_alert(_PlusMinus,_AlertType,_MonitoredPred,CallBack,File,Line,Module) :-
         compound(CallBack),
         %% must be HiLog pred with at least 1 argument
         (is_hilog_predicate_with_atleast_one_argument(CallBack,Module) -> true
@@ -96,7 +96,7 @@ ergo_alert(_PlusMinus,_AlertType,_MonitoredPred,CallBack,File,Module,Line) :-
                         FLORA_ABORT_NOTRACE)
         ),
         fail.
-ergo_alert(PlusMinus,AlertType,_MonitoredPred,_CallBack,File,_Module,Line) :-
+ergo_alert(PlusMinus,AlertType,_MonitoredPred,_CallBack,File,Line,_Module) :-
         ((PlusMinus == ('-') ; PlusMinus == ('+')),
             nonvar(AlertType),
             valid_alert_type(AlertType)
@@ -111,32 +111,32 @@ ergo_alert(PlusMinus,AlertType,_MonitoredPred,_CallBack,File,_Module,Line) :-
         fail.
 
 
-ergo_alert(('+'),AlertType,MonitoredPred,CallBack,File,Module,Line) :-
+ergo_alert(('+'),AlertType,MonitoredPred,CallBack,File,Line,Module) :-
         !,
-        ergo_add_alert(AlertType,MonitoredPred,CallBack,File,Module,Line).
-ergo_alert(('-'),AlertType,MonitoredPred,_CallBack,File,Module,_Line) :-
+        ergo_add_alert(AlertType,MonitoredPred,CallBack,File,Line,Module).
+ergo_alert(('-'),AlertType,MonitoredPred,_CallBack,File,_Line,Module) :-
         !,
         ergo_delete_alert(AlertType,MonitoredPred,File,Module).
 
-ergo_alert(_PlusMinus,_AlertType,MonitoredPred,_CallBack,File,_Module,Line) :-
+ergo_alert(_PlusMinus,_AlertType,MonitoredPred,_CallBack,File,Line,_Module) :-
         flora_decode_oid_as_atom_substitute_vars(MonitoredPred,MonitoredPredAtom),
         flora_abort([' ', MonitoredPredAtom,
                      ' is not a valid alert specification\n\t\t',
                      'in file ', File, ', line ', Line],
                     FLORA_ABORT_NOTRACE).
 
-ergo_add_alert(AlertType,MonitoredPred,CallBack,File,Module,Line) :-
+ergo_add_alert(AlertType,MonitoredPred,CallBack,File,Line,Module) :-
         catch(
               flora_add_hook(Module,ALERTHOOK,around,0,
                              (
                                alerthook_before(_Mod1,_Trans1,_Result,
                                                 _AroundHookLink1,
                                                 AlertType,MonitoredPred,
-                                                File,Module,Line),
+                                                File,Line,Module),
                                alerthook_after(_Mod2,_Trans2,_Result2,
                                                _AroundHookLink2,
                                                AlertType,MonitoredPred,CallBack,
-                                               File,Module,Line)
+                                               File,Line,Module)
                              )
                             ),
               _,
@@ -151,26 +151,26 @@ ergo_delete_alert(AlertType,MonitoredPred,File,Module) :-
                             alerthook_before(_Mod1,_Trans1,_Result1,
                                              _AroundHookLink1,
                                              AlertType, MonitoredPred,
-                                             File,Module,_),
+                                             File,_,Module),
                             alerthook_after(_Mod2,_Trans2,_Result2,
                                             _AroundHookLink2,
                                             AlertType, MonitoredPred,_CallBack,
-                                            File,Module,_)
+                                            File,_,Module)
                           )
                          ).
 
 
 %% Before-hooks
-alerthook_before(_Mod,_Transaction,_Result,AroundHookLink,FL_CONFLICT_ALERT,MonitoredPred,_File,Module,_Line) :-
+alerthook_before(_Mod,_Transaction,_Result,AroundHookLink,FL_CONFLICT_ALERT,MonitoredPred,_File,_Line,Module) :-
         conflict_alert_before(AroundHookLink,MonitoredPred,Module).
-alerthook_before(_Mod,_Transaction,_Result,AroundHookLink,FL_TRUE_ALERT,MonitoredPred,_File,Module,_Line) :-
+alerthook_before(_Mod,_Transaction,_Result,AroundHookLink,FL_TRUE_ALERT,MonitoredPred,_File,_Line,Module) :-
         truth_alert_before(AroundHookLink,MonitoredPred,Module).
 
 %% After-hooks
-alerthook_after(_Mod,Transaction,_Result,AroundHookLink,FL_CONFLICT_ALERT,MonitoredPred,CallBack,File,Module,Line) :-
-        conflict_alert_after(Transaction,AroundHookLink,MonitoredPred,CallBack,File,Module,Line).
-alerthook_after(_Mod,Transaction,_Result,AroundHookLink,FL_TRUE_ALERT,MonitoredPred,CallBack,File,Module,Line) :-
-        truth_alert_after(Transaction,AroundHookLink,MonitoredPred,CallBack,File,Module,Line).
+alerthook_after(_Mod,Transaction,_Result,AroundHookLink,FL_CONFLICT_ALERT,MonitoredPred,CallBack,File,Line,Module) :-
+        conflict_alert_after(Transaction,AroundHookLink,MonitoredPred,CallBack,File,Line,Module).
+alerthook_after(_Mod,Transaction,_Result,AroundHookLink,FL_TRUE_ALERT,MonitoredPred,CallBack,File,Line,Module) :-
+        truth_alert_after(Transaction,AroundHookLink,MonitoredPred,CallBack,File,Line,Module).
 
 
 %% not including Transaction, Result, since they are not used by lefpre-alarts
@@ -180,7 +180,7 @@ conflict_alert_before(AroundHookLink,MonitoredPred,Module) :-
         find_conflicts(MonitoredPred,Module,AroundHookLink).
 
         %% Not including Result - not used
-conflict_alert_after(Transaction,AroundHookLink,MonitoredPred,CallBack,File,Module,Line) :-
+conflict_alert_after(Transaction,AroundHookLink,MonitoredPred,CallBack,File,Line,Module) :-
         find_conflicts(MonitoredPred,Module,AfterConflicts),
         list_difference(AfterConflicts,AroundHookLink,NewConflicts),
         ( NewConflicts == [] -> true
@@ -199,7 +199,7 @@ conflict_alert_after(Transaction,AroundHookLink,MonitoredPred,CallBack,File,Modu
 truth_alert_before(AroundHookLink,MonitoredPred,_Module) :-
         find_truth(MonitoredPred,AroundHookLink).
 
-truth_alert_after(Transaction,AroundHookLink,MonitoredPred,CallBack,File,_Module,Line) :-
+truth_alert_after(Transaction,AroundHookLink,MonitoredPred,CallBack,File,Line,_Module) :-
         find_truth(MonitoredPred,AfterTruth),
         list_difference(AfterTruth,AroundHookLink,NewTruth),
         ( NewTruth == [] -> true
@@ -252,7 +252,7 @@ find_truth(Pred,TruthSorted) :-
                 Truths),
         sort(Truths,TruthSorted).
 
-print_alerts([]) :- !.
+print_alerts([]) :- WARNNL, !.
 print_alerts([H|T]) :-
         WARNOUT('\t'),
         flora_decode_goal_as_mainless_atom_substitute_vars(H,H_atm),

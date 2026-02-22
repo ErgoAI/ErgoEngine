@@ -37,11 +37,15 @@
 	flora_abort/1,
 	flora_get_substring/4,
 	flora_concat_atoms/2,
+	flora_concat_items/2,
 	flora_concat_strings/2
    from flrporting.
 :- import flora_abort/2 from flrporting.
 
-:- import flora_get_DT_var_datatype/2 from usermod(flrunify_handlers).
+:- import
+        flora_get_DT_var_datatype/2,
+        flora_add_more_type_to_var/2
+   from usermod(flrunify_handlers).
 
 :- import
         flora_decode_oid_as_atom_substitute_vars/2,
@@ -74,8 +78,10 @@
    from flrdatatype_parse.
 
 :- import 
+	flatten/2,
         reverse/2,
 	append/3,
+        memberchk/2,
 	member/2
    from basics.
 
@@ -85,7 +91,9 @@
 	flora_builtin_datatype/1,
 	flora_primitive_datatype/1,
 	flora_builtin_class/1,
+        flora_is_finite_type/1,
 	flora_canonical_type_name/2,
+	flora_canonical_type_name_printable/2,
 	flora_w3c_type_name/2,
 	flora_synonymous_type_names/2,
 	flora_printable_type_representation/2,
@@ -95,6 +103,7 @@
 	flora_dt_add/3,
         flora_duration_inverse/2,
 	flora_special_datatype_internal_representation/2,
+        ergo_DT_expr2atom/2,
 	flora_parsed_datatypelist/2.
 
 :- export
@@ -115,6 +124,7 @@
         flora_is_var_prim/1,
         flora_is_nonvar_prim/1,
 	'\\issymbol'/1,
+	'\\iscurrency'/1,
 	'\\isiri'/1,
 	'\\isstring'/1,
 	'\\isboolean'/1.
@@ -147,124 +157,167 @@ flora_parsed_datatypelist(DtLst,LitList) :-
 #define XML_SCHEMA_IRI(Type) 'i\bhttp://www.w3.org/2001/XMLSchema##1'
 #define XML_SCHEMA_NS_STR(Type) 'http://www.w3.org/2001/XMLSchema##1'
 
+/*
+%% this is for testing, comment out otherwise
+flora_canonical_type_name(Type, Canon)  :-
+        DBGOUTLN(showIn=Type+Canon),
+        fail.
+%% end testing
+*/
+
+flora_canonical_type_name(Type,CanonType) :-
+        (var(Type) -> CanonType=Type
+        ;
+            flora_canonical_type_name_internal(Type,CanonTypeNewVal) ->
+            CanonTypeNewVal=CanonType
+        ),
+        true.
+
 %% Canonical type names are names under which we recognize data types internally
-%%flora_canonical_type_name('i\bhttp://www.w3.org/2001/XMLSchema#dateTime',FL_DATETIME) :- !.
-flora_canonical_type_name(XML_SCHEMA_IRI(dateTime),FL_DATETIME) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(dateTime),FL_DATETIME) :- !.
-flora_canonical_type_name(Type,FL_DATETIME) :-
+flora_canonical_type_name_internal((Type1,Type2), (CanonType1,CanonType2))  :-
+        !,
+        flora_canonical_type_name(Type1,CanonType1),
+        flora_canonical_type_name(Type2,CanonType2).
+
+flora_canonical_type_name_internal((Type1-Type2), (CanonType1-CanonType2))  :-
+        !,
+        flora_canonical_type_name(Type1,CanonType1),
+        flora_canonical_type_name(Type2,CanonType2).
+
+flora_canonical_type_name_internal((Type1 ; Type2), (CanonType1 ; CanonType2))  :-
+        !,
+        flora_canonical_type_name(Type1,CanonType1),
+        flora_canonical_type_name(Type2,CanonType2).
+
+%% Now Type must be an atom
+flora_canonical_type_name_internal(Type, _Canon) :-
+        (\+ atom(Type) -> 
+            flrdecode:flora_decode_oid_as_atom(Type,TypeStr),
+            flora_abort(['flora_canonical_type_name_internal: atom expected but got ', TypeStr], FLORA_ABORT)
+        /*
+        %% for testing -- uncomment
+        */
+        ; nonvar(_Canon) -> 
+            flrdecode:flora_decode_oid_as_atom(_Canon,_CanonStr),
+            flora_abort(['flora_canonical_type_name_internal: argument 2 must be unbound var, but got ', _CanonStr], FLORA_ABORT)
+        ).
+
+
+
+%%flora_canonical_type_name_internal('i\bhttp://www.w3.org/2001/XMLSchema#dateTime',FL_DATETIME) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(dateTime),FL_DATETIME) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(dateTime),FL_DATETIME) :- !.
+flora_canonical_type_name_internal(Type,FL_DATETIME) :-
 	flora_toLower(Type,'\\dt'),
 	!.
-flora_canonical_type_name(Type, FL_DATETIME) :-
+flora_canonical_type_name_internal(Type, FL_DATETIME) :-
 	flora_toLower(Type,Lower),
 	flora_toLower(FL_DATETIME,Lower),
 	!.
 
-flora_canonical_type_name(XML_SCHEMA_IRI(time),FL_TIME) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(time),FL_TIME) :- !.
-flora_canonical_type_name(Type,FL_TIME) :-
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(time),FL_TIME) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(time),FL_TIME) :- !.
+flora_canonical_type_name_internal(Type,FL_TIME) :-
 	flora_toLower(Type,Lower),
 	flora_toLower(FL_TIME,Lower),
 	!.
-flora_canonical_type_name(Type,FL_TIME) :-
+flora_canonical_type_name_internal(Type,FL_TIME) :-
 	flora_toLower(Type,'\\t'),
 	!.
 
-flora_canonical_type_name(XML_SCHEMA_IRI(date),FL_DATE) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(date),FL_DATE) :- !.
-flora_canonical_type_name(Type,FL_DATE) :-
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(date),FL_DATE) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(date),FL_DATE) :- !.
+flora_canonical_type_name_internal(Type,FL_DATE) :-
 	flora_toLower(Type,Lower),
 	flora_toLower(FL_DATE,Lower),
 	!.
-flora_canonical_type_name(Type,FL_DATE) :-
+flora_canonical_type_name_internal(Type,FL_DATE) :-
 	flora_toLower(Type,'\\d'),
 	!.
 
-flora_canonical_type_name('\\',    FL_IRI) :- !.
-flora_canonical_type_name(FL_URI, FL_IRI) :- !.
-flora_canonical_type_name('\\anyURI', FL_IRI) :- !.
-%%flora_canonical_type_name('http://www.w3.org/2007/rif#iri', FL_IRI) :- !.
-%%flora_canonical_type_name('http://www.w3.org/2007/rif#uri', FL_IRI) :- !.
-flora_canonical_type_name(Type,FL_IRI) :-
+flora_canonical_type_name_internal('\\',   FL_IRI) :- !.
+flora_canonical_type_name_internal(FL_URI, FL_IRI) :- !.
+flora_canonical_type_name_internal('\\anyURI', FL_IRI) :- !.
+%%flora_canonical_type_name_internal('http://www.w3.org/2007/rif#iri', FL_IRI) :- !.
+%%flora_canonical_type_name_internal('http://www.w3.org/2007/rif#uri', FL_IRI) :- !.
+flora_canonical_type_name_internal(Type,FL_IRI) :-
 	flora_toLower(Type,Lower),
-	(flora_toLower(FL_IRI,Lower) ; flora_toLower(FL_URI,Lower)),
+	%%(flora_toLower(FL_IRI,Lower) ; flora_toLower(FL_URI,Lower)),
+        (Lower==FL_IRI ; Lower==FL_URI),
+	%%flora_toLower(Type,Lower),
 	!.
 
-flora_canonical_type_name('\\du', FL_DURATION) :- !.
-flora_canonical_type_name(XML_SCHEMA_IRI(duration), FL_DURATION) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(duration), FL_DURATION) :- !.
-flora_canonical_type_name(Type, FL_DURATION) :-
+flora_canonical_type_name_internal('\\du', FL_DURATION) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(duration), FL_DURATION) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(duration), FL_DURATION) :- !.
+flora_canonical_type_name_internal(Type, FL_DURATION) :-
 	flora_toLower(Type,Lower),
-	flora_toLower(FL_DURATION,Lower),
+        Lower == FL_DURATION,
 	!.
 
-flora_canonical_type_name(XML_SCHEMA_IRI(short), FL_LONG) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(short), FL_LONG) :- !.
-flora_canonical_type_name(XML_SCHEMA_IRI(integer), FL_LONG) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(integer), FL_LONG) :- !.
-flora_canonical_type_name(XML_SCHEMA_IRI(long), FL_LONG) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(long), FL_LONG) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(short), FL_LONG) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(short), FL_LONG) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(integer), FL_LONG) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(integer), FL_LONG) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(long), FL_LONG) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(long), FL_LONG) :- !.
 flora_canonical_type_name(XML_SCHEMA_IRI(nonNegativeInteger), FL_LONG) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(nonNegativeInteger), FL_LONG) :- !.
-flora_canonical_type_name(XML_SCHEMA_IRI(positiveInteger), FL_LONG) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(positiveInteger), FL_LONG) :- !.
-flora_canonical_type_name(Type, FL_LONG) :-
-	flora_toLower(Type,Lower),
-	flora_toLower(FL_LONG,Lower),
-	!.
-flora_canonical_type_name(Type, FL_LONG) :-
-	flora_toLower(Type,'\\int'),
-	!.
-%% integers should be made into their own data type
-flora_canonical_type_name(Type, FL_LONG) :-
-	(flora_toLower(Type,FL_INTEGER) ; flora_toLower(Type,FL_SHORT)),
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(nonNegativeInteger), FL_LONG) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(positiveInteger), FL_LONG) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(positiveInteger), FL_LONG) :- !.
+flora_canonical_type_name_internal(Type, FL_LONG) :-
+        flora_toLower(Type,TypeLower),
+        memberchk(TypeLower,[FL_LONG,FL_INT,FL_INTEGER,FL_SHORT]),
 	!.
 
-flora_canonical_type_name(XML_SCHEMA_IRI(decimal), FL_DOUBLE) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(decimal), FL_DOUBLE) :- !.
-flora_canonical_type_name(XML_SCHEMA_IRI(real), FL_DOUBLE) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(real), FL_DOUBLE) :- !.
-flora_canonical_type_name(XML_SCHEMA_IRI(double), FL_DOUBLE) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(double), FL_DOUBLE) :- !.
-flora_canonical_type_name(Type, FL_DOUBLE) :-
-	flora_toLower(Type,FL_DOUBLE),
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(decimal), FL_DOUBLE) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(decimal), FL_DOUBLE) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(real), FL_DOUBLE) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(real), FL_DOUBLE) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(float), FL_DOUBLE) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(float), FL_DOUBLE) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(double), FL_DOUBLE) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(double), FL_DOUBLE) :- !.
+flora_canonical_type_name_internal(Type, FL_DOUBLE) :-
+	flora_toLower(Type,TypeLower),
+        memberchk(TypeLower,[FL_DOUBLE,FL_REAL,FL_FLOAT,FL_DECIMAL]),
 	!.
-flora_canonical_type_name(Type, FL_DOUBLE) :-
+/*
+flora_canonical_type_name_internal(Type, FL_DOUBLE) :-
+	flora_toLower(Type,TypeLower),
 	(flora_toLower(Type,FL_FLOAT) ; flora_toLower(Type,FL_REAL)),
 	!.
+*/
 %% decimals should be made into their own data type
-flora_canonical_type_name(Type, FL_DOUBLE) :-
+flora_canonical_type_name_internal(Type, FL_DOUBLE) :-
 	flora_toLower(Type,FL_DECIMAL),
 	!.
-%%flora_canonical_type_name(Type, FL_DOUBLE) :-
+%%flora_canonical_type_name_internal(Type, FL_DOUBLE) :-
 %%	flora_toLower(Type,FL_NUMBER),
 %%	!.
 
-flora_canonical_type_name(XML_SCHEMA_IRI(string), FL_STRING) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(string), FL_STRING) :- !.
-flora_canonical_type_name(Type, FL_STRING) :-
-	flora_toLower(Type,FL_STRING),
-	!.
-flora_canonical_type_name(Type, FL_STRING) :-
-	flora_toLower(Type,'\\str'),
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(string), FL_STRING) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(string), FL_STRING) :- !.
+flora_canonical_type_name_internal(Type, FL_STRING) :-
+	flora_toLower(Type,TypeLow),
+	memberchk(TypeLow,[FL_STR,FL_STRING]),
 	!.
 
-flora_canonical_type_name(Type, FL_CHARLIST) :-
+flora_canonical_type_name_internal(Type, FL_CHARLIST) :-
 	flora_toLower(Type,FL_CHARLIST),
 	!.
 
-flora_canonical_type_name(XML_SCHEMA_IRI(boolean), FL_BOOL) :- !.
-flora_canonical_type_name(XML_SCHEMA_NS_STR(boolean), FL_BOOL) :- !.
-flora_canonical_type_name(Type, FL_BOOL) :-
-	flora_toLower(Type,FL_BOOL),
-	!.
-flora_canonical_type_name(Type, FL_BOOL) :-
-	flora_toLower(Type,'\\bool'),
+flora_canonical_type_name_internal(XML_SCHEMA_IRI(boolean), FL_BOOLEAN) :- !.
+flora_canonical_type_name_internal(XML_SCHEMA_NS_STR(boolean), FL_BOOLEAN) :- !.
+flora_canonical_type_name_internal(Type, FL_BOOLEAN) :-
+	flora_toLower(Type,TypeLow),
+	memberchk(TypeLow,[FL_BOOL,FL_BOOLEAN]),
 	!.
 
 #mode restore
 
 %% Catch-all
-flora_canonical_type_name(X,X) :- !.
+flora_canonical_type_name_internal(X,X) :- !.
 
 %% w3c_type_name/2 : reverse (in a sense) of canonical type names
 %%                   Takes a canonical name and converts it into a W3C type
@@ -285,7 +338,7 @@ flora_w3c_type_name(FL_FLOAT,XML_SCHEMA_NS_STR(float)) :- !.
 flora_w3c_type_name(FL_REAL,XML_SCHEMA_NS_STR(real)) :- !.
 flora_w3c_type_name(FL_DECIMAL,XML_SCHEMA_NS_STR(decimal)) :- !.
 flora_w3c_type_name(FL_STRING,XML_SCHEMA_NS_STR(string)) :- !.
-flora_w3c_type_name(FL_BOOL,XML_SCHEMA_NS_STR(boolean)) :- !.
+flora_w3c_type_name(FL_BOOLEAN,XML_SCHEMA_NS_STR(boolean)) :- !.
 flora_w3c_type_name(X,X) :- !.
 
 #mode restore
@@ -297,30 +350,32 @@ flora_synonymous_type_names(X,Y) :-
 
 %% Builtin data types
 flora_builtin_datatype(X) :- var(X), !, fail.
-flora_builtin_datatype(X) :- flora_builtin_datatype1(X).
+flora_builtin_datatype(X) :- flora_builtin_datatype_base(X).
 
-flora_builtin_datatype1(FL_DATETIME).
-flora_builtin_datatype1(FL_DATE).
-flora_builtin_datatype1(FL_TIME).
-flora_builtin_datatype1(FL_DURATION).
-flora_builtin_datatype1(FL_INTEGER).
-flora_builtin_datatype1(FL_LONG).
-flora_builtin_datatype1(FL_SHORT).
-flora_builtin_datatype1(FL_DECIMAL).
-flora_builtin_datatype1(FL_DOUBLE).
-flora_builtin_datatype1(FL_REAL).
-flora_builtin_datatype1(FL_FLOAT).
-flora_builtin_datatype1(FL_NUMBER).
-flora_builtin_datatype1(FL_IRI).
-flora_builtin_datatype1(FL_BOOL).
-flora_builtin_datatype1(FL_SYMBOL).
-flora_builtin_datatype1(FL_STRING).
-flora_builtin_datatype1(FL_CHARLIST).
-flora_builtin_datatype1(FL_LISTTYPE).
+flora_builtin_datatype_base(FL_DATETIME).
+flora_builtin_datatype_base(FL_DATE).
+flora_builtin_datatype_base(FL_TIME).
+flora_builtin_datatype_base(FL_DURATION).
+flora_builtin_datatype_base(FL_INTEGER).
+flora_builtin_datatype_base(FL_LONG).
+flora_builtin_datatype_base(FL_SHORT).
+flora_builtin_datatype_base(FL_DECIMAL).
+flora_builtin_datatype_base(FL_DOUBLE).
+flora_builtin_datatype_base(FL_REAL).
+flora_builtin_datatype_base(FL_FLOAT).
+flora_builtin_datatype_base(FL_NUMBER).
+flora_builtin_datatype_base(FL_CURRENCY).
+flora_builtin_datatype_base(FL_IRI).
+flora_builtin_datatype_base(FL_BOOLEAN).
+flora_builtin_datatype_base(FL_SYMBOL).
+flora_builtin_datatype_base(FL_STRING).
+flora_builtin_datatype_base(FL_CHARLIST).
+flora_builtin_datatype_base(FL_LISTTYPE).
 
 flora_primitive_datatype(FL_SYMBOL).
 flora_primitive_datatype(FL_STRING).
 flora_primitive_datatype(FL_INTEGER).
+flora_primitive_datatype(FL_INT).
 flora_primitive_datatype(FL_LONG).
 flora_primitive_datatype(FL_SHORT).
 flora_primitive_datatype(FL_DOUBLE).
@@ -328,20 +383,20 @@ flora_primitive_datatype(FL_REAL).
 flora_primitive_datatype(FL_FLOAT).
 flora_primitive_datatype(FL_NUMBER).
 flora_primitive_datatype(FL_DECIMAL).
-flora_primitive_datatype(FL_BOOL).
+flora_primitive_datatype(FL_BOOLEAN).
 
 flora_builtin_class(X) :- var(X), !, fail.
-flora_builtin_class(X) :- flora_builtin_class1(X).
+flora_builtin_class(X) :- flora_builtin_class_ext(X).
 flora_builtin_class(X) :- flora_builtin_datatype(X).
 
-flora_builtin_class1(FL_TOPTYPE) :- !.
-flora_builtin_class1(FL_MODULAR_FORM) :- !.
-flora_builtin_class1(FL_CALLABLE_FORM) :- !.
+flora_builtin_class_ext(FL_TOPTYPE) :- !.
+flora_builtin_class_ext(FL_MODULAR_FORM) :- !.
+flora_builtin_class_ext(FL_CALLABLE_FORM) :- !.
 
 %% This primitive is used as metaclass{?X}. in flrsimpleprimitive.P
 :- export flora_metaclass_prim/1.
-flora_metaclass_prim(X) :- flora_builtin_class1(X).
-flora_metaclass_prim(X) :- flora_builtin_datatype1(X).
+flora_metaclass_prim(X) :- flora_builtin_class_ext(X).
+flora_metaclass_prim(X) :- flora_builtin_datatype_base(X).
 
 
 %% Canonical representation of data types
@@ -358,9 +413,11 @@ flora_printable_type_representation(Obj,[Type,Repr]) :-
 */
 
 %% the var case
-flora_printable_type_representation(Val,['\\variable',ValPrint]) :-
+%%flora_printable_type_representation(Val,[FL_VARTYPE,ValPrint]) :-
+flora_printable_type_representation(Val,[FL_VARTYPE,ValPrint]) :-
         var(Val),
-        flora_decode_oid_as_atom_substitute_vars(Val,ValPrint),
+        flora_decode_oid_as_atom(Val,ValPrint),
+        %%flora_decode_oid_as_atom_substitute_vars(Val,[FL_VARTYPE,ValPrint]),
         !.
 %% This tries to strip the outer FL_DATATYPE and see if the result can be parsed
 flora_printable_type_representation(FL_DATATYPE(Literal,_),Repr) :-
@@ -481,7 +538,7 @@ flora_printable_type_representation(FL_LONG(Val),[FL_LONG,Val]) :- !.
 flora_printable_type_representation(FL_DOUBLE(Val),[FL_DOUBLE,Val]) :- !.
 %%flora_printable_type_representation(FL_FLOAT(Val),[FL_FLOAT,Val]) :- !.
 %%flora_printable_type_representation(FL_DECIMAL(Val),[FL_DECIMAL,Val]) :- !.
-flora_printable_type_representation(FL_BOOL(Val),[FL_BOOL,Val]) :- !.
+flora_printable_type_representation(FL_BOOLEAN(Val),[FL_BOOLEAN,Val]) :- !.
 flora_printable_type_representation(FL_CHARLIST(Val),[FL_CHARLIST,ValRepr]) :-
 	!,
 	is_charlist(Val),
@@ -502,6 +559,13 @@ flora_printable_type_representation(FL_DATATYPE(TypeName,Literal),
 				    [TypeName,LiteralAtm]) :-
 	is_charlist(Literal),
 	atom_codes(LiteralAtm,Literal),
+	!.
+flora_printable_type_representation(FL_DATATYPE(TypeName,Literal),
+				    [TypeName,LiteralOut]) :-
+        var(Literal),
+	atom(TypeName),
+        %%flora_concat_items([Literal], LiteralOut),
+        LiteralOut=Literal,
 	!.
 
 flora_printable_type_representation(FL_DATATYPE(TypeName,Literal),_) :-
@@ -756,11 +820,22 @@ fragment(FL_DATATYPE(T,_), Val) :- fragment(T,Val), !.
 fragment(FL_IRI(_Proto,_Separator,_User,_Host,_Port,_Path,_Query,Fragm),Fragm) :-
 	!.
 
+%%  T is either FL_DATATYPE(FL_CURRENCY(Val,Unit,NummericValue))
+%% or just FL_CURRENCY(Val,Unit,NummericValue)
 money_unit(FL_DATATYPE(T,_),Val) :- money_unit(T,Val).
 money_unit(FL_CURRENCY(_Val,Unit,_Numeric),Unit).
 money_amount(FL_DATATYPE(T,_),Val) :- money_amount(T,Val).
 money_amount(FL_CURRENCY(Val,_Unit,_Numeric),Val).
 
+'\\iscurrency'(FL_DATATYPE(FL_CURRENCY(Amount,Unit,_Numeric), FL_CURRENCY)) :-
+        currency(Unit,_Descr,_Sign),
+        number(Amount).
+'\\iscurrency'(FL_CURRENCY(Amount,Unit,_Numeric)) :-
+        currency(Unit,_Descr,_Sign),
+        number(Amount).
+
+%%  T is either FL_DATATYPE(FL_CURRENCY(Val,Unit,NummericValue))
+%% or just FL_CURRENCY(Val,Unit,NummericValue)
 money_info(T,Descr,Sign) :-
         money_unit(T,Unit),
         currency(Unit,Descr,Sign).
@@ -768,11 +843,11 @@ money_info(T,Descr,Sign) :-
 
 flora_datatype_raw_value(FL_DATATYPE(Val,Name), Raw) :-
 	compound(Val),
-	(\+is_list(Val); Name == FL_LISTTYPE),
+	(\+ is_list(Val); Name == FL_LISTTYPE),
 	!,
 	(Val = FL_DATATYPE(_,Raw) -> true
 	; Val =.. [TypeName|Raw1],
-	    (member(TypeName,[FL_LONG,FL_DOUBLE,FL_STRING,FL_INTEGER,FL_DECIMAL,FL_BOOL,FL_LISTTYPE])
+	    (member(TypeName,[FL_LONG,FL_DOUBLE,FL_STRING,FL_INTEGER,FL_DECIMAL,FL_BOOLEAN,FL_LISTTYPE])
 	    -> Raw1 = [Raw|_]
             ; TypeName == FL_CURRENCY ->
                 Raw1 = [V,U,_],
@@ -794,50 +869,267 @@ flora_datatype_raw_value(Val,Raw) :-
 flora_datatype_raw_value(Val,Val).
 
 
-%% a typed var
-flora_datatype_name(Var,Type) :-
-	var(Var),
-        flora_get_DT_var_datatype(Var,Type),
-	!.
-%% a non-typed var
-flora_datatype_name(Var,Type) :-
-	var(Var),
-	!,
-        Type = '\\variable',
-        true.
-flora_datatype_name(FL_TRUECONST, FL_BOOL) :- !.
-flora_datatype_name(FL_FALSECONST, FL_BOOL) :- !.
-flora_datatype_name(FL_UNDEFCONST, FL_BOOL) :- !.
-flora_datatype_name(Val, FL_SYMBOL) :-
-	'\\issymbol'(Val),
-	!.
-flora_datatype_name(FL_DATATYPE(_Val,Name), Name) :- !.
-flora_datatype_name(Val, FL_LONG) :-
-	integer(Val),
-	!.
-flora_datatype_name(Val, FL_DOUBLE) :-
-	float(Val),
-	!.
-flora_datatype_name(Val, FL_STRING) :-
-	'\\isstring'(Val),
-	!.
-flora_datatype_name(Val, FL_IRI) :-
-	'\\isiri'(Val),
-	!.
-flora_datatype_name(Val, FL_CHARLIST) :-
-	is_charlist(Val),
-	!.
-flora_datatype_name(Val, FL_LISTTYPE) :-
-	is_list(Val),
-	!.
-flora_datatype_name(Val, FL_BOOL) :-
-	(Val == FL_TRUECONST ; Val == FL_FALSECONST),
-	!.
-flora_datatype_name(Val, Type) :-
-	flora_canonical_type_name(Type,Type2),
-	Type \== Type2,
-	flora_datatype_name(Val,Type2).
+%% flora_is_finite_type/1  to extend to user types
+flora_is_finite_type(FL_BOOLEAN).
 
+
+%% flora_datatype_name/2
+/*
+%% a typed var
+flora_datatype_name(Val,Type) :-
+        var(Val),
+        flora_get_DT_var_datatype(Val,Type),
+        flora_builtin_datatype(Type),
+        flora_add_more_type_to_var(Val,Type),
+        !.
+
+%% a non-typed var
+flora_datatype_name(Val,Type) :-
+	var(Val),
+        (var(Type) -> Type = FL_VARTYPE
+        ; flora_builtin_datatype(Type) ->
+            %% Type is a nonvar
+            flora_add_more_type_to_var(Val,Type)
+        ),
+        !.
+*/
+
+
+%% The Bool type is finite
+%% flora_is_finite_type/1  - to expand
+%% For finite types, will have to treat them similarly.
+%% Ie, ?X:some_finite_type should %% eenumerate the type.
+%% Maybe users will be declaring *infinite* classes from
+%% which we'll derive finite classes?-- will see.
+flora_datatype_name(Val,Type) :-
+        %%check with 1:\number. and setsemantics{class_expressions=on}.
+	(
+        nonvar(Val), '\\isboolean'(Val) -> Type = FL_BOOLEAN
+        %% Val typed by \boolean
+        ; var(Val), flora_get_DT_var_datatype(Val,FL_BOOLEAN) ->
+            Type = FL_BOOLEAN, '\\isboolean'(Val)
+        %% untyped Val, but Type is a const = \boolean
+        ; var(Val), Type==FL_BOOLEAN ->
+          %% \boolean is a small finite type, so  for ?x:\boolean
+          %% we list the 3 members of \bool rather than
+          %% returning a generic ?x^^\bool.
+          %%flora_add_more_type_to_var(Val,FL_BOOLEAN)
+          '\\isboolean'(Val)
+        ),
+        %%  NO cut because for  ?x^^\boolean  :\boolean
+        %% we want to enumerate the \boolean type
+        %%  !,
+        true.
+
+/*
+flora_datatype_name(Val,Type) :-
+	(
+          nonvar(Val), '\\iscurrency'(Val) -> Type = FL_CURRENCY
+        %% Val typed by \currency
+        ; var(Val), flora_get_DT_var_datatype(Val,FL_CURRENCY) ->
+            Type = FL_CURRENCY, '\\iscurrency'(Val)
+        %% untyped Val, but Type is a const = \currency
+        ; var(Val), Type==FL_CURRENCY ->
+          %% \boolean is a small finite type, so  for ?x:\currency
+          %% we list the members of \currency rather than
+          %% returning a generic ?x^^\currency.
+          %%flora_add_more_type_to_var(Val,FL_CURRENCY)
+          '\\iscurrency'(Val)
+        ),
+        %%  NO cut because for  ?x^^currency :\currency
+        %% we want to enumerate the \currency type
+        %%  !,
+        true.
+*/
+
+%% FL_SYMBOL
+flora_datatype_name(Val,Type) :-
+	( nonvar(Val), '\\issymbol'(Val) -> 
+            (var(Type) -> Type = FL_SYMBOL
+            ;
+                flora_canonical_type_name(Type,FL_SYMBOL)
+            )
+        %% typed variable
+        ; var(Val), flora_get_DT_var_datatype(Val,Type0),
+            flora_canonical_type_name(Type0,Type),
+            Type == FL_SYMBOL
+        -> true
+        %% Untyped variable
+        ; var(Val), nonvar(Type),
+            flora_canonical_type_name(Type,CanonType),
+            CanonType == FL_SYMBOL
+        ->
+          flora_add_more_type_to_var(Val,FL_SYMBOL)
+        ),
+        %%!,
+        true.
+
+%% FL_LONG, FL_INTEGER, FL_SHORT
+flora_datatype_name(Val,Type) :-
+	( integer(Val) -> 
+            (var(Type)-> Type=FL_LONG
+            ; flora_canonical_type_name(Type,FL_LONG)
+            )
+        %% Typed variable
+        ; flora_get_DT_var_datatype(Val,Type0),
+            flora_canonical_type_name(Type0,FL_LONG),
+            flora_canonical_type_name(Type,FL_LONG)
+        -> true
+        %% Untyped variable
+        ; var(Val), nonvar(Type),
+            flora_canonical_type_name(Type,CanonType), CanonType==FL_LONG
+        ->
+          flora_add_more_type_to_var(Val,FL_LONG)
+        ),
+        %%!,
+        true.
+
+%% FL_DOUBLE
+flora_datatype_name(Val,Type) :-
+	( float(Val) -> 
+            (var(Type) ->  Type=FL_DOUBLE
+            ;
+                flora_canonical_type_name(Type,FL_DOUBLE)
+            )
+        %% Typed variable
+        ; flora_get_DT_var_datatype(Val,Type0),
+            flora_canonical_type_name(Type0,FL_DOUBLE),
+            flora_canonical_type_name(Type,FL_DOUBLE)
+        -> true
+        %% Untyped variable
+        ; var(Val), nonvar(Type),
+            flora_canonical_type_name(Type,CanonType),
+            CanonType==FL_DOUBLE
+        ->
+          flora_add_more_type_to_var(Val,FL_DOUBLE)
+        ),
+        %%!,
+        true.
+
+
+
+%% FL_STRING
+flora_datatype_name(Val,Type) :-
+	( '\\isstring'(Val) -> 
+            (var(Type) -> Type = FL_STRING
+            ;
+                flora_canonical_type_name(Type,FL_STRING)
+            )
+        %% typed variable
+        ; flora_get_DT_var_datatype(Val,Type0),
+            flora_canonical_type_name(Type0,CanType0), CanType0==FL_STRING,
+            flora_canonical_type_name(Type,CanType), CanType==FL_STRING
+        -> true
+        %% Untyped variable
+        ; var(Val), nonvar(Type),
+            flora_canonical_type_name(Type,FL_STRING)
+        ->
+          flora_add_more_type_to_var(Val,FL_STRING)
+        ),
+        %%!,
+        true.
+
+%% FL_IRI
+flora_datatype_name(Val,Type) :-
+	( '\\isiri'(Val) -> 
+            (var(Type) -> Type = FL_IRI
+            ;
+                flora_canonical_type_name(Type,FL_IRI)
+            )
+        %% typed variable
+        ; flora_get_DT_var_datatype(Val,Type0),
+            flora_canonical_type_name(Type0,CanType0), CanType0==FL_IRI,
+            flora_canonical_type_name(Type,CanType), CanType==FL_IRI
+        -> true
+        %% Untyped variable
+        ; var(Val), nonvar(Type),
+            flora_canonical_type_name(Type,CanType), CanType=FL_IRI
+        ->
+          flora_add_more_type_to_var(Val,FL_IRI)
+        ),
+        %%!,
+        true.
+
+%% FL_CHARLIST
+flora_datatype_name(Val,Type) :-
+	( is_charlist(Val) -> 
+            (var(Type) -> Type = FL_CHARLIST
+            ;
+                flora_canonical_type_name(Type,FL_CHARLIST)
+            )
+        %% typed variable
+        ; flora_get_DT_var_datatype(Val,Type0),
+            flora_canonical_type_name(Type0,FL_CHARLIST),
+            flora_canonical_type_name(Type,FL_CHARLIST)
+        -> true
+        %% Untyped variable
+        ; var(Val), nonvar(Type),
+            flora_canonical_type_name(Type,FL_CHARLIST)
+        ->
+          flora_add_more_type_to_var(Val,FL_CHARLIST)
+        ),
+        %%!,
+        true.
+
+%% FL_LISTTYPE
+flora_datatype_name(Val,Type) :-
+	( is_list(Val) -> 
+            (var(Type) -> Type = FL_LISTTYPE
+            ;
+                flora_canonical_type_name(Type,FL_LISTTYPE)
+            )
+        %% typed variable
+        ; flora_get_DT_var_datatype(Val,Type0),
+            flora_canonical_type_name(Type0,FL_LISTTYPE),
+            flora_canonical_type_name(Type,FL_LISTTYPE)
+        -> true
+        %% Untyped variable
+        ; var(Val), nonvar(Type),
+            flora_canonical_type_name(Type,FL_LISTTYPE)
+        ->
+          flora_add_more_type_to_var(Val,FL_LISTTYPE)
+        ),
+        %%!,
+        true.
+
+%% maybe work on making these extended datatypes more
+%% like the base datatype
+flora_datatype_name(Val, Name) :-
+        nonvar(Val),
+        /*
+            now DTVal is must have the form FL_DATATYPE(TypeName,Data)
+            or  StdTypeNamme(...Arguments...)
+        */
+        Val = FL_DATATYPE(DTVal,DTOuterTypeName),
+        flora_builtin_datatype_template(DTVal,DTInnerTypeName),
+        flora_canonical_type_name(DTOuterTypeName,OuterName),
+        flora_canonical_type_name(DTInnerTypeName,InnerName),
+        flora_canonical_type_name(Name,CanName),
+        InnerName == OuterName,
+        InnerName = CanName,
+        %%!,
+        true.
+
+flora_datatype_name(Val, Type) :-
+        nonvar(Type),
+        !,
+	flora_add_more_type_to_var(Val,Type),
+        true.
+
+%% flora_builtin_datatype_template/2
+flora_builtin_datatype_template(Literal,_) :-
+        var(Literal),
+        !,
+        fail.
+flora_builtin_datatype_template(FL_DATATYPE(Type,_),Type) :- !.
+flora_builtin_datatype_template(FL_DATETIME(_,_,_,_,_,_,_,_,_,_,_),FL_DATETIME) :- !.
+flora_builtin_datatype_template(FL_DURATION(_,_,_,_,_,_,_,_),FL_DURATION) :- !.
+flora_builtin_datatype_template(FL_DATE(_,_,_,_,_,_,_,_),FL_DATE) :- !.
+flora_builtin_datatype_template(FL_TIME(_,_,_,_,_,_,_),FL_TIME) :- !.
+flora_builtin_datatype_template(FL_CURRENCY(_,_,_),FL_CURRENCY) :- !.
+
+
+%% flora_dt_add/3
 flora_dt_add(X, Y, Z) :-
         %% negate_duration_if_needed allows us to pass -duration as argument
         %% ie, -"P0Y0M0DT0H5M0S"^^\du, not only "-P0Y0M0DT0H5M0S"^^\du
@@ -900,6 +1192,10 @@ flora_dt_add_aux(FL_TIME(Hr,Min,Sec,ZoneS,ZoneH,ZoneM,_),
 				      NewTimeArgs),
 	flora_make_datatype(FL_TIME,NewTimeArgs,Result).
 %% test: "3:7:9"^^\time[add(?P)->"2:6:22"^^\time]@\btp.
+%% test: ?X^^\integer = ?Y^^\float, ?Y:\double
+%%        without  setsemantics{class_expressions=on} should fain. 
+%% But with setsemantics{class_expressions=on}
+%% the above should succeed
 flora_dt_add_aux(FL_TIME(Hr,Min,Sec,ZoneS,ZoneH,ZoneM,Val),
                  Result,
                  FL_TIME(Hr2,Min2,Sec2,ZoneS2,ZoneH2,ZoneM2,Val2)) :-
@@ -959,7 +1255,7 @@ flora_dt_add_aux(FL_DATETIME(Sgn,Yr,Mon,Day,Hr,Min,Sec,ZSgn,ZHr,ZMin,Val),
 	flora_make_datatype(FL_DURATION,NewDArgs,Result).
 
 
-%% datetime diffs  DT+DU -> DT and  DT+?Var->DT
+%% datetime diffs  DT+DU -> DT and  DT+?Val->DT
 flora_dt_add_aux(FL_DATETIME(Sgn,Yr,Mon,Day,Hr,Min,Sec,ZSgn,ZHr,ZMin,_),
                  FL_DURATION(DSgn,DYr,DMon,DDay,DHr,DMin,DSec,_),
                  Result) :-
@@ -1309,3 +1605,42 @@ flora_dt_days_between_dates(FL_DATATYPE(FL_DATETIME(YrSn,Yr,Mo,Day,Hr,Mi,SecAtm,
         ; DiffDays = DiffDaysPre
         ).
 
+
+
+/*
+    Used in flrdecode.P by display_datatype_name/3 to properly
+    write out ergo's typed vars 
+*/
+flora_canonical_type_name_printable(Type,CanonTypeAtm) :-
+        flora_canonical_type_name(Type,CanonType),
+        ergo_DT_expr2atom(CanonType,CanonTypeAtm).
+
+ergo_DT_expr2atom(DTExpr, DTAtm) :- 
+        atom(DTExpr),
+        !,
+        DTAtm = DTExpr.
+ergo_DT_expr2atom(DTExpr, DTAtm) :- 
+        ergo_DT_expr2atomlist(DTExpr, DTExprLis),
+        flatten(DTExprLis,FlatList),
+        flora_concat_items(FlatList,DTAtm).
+
+        
+ergo_DT_expr2atomlist(DTExpr,DTExpr) :- 
+        atom(DTExpr),
+        !.
+        
+ergo_DT_expr2atomlist((DTExpr1,DTExpr2), AtomList) :- 
+        !,
+        ergo_DT_expr2atomlist(DTExpr1,AtomList1),
+        ergo_DT_expr2atomlist(DTExpr2,AtomList2),
+        AtomList = ['(',AtomList1, ',', AtomList2, ')'].
+ergo_DT_expr2atomlist((DTExpr1 ; DTExpr2), AtomList) :- 
+        !,
+        ergo_DT_expr2atomlist(DTExpr1,AtomList1),
+        ergo_DT_expr2atomlist(DTExpr2,AtomList2),
+        AtomList = ['(',AtomList1, ';', AtomList2, ')'].
+ergo_DT_expr2atomlist((DTExpr1 - DTExpr2), AtomList) :- 
+        !,
+        ergo_DT_expr2atomlist(DTExpr1,AtomList1),
+        ergo_DT_expr2atomlist(DTExpr2,AtomList2),
+        AtomList = ['(',AtomList1, '-', AtomList2, ')'].

@@ -4,7 +4,7 @@
 **
 ** Contact:   see  ../CONTACTS.txt
 **
-** Copyright (C) Coherent Knowledge Systems, 2016-2023.
+** Copyright (C) Coherent Knowledge Systems, 2016-2025
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -59,18 +59,18 @@
         ergo_constraint/6.
 
 
-ergo_constraint(PlusMinus,Constraint,File,Module,_Line) :-
-        ergo_constraint(PlusMinus,Constraint,NULL,File,Module,_Line).
+ergo_constraint(PlusMinus,Constraint,File,_Line,Module) :-
+        ergo_constraint(PlusMinus,Constraint,NULL,File,_Line,Module).
 
-ergo_constraint(_PlusMinus,Constraint,CallBack,File,Module,Line) :-
+ergo_constraint(_PlusMinus,Constraint,CallBack,File,Line,Module) :-
         compound(Constraint),
         (is_flora_callable(Constraint,Module),
             (CallBack == NULL
-            ; is_hilog_predicate_with_atleast_one_argument(CallBack,Module)
+            ; is_hilog_predicate_with_1_to_4_arguments(CallBack,Module)
             )
         -> fail
         ; (nonvar(CallBack),
-              \+ is_hilog_predicate_with_atleast_one_argument(CallBack,Module),
+            \+ is_hilog_predicate_with_1_to_4_arguments(CallBack,Module),
               CallBack \== NULL
           ->
               %% callback spec was wrong
@@ -84,20 +84,20 @@ ergo_constraint(_PlusMinus,Constraint,CallBack,File,Module,Line) :-
               flora_abort([' invalid constraint activation in file ',
                            File, ' line ', Line, ':\n\t\t',
                            ConstraintAtm,
-                           ' must be a HiLog predicate of a frame in module ',
+                           ' must be a HiLog predicate or a simple frame in a concrete module ',
                            Module],
                           FLORA_ABORT_NOTRACE)
           )
         ).
 
-ergo_constraint(('+'),Constraint,CallBack,File,Module,Line) :-
+ergo_constraint(('+'),Constraint,CallBack,File,Line,Module) :-
         !,
-        ergo_add_constraint(Constraint,CallBack,File,Module,Line).
-ergo_constraint(('-'),Constraint,_CallBack,File,Module,_Line) :-
+        ergo_add_constraint(Constraint,CallBack,File,Line,Module).
+ergo_constraint(('-'),Constraint,_CallBack,File,_Line,Module) :-
         !,
         ergo_delete_constraint(Constraint,File,Module).
 
-ergo_constraint(_PlusMinus,Constraint,_CallBack,File,_Module,Line) :-
+ergo_constraint(_PlusMinus,Constraint,_CallBack,File,Line,_Module) :-
         flora_decode_goal_as_mainless_atom_substitute_vars(Constraint,ConstraintAtm),
         flora_abort([' constraint{', ConstraintAtm,
                      ',...} is not a valid constraint specification:\n\t\t',
@@ -105,7 +105,7 @@ ergo_constraint(_PlusMinus,Constraint,_CallBack,File,_Module,Line) :-
                      'the error was in file ', File, ' on line ', Line],
                     FLORA_ABORT_NOTRACE).
 
-ergo_add_constraint(Constraint,CallBack,File,Module,Line) :-
+ergo_add_constraint(Constraint,CallBack,File,Line,Module) :-
         %% raising the flag so that activating a constraint hook will
         %% immediately check if a violation exists
         flora_raise_update_flag,
@@ -113,7 +113,7 @@ ergo_add_constraint(Constraint,CallBack,File,Module,Line) :-
               flora_add_hook(Module,CONSTRAINTHOOK,after,0,
                              constraint_hook(_Mod,_Trans,_Result,
                                              Constraint,CallBack,
-                                             File,Module,Line)),
+                                             File,Line,Module)),
               _,
               flora_abort([' in file ', File, ' on line ', Line,
                            ': this constraint has been activated before'],
@@ -123,13 +123,13 @@ ergo_add_constraint(Constraint,CallBack,File,Module,Line) :-
 
 ergo_delete_constraint(Constraint,File,Module) :-
         flora_delete_hook(Module,CONSTRAINTHOOK,after,
-                          constraint_hook(_Mod,_Trans,_Result,Constraint,_CallBack,File,Module,_)),
+                          constraint_hook(_Mod,_Trans,_Result,Constraint,_CallBack,File,_,Module)),
         retractall(constraints_cache(File,Module,Constraint,_)).
 
 
 %% prints only one violation per constraint
 %% _Mod and Module - same thing - just a precaution
-constraint_hook(_Mod,Transaction,Result,Constraint,CallBack,File,Module,Line) :-
+constraint_hook(_Mod,Transaction,Result,Constraint,CallBack,File,Line,Module) :-
         find_violators(Constraint,Violators),
         (Violators == [] -> Result = _
         ; have_reported_before(Violators,File,Module) ->
@@ -137,7 +137,7 @@ constraint_hook(_Mod,Transaction,Result,Constraint,CallBack,File,Module,Line) :-
             Result = _
         ; CallBack == NULL ->
             Result = violation,
-            WARNOUT('\n*** A violation of the constraint activated on line '),
+            WARNOUT('\n*** A violation of a constraint activated on line '),
             WARNOUT(Line),
             WARNOUT(' in file '), WARNOUT(File),
 
@@ -153,9 +153,10 @@ constraint_hook(_Mod,Transaction,Result,Constraint,CallBack,File,Module,Line) :-
             WARNNL
 
         ; arg(2,CallBack,Violators), %% bind arg 1 of HiLog pred CallBack
+                         %%% arg2 because flapply(hilog-pred,Arg1,...)
             call(CallBack)
         ).
-constraint_hook(_Mod,_Trans,_Result,_Latent,_CallBack,_File,_Module,_Line).
+constraint_hook(_Mod,_Trans,_Result,_Latent,_CallBack,_File,_Line,_Module).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -181,10 +182,12 @@ have_reported_before(Constraint,File,Module) :-
         !,
         fail.
 
-is_hilog_predicate_with_atleast_one_argument(Pred,Module) :-
+is_hilog_predicate_with_1_to_4_arguments(Pred,Module) :-
         %% Note: using _Context because Ergo-callable things always
         %% have Context as the last argument.
-        flora_decode_predicate(Pred,hilog,Module1,_,_,_,[_PredName,_Arg1,_Context|_]),
+        flora_decode_predicate(Pred,hilog,Module1,_,_,_,[_PredName|Args]),
+        %% Note:  +1 args because _$context/3 is also counted here
+        basics:length(Args,ArgLen), ArgLen > 0+1, ArgLen =< 5+1,
         Module1 == Module.
 
 is_flora_callable(Pred,Module) :-
@@ -192,7 +195,7 @@ is_flora_callable(Pred,Module) :-
         Module1 == Module .
 
 
-print_violators([]) :- !.
+print_violators([]) :- !, WARNNL.
 print_violators([H|T]) :-
         WARNOUT('\t'),
         flora_decode_goal_as_mainless_atom_substitute_vars(H,H_atm),

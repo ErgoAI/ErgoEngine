@@ -94,11 +94,16 @@ Then we could activate the alert using the 3-argument version of the
 \texttt{+alert\{...\}} primitive:
 %% 
 \begin{verbatim}
-    ?-  +alert{conflict,employee(?,?,?), employee_alert_callback(?,\@)}.
+    ?-  +alert{conflict,employee(?,?,?), employee_alert_callback(?,\@F)}.
 \end{verbatim}
 %% 
-Recall that \texttt{\bs{}@} above is a quasi-constant denoting the current
+Recall that \texttt{\bs{}@F} above is a quasi-constant denoting the current
 module. 
+
+The syntax of a callback in a conflict alert
+is the  and itame as in the case of constraints: it must be a HiLog predicate defined
+via some set of rules and it must have 1 to 4 arguments with the 
+same meaning as before.
 
 \paragraph{Complex alerts.} Lest the reader thinks that only simple
 alerts can be specified using the above mechanism, here is a much more
@@ -115,7 +120,7 @@ we need via rules:
             \neg employee(?Company,?Empl,?Year2),
             ?Year2 >= ?Year,
             ?Year2 - ?Year < 4.
-    ?-  +alert{conflict,longtime_or_current_employee(?,?)}.
+    ?-  +alert{conflict,longtime_or_current_employee(?,\@F)}.
 \end{verbatim}
 %% 
 Now, a conflict alert will be raised whenever an employee is fired within
@@ -128,7 +133,7 @@ Truth alerts are defined similarly to conflict alerts except that
 \texttt{truth} is used as the first argument instead of \texttt{conflict}:
 %% 
 \begin{verbatim}
-    +alert{truth,longtime_or_current_employee(?,?)}.
+    +alert{truth,longtime_or_current_employee(?,\@F)}.
 \end{verbatim}
 %% 
 If some instances of \texttt{longtime\_or\_current\_employee(?Company,?Empl)} 
