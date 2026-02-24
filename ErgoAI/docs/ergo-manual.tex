@@ -3006,21 +3006,42 @@ This option can also be turned off:
 \end{verbatim}
 %% 
 
-Theoretically \verb|?X^^Cl| is equivalent to making a test like
-\texttt{?X:Cl} \emph{once} \texttt{?X} \emph{gets bound by another subgoal},
+Theoretically \verb|?X^^Cl| is equivalent to performing the test
+\texttt{?X:Cl} \emph{whenever} \texttt{?X} \emph{gets bound by another subgoal},
 but in practice typed variables can be much more efficient.
 Testing \texttt{?X:Cl}, where \texttt{?X} is unbound,
 involves enumerating the entire class
-\texttt{Cl}, which can be expensive when the class is large and may not
+\texttt{Cl}, which can be expensive if the class is large and may not
 terminate, if the class is infinite (e.g., \texttt{?X:\bs{}integer}). 
 In contrast, \verb|?X^^Cl| does not involve any tests until \texttt{?X}
-gets bound. This is convenient because often the knowledge engineer does
+gets bound. This is convenient because oftentimes the knowledge engineer does
 not know which subgoal will eventually bind \texttt{?X} and so the guessing game
 of where to put the test \texttt{?X:Cl} is avoided.
-However, the knowledge engineer \emph{must be certain}    that \texttt{?X}
-\emph{will} get bound at some point or else no checks will be performed whatsoever
+However, the knowledge engineer \emph{must assure}    that \texttt{?X}
+\emph{will} become bound at some point or else no checks will be performed whatsoever
 (because \verb|?X^^Cl| causes the membership test for \texttt{Cl} to be
 performed only when \texttt{?X} gets bound to a non-variable).    
+To avoid these problems, it would be handy if \verb|?X^^Cl| were always
+evaluated to \verb|?X^^Cl|, if \texttt{Cl} is an infinite class. In
+general, determining if a class defined by rules is infinite is undecidable.
+For standard \emph{primitive} data types, described in
+Section~\ref{sec-data-types}, we know that apart from \verb|\boolean| these
+types are infinite so \ERGO evaluates such queries in the
+described way. For example,  we get
+%% 
+\begin{verbatim}
+  ?- ?x:\integer.
+  ?x = ?_h11006^^(\long)
+\end{verbatim}
+%% 
+because \verb|\integer| is an infinite class and its name is standardized
+to \verb|\long|. In contrast, the subgoal \verb|?x:\boolean|
+is evaluated by successively binding \texttt{?x} to \verb|\true|,
+\verb|\false|, and \verb|\undefined|. 
+In the future, we might let the user to ``advise'' \ERGO which user-defined
+classes can be assumed to be infinite thereby making the above technique more
+widely available.
+
 
 The expression
 \texttt{?Var$\hat{~}\hat{~}$Class} should be understood as a declaration,
@@ -3088,7 +3109,7 @@ However, the query
    ?- forall(?X^^foo)^(pp(?X) ~~> qq(?X)).
 \end{verbatim}
 %%
-is true because for all \texttt{?X}'s that are in class \texttt{foo} and
+is true because for all \texttt{?X}'s that belong to class \texttt{foo} and
 for which \texttt{pp(...)} is true, \texttt{qq(...)} is also true.  
 The above can be seen as just a more convenient form than
 %% 
@@ -20568,7 +20589,7 @@ One way to do this is to put the directive
    :- compiler_options{production=on}.
 \end{verbatim}
 %% 
-in each file. However, this is often inconvenient, takes time, and might be
+in each file. However, oftentimes this is inconvenient, time-consuming, and might be
 error-prone. An alternative method is to execute the following command at
 the prompt:
 \index{production\{...\} primitive}
@@ -20734,7 +20755,8 @@ the file {\tt foo\_dump.P}.
 
 Unfortunately, this more readable version of the translated \FLSYSTEM
 specification
-might still not be executable on its own because it might contain calls to
+might still be not executable on its own. For instance,
+it might contain calls to
 \FLSYSTEM libraries or other modules.  The set of guidelines, below, can help
 cope with these problems.
 
@@ -20764,10 +20786,7 @@ chances that the bug will be fixed promptly:
     program and removing it while preserving the subgoal (the first
     argument) and renaming the variables (as indicated by the second argument).
     Make sure the resulting program is still syntactically correct!
-
-    Other calls that are often no longer needed in the dumped code are
-    those that load \FLSYSTEM runtime libraries (which we are trying to
-    eliminate!). These calls have the form
+    These calls have the form
     %%
     \begin{verbatim}
    ?- flora_load_library(...).      
@@ -20937,9 +20956,9 @@ These features are:
 \begin{itemize}
 \item \texttt{naf\_delay} --  disabling this makes \texttt{\RULELOGNAF}
   execute immediately, without delaying --- even for nonground subgoals. 
-  This makes \texttt{\RULELOGNAF} faster, but less logical.
+  This makes \texttt{\RULELOGNAF} faster, but not purely  logical.
 \item \texttt{defeat\_delay} -- disabling this makes testing for whether
-  rules are  defeated immediate, even for non-ground such tests.
+  the rules are  defeated immediate, even for non-ground such tests.
   This makes defeasible reasoning faster, but ``less correct''
   in some edge cases.
 \item \texttt{subgoal\_delay}: support for the delay quantifiers
