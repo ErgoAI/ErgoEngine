@@ -1,0 +1,24 @@
+
+:- symbol_context{pp(?,?)@?, pp(?)@?}.
+:- symbol_context{p(?,?)@?, p(?)@?}.
+
+p(12).
+pp(13,14).
+
+?- insert{@!{rr1(?X,?Y)} !- pp(?X,?Z)}.
+?- insert{@!{rr1(?X)} !- pp(?X)}.
+
+// This gives the line number wrong. 
+// Check descriptor vars are taken into 
+// account by latent queries
+?- insert{@!{rr0(?X2)[bar->7]} !- p(?X2)}.
+?- insert{rr(?XX) :- p(?X2,?P)}.
+
+@!{rr1(?Z)[bar->7]} !- p(?Z).
+
+@!{rr2(?W)[bar->7]} q :- p(?W).
+
+?- insert{@!{rr3(?T)} rr1 :- p(?T)}.
+
+?- insert{@!{rr4(?T2)[bar->7]} rr2 :- p(?T2)}.
+

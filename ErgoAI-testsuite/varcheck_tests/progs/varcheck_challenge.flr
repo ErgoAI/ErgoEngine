@@ -1,0 +1,39 @@
+
+:- use_argumentation_theory.
+
+@{p(?x)}  // all descriptor vars are safe
+@{p(?x,?z,?w)} // ?z is an unsafe descriptor variable - should be prohibited
+head(?y) :- pp(?y),qq(?x).
+
+@{p(?y)}
+head(?x) :- pp(?x),qq(?y).
+
+
+@{p(?x,?z,?w)}
+head(?y) :- pp(?y),qq(?x).
+
+pp(1). pp(3). pp(4), pp(6).
+qq({2,3,5,6}).
+
+dom(?X) :- ?X \in 1..9.
+
+\opposes(head(?X),head(?X)) :-
+        %enabled,
+        pp(?X),
+        qq(?X).
+
+%disable :- \+%disabled, insert{%disabled}, 
+              abolish_all_tables@\plg.
+%enable  :- %disabled, delete{%disabled},
+              abolish_all_tables@\plg.
+%enabled :- \+%disabled.
+
+   ?- head(?x).     // ?x = 1,4  opposition enabled,
+                    // head(3), head(6) beat each other,
+                    // 1 , 4 returned
+   ?- %disable.
+   ?- head(?x).     // ?x = 1,3,4,6  opposition disabled, so
+                    //         returns also the defeated answers
+                    //         3 and 6 
+//?- %disable.
+//?- %enable.

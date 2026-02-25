@@ -1,0 +1,33 @@
+
+:- use_argumentation_theory.
+
+
+
+
+?- ?_Hook = ${(writeln(2,= '### User-captured ERROR: unsafe! variable \'?y\' in the descriptor of the rule inserted on Line ' || \@L || ' in file ' || \@F || ', rule Id: ' || ?_RuleId)@\plg, 
+          ?_Ball= '_$ergo:abort_notrace'(?_Msg,?_Trace)@\plg,
+          writeln(2,msg_in_the_error_ball=?_Msg)@\plg)} ,
+        catch{insertrule{@{aaa(?x,?_uuuuuu)}
+                          another7(?y,?xxxx123) :: gg(?y) :- pp22(?y),qq(?), rr(?kkk)},
+        ?_Ball,
+        ?_Hook}.
+
+// should NOT cconsider ?x an unsafe descriptor var.
+// should not generate any warnings or errors
+?- insert{@{bbb(?x,?x,?x,?x)} another7(?y,?x) :: ff(?y,?) :- pp22(?x),qq(?), rr(?y)}.
+
+
+?- ?_Hook = ${(writeln(2,= '### User-captured ERROR: unsafe! variable \'?y\' in the descriptor of the rule inserted on Line ' || \@L || ' in file ' || \@F || ', rule Id: ' || ?_RuleId)@\plg, 
+          ?_Ball= '_$ergo:abort_notrace'(?_Msg,?_Trace)@\plg,
+          writeln(2,msg_in_the_error_ball=?_Msg)@\plg)} ,
+        catch{insert{@{ppp(?x,?zzz,?kkk)} another4(?y,?zzz123) :- pp(?y),qq(?x,?zzz,?zzz123) },
+          ?_Ball,
+          ?_Hook}.
+
+
+// should not generate errors or warnings since all 
+// unsafe/singleton varrs are underscored
+?- insert{@{ppp(?x,?_zzz,?_kkka)} another4(?y,?_zzz123) :- pp(?y),qq(?x) }.
+// singleton ?zzza6 in the body
+?- insert{@{ppp(?x,?kkkb, ?_ww)} another4(?y,?_zzz123) :- pppp(?y,?kkkb),qqqq(?x,?zzza6) }.
+

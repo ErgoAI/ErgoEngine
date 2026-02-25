@@ -1,0 +1,48 @@
+
+:- use_argumentation_theory.
+
+
+\udf foo(?x):=?y \if fooDef(?x,?y).
+\udf goo(?x,?_w):=?y \if ?y \is ?x*2.
+
+fooDef(1,a).
+fooDef(2,b).
+fooDef(3,c).
+fooDef(4,d).
+fooDef(5,e).
+fooDef(6,f).     pp({2,3,4,6}).
+fooDef(7,g).
+fooDef(8,h).
+fooDef(9,i).
+fooDef(10,k).    qq({a,c,e,f,k,m},7).
+fooDef(11,m).    qq({a,c,d,f,g,i,k}, 5).
+
+@{aaa(foo(?x),?w)}
+rr(goo(?x,?),?w,?_zzz) :- pp(?w), qq(foo(?w),?x).
+
+?- insert{enabled}, writeln(6,'opposition enabled')@\plg.
+//?- abolish_all_tables@\plg.
+
+// i.e., r(14,6) rebuts itself
+\opposes(aaa(7,6),rr(?,?,?), aaa(7,6),rr(?,?,?)) :- enabled.
+
+?- writeln(2, 'Query 1: unsafe+enabled, true{rr(?x,?y,?)}')@\plg.
+?- writeln(6 /* STDFDBK */, 'Query 1: unsafe+enabled, true{rr(?x,?y,?)}')@\plg.
+
+// for some reason, this prints 5 answers instead of 3. true{....} fixes this
+//?- rr(?x,?y,?),
+?- true{rr(?x,?y,?)},
+        //!!,
+        writeln(2, = (x=?x) || '   ' || (y=?y) || ' usf1-true ')@\plg.
+
+?- delete{enabled}, writeln(6,'opposition disabled')@\plg.
+//?- abolish_all_tables@\plg.
+
+?- writeln(2,'Query 2: unsafe+disabled, true{rr(?x,?y,?)}')@\plg.
+?- writeln(6 /* STDFDBK */, 'Query 2: unsafe+disabled, true{rr(?x,?y,?)}')@\plg.
+
+?- true{rr(?x,?y,?)},
+        //!!, // to stop delay
+        writeln(2, = (x=?x) || '    ' || (y=?y) || ' usf2-true ')@\plg.
+
+

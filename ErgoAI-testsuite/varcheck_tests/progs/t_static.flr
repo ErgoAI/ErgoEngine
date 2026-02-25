@@ -1,0 +1,35 @@
+
+:- use_argumentation_theory.
+
+#define STATIC_RULES
+
+#ifdef STATIC_RULES
+
+@{sss(?x,?zzz,?kkk)} another6(?y,?zzz123) :- pp22(?y),qq(?x).
+
+
+\udf f(?x):=?y \if pred(?x,?y).
+//\udf foo(?x):=?y \if fooDef(?x,?y).
+
+@{aaa(?x,?uuuuuu,?kkk)}
+another7(?y,?xxxx123) :: gg(?y) :- pp22(?y),qq(?).
+
+// should NOT cconsider ?x an unsafe descriptor var.
+// The test is checking whether subtract vars works corectly: ?x has 3
+// occurrences of ?x in the descriptor and only one in the body.
+@{bbb(?x,?x,?x,?x)} another7(?y,?x) :: ff(?y,?) :- pp22(?x),qq(?).
+
+
+#else
+?- ?_Hook = ${(writeln(= '### User-captured ERROR: unsafe! variable \'?y\' in the descriptor of the rule inserted on Line ' || \@L || ' in file ' || \@F || ', rule Id: ' || ?RuleId)@\plg, 
+          ?_Ball= '_$ergo:abort_notrace'(?Msg,?_Trace)@\plg,
+          writeln(msg_in_the_error_ball=?Msg)@\plg)} ,
+
+        catch{insert{@{ppp(?x,?zzz,?kkk)} another4(?y,?zzz123) :- pp(?y),qq(?x) },
+          ?_Ball,
+          ?_Hook}.
+
+#endif
+
+
+?- insert{@{ppp(?x,?zzz,?kkka)} another4(?y,?zzz123) :- pp(?y),qq(?x) }.

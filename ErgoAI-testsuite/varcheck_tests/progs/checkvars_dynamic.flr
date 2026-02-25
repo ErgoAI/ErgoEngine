@@ -1,0 +1,72 @@
+?- ?_Hook = ${?_Ball= '_$ergo:abort_notrace'(?_Msg,?_Trace)@\plg,
+               writeln(2, ='\n++Abort[Ergo]: ' || ?_Msg)@\plg} ,
+        catch{insertrule{ (@{p(?x,?zz,?ww)} head(?y) :- pp(?y),qq(?x)) },
+               ?_Ball,
+               ?_Hook}.
+
+?- ?_Hook = ${?_Ball= '_$ergo:abort_notrace'(?_Msg,?_Trace)@\plg,
+               writeln(2, ='\n++Abort[Ergo]: ' || ?_Msg)@\plg} ,
+        catch{insert{ (@{p(?x,?zz,?ww)} head(?y) :- pp(?y),qq(?x)) },
+               ?_Ball,
+               ?_Hook}.
+
+?- insert{ head(?y) :- pp(?y),qq(?x) }.
+
+?- ?_Hook = ${?_Ball= '_$ergo:abort_notrace'(?_Msg,?_Trace)@\plg,
+               writeln(2, ='\n++Abort[Ergo]: ' || ?_Msg)@\plg} ,
+        catch{insert{@{ppp(?x)} another1(?y,?zzz) :- pp(?y),qq(?x) },
+               ?_Ball,
+               ?_Hook}.
+
+?- ?_Hook = ${?_Ball= '_$ergo:abort_notrace'(?_Msg,?_Trace)@\plg,
+               writeln(2, ='\n++Abort[Ergo]: ' || ?_Msg)@\plg},
+        catch{insert{@{ppp(?y)} another2(?y,?zzz) :- pp(?y),qq(?x) },
+               ?_Ball,
+               ?_Hook}.
+
+?- catch{insert{@!{?RuleId} @{ppp(?y)} another3(?zzz)},?_Ball,
+        (writeln(2, = '### User-captured ERROR: unsafe! variable \'?y\' in the descriptor of the rule inserted on Line ' || \@L || ' in file ' || \@F || ', rule Id: ' || ?RuleId)@\plg, 
+          ?_Ball= '_$ergo:abort_notrace'(?_Msg,?_Trace)@\plg,
+          writeln(2, msg_in_the_error_ball=?_Msg)@\plg
+        )}.
+
+?- catch{insert{@{ppp(?x,?zzz,?kkk)} another4(?y,?zzz123) :- pp(?y),qq(?x) },
+          ?_Ball,
+          (writeln(2, = '### User-captured ERROR: on line ' || \@L),
+            ?_Ball= '_$ergo:abort_notrace'(?_Msg,?_Trace)@\plg,
+            writeln(2, msg_in_the_error_ball=?_Msg)@\plg
+          )}.
+
+?- catch{insert{@{p(?x,?z,?w)} head(?y) :- pp(?y),qq(?x)},
+          ?_Ball,
+          (writeln(2, = '### User-captured ERROR: on line ' || \@L),
+            ?_Ball= '_$ergo:abort_notrace'(?_Msg,?_Trace)@\plg,
+            writeln(2, msg_in_the_error_ball=?_Msg)@\plg
+          )}.
+
+
+pp(1). pp(3). pp(4), pp(6).
+qq({2,3,5,6}).
+
+dom(?X) :- ?X \in 1..9.
+
+\opposes(head(?X),head(?X)) :-
+        %enabled,
+        pp(?X),
+        qq(?X).
+
+%disable :- \+%disabled, insert{%disabled}, 
+              abolish_all_tables@\plg.
+%enable  :- %disabled, delete{%disabled},
+              abolish_all_tables@\plg.
+%enabled :- \+%disabled.
+
+   ?- head(?x),            // ?x = 1,4  opposition enabled,
+      writeln(x=?x)@\plg.  // head(3), head(6) beat themselves
+                           // so, 1, 4 returned
+   ?- %disable.
+   ?- head(?x),           // ?x = 1,3,4,6  opposition disabled, so
+      writeln(x=?x)@\plg. // We addl return the defeated answers 3 and 6 
+                          // returns also the defeated answers
+//?- %disable.
+//?- %enable.
