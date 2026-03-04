@@ -6241,6 +6241,9 @@ flora_system_info(Key=Value) :-
         flora_configuration(releasedate,Release),
         flora_configuration(name,Codename),
         flora_configuration(fullname,Fullname),
+        (flora_configuration(uimode,UIMode) -> true
+        ; UIMode = dumb
+        ),
         has_flora_configuration_dir(installdir,FloraDir),
         flora_user_floradir(UserFloraDir),
         flora_file_op(cwd,CurrentDir),
@@ -6296,6 +6299,8 @@ flora_system_info(Key=Value) :-
         ; Key = cwd, Value = CurrentDir
         ; Key == user -> Value = User
         ; Key = user, Value = User
+        ; Key == uimode -> Value = UIMode
+        ; Key = uimode, Value = UIMode
         ; nonvar(Key) ->
             flora_abort(['system{',Key,'=?Value}: invalid property, ',Key],
                         FLORA_ABORT_NOTRACE)
