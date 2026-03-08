@@ -111,6 +111,16 @@
 
 #define PREFIXED_NEG_WRAP_TABLED_HILOG PREFIXINGNEG(WRAP_TABLED_HILOG)
 
+%%#define DependenciesDBG
+
+#ifdef DependenciesDBG
+#define DEPDBGOUTLN(X)  DBGOUTLN(X)
+#define DEPDBGNL        DBGNL
+#else
+#define DEPDBGOUTLN(X)  true
+#define DEPDBGNL        true
+#endif
+
 /****************************************************************************
   utilities
  ****************************************************************************/
@@ -595,16 +605,16 @@ parse_codelist([T|L]) :-
 
 parse_code(Term) :-
 	( is_prrule(Term,Head,Body) ->
-            %%writeln(333=rule+Term),
+            %%DEPDBGOUTLN(333=rule+Term),
             parse_rule(Head,Body)
-           %%, writeln(444=parsed_rule)
+           %%, DEPDBGOUTLN(444=parsed_rule)
 	; is_prdirective(Term,Direct) ->
 	    ( is_prignoredep(Direct,PList) ->
 		assert_ignoredlist(PList)
 	    ; true
 	    )
         ;
-            %%writeln(333=non_rule_dir+Term),
+            %%DEPDBGOUTLN(333=non_rule_dir+Term),
             true
 	).
 
@@ -646,10 +656,10 @@ assert_ignoredlist([H|L]) :-
 	).
 
 parse_rule(Head,Body) :-
-        %%writeln(555=rulehead+Head),
+        %%DEPDBGOUTLN(555=rulehead+Head),
 	%% See note on why DUMMY_WORKSPACE is used here at the top of file
 	flora_build_struct(Head,DUMMY_WORKSPACE,CODER_GENERIC_CONTEXT,VarList,HeadCode,HCI,Status_Head),
-        %%writeln(555=rulehead_code+HeadCode),
+        %%DEPDBGOUTLN(555=rulehead_code+HeadCode),
 	( Status_Head == [] ->
 	    functor(HeadCode,F,N),
 	    ( default_tabled(F,N) -> asserta(tabled_head((HeadCode,HCI)))
@@ -657,7 +667,7 @@ parse_rule(Head,Body) :-
 	    ),
             %%writeq(666=rulebody+Body), nl,
 	    flora_build_struct(Body,DUMMY_WORKSPACE,CODER_GENERIC_CONTEXT,VarList,BodyCode,BCI,Status_Body),
-            %%writeln(666=rulebody_code+BodyCode),
+            %%DEPDBGOUTLN(666=rulebody_code+BodyCode),
 	    ( Status_Body == [] ->
 		assert_rule((HeadCode,HCI),BodyCode,BCI,anu(_,_,_))
 	    ;
@@ -747,6 +757,8 @@ assert_rules(HeadCode,[H|T],[HI|TI],anu(A,N,U)) :-
  check whether tabled predicates depend on procedural/database operations.
  ****************************************************************************/
 check_for_dependencies(CodeList,WarnList) :-
+        DEPDBGNL,
+        DEPDBGOUTLN(checking_for_dependencies=WarnList),
         retractall(tabled_head(_)),
 	retractall(warning_seen(_,_,_,_,_)),
         retractall(target(_,_,_)),
@@ -756,8 +768,9 @@ check_for_dependencies(CodeList,WarnList) :-
 	%% flora_abolish_table_predicate is ok here
         flora_abolish_table_predicate(rec_depend(_,_,_,_,_,_,_)),
         assert_targets,
-        %%writeln(222),
+        DEPDBGOUTLN(beforeGenerateRules= WarnList),
 	generate_rules(CodeList),
+        DEPDBGOUTLN(afterGenerateRules= WarnList),
         findall(Head,tabled_head(Head),TabledList),
 	flora_get_maxwarnings(MaxWarnings),
         depend_list(TabledList,MaxWarnings),
@@ -766,8 +779,8 @@ check_for_dependencies(CodeList,WarnList) :-
 	!.
 
 %% using this for debugging
-check_for_dependencies(_CodeList,[error(UNKNOWN_ERROR)]) :- writeln(2,'DETAILS' = _CodeList).
-%%check_for_dependencies(_CodeList,[error(UNKNOWN_ERROR)]).
+check_for_dependencies(_CodeList,[error(UNKNOWN_ERROR)]) :-
+        DEPDBGOUTLN('DETAILS' = _CodeList).
 
 assert_targets :- 
         procedural(F,A),
