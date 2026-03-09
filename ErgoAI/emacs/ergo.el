@@ -43,7 +43,7 @@
   "*Directory for temporary files.")
 
 ;; This path has to be set at the installation time of the F-Logic-System!!!
-(defconst ergo-program-path "~/ERGOAI/ErgoAI/runergo"
+(defvar ergo-program-path "~/ERGOAI/ErgoEngine/ErgoAI/runergo"
   "*Program name for invoking an inferior Ergo with `run-ergo'.")
 (defvar ergo-program-name nil
   "*Program name for invoking an inferior process with `run-ergo'. Internal.")
@@ -79,9 +79,9 @@
   "Name of the Ergo buffer.")
 (defconst ergo-process-name-const "ergo"
   "Name of the Ergo process.")
-(defvar flora-process-buffer nil
+(defvar ergo-process-buffer nil
   "Name of the actual process buffer. Set at runtime.")
-(defvar flora-process-name nil
+(defvar ergo-process-name nil
   "Name of the actual process. Set at runtime.")
 
 (defvar flora-offer-save t
@@ -365,8 +365,8 @@ if that value is non-nil."
   (setq mode-name "Ergo")
   (flora-mode-variables)
   ;;(setq comint-prompt-regexp "ergo> +")
-  (setq flora-process-buffer ergo-process-buffer-const
-        flora-process-name   ergo-process-name-const
+  (setq ergo-process-buffer ergo-process-buffer-const
+        ergo-process-name   ergo-process-name-const
         ergo-program-name   ergo-program-path)
   ;; Set up Ergo menus
   (if window-system
@@ -632,7 +632,7 @@ This assumes that the point is inside a comment."
      )))
 
 ;; Returns t, if the string before point matches the regexp STR.
-;; If search-limit  is nil, search only to the beginning of the line;
+;; If search-limit is nil, search only to the beginning of line;
 ;;                  otherwise, search back till the limit
 ;; entry-point: search from this points; otherwise, from point.
 (defun flora-looking-back (str &optional search-limit entry-point)
@@ -646,6 +646,9 @@ This assumes that the point is inside a comment."
       )
     )
   )
+
+(defun expensive-looking-back (pattern)
+  (looking-back pattern nil))
 
 (defun flora-seeing-open-lparen (&optional entry-point)
   (or entry-point (setq entry-point (point)))
@@ -707,7 +710,7 @@ This assumes that the point is inside a comment."
     (goto-char entry-point)
     (let ((end (flora-get-end-of-clause entry-point))
           (beg (flora-get-beginning-of-clause-pos entry-point)))
-      (if (looking-back "^.*[?!:]-[^.]*")  ;; rule, query, latent query
+      (if (expensive-looking-back "^.*[?!:]-[^.]*")  ;; rule, query, latent query
           (setq beg (match-beginning 0)))
       (cond ((and end beg) (max end beg))
             (beg beg)
@@ -741,10 +744,10 @@ This assumes that the point is inside a comment."
   (or pos (setq pos (point)))
   (goto-char pos)
   (while (and (not (bobp))
-              (or (flora-in-comment) (looking-back "[\n\t ]")))
+              (or (flora-in-comment) (expensive-looking-back "[\n\t ]")))
     (if (flora-in-mline-comment)
         (re-search-backward "/\\*" (point-min) t))
-    (cond ((and (flora-in-comment) (looking-back "/[*/]"))
+    (cond ((and (flora-in-comment) (expensive-looking-back "/[*/]"))
            (flora-backward-char 3))
           ((flora-in-rest-of-line-comment)
            (re-search-backward "//" (flora-get-bol) t)
@@ -768,7 +771,7 @@ This assumes that the point is inside a comment."
       (goto-char pos)
       (while (and (not (bobp))
                   (or (flora-in-comment) (looking-at-p "[\n\t ]")))
-        (cond ((and (flora-in-comment) (looking-back "/[*/]"))
+        (cond ((and (flora-in-comment) (expensive-looking-back "/[*/]"))
                (flora-backward-char 3))
               ((flora-in-rest-of-line-comment)
                (re-search-backward "//" (flora-get-bol) t)
@@ -835,7 +838,7 @@ is inhibited."
   ;; if we are not in a comment, or if arg is given do not re-indent the
   ;; current line, unless this star introduces a comment-only line.
   (let ((indentp (and (not arg)
-                      (or (looking-back "^[ \t]*/")
+                      (or (expensive-looking-back "^[ \t]*/")
                           (and
                            (flora-in-mline-comment)
                            (eq (char-before) ?*)
@@ -969,9 +972,9 @@ If this char is indented with white space then move 1 position to the left."
         (if (> (current-column) 0)
               (beginning-of-line)
           (if (or (flora-in-comment)
-                  (looking-back "[\n\t ]"))
+                  (expensive-looking-back "[\n\t ]"))
               (flora-skip-comments-and-whitespace-backwards))
-          (if (looking-back "[\n\t ]")
+          (if (expensive-looking-back "[\n\t ]")
               (skip-chars-backward "[\n\t ]"))
           (cond ((not (flora-right-at-dot (point)))
                  (flora-backward-char 1))
@@ -1028,8 +1031,8 @@ If this char is indented with white space then move 1 position to the left."
           (flora-backward-char 1))
       (if (not (looking-at "[][(){}]"))
           (setq anchor-point (point)))
-      (setq beg-lim (point-at-bol)
-            end-lim (point-at-eol))
+      (setq beg-lim (line-beginning-position)
+            end-lim (line-end-position))
       (cond ((re-search-forward "\\(\\\\(\\|\\\\)\\)" end-lim t)
              (backward-char 2))
             ((save-excursion
@@ -1044,11 +1047,11 @@ If this char is indented with white space then move 1 position to the left."
              ;;(error "No matching character on line"))))
              nil)))
     (cond ((or (looking-at "\\\\(")
-               (and (looking-at "(") (looking-back "\\\\")))
+               (and (looking-at "(") (expensive-looking-back "\\\\")))
            (re-search-forward "\\\\)" nil t)
            (backward-char 2))
           ((or (looking-at "\\\\)")
-               (and (looking-at ")") (looking-back "\\\\")))
+               (and (looking-at ")") (expensive-looking-back "\\\\")))
            (forward-char 2)
            (re-search-backward "\\\\(" nil t)
            )
@@ -1259,15 +1262,15 @@ Return not at end copies rest of line to end and sends it.
 (defun run-flora-background ()
   "Run an Ergo process.
 Input and output via buffer *ergo*."
-  (if (not (get-process flora-process-name))
+  (if (not (get-process ergo-process-name))
       (with-current-buffer (if ergo-command-line
-			       (make-comint flora-process-name
+   			       (make-comint ergo-process-name
 					    ergo-program-name
 					    nil
 					    "-e"
 					    ergo-command-line)
 			     (make-comint
-			      flora-process-name ergo-program-name))
+			      ergo-process-name ergo-program-name))
 	(inferior-flora-mode))))
 
 
@@ -1297,7 +1300,7 @@ The region must be created in advance."
     (run-flora-background)
     (save-excursion
       (process-send-string
-       flora-process-name 
+       ergo-process-name 
        command
        ))
     (show-flora-buffer)
@@ -1310,8 +1313,8 @@ The region must be a valid query terminated with a period."
   (run-flora-background)
   (let ((query (buffer-substring-no-properties beg end)))
     (save-excursion
-      (process-send-string flora-process-name query)
-      (process-send-string flora-process-name "\n"))
+      (process-send-string ergo-process-name query)
+      (process-send-string ergo-process-name "\n"))
     )
   (show-flora-buffer))
 
@@ -1347,10 +1350,10 @@ on the file."
     (run-flora-background)
     (if add
         (process-send-string
-         flora-process-name
+         ergo-process-name
          (format "add{'%s' >> %s}.\n" file (or module "main")))
       (process-send-string
-       flora-process-name
+       ergo-process-name
        (format "load{'%s' >> %s}.\n" file (or module "main"))))
     (show-flora-buffer)))
 
@@ -1405,16 +1408,16 @@ on the file."
 
 (defun ergo-interrupt()
   (interactive)
-  (interrupt-process flora-process-name))
+  (interrupt-process ergo-process-name))
 
 (defun ergo-quit()
   (interactive)
-  (quit-process flora-process-name))
+  (quit-process ergo-process-name))
 
 (defun ergo-restart ()
   (interactive)
   (run-flora-background)
-  (process-send-string flora-process-name flora-forget-string)
+  (process-send-string ergo-process-name flora-forget-string)
   (sit-for 2)
   (run-ergo)
   (sit-for 0))  ;; synchronize
@@ -1422,18 +1425,18 @@ on the file."
 (defun flora-switch-to-flora-buffer ()
   (interactive)
   (run-flora-background)
-  (pop-to-buffer flora-process-buffer))
+  (pop-to-buffer ergo-process-buffer))
 
 ;; SWITCH means switch to the inferior Ergo buffer
 (defun show-flora-buffer (&optional switch)
   (let ((wind (selected-window)))
     (with-temp-buffer
       (sit-for 1))
-      (set-buffer flora-process-buffer)
-      (or (flora-get-visible-buffer-window flora-process-buffer)
+      (set-buffer ergo-process-buffer)
+      (or (flora-get-visible-buffer-window ergo-process-buffer)
 	  (progn
-	    (display-buffer flora-process-buffer)
-	    (switch-to-buffer-other-window flora-process-buffer)))
+	    (display-buffer ergo-process-buffer)
+	    (switch-to-buffer-other-window ergo-process-buffer)))
       ;; time is needed for XSB to return. otherwise, the point will be off
       (goto-char (point-max))
       (or switch
