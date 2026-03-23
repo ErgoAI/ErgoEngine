@@ -156,6 +156,7 @@ get_option(?Name,?Val) :- ergo_get_option(?Name,?Val)@\prolog(jsonlib).
         get_json_root_fact(?JsonFacts,?OidFact),
         json_facts_to_file([?OidFact|?JsonFacts],?File).
 
+// json_facts/4
 // converts only JSON objects
 // +Arglist,+Mod,+OutMode,-Result,-Oid
 // OutMode: string/term
@@ -170,6 +171,7 @@ json_facts(?ArgList,?,?,?) :-
         \false.
 
 
+// json_facts/5
 // +Arglist,+Mod,-Result,-Oid
 json_facts(json(?ArgList),?Mod,?OutMode,?Result,?Oid) :-
         !,
@@ -204,9 +206,10 @@ json_keyval_facts(?Oid,[?Key=?Val|?Rest],?Mod,?OutMode,
         json_facts(?Val,?Mod,?OutMode,?ValResult,?ValOid),
         (?OutMode == term -->> ?HOut = ${?Oid[?Key->?ValOid]@?Mod}
         ;
+          double_1quotes_in_atoms(?Key,?KeyAtm)@\plg(jsonlib),
           convert_oid(?ValOid,?ValOidAtm),
           // current module when saving to file
-          \symbol[concat([?Oid,'[''',?Key,''' -> ',?ValOidAtm,']'])->?HOut]@\basetype
+          \symbol[concat([?Oid,'[''',?KeyAtm,''' -> ',?ValOidAtm,']'])->?HOut]@\basetype
         ),
         json_keyval_facts(?Oid,?Rest,?Mod,?OutMode,?RestOut).
 
@@ -215,15 +218,21 @@ convert_oid(?ValOid,?ValOidAtm) :-
           convert_oid_list(?ValOid,?ValOidList),
           ?ValOidList[show->?ValOidAtm]@\show
         ; isatom{?ValOid},
-          // nest two may be impossible: json vals are unlikely
+          // next two might be impossible: json vals are unlikely
           // to have string/iri prefix chars
           \+ isiri{?ValOid},
           \+ isstring{?ValOid},
           \+ ?ValOid[startsWith('\\##')]@\basetype
+          // The above conds mean: ?ValOid is not an invented oid or cleverly
+          // encoded oids like iri's or strings
           -->>
-          ?ValOid2 \is ''''||?ValOid||'''', ?ValOid2[show->?ValOidAtm]@\show
-        ; ?ValOid[show->?ValOidAtm]@\show
+          double_1quotes_in_atoms(?ValOid,?ValOidConv)@\plg(jsonlib),
+          ?ValOid2 \is ''''||?ValOidConv||'''', ?ValOid2[show->?ValOidAtm]@\show
+        ; isnumber{?ValOid} -->> number_to_atom(?ValOid,?ValOidAtm)
+        ;  double_1quotes_in_atoms(?ValOid,?ValOidAtm)@\plg(jsonlib),
+          ?ValOid[show->?ValOidAtm]@\show
         ).
+
 convert_oid_list([],[]) :- !.
 convert_oid_list([?Fst|?Rest],[?FstOut|?RestOut]) :-
         convert_oid(?Fst,?FstOut),
@@ -308,7 +317,8 @@ term_to_json_aux(?Term,?Json,?Mod) :-
         ; ?Term = FL_DATATYPE(?,?)@\prolog -->>
           ?Term[typeName->?TypNm, toSymbol->?TypSym]@\basetype,
           flora_double_backslash(?TypNm,?TypNmEsc)@\prolog(flrporting),
-          flora_escape_2quotes_backslash_in_atom(?TypSym,?TypSymEsc)@\plg(flrporting),
+          // old: flora_escape_2quotes_backslash_in_atom(?TypSym,?TypSymEsc)@\plg(flrporting),
+          flora_escape_single_double_quotes_and_backslash_in_atom(?TypSym,?TypSymEsc)@\plg(flrporting),
           ?Json = ['{', '"datatype":"', ?TypNmEsc, '",',
                     '"literal":"', ?TypSymEsc, '"}']
         ; ?Term = (?,?) -->> // (...,...,...) - commalist
@@ -326,7 +336,8 @@ term_to_json_aux(?Term,?Json,?Mod) :-
                     '"arguments":', ?args_json, '}'],
           term_to_json_list(?Args,?args_json,?Mod)
         ; ?Term =.. [prologlit(?TermMod), ?functor|?Args] -->>
-          flora_escape_2quotes_backslash_in_atom(?functor,?functorEsc)@\plg(flrporting),
+          // old: flora_escape_2quotes_backslash_in_atom(?functor,?functorEsc)@\plg(flrporting),
+          flora_escape_single_double_quotes_and_backslash_in_atom(?functor,?functorEsc)@\plg(flrporting),
           ?Json = ['{', '"prolog":"', ?functorEsc, '",',
                     '"module":"', ?TermMod, '",',
                     '"arguments":', ?args_json, '}'],
@@ -480,6 +491,11 @@ get_json_root_fact(?JsonFacts,?OidFact) :-
 ?Mod[forget_roots] :- ergo_forget_json_roots(?Mod)@\prolog(jsonlib).
 ?Mod[add_json_root(?Oid)] :- ergo_insert_json_root(?Mod,?Oid)@\prolog(jsonlib).
 
+number_to_atom(?N,?A) :-
+        (
+          number_codes(?N,?NCodes),
+          atom_codes(?A,?NCodes)
+        )@\plg.
 
 
 /*
