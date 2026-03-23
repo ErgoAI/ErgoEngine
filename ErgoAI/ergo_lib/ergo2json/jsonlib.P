@@ -25,6 +25,7 @@
 #include "standard.h"
 #include "flora_terms.flh"
 #include "flora_exceptions.flh"
+#include "flora_characters.flh"
 
 :- dynamic json_option/2.
 
@@ -53,6 +54,7 @@
 
 
 :- export
+        double_1quotes_in_atoms/2,
         ergo_parse_json/2,
         ergo_parse_json/3,
         ergo_get_option/2,
@@ -164,3 +166,36 @@ ergo_get_option(_Name,false).
 
 ergo_insert_json_root(Mod,Oid) :- asserta(ergo_json_root(Mod,Oid)).
 ergo_forget_json_roots(Mod) :- retractall(ergo_json_root(Mod,_)).
+
+/*
+    Additional considerations regarding escaping the single
+    quotes in Json key-value pairs:
+
+      In Json, the single quote (') does not need to be esccaped,
+      e.g.,  "abc'def". But when we convert Json key-val pairs to 
+      Ergo, we get 'abc'def' - invalid as a  string in . So, when
+      writing to a file or displaying, we have to escape (') by
+      doubling it, as required in Ergo. Ie,  "abc'def" becomes 
+     'abc''def'.
+*/
+double_1quotes_in_atoms(JStr,Atm) :-
+        atom(JStr),
+        !,
+        atom_codes(JStr,StrCodes),
+        double_1quotes_in_codelist(StrCodes,NewCodes),
+        atom_codes(Atm,NewCodes).
+double_1quotes_in_atoms([JElt|JList],[AElt|AtmList]) :-
+        !,
+        double_1quotes_in_atoms(JElt,AElt),
+        double_1quotes_in_atoms(JList,AtmList).
+%% Case of an arg that is not an atom or a list.
+%% Probably a number -- just copy over.
+double_1quotes_in_atoms(DfltObj,DfltObj).
+
+
+double_1quotes_in_codelist([],[]) :- !.
+double_1quotes_in_codelist([CH_QUOTE|Rest], [CH_QUOTE,CH_QUOTE|NewRest]) :-
+        !,
+        double_1quotes_in_codelist(Rest,NewRest).
+double_1quotes_in_codelist([Char|Rest], [Char|NewRest]) :-
+        double_1quotes_in_codelist(Rest,NewRest).

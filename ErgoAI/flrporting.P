@@ -100,6 +100,7 @@
         flora_write_atom/1,
         flora_escape_2quotes_backslash_in_atom/2,
         flora_escape_2quotes_backslash_in_atom_undouble_quotes/2,
+        flora_escape_single_double_quotes_and_backslash_in_atom/2,
         flora_undouble_quotes/2,
         flora_file_op/2,
         flora_file_op/3,
@@ -501,7 +502,7 @@ flora_write_atom(Atom) :-
 flora_read_line_as_atom(Str) :- file_read_line_atom(Str).
 flora_read_line_as_list(Str) :- file_read_line_list(Str).
 
-%% the followig is used in Json-based explanations
+%% the following is used in Json-based explanations and in ergo2json
 %% flora_escape_2quotes_backslash_in_atom/2
 flora_escape_2quotes_backslash_in_atom(In, Out) :-
         atom_codes(In,InL),
@@ -551,6 +552,26 @@ flora_undouble_quotes_list([CH_QUOTE,CH_QUOTE|Rest], [CH_QUOTE|RestConverted]) :
 	flora_undouble_quotes_list(Rest,RestConverted).
 flora_undouble_quotes_list([Ch|Rest],[Ch|RestConverted]) :-
 	flora_undouble_quotes_list(Rest,RestConverted).
+
+%% the following is used in ergo2json only
+%% flora_escape_single_double_quotes_and_backslash_in_atom/2
+flora_escape_single_double_quotes_and_backslash_in_atom(In, Out) :-
+        atom_codes(In,InL),
+        escape_single_double_quotes_and_backslash_in_list(InL,OutL),
+        atom_codes(Out,OutL).
+escape_single_double_quotes_and_backslash_in_list([],[]) :- !.
+escape_single_double_quotes_and_backslash_in_list([CH_QUOTE|Rest], [CH_BACKSLASH,CH_QUOTE|RestConverted]) :-
+	!,
+	escape_single_double_quotes_and_backslash_in_list(Rest,RestConverted).
+escape_single_double_quotes_and_backslash_in_list([CH_DOUBLEQUOTE|Rest], [CH_BACKSLASH,CH_DOUBLEQUOTE|RestConverted]) :-
+	!,
+	escape_single_double_quotes_and_backslash_in_list(Rest,RestConverted).
+escape_single_double_quotes_and_backslash_in_list([CH_BACKSLASH|Rest], [CH_BACKSLASH,CH_BACKSLASH|RestConverted]) :-
+	!,
+	escape_single_double_quotes_and_backslash_in_list(Rest,RestConverted).
+escape_single_double_quotes_and_backslash_in_list([Ch|Rest],[Ch|RestConverted]) :-
+	escape_single_double_quotes_and_backslash_in_list(Rest,RestConverted).
+
 
 
 :- table flora_running_under/1, flora_running_under/2 as opaque.
