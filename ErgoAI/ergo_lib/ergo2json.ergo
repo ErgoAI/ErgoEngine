@@ -4,7 +4,7 @@
 **
 ** Contact:   see  ../CONTACTS.txt
 **
-** Copyright (C) Coherent Knowledge Systems, 2016-2023.
+** Copyright (C) Coherent Knowledge Systems, 2016-2026.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@
 
 #include "flora_terms.flh"
 #define ERGO_JSON_OBJ_COUNTER     FLORA_SYMBOL('json_counter')
+#define NEW_JSON_OID_PREFIX       FLORA_SYMBOL('json_skolem')
+#define NEW_OID_SCOPE  ':- new_global_oid_scope.\n?- new_global_oid_scope.'
 
 
 :- compiler_options{expert=on,production=on}.
@@ -30,9 +32,10 @@
 
 :- symbol_context{
         parse/0, parse/1,
-        prlg json_facts(?,?,?,?), prlg json_facts(?,?,?,?,?),
+        //prlg json_facts(?,?,?,?), prlg json_facts(?,?,?,?,?),
         parse2memory(?), parse2memory(?,?),
         parse2file(?), parse2file(?,?),
+        write(?)@?, write(?,?,?)@?,
         object2json/0, object2json/1, object2json/3
    }.
 
@@ -47,8 +50,8 @@
             set_option(?),
             get_option(?,?),
            ?[json_root->?],
-           ?[forget_roots],
-           ?[add_json_root(?)],
+           ?[%forget_roots],
+           ?[%add_json_root(?)],
     	    ensure_loaded
 	 }.
 :- export{
@@ -61,9 +64,9 @@
 
 :- prolog{
            json_facts_to_memory/1,
-           json_facts_to_file/2,
+           json_facts_to_file/3,
+           json_facts/5,
            json_facts_to_file_aux/1,
-           json_facts/4, json_facts/5,
            json_keyval_facts/5,
            new_json_root/2,
            term_to_json_aux/3,
@@ -72,7 +75,6 @@
            object_to_json_aux/6,
            object_has_been_seen/2,
            save_json_root/2,
-           get_json_root_fact/2,
            process_key_val_pairs/6
    }.
 
@@ -99,7 +101,7 @@ ensure_loaded :- !.
 ?Src[parse -> ?Result] :- ?Src[parse('') -> ?Result].
 
 
-// 1-argument version
+// 1-argument version; Src is a var, meaning json comes from stdin
 ?Src[parse(?Selector) -> ?Result] :-
         isvar{?Src},
         !,
@@ -143,41 +145,31 @@ get_option(?Name,?Val) :- ergo_get_option(?Name,?Val)@\prolog(jsonlib).
         ; newmodule{?Mod}
         ),
         ?Src[parse(?Selector) -> ?JsonTerm],
-        json_facts(?JsonTerm,?Mod,term,?JsonFacts),
-        save_json_root(?JsonFacts,?Mod),
+        json_facts(?JsonTerm,?Mod,term,?JsonFacts_pre,?RootOid),
+        flatten(?JsonFacts_pre,?JsonFacts)@\prolog(basics),
+        save_json_root(?RootOid,?Mod),
         json_facts_to_memory(?JsonFacts).
 
-// converts only JSON objects
 ?Src[parse2file(?File)] :- ?Src[parse2file(?File,'')].
 ?Src[parse2file(?File,?Selector)] :-
         isatom{?File}, isatom{?Selector},
         ?Src[parse(?Selector) -> ?JsonTerm],
-        json_facts(?JsonTerm,?,to_file,?JsonFacts),
-        get_json_root_fact(?JsonFacts,?OidFact),
-        json_facts_to_file([?OidFact|?JsonFacts],?File).
-
-// json_facts/4
-// converts only JSON objects
-// +Arglist,+Mod,+OutMode,-Result,-Oid
-// OutMode: string/term
-json_facts(json(?ArgList),?Mod,?OutMode,?Result) :-
-        !,
-        json_facts(json(?ArgList),?Mod,?OutMode,?Result_pre,?),
-        flatten(?Result_pre,?Result)@\prolog(basics).
-json_facts(?ArgList,?,?,?) :-
-        \symbol[toType(?ArgList)->?ArgListAtm]@\basetype,
-        nl(2)@\io,
-        warning(['only JSON object-terms can be converted to Ergo facts;\n\t\t offending term: ', ?ArgListAtm])@\sys,
-        \false.
+        json_facts(?JsonTerm,?,to_file,?JsonFacts_pre,?RootOid),
+        flatten(?JsonFacts_pre,?JsonFacts)@\prolog(basics),
+        json_facts_to_file(?RootOid,?JsonFacts,?File),
+        \true.
 
 
 // json_facts/5
-// +Arglist,+Mod,-Result,-Oid
-json_facts(json(?ArgList),?Mod,?OutMode,?Result,?Oid) :-
+// converts only JSON objects or lists of JSON objects
+// +Arglist,+Mod,+OutMode,-Result,-Oid
+// OutMode: string/term
+json_facts(json(?KeyValList),?Mod,?OutMode,?Result,?Oid) :-
         !,
-        // JSON object case
+        // the case of  JSON object
         new_json_oid(?OutMode,?Oid),
-        json_keyval_facts(?Oid,?ArgList,?Mod,?OutMode,?Result).
+        json_keyval_facts(?Oid,?KeyValList,?Mod,?OutMode,?Result),
+        \true.
 // JSON list case
 json_facts([],?,?,[],[]) :- !.
 json_facts([?Arg|?Rest],?Mod,?OutMode,
@@ -185,6 +177,17 @@ json_facts([?Arg|?Rest],?Mod,?OutMode,
         !,
         json_facts(?Arg,?Mod,?OutMode,?Result,?ArgOid),
         json_facts(?Rest,?Mod,?OutMode,?RestResults,?RestOids).
+/*
+   This case does Json lists. List members can be simple values
+   (strings, numbers, null), other lists, or complex objects
+   of the form json(...)
+*/
+json_facts(?JsonObjList,?Mod,?OutMode,?KeyValPairList,?RootOidList) :-
+        islist{?JsonObjList},
+        // No cut: if json_objlist fails, we need to go do syntax
+        // error in input
+        //!,
+        json_objlist(?JsonObjList,?Mod,?OutMode,?KeyValPairList,?RootOidList).
 // JSON number/string case
 json_facts(?Arg,?,?,[],?Arg) :-
         (isnumber{?Arg} ; isatom{?Arg}),
@@ -194,9 +197,24 @@ json_facts(?Arg,?,?,[],?ArgOut) :-
         ; ?Arg = false() -->> ?ArgOut = \false
         ),
         !.
+// what is this case for?
 json_facts(?Arg,?,?,[],\@?) :-
         ?Arg = \@?,
         !.
+// syntax error: not a list of objects or an object
+json_facts(?SomethingWeird,?,?,?,?) :-
+        \symbol[toType(?SomethingWeird)->?SomethingWeirdAtom]@\basetype,
+        nl(2)@\io,
+        warning(['only JSON objects or lists-of-objects can be converted to Ergo facts;\n\t\t offending term: ', ?SomethingWeirdAtom])@\sys,
+        !,
+        \false.
+// lists of objects
+json_objlist([],?,?,[],[]) :- !.
+json_objlist([?Head|?RestJsonObjList],?Mod,?OutMode,[?HeadFactList|?RestFactlist], [?RootOid|?RestOidList]) :-
+        !,
+        json_facts(?Head,?Mod,?OutMode,?HeadFactList,?RootOid),
+        json_objlist(?RestJsonObjList,?Mod,?OutMode,?RestFactlist,?RestOidList).
+
 
 // +Oid,+KeyValList,-FactList
 // Converts list of keyval pairs into facts
@@ -206,31 +224,35 @@ json_keyval_facts(?Oid,[?Key=?Val|?Rest],?Mod,?OutMode,
         json_facts(?Val,?Mod,?OutMode,?ValResult,?ValOid),
         (?OutMode == term -->> ?HOut = ${?Oid[?Key->?ValOid]@?Mod}
         ;
-          double_1quotes_in_atoms(?Key,?KeyAtm)@\plg(jsonlib),
+          double_1quot_backslsh_in_atoms(?Key,?KeyAtm)@\plg(jsonlib),
           convert_oid(?ValOid,?ValOidAtm),
-          // current module when saving to file
           \symbol[concat([?Oid,'[''',?KeyAtm,''' -> ',?ValOidAtm,']'])->?HOut]@\basetype
         ),
-        json_keyval_facts(?Oid,?Rest,?Mod,?OutMode,?RestOut).
+        json_keyval_facts(?Oid,?Rest,?Mod,?OutMode,?RestOut),
+        \true.
 
 convert_oid(?ValOid,?ValOidAtm) :-
         (islist{?ValOid} -->>
           convert_oid_list(?ValOid,?ValOidList),
           ?ValOidList[show->?ValOidAtm]@\show
-        ; isatom{?ValOid},
-          // next two might be impossible: json vals are unlikely
-          // to have string/iri prefix chars
-          \+ isiri{?ValOid},
-          \+ isstring{?ValOid},
-          \+ ?ValOid[startsWith('\\##')]@\basetype
-          // The above conds mean: ?ValOid is not an invented oid or cleverly
-          // encoded oids like iri's or strings
-          -->>
-          double_1quotes_in_atoms(?ValOid,?ValOidConv)@\plg(jsonlib),
-          ?ValOid2 \is ''''||?ValOidConv||'''', ?ValOid2[show->?ValOidAtm]@\show
+        ; isskolem{?ValOid} -->> ?ValOid = ?ValOidAtm
+        ; isskolem_global(?ValOid) -->> ?ValOid = ?ValOidAtm
         ; isnumber{?ValOid} -->> number_to_atom(?ValOid,?ValOidAtm)
-        ;  double_1quotes_in_atoms(?ValOid,?ValOidAtm)@\plg(jsonlib),
-          ?ValOid[show->?ValOidAtm]@\show
+          /*
+        ; isatom{?ValOid},
+          // later we might add automatic conversions of Values
+          // that low like daatatypes into datatypes
+          \+ isiri{?ValOid},
+          \+ isstring{?ValOid}
+          -->>
+          ?ValOidAtm \is ''''||?ValOid||''''
+          */
+        ; isatom{?ValOid},
+          \+ isiri{?ValOid},
+          \+ isstring{?ValOid}
+          -->>
+          double_1quot_backslsh_in_atoms(?ValOid,?ValOidAtmPre)@\plg(jsonlib),
+          ?ValOidAtm \is ''''||?ValOidAtmPre||''''
         ).
 
 convert_oid_list([],[]) :- !.
@@ -239,6 +261,7 @@ convert_oid_list([?Fst|?Rest],[?FstOut|?RestOut]) :-
         convert_oid_list(?Rest,?RestOut).
 
 
+//new_json_oid(to_file,?Oid) :- newoid{?Oid}.
 new_json_oid(?OutMode,?Oid) :-
         (?OutMode == term -->> newoid{?Oid}
         ;
@@ -247,25 +270,38 @@ new_json_oid(?OutMode,?Oid) :-
           )@\prolog(flrporting)
         ).
 
+isskolem_global(?val) :-
+        isatom{?val},
+        ?val[startsWith(FL_NEWOID_GLOBAL)]@\btp.
+
+
 
 json_facts_to_memory([]) :- !.
 json_facts_to_memory([?F|?FactList]) :-
         insert{?F},
         json_facts_to_memory(?FactList).
 
-json_facts_to_file(?FactList,?File) :-
+json_facts_to_file(?RootOid,?FactList,?File) :-
         telling(?Stream)@\io,
         tell(?File)@\io,
         json_facts_to_file_aux(?FactList),
-        // compile time reset
+        convert_oid(?RootOid,?RootOidAtm),
+        PRINT('?- \@[%add_json_root(')@\prolog,
+        write(?RootOidAtm)@\io,
+        PRINTLN(')]@\\json.')@\prolog,
+        //PRINTLN(?RootFact)@\prolog,
+        // compile-time reset
         PRINTLN(':- new_global_oid_scope.')@\prolog,
         // runtime reset
         PRINTLN('?- new_global_oid_scope.')@\prolog,
         told@\io,
         tell(?Stream)@\io.
+
 json_facts_to_file_aux([]) :- !.
 json_facts_to_file_aux([?F|?FactList]) :-
-        write(?F)@\io,
+        //write(?F)@\io,  // old; write out in oid mode, so quotes are escaped
+        telling(?Stream)@\io,
+        write(?Stream,?F,[oid])@\io, // write to file as a readable oid
         PRINTLN('.')@\prolog,
         json_facts_to_file_aux(?FactList).
 
@@ -476,20 +512,13 @@ process_key_val_pairs([(?key,?val)|?key_val_pairs],
                                 ?keyFilter,?valFilter,?classFilter)
         ).
         
-save_json_root(?JsonFacts,?Mod) :-
-        ?JsonFacts = [?TopFact|?],
-        ?Oid[?->?]@?Mod ~ ?TopFact,
-        ergo_insert_json_root(?Mod,?Oid)@\prolog(jsonlib).
+save_json_root(?RootOid,?Mod) :-
+        ergo_insert_json_root(?Mod,?RootOid)@\prolog(jsonlib).
 
-get_json_root_fact(?JsonFacts,?OidFact) :-
-        ?JsonFacts = [?TopFact|?],
-        ?TopFact[contains('[')->[?Beg,?]]@\basetype,
-        ?TopFact[substring(0,?Beg)->?Oid]@\basetype,
-        ?OidFact \is '?- \@[add_json_root(' || ?Oid || ')]@' || \@.
 
 ?Mod[json_root->?Oid] :- ergo_json_root(?Mod,?Oid)@\prolog(jsonlib).
-?Mod[forget_roots] :- ergo_forget_json_roots(?Mod)@\prolog(jsonlib).
-?Mod[add_json_root(?Oid)] :- ergo_insert_json_root(?Mod,?Oid)@\prolog(jsonlib).
+?Mod[%forget_roots] :- ergo_forget_json_roots(?Mod)@\prolog(jsonlib).
+?Mod[%add_json_root(?Oid)] :- ergo_insert_json_root(?Mod,?Oid)@\prolog(jsonlib).
 
 number_to_atom(?N,?A) :-
         (

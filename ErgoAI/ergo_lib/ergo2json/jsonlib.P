@@ -54,7 +54,7 @@
 
 
 :- export
-        double_1quotes_in_atoms/2,
+        double_1quot_backslsh_in_atoms/2,
         ergo_parse_json/2,
         ergo_parse_json/3,
         ergo_get_option/2,
@@ -178,24 +178,30 @@ ergo_forget_json_roots(Mod) :- retractall(ergo_json_root(Mod,_)).
       doubling it, as required in Ergo. Ie,  "abc'def" becomes 
      'abc''def'.
 */
-double_1quotes_in_atoms(JStr,Atm) :-
+double_1quot_backslsh_in_atoms(Atm,Atm) :-
+        flrnewoid:'\\isskolem'(Atm),
+        !.
+double_1quot_backslsh_in_atoms(JStr,Atm) :-
         atom(JStr),
         !,
         atom_codes(JStr,StrCodes),
-        double_1quotes_in_codelist(StrCodes,NewCodes),
+        double_1quot_backslsh_in_codelist(StrCodes,NewCodes),
         atom_codes(Atm,NewCodes).
-double_1quotes_in_atoms([JElt|JList],[AElt|AtmList]) :-
+double_1quot_backslsh_in_atoms([JElt|JList],[AElt|AtmList]) :-
         !,
-        double_1quotes_in_atoms(JElt,AElt),
-        double_1quotes_in_atoms(JList,AtmList).
+        double_1quot_backslsh_in_atoms(JElt,AElt),
+        double_1quot_backslsh_in_atoms(JList,AtmList).
 %% Case of an arg that is not an atom or a list.
 %% Probably a number -- just copy over.
-double_1quotes_in_atoms(DfltObj,DfltObj).
+double_1quot_backslsh_in_atoms(DfltObj,DfltObj).
 
 
-double_1quotes_in_codelist([],[]) :- !.
-double_1quotes_in_codelist([CH_QUOTE|Rest], [CH_QUOTE,CH_QUOTE|NewRest]) :-
+double_1quot_backslsh_in_codelist([],[]) :- !.
+double_1quot_backslsh_in_codelist([CH_QUOTE|Rest], [CH_QUOTE,CH_QUOTE|NewRest]) :-
         !,
-        double_1quotes_in_codelist(Rest,NewRest).
-double_1quotes_in_codelist([Char|Rest], [Char|NewRest]) :-
-        double_1quotes_in_codelist(Rest,NewRest).
+        double_1quot_backslsh_in_codelist(Rest,NewRest).
+double_1quot_backslsh_in_codelist([CH_BACKSLASH|Rest], [CH_BACKSLASH,CH_BACKSLASH|NewRest]) :-
+        !,
+        double_1quot_backslsh_in_codelist(Rest,NewRest).
+double_1quot_backslsh_in_codelist([Char|Rest], [Char|NewRest]) :-
+        double_1quot_backslsh_in_codelist(Rest,NewRest).
