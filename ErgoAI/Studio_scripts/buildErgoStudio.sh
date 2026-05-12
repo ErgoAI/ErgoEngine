@@ -22,9 +22,9 @@
 
 # How to create a folder satisfying all the above requirements?
 # =============================================================
-# Certainly not by copying XSB/ErgoAI/Studio folders!
-# Instead, create an empty folder, say ErgoAI, and then create soft links
-# like this:
+# Certainly not by copying the XSB/ErgoAI/Studio folders!
+# Instead, create an empty folder, say CoherentErgoAI, and then create
+# soft links within that directory like this:
 #    ln -s  ...\ErgoEngine  ErgoEngine   <--- assuming the Ergo sources are here
 #    ln -s  ...\XSB     XSB      <--- assuming the XSB sources are here
 #    ln -s  ...\Studio_fidji   Studio_Studio   <--- assuming the Studio sources are here
