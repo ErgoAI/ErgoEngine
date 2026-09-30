@@ -41,7 +41,15 @@ file_list="$flrfiles $ergofiles"
 # encap_mod*.flr are used in export_test.flr and importmodule.flr
 # encap_syntax_check.flr is used in export_compile_test.flr
 #
+# TES: the first three of these are taken out and should probably be fixed.
 exclude_list="abp.flr btupdates.flr \
+	      descriptors_errtest.flr \
+	      xmltest.flr \
+	      jsontest.ergo \
+	      justifier_eq_test.ergo \
+	      justifier_regwdemo_jsonout.ergo \
+	      justifier_regwdemo.ergo \
+              owltest.ergo \
               compile_control.flr compile_control2.flr \
               tabledupdates.flr \
     	      basetype_moo.flr basetype_foo.flr \

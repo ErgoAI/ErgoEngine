@@ -1,0 +1,329 @@
+//:- compiler_options{production(on)}.  
+?- [atco_init, +atco_specific_aux].
+
+:- setsemantics{tabling=reactive}.
+
+:- use_argumentation_theory{AT}.
+?- [atco3>>AT].
+
+
+/*
+ Basic Clausal Examples:  
+
+
+Note on rule id naming:  rule id's in post-omni-transform are the same as
+pre-transform, except they are suffixed with an extra digit when there 
+are several post- rules that result from a single pre- rule.  
+E.g., i21 and i22 in the post- correspond to i2 in the pre-.  
+
+  NOTE: The use of correct NAF, i.e., exist-naf (rather than naf-exist) is
+        essential. With naf-exist, Ex 1,4 fail, but with exist-naf all pass.
+*/
+
+/* background definitions of some qualitative priority levels.
+   Include these rules with each of the examples below. */
+
+// NOTE: all Ids and literals are disambiguated
+// by adding exN_ for the corresponding example.
+// Tags do not need to be disambiguated.
+
+
+\overrides(hi,med).
+\overrides(med,lo).
+\overrides(hi,lo).
+\overrides(vhi,hi).
+\overrides(vhi,med).
+\overrides(vhi,lo).
+irrefut.
+
+
+/* example 1 of deep refutation/counterattack 
+
+@[id->i1,tag->hi] a;
+@[id->i2,tag->vhi] p <== a;
+@[id->i3,tag->vhi] \neg p <== b ;
+@[id->i4,tag->med] b ; 
+
+desired:  |= p (and \naf \neg p) since the (fact) rule for b is refuted in the
+	       supporting argument for \neg p.
+ATCK1 behavior:  p is u. 
+
+   b should be defeated conflictfully because:
+     b has a ca (candidate) from i4
+     with tag med.  \neg b has a sa (supporting argument) from <i32, i21,i1>
+     with tags <vhi,vhi,hi>. That sa for \neg b can't be refuted by the ca for b.
+*/ 
+
+@!{ex1_i1}  @{hi}      ex1_a.
+@!{ex1_i21} @{vhi}     ex1_p :-     ex1_a, irrefut.
+@!{ex1_i22} @{vhi} \neg ex1_a :- \neg ex1_p.
+@!{ex1_i31} @{vhi} \neg ex1_p :-     ex1_b.
+@!{ex1_i32} @{vhi} \neg ex1_b :-     ex1_p.
+@!{ex1_i4}  @{med}     ex1_b. 
+
+
+%tst_ex1 :- write('tst_ex1: ')@\plg,
+	true{ex1_p}, true{\naf \neg ex1_p},
+	false{\neg ex1_p},   // this is undefined, for some reason
+	writeln(ok)@\plg,
+	!.
+%tst_ex1 :- writeln(failed)@\plg.
+
+%tst_ex1_2 :- write('tst_ex1_2: ')@\plg,
+	true{\naf ex1_b}, true{\neg ex1_b},
+	writeln(ok)@\plg,
+	!.
+%tst_ex1_2 :- writeln(failed)@\plg.
+
+
+// Example 1': same as Example 1, but rule i1 has priority med instead of hi
+@!{ex1p_i1}  @{med}     ex1p_a. // the only diff from ex1
+@!{ex1p_i21} @{vhi}     ex1p_p :-     ex1p_a.
+@!{ex1p_i22} @{vhi} \neg ex1p_a :- \neg ex1p_p.
+@!{ex1p_i31} @{vhi} \neg ex1p_p :-     ex1p_b.
+@!{ex1p_i32} @{vhi} \neg ex1p_b :-     ex1p_p.
+@!{ex1p_i4}  @{med}     ex1p_b. 
+
+
+%tst_ex1p :- write('tst_ex1p: ')@\plg,
+	false{ex1p_p},
+	writeln(ok)@\plg,
+	!.
+%tst_ex1p :- writeln(failed)@\plg.
+
+%tst_ex1p_2 :- write('tst_ex1p_2: ')@\plg,
+	true{\naf ex1p_a}, true{\neg ex1p_a},
+	writeln(ok)@\plg,
+	!.
+%tst_ex1p_2 :- writeln(failed)@\plg.
+
+/*
+  Example 1'': same as Example 1', but
+  @med a ;
+  @hi \neg a <== \neg p ;
+  @med \neg p ;
+*/
+
+@!{ex1pp_i1}  @{med}    ex1pp_a. 
+@!{ex1pp_i21} @{hi}     ex1pp_p :-     ex1pp_a.
+@!{ex1pp_i22} @{hi} \neg ex1pp_a :- \neg ex1pp_p.
+@!{ex1pp_i4}  @{med}    \neg ex1pp_p. 
+
+
+
+/*  example 2 of deep refutation/counterattack
+
+@[id->i1,tag->vhi] a ;
+@[id->i2,tag->hi] p <== a ;
+@[id->i3,tag->vhi] \neg p <== b ;
+@[id->i4,tag->vhi] b <== c ;
+@[id->i5,tag->hi] c <== d ;
+@[id->i6,tag->lo] d ; 
+
+desired:  |= p since the rule for d is refuted in the supported
+               argument for \neg p.
+ATCK1 behavior:  p is u.  (And \neg p is u.) 
+ */ 
+
+@!{ex2_i1}  @{vhi}      ex2_a.
+@!{ex2_i21} @{hi}       ex2_p :-     ex2_a, irrefut.
+@!{ex2_i22} @{hi}   \neg ex2_a :- irrefut, \neg ex2_p.
+@!{ex2_i31} @{vhi}  \neg ex2_p :-     ex2_b.
+@!{ex2_i32} @{vhi}  \neg ex2_b :-     ex2_p.
+@!{ex2_i41} @{vhi}      ex2_b :-     ex2_c.
+@!{ex2_i42} @{vhi}  \neg ex2_c :- \neg ex2_b.
+@!{ex2_i51} @{hi}       ex2_c :-     ex2_d.
+@!{ex2_i52} @{hi}   \neg ex2_d :- \neg ex2_c.
+@!{ex2_i6}  @{lo}       ex2_d. 
+
+
+%tst_ex2 :- write('tst_ex2: ')@\plg,
+	true{ex2_p},
+	writeln(ok)@\plg,
+	!.
+%tst_ex2 :- writeln(failed)@\plg.
+
+
+
+/* example 3 of deep refutation/counterattack
+
+@[id->r1,tag->hi] p <== a, b;
+@[id->r2,tag->hi] \neg p <== c, d;
+@[id->r3,tag->hi] a <== e, f; 
+@[id->r4,tag->hi] b <== g, h;
+@[id->r5,tag->hi] c <== i, j;
+@[id->r6,tag->hi] d <== k, l;
+@[id->r7,tag->hi] f, g, h, i, j, k;
+@[id->r8,tag->hi] e;
+@[id->r9,tag->lo] l;
+
+desired:  |= p since the rule for l is refuted in the sa for \neg p.
+
+ATCK1 behavior:  p is u. (And \neg p is u.) 
+*/
+
+@!{ex3_r11} @{hi}      ex3_p :-     ex3_a, ex3_b.
+@!{ex3_r12} @{hi}  \neg ex3_a :- \neg ex3_p, ex3_b.
+@!{ex3_r13} @{hi}  \neg ex3_b :- \neg ex3_p, ex3_a.
+@!{ex3_r21} @{hi}  \neg ex3_p :-     ex3_c, ex3_d.
+@!{ex3_r22} @{hi}  \neg ex3_c :-     ex3_p, ex3_d.
+@!{ex3_r23} @{hi}  \neg ex3_d :-     ex3_p, ex3_c.
+@!{ex3_r31} @{hi}      ex3_a :-     ex3_e, ex3_f. 
+@!{ex3_r32} @{hi}  \neg ex3_e :- \neg ex3_a, ex3_f. 
+@!{ex3_r33} @{hi}  \neg ex3_f :- \neg ex3_a, ex3_e. 
+@!{ex3_r41} @{hi}      ex3_b :-     ex3_g, ex3_h.
+@!{ex3_r42} @{hi}  \neg ex3_g :- \neg ex3_b, ex3_h.
+@!{ex3_r43} @{hi}  \neg ex3_h :- \neg ex3_b, ex3_g.
+@!{ex3_r51} @{hi}      ex3_c :-     ex3_i, ex3_j.
+@!{ex3_r52} @{hi}  \neg ex3_i :- \neg ex3_c, ex3_j.
+@!{ex3_r53} @{hi}  \neg ex3_j :- \neg ex3_c, ex3_i.
+@!{ex3_r61} @{hi}      ex3_d :-     ex3_k, ex3_l.
+@!{ex3_r62} @{hi}  \neg ex3_k :- \neg ex3_d, ex3_l.
+@!{ex3_r63} @{hi}  \neg ex3_l :- \neg ex3_d, ex3_k.
+@!{ex3_r71} @{hi}      ex3_f.
+@!{ex3_r72} @{hi}      ex3_g.
+@!{ex3_r73} @{hi}      ex3_h.
+@!{ex3_r74} @{hi}      ex3_i.
+@!{ex3_r75} @{hi}      ex3_j.
+@!{ex3_r76} @{hi}      ex3_k.
+@!{ex3_r8}  @{hi}      ex3_e.
+@!{ex3_r9}  @{lo}      ex3_l.
+
+
+%tst_ex3 :- write('tst_ex3: ')@\plg,
+	true{ex3_p},
+	writeln(ok)@\plg,
+	!.
+%tst_ex3 :- writeln(failed)@\plg.
+
+%tst_ex3_2 :- write('tst_ex3_2: ')@\plg,
+	true{\naf ex3_l}, true{\neg ex3_l},
+	writeln(ok)@\plg,
+	!.
+%tst_ex3_2 :- writeln(failed)@\plg.
+
+
+
+/* example 4 of deep refutation/counterattack. 
+   Just changes ex. 3 to have tag for e rule be lo.
+
+@[id->r1,tag->hi] p <== a, b;
+@[id->r2,tag->hi] \neg p <== c, d;
+@[id->r3,tag->hi] a <== e, f; 
+@[id->r4,tag->hi] b <== g, h;
+@[id->r5,tag->hi] c <== i, j;
+@[id->r6,tag->hi] d <== k, l;
+@[id->r7,tag->hi] f, g, h, i, j, k;
+@[id->r8,tag->lo] e; // the only changed axiom 
+@[id->r9,tag->lo] l;
+
+desired:  |= \naf p, \naf \neg p since the supported answers
+                    for p and \neg p are symmetric and each have an
+                    "Achilles Heel" -- (the rules for) e and l, respectively.
+ATCK1 behavior:  p is u. (And \neg p is u.)
+
+   e should be defeated conflictfully.  e has a cand from r8 with tag lo.
+   \neg e has a sa from <r32,hi> with tags that all hi except for the one
+   from r9 which is lo.  That sa for \neg e cannot be refuted by the cand for e. 
+
+   Because e should have truth value f (\naf), a should have no cand (from r31),
+   thus p should have no ca (from r11).  
+*/ 
+
+@!{ex4_r11} @{hi}      ex4_p :-     ex4_a, ex4_b.
+@!{ex4_r12} @{hi}  \neg ex4_a :- \neg ex4_p, ex4_b.
+@!{ex4_r13} @{hi}  \neg ex4_b :- \neg ex4_p, ex4_a.
+@!{ex4_r21} @{hi}  \neg ex4_p :-     ex4_c, ex4_d.
+@!{ex4_r22} @{hi}  \neg ex4_c :-     ex4_p, ex4_d.
+@!{ex4_r23} @{hi}  \neg ex4_d :-     ex4_p, ex4_c.
+@!{ex4_r31} @{hi}      ex4_a :-     ex4_e, ex4_f. 
+@!{ex4_r32} @{hi}  \neg ex4_e :- \neg ex4_a, ex4_f. 
+@!{ex4_r33} @{hi}  \neg ex4_f :- \neg ex4_a, ex4_e. 
+@!{ex4_r41} @{hi}      ex4_b :-     ex4_g, ex4_h.
+@!{ex4_r42} @{hi}  \neg ex4_g :- \neg ex4_b, ex4_h.
+@!{ex4_r43} @{hi}  \neg ex4_h :- \neg ex4_b, ex4_g.
+@!{ex4_r51} @{hi}      ex4_c :-     ex4_i, ex4_j.
+@!{ex4_r52} @{hi}  \neg ex4_i :- \neg ex4_c, ex4_j.
+@!{ex4_r53} @{hi}  \neg ex4_j :- \neg ex4_c, ex4_i.
+@!{ex4_r61} @{hi}      ex4_d :-     ex4_k, ex4_l.
+@!{ex4_r62} @{hi}  \neg ex4_k :- \neg ex4_d, ex4_l.
+@!{ex4_r63} @{hi}  \neg ex4_l :- \neg ex4_d, ex4_k.
+@!{ex4_r71} @{hi}      ex4_f.
+@!{ex4_r72} @{hi}      ex4_g.
+@!{ex4_r73} @{hi}      ex4_h.
+@!{ex4_r74} @{hi}      ex4_i.
+@!{ex4_r75} @{hi}      ex4_j.
+@!{ex4_r76} @{hi}      ex4_k.
+@!{ex4_r8}  @{lo}      ex4_e.
+@!{ex4_r9}  @{lo}      ex4_l.
+
+
+%tst_ex4 :- write('tst_ex4: ')@\plg,
+	true{\naf ex4_p}, true{\naf \neg ex4_p},
+	writeln(ok)@\plg,
+	!.
+%tst_ex4 :- writeln(failed)@\plg.
+
+%tst_ex4_2 :- write('tst_ex4_2: ')@\plg,
+	true{\naf ex4_e}, true{\naf ex4_l},
+	writeln(ok)@\plg,
+	!.
+%tst_ex4_2 :- writeln(failed)@\plg.
+
+
+/*
+ Handling of missing directional variants (i.e., directionality)
+
+Example 5:  
+
+@[id->i1,tag->med] p ; 
+@[id->i2,tag->hi] \neg p :- a \and b ;  // but WITHOUT the other dir'nal variants
+@[id->i3,tag->lo] a ; 
+@[id->i4,tag->lo] b ;
+
+This is two-step.  
+
+Desired behavior:  |= a, b, \neg p; p is defeated.
+
+ATCK1 behavior:  ditto.  
+*/
+
+// The main rules are the same as in the SILK version in the comments.
+// All literals are irrefutable
+@!{ex5_i1} @{med}      ex5_p. 
+@!{ex5_i2} @{hi}   \neg ex5_p :- ex5_a, ex5_b.  
+@!{ex5_i3} @{lo}       ex5_a. 
+@!{ex5_i4} @{lo}       ex5_b.
+
+// no ATCO_BODYINFO facts, since everything is irrefutable
+
+%tst_ex5 :- write('tst_ex5: ')@\plg,
+	true{ex5_a}, true{ex5_b}, true{\neg ex5_p},
+	writeln(ok)@\plg,
+	!.
+%tst_ex5 :- writeln(failed)@\plg.
+
+%tst_ex2_3 :- collectset{?O|status(?_R,\@F,ex2_d)[howDefeated->?X]@AT, ?O=?X} = ?L, writeln('tst_ex2_3 ' =?L)@\io.
+
+%tst_ex3_3 :- collectset{?O|status(?_R,\@F,ex3_l)[howDefeated->?X]@AT, ?O=?X} = ?L, writeln('tst_ex3_3 ' =?L)@\io.
+
+%tst_ex4_3 :- collectset{?O|status(?_R,\@F,ex4_e)[howDefeated->?X]@AT, ?O=?X} = ?L, writeln('tst_ex4_2 ' =?L)@\io.
+
+%tst_ex5_3 :- collectset{?O|status(?_R,\@F,ex5_p)[howDefeated->?X]@AT, ?O=?X} = ?L, writeln('tst_ex5_3 ' =?L)@\io.
+
+
+%pretest :- %tst_ex1, %tst_ex2,   %tst_ex3,   %tst_ex4,   %tst_ex5,
+	              %tst_ex1_2, %tst_ex3_2, %tst_ex4_2,
+	              %tst_ex2_3, %tst_ex3_3, %tst_ex4_3, %tst_ex5_3.
+
+
+%test :- tell(temp)@\plg(),
+	Method[mustDefine(on)]@\sys,
+	%pretest,
+	Method[mustDefine(off)]@\sys,
+	%pretest,
+	told@\prolog.
+
+//?- \naf ex1_b.
+//?- true{\naf ex1_b}.
+
