@@ -1,0 +1,142 @@
+/* A first-stage meta-interpreter for ordinary loaded ErgoAI modules.
+ *
+ * Load this file into its own module, for example:
+ *     [meta_interpreter >> meta].
+ *     solve(${ancestor(alice,?Who)@family})@meta.
+ *
+ * See meta_interpreter.md for coverage, delegation, and limitations.
+ * All rule/fact lookup uses the module carried by the reified goal.
+ * No parsing of source text or knowledge of compiled predicate names is needed.
+ */
+
+// Tabling is essential: it handles left recursion and negative cycles.
+// Keeping the complete formula in the table key also keeps its module.
+solve(?Goal) :-
+    // A variable goal in a retrieved rule body can still carry a deferred
+    // module wrapper. Materialize it after preceding subgoals bind it.
+    fllibmodobj(?Goal,?Callable)@\prolog,
+    ?Callable =.. [?Kind|?Args],
+    interpret(?Callable,?Kind,?Args).
+
+// Ergo's NAF consults explicit negation before trying default negation.
+// Without this companion rule, \naf solve(${p(a)}) would lose the fact that
+// \neg p(a) implies \naf p(a), even when p(a) also holds.
+// =.. constructs a callable negative formula; do not replace it with ~.
+\neg solve(?Goal) :-
+    catch{?Negative =.. [negation(neg),?Goal],?_,\false},
+    solve(?Negative).
+
+interpret(?_Goal,logic(and),[?Left,?Right]) :-
+    solve(?Left), solve(?Right).
+interpret(?_Goal,logic(or),[?Left,?Right]) :-
+    (solve(?Left); solve(?Right)).
+interpret(?Goal,negation(naf),[?Positive]) :-
+    naf_call(?Goal,?Positive,?Call), ?Call.
+naf_call(?Goal,?Positive,?Call) :-
+    // =.. exposes the positive formula but not NAF's free-variable metadata.
+    // Keep that metadata and its delay checker (e.g., the existential scope
+    // of anonymous variables in \naf p(?X,?)), replacing only the subgoal.
+    \if flora_reconstruct_naf_call(?Goal,${solve(?Positive)},?Call)@\prolog(flrnegation)
+    \then \true
+    // Formulas constructed at runtime by =.. have no compiler delay checker.
+    \else ?Call = ${\naf solve(?Positive)}.
+interpret(?_Goal,negation('\+'),[?Positive]) :- \+ solve(?Positive).
+
+// Explicit negation denotes a separate signed literal, not failure to prove
+// its positive counterpart. Retrieve negative facts and negative rule heads.
+interpret(?Goal,negation(neg),[?Positive]) :-
+    user_literal(?Positive), prove_literal(?Goal).
+interpret(?Goal,hilog(?_Name,?_Module),?_Args) :- prove_literal(?Goal).
+interpret(?Goal,flogic(?_Symbol,?_Module),?_Args) :- prove_literal(?Goal).
+
+user_literal(?Goal) :- ?Goal =.. [hilog(?_,?_)|?_].
+user_literal(?Goal) :- ?Goal =.. [flogic(?_,?_)|?_].
+user_literal(?Goal) :- ?Goal =.. [negation(neg),?Positive], user_literal(?Positive).
+
+// The two main extension points: proving a base fact and applying a rule.
+// Facts are NOT returned by clause{...} in ErgoAI.
+prove_literal(?Goal) :- isbasefact{?Goal}.
+prove_literal(?Goal) :-
+    clause{@!{?Id[file->?File,module->?Module]} ?Goal,?Body},
+    isenabled{?Id,?File,?Module},
+    \if isdefeasible{?Id,?File,?Module}
+    \then throw{meta_interpreter_unsupported(argumentation,?Goal)}
+    \else solve(?Body).
+
+// Delegate implicit language axioms and inheritance in these proof branches.
+// These are the same explanation hooks used by Ergo's justifier. They are
+// engine interfaces, rather than ordinary source rules from clause{...}.
+// The background-axiom body runs natively, including any calls inside it.
+prove_literal(?Goal) :- \bgaxiom(?Goal,?Body,?_)@\prolog, ?Body.
+prove_literal(?Goal) :- \inheritance(?Goal,?_)@\prolog.
+
+// Let the existing aggregate operator manage grouping, duplicate treatment,
+// empty inputs, etc., but route its query body back through this interpreter.
+// Reification preserves sharing with the aggregate and grouping variables.
+interpret(?_Goal,aggregate(?Operator),[?Value,?Groups,?Unique,?Body,?Result]) :-
+    ?Call =.. [aggregate(?Operator),?Value,?Groups,?Unique,
+               ${%aggregate_query(?Body)},?Result],
+    ?Call.
+
+// A syntactic disjunction can return the same answer twice. Tabled solve
+// would merge those answers, changing bagof/count/sum. Keep the aggregate's
+// Boolean query and primitive leaves untabled; user predicates still use
+// their tabled interpretation. This helper is pure despite its % prefix.
+%aggregate_query(?Goal) :- ?Goal =.. [logic(and),?Left,?Right], !,
+    %aggregate_query(?Left), %aggregate_query(?Right).
+%aggregate_query(?Goal) :- ?Goal =.. [logic(or),?Left,?Right], !,
+    (%aggregate_query(?Left); %aggregate_query(?Right)).
+%aggregate_query(?Goal) :- ?Goal =.. [negation(naf),?Positive], !,
+    naf_call(?Goal,?Positive,?Call), ?Call.
+%aggregate_query(?Goal) :- ?Goal =.. [?Kind|?Args], conditional_kind(?Kind), !,
+    conditional_call(?Kind,?Args,?Call), ?Call.
+%aggregate_query(?Goal) :- ?Goal =.. [prologlit(?_)|?_], !, ?Goal.
+%aggregate_query(?Goal) :- ?Goal =.. [builtin(?_)|?_], !, ?Goal.
+%aggregate_query(?Goal) :- ?Goal =.. [?Kind|?_], engine_primitive(?Kind), !, ?Goal.
+%aggregate_query(?Goal) :- solve(?Goal).
+
+// Preserve native conditional semantics, including undefined conditions.
+// Only the subgoals are replaced; their original module qualifications stay.
+interpret(?_Goal,?Kind,?Args) :-
+    conditional_kind(?Kind), conditional_call(?Kind,?Args,?Call), ?Call.
+conditional_call(control(ifthenelse),[?Module,?Condition,?Then,?Else],?Call) :-
+    ?Call =.. [control(ifthenelse),?Module,
+               ${solve(?Condition)},${%aggregate_query(?Then)},${%aggregate_query(?Else)}].
+conditional_call(control(ifthen),[?Module,?Condition,?Then],?Call) :-
+    ?Call =.. [control(ifthen),?Module,${solve(?Condition)},${%aggregate_query(?Then)}].
+conditional_call(control(unlessdo),[?Module,?Condition,?Then],?Call) :-
+    ?Call =.. [control(unlessdo),?Module,${solve(?Condition)},${%aggregate_query(?Then)}].
+conditional_kind(control(ifthenelse)).
+conditional_kind(control(ifthen)).
+conditional_kind(control(unlessdo)).
+
+// Arithmetic, unification, comparisons, true/false/undefined, Prolog calls,
+// and library primitives are leaves. Execute their existing implementations.
+interpret(?Goal,builtin(?_Operator),?_Args) :- ?Goal.
+interpret(?Goal,prologlit(?_Module),?_Args) :- ?Goal.
+// Some compiler-generated leaves (e.g., meta-unification for reified data)
+// decompose to an engine-library symbol rather than to prologlit(...).
+interpret(?Goal,?Kind,?_Args) :- engine_primitive(?Kind), ?Goal.
+engine_primitive(?Kind) :-
+    atom(?Kind)@\prolog,
+    is_flora_library(?Kind)@\prolog(flrlibman).
+
+// Avoid silently running an unrecognized compound goal outside the
+// interpreter. Extend these clauses and interpreted_kind together when
+// adding another language construct.
+interpret(?Goal,?Kind,?_Args) :-
+    \+ interpreted_kind(?Kind),
+    throw{meta_interpreter_unsupported(?Kind,?Goal)}.
+
+interpreted_kind(logic(and)).
+interpreted_kind(logic(or)).
+interpreted_kind(negation(naf)).
+interpreted_kind(negation('\+')).
+interpreted_kind(negation(neg)).
+interpreted_kind(hilog(?_Name,?_Module)).
+interpreted_kind(flogic(?_Symbol,?_Module)).
+interpreted_kind(aggregate(?_Operator)).
+interpreted_kind(?Kind) :- conditional_kind(?Kind).
+interpreted_kind(builtin(?_Operator)).
+interpreted_kind(prologlit(?_Module)).
+interpreted_kind(?Kind) :- engine_primitive(?Kind).
