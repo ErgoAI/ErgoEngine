@@ -1,0 +1,84 @@
+/*
+ * Elementary Petri Net Evaluator.
+ * Also, could find useful transitions, live transitions, (sequential)
+ * configuration graph. 
+ * Based on this, could extend to check whether two nets are bisimular, 
+ * to find all processes in a net, contact-freeness, etc.
+ *
+ * Finds all configurations reachable from instate
+ * First arg is a state: i.e. a sorted list of places each of which
+ * have a token in S.
+ */
+
+reachable(?InState,?NewState):-
+	reachable(?InState,?State),
+//	writeln(reachable(?InState,?State))@\io,
+	hasTransition(?State,?NewState).
+reachable(?InState,?NewState):-
+	hasTransition(?InState,?NewState).
+
+//hasTransition(?State,?NewState):-
+//	get_rules_for_state(?State,?AllRules),
+//	member(?Rule,?AllRules)@\plg(basics),
+//	apply_rule_to_state(?Rule,?State,?NewState).
+
+hasTransition(?State,?NewState):-
+	%get_rules_for_state_1(?State,?State,?MidRules),
+	flatten(?MidRules,?AllRules)@\plg(basics),
+//	get_rules_for_state(?State,?AllRules),
+	member(rule(?Input,?Out,?_Name),?AllRules)@\plg(basics),
+	ord_subtract(?State,?Input,?Diff)@\plg(ordsets),
+	flatten([?Out|?Diff],?Mid1)@\plg(basics),
+	sort(?Mid1,?NewState)@\plg.
+
+//  Constructs sets of rules with concession in State.  Also indicates which
+//  rules have input or output conflicts
+//get_rules_for_state(?State,?Flatrules):-
+//	%get_rules_for_state_1(?State,?State,?Rules),
+//	flatten(?Rules,?Flatrules)@\plg(basics),
+//	!.
+
+%get_rules_for_state_1([],?_State,[]):- \true.
+%get_rules_for_state_1([?H|?T],?State,[?Rules1|?RT]):-
+	?Rules = setof{?Rule | rule([?H|?Places],?Output,?Tran)@\plg(gen_elem),
+      	                       ?Rule = rule([?H|?Places],?Output,?Tran) },
+	%check_concession(?Rules,?State,?Rules1),
+	%get_rules_for_state_1(?T,?State,?RT).
+	
+//    findall(rule([H|Places],?Output,?Tran),
+//	    gen_elem:rule([?H|?Places],?Output,?Tran),?Rules),
+
+// Check concession checks that a token is in all places in *t, and no
+// token is in t*
+%check_concession([],?_,[]):- \true.
+%check_concession([rule([?_Inp|?Ilist],?Outlist,?_Name)|?T],?Input,
+                	[rule([?_Inp|?Ilist],?Outlist,?_Name)|?T1]):-
+	ord_subset(?Ilist,?Input)@\plg(ordsets),
+	ord_disjoint(?Outlist,?Input)@\plg(ordsets),!,
+	%check_concession(?T,?Input,?T1).
+%check_concession([?_Rule|?T],?Input,?T1):-
+	%check_concession(?T,?Input,?T1).
+
+apply_rule_to_state(rule(?Input,?Out,?_Name),?State,?NewState):-
+	ord_subtract(?State,?Input,?Diff)@\plg(ordsets),
+	flatten([?Out|?Diff],?Mid1)@\plg(basics),
+	sort(?Mid1,?NewState)@\plg.
+//	flatsort([?Out|?Diff],?NewState).
+
+/*
+flatsort(?In,?Out):- 
+	flatten(?In,?Mid1)@\plg(basics),
+	sort(?Mid1,?Out)@\plg.
+
+%show_rules:-
+   rule(?A,?B,?C)@\plg(gen_elem),
+   writeln(rule(?A,?B,?C))@\io,
+   \false.
+%show_rules:- \true.
+
+%show_reach:-
+   reachable([a1_1,b1_1,c1_1],?State),
+   writeln(?State)@\io,
+   \false.
+%show_reach:- \true.
+*/

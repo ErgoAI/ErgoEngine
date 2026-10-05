@@ -1,0 +1,49 @@
+:-  compiler_options{production=on}.
+ 
+/* 
+  generation and benchmarks for elementary Petri nets.
+
+  All these routines are based on the process-view of a run of a Petri
+  net for a mutex, unfolded many times (see below). 
+
+      a1  b1  c1
+       |    | /
+      s1   t1/
+       |   | \
+       |   |  \
+      a2  b2   c2
+        \  |   |
+         \t2   s2  
+         /|    | 
+        / |    |
+      a3  b3   c3
+
+     (then repeats) 
+
+  Thus, we have "braids" of a, b and c places that form chain-like
+  elements that we can traverse in parallel, join, etc.  For odd N a
+  braid has 2*N transitions, 3*N places, and 4(N+2) - 1 reachable
+  states.
+*/
+
+ 
+:- setsemantics{tabling=passive}.
+?- Method[mustDefine(on)]@\sys.
+:- symbol_context{reachable/2,rule/3}.
+
+#include "elemNet.ergo"
+
+%bench_elem_net:-
+	abolish_all_tables@\plg,
+	walltime(?Before)@\plg,
+	reachable([a1_1,b1_1,c1_1],?_X),
+	walltime(?After)@\plg,
+	?Time \is ?After - ?Before,
+	?Count = count{?To | reachable([a1_1,b1_1,c1_1],?To)},
+	write(datum(elemNet,count(?Count),?Time))@\io,
+	writeln('.')@\io.
+	
+generate_net(?N):-
+           retractall(elemNetrule(_,_,_))@\plg,
+	   gen_proc_2(?N,1)@\plg(gen_elem).
+
