@@ -1,0 +1,19 @@
+
+:- compiler_options{production=on}.
+
+tc_chain(?Limit,?From,?To):- chain(?Limit,?From,?To)@\plg(edge).
+tc_chain(?Limit,?From,?To):-
+    tc_chain(?Limit,?From,?Mid),
+    chain(?Limit,?Mid,?To)@\plg(edge).
+
+%bench_chain(?Limit,?From):-
+	abolish_all_tables@\plg,
+	cputime(?BeforeC)@\plg,
+	walltime(?BeforeW)@\plg,
+	tc_chain(?Limit,?From,?),
+	cputime(?AfterC)@\plg,
+	walltime(?AfterW)@\plg,
+	?TimeC \is ?AfterC-?BeforeC,
+	?TimeW \is ?AfterW-?BeforeW,
+	writeln(time_tc_chain(?Limit,?TimeC,?TimeW))@\io.
+		 

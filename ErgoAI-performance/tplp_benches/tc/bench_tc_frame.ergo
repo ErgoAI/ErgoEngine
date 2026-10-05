@@ -1,0 +1,21 @@
+// setruntime{memory ( 12 ) }.
+
+//?- production{on}.
+
+:- compiler_options{production=on}.
+
+objid[  reachable(?Limit,?From)-> ?To]:-
+	edge(?Limit,?From,?To)@\plg(edge).
+objid[  reachable(?Limit,?From)-> ?To]:-
+	 objid[reachable(?Limit,?From)-> ?Mid],
+	 edge(?Limit,?Mid,?To)@\plg(edge).
+
+bench_frame(?Limit,?Time,?Time1):-
+    cputime(?Before)@\plg,
+    walltime(?Before1)@\plg,
+    (objid[reachable(?Limit,1)->?],\false ; \true),
+    cputime(?After)@\plg,
+    walltime(?After1)@\plg,
+    ?Time \is ?After - ?Before,
+    ?Time1 \is ?After1 - ?Before1.
+

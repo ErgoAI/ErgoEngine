@@ -1,0 +1,18 @@
+
+:- compiler_options{production=on}.
+
+tc_self_loop(?Limit,?From,?To):- self_loop(?Limit,?From,?To)@\plg(edge).
+tc_self_loop(?Limit,?From,?To):-
+    tc_self_loop(?Limit,?From,?Mid),
+    self_loop(?Limit,?Mid,?To)@\plg(edge).
+
+%bench_self_loop(?Limit,?From):-
+	abolish_all_tables@\plg,
+	cputime(?BeforeC)@\plg,
+	walltime(?BeforeW)@\plg,
+	tc_self_loop(?Limit,?From,?),
+	cputime(?AfterC)@\plg,
+	walltime(?AfterW)@\plg,
+	?TimeC \is ?AfterC-?BeforeC,
+	?TimeW \is ?AfterW-?BeforeW,
+	writeln(time_tc_self_loop(?Limit,?TimeC,?TimeW))@\io.

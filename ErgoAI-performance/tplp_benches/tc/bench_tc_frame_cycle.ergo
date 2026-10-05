@@ -1,0 +1,19 @@
+
+:- compiler_options{production=on}.
+
+objid[reachable(?Limit,?From)-> ?To]:-
+	cycle(?Limit,?From,?To)@\plg(edge).
+objid[reachable(?Limit,?From)-> ?To]:-
+	objid[reachable(?Limit,?From)-> ?Mid],
+	cycle(?Limit,?Mid,?To)@\plg(edge).
+
+%bench_frame_cycle(?Limit,?From):-
+	abolish_all_tables@\plg,
+	cputime(?BeforeC)@\plg,
+	walltime(?BeforeW)@\plg,
+	(objid[reachable(?Limit,?From)-> ?],\false ; \true),
+	cputime(?AfterC)@\plg,
+	walltime(?AfterW)@\plg,
+	?TimeC \is ?AfterC-?BeforeC,
+	?TimeW \is ?AfterW-?BeforeW,
+	writeln(time_tc_frame_cycle(?Limit,?TimeC,?TimeW))@\io.

@@ -1,0 +1,18 @@
+
+:- compiler_options{production=on}.
+
+tc_cycle(?Limit,?From,?To):- cycle(?Limit,?From,?To)@\plg(edge).
+tc_cycle(?Limit,?From,?To):-
+    tc_cycle(?Limit,?From,?Mid),
+    cycle(?Limit,?Mid,?To)@\plg(edge).
+
+%bench_cycle(?Limit,?From):-
+	abolish_all_tables@\plg,
+	cputime(?BeforeC)@\plg,
+	walltime(?BeforeW)@\plg,
+	tc_cycle(?Limit,?From,?),
+	cputime(?AfterC)@\plg,
+	walltime(?AfterW)@\plg,
+	?TimeC \is ?AfterC-?BeforeC,
+	?TimeW \is ?AfterW-?BeforeW,
+	writeln(time_tc_cycle(?Limit,?TimeC,?TimeW))@\io.
